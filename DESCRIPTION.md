@@ -1,10 +1,6 @@
 # The-Academy
 A Text Adventure RPG
 
-Location - Remote Canada
-Mascot - The Polar Bear
-Size - 144 Students
-Grades - 9, 10, 11, 12
 
 Welcome to “The Academy”, an esteemed private school located in the far reaches of Toronto, Canada. You are the “new kid”, a freshman who just arrived from places unknown, to a place even more unknown. Prepare for a mysterious new environment to explore and live in, where every step you take is an imprint, every word you speak ripples out into its halls, and every corner promises a trip into the void of space itself. Align yourself, arm your body and mind, and prepare for the future. Not even your dorm room can protect you from the darkness, after all.
 
