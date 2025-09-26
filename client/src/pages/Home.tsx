@@ -1,11 +1,90 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
 import { Character } from '@/components/CharacterSheet';
+import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
+import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
 
 export default function Home() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Initialize game when character is created
+  useEffect(() => {
+    if (character && gameStarted && !gameState) {
+      initializeGame();
+    }
+  }, [character, gameStarted]);
+
+  const initializeGame = async () => {
+    if (!character) return;
+    
+    setLoading(true);
+    try {
+      // Convert character creation format to backend format
+      const backendCharacter = {
+        userId: null,
+        name: character.name,
+        race: character.race,
+        class: character.class,
+        subClass: character.subClass,
+        faction: character.faction,
+        background: character.background,
+        currentLocation: 'main_lobby',
+        stats: character.stats,
+        reputation: character.reputation,
+        energy: character.energy,
+        maxEnergy: character.maxEnergy,
+        inventory: [],
+        perks: character.perks || [],
+        questProgress: {},
+        socialConnections: {}
+      };
+
+      // Create character in backend and initialize game state
+      const response = await fetch('/api/characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendCharacter)
+      });
+
+      if (response.ok) {
+        const savedCharacter = await response.json();
+        const initialGameState = await gameStateManager.initializeGame(savedCharacter);
+        
+        // Add initial welcome message
+        const welcomeLines: TerminalLine[] = [
+          { id: '1', text: 'THE ACADEMY', type: 'system' },
+          { id: '2', text: '', type: 'output' },
+          { id: '3', text: `Welcome to "The Academy", ${character.name}.`, type: 'output' },
+          { id: '4', text: `You are a ${character.race} ${character.class} aligned with the ${character.faction} faction.`, type: 'output' },
+          { id: '5', text: '', type: 'output' },
+          { id: '6', text: 'This esteemed private school houses exactly 144 students in the far', type: 'output' },
+          { id: '7', text: 'reaches of Toronto, Canada. As a freshman arriving from places unknown', type: 'output' },
+          { id: '8', text: 'to a place even more unknown, you must navigate the mysteries that await.', type: 'output' },
+          { id: '9', text: '', type: 'output' },
+          { id: '10', text: `Your ${character.subClass} specialization will serve you well in the`, type: 'output' },
+          { id: '11', text: 'trials ahead. Type HELP for available commands.', type: 'output' },
+          { id: '12', text: '', type: 'output' }
+        ];
+        
+        // Display initial location using the game state directly
+        const locationLines = await generateLocationDescription(initialGameState);
+        const allLines = [...welcomeLines, ...locationLines];
+        
+        setTerminalLines(allLines);
+        setGameState(initialGameState);
+      }
+    } catch (error) {
+      console.error('Failed to initialize game:', error);
+      addTerminalLine('Failed to initialize game. Please try refreshing.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {
@@ -19,44 +98,17 @@ export default function Home() {
     );
   }
 
-  interface TerminalLine {
-    id: string;
-    text: string;
-    type: 'output' | 'command' | 'system' | 'error';
+  // Show loading state while initializing
+  if (loading || !gameState) {
+    return (
+      <div className="h-screen bg-background text-foreground font-mono flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl mb-4">THE ACADEMY</div>
+          <div>Initializing game world...</div>
+        </div>
+      </div>
+    );
   }
-
-  // Terminal-style game state
-  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([
-    { id: '1', text: 'THE ACADEMY', type: 'system' },
-    { id: '2', text: '', type: 'output' },
-    { id: '3', text: `Welcome to "The Academy", ${character.name}.`, type: 'output' },
-    { id: '4', text: `You are a ${character.race} ${character.class} aligned with the ${character.faction} faction.`, type: 'output' },
-    { id: '5', text: '', type: 'output' },
-    { id: '6', text: 'This esteemed private school houses exactly 144 students in the far', type: 'output' },
-    { id: '7', text: 'reaches of Toronto, Canada. As a freshman arriving from places unknown', type: 'output' },
-    { id: '8', text: 'to a place even more unknown, you must navigate the mysteries that await.', type: 'output' },
-    { id: '9', text: '', type: 'output' },
-    { id: '10', text: 'The Academy\'s mascot, the Polar Bear, watches over students as they', type: 'output' },
-    { id: '11', text: 'explore halls where every step leaves an imprint, every word ripples', type: 'output' },
-    { id: '12', text: 'through ancient corridors, and every corner promises a journey into', type: 'output' },
-    { id: '13', text: 'the void itself.', type: 'output' },
-    { id: '14', text: '', type: 'output' },
-    { id: '15', text: `Your ${character.subClass} specialization will serve you well in the`, type: 'output' },
-    { id: '16', text: 'trials ahead. Not even your dormitory can protect you from the', type: 'output' },
-    { id: '17', text: 'darkness that dwells within these walls.', type: 'output' },
-    { id: '18', text: '', type: 'output' },
-    { id: '19', text: 'MAIN LOBBY', type: 'system' },
-    { id: '20', text: 'You are standing in the main lobby of The Academy. Ancient portraits', type: 'output' },
-    { id: '21', text: 'line the walls, their eyes following your movement. A receptionist', type: 'output' },
-    { id: '22', text: 'desk sits empty, and hallways branch off toward the Cafeteria,', type: 'output' },
-    { id: '23', text: `Library (Larcen), and mysterious upper floors. The ${character.faction}`, type: 'output' },
-    { id: '24', text: 'insignia glows faintly on your student badge.', type: 'output' },
-    { id: '25', text: '', type: 'output' },
-    { id: '26', text: 'Exits: NORTH (Cafeteria), EAST (Library), UP (Stairs), EXAMINE (Portraits)', type: 'system' },
-    { id: '27', text: 'Type HELP for available commands.', type: 'system' },
-  ]);
-
-  const [currentLocation, setCurrentLocation] = useState('Main Lobby');
 
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
     const newLine: TerminalLine = {
@@ -67,93 +119,252 @@ export default function Home() {
     setTerminalLines(prev => [...prev, newLine]);
   };
 
-  const handleCommand = (command: string) => {
+  const generateLocationDescription = async (gameStateData: GameState): Promise<TerminalLine[]> => {
+    const lines: TerminalLine[] = [];
+    
+    lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
+    lines.push({ id: Date.now().toString() + Math.random(), text: gameStateData.currentLocation.name.toUpperCase(), type: 'system' });
+    lines.push({ id: Date.now().toString() + Math.random(), text: gameStateData.currentLocation.description, type: 'output' });
+    
+    // Show NPCs in location
+    try {
+      const npcs = await gameStateManager.getNPCsInCurrentLocation();
+      if (npcs.length > 0) {
+        lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
+        lines.push({ id: Date.now().toString() + Math.random(), text: 'You see:', type: 'output' });
+        npcs.forEach(npc => {
+          lines.push({ id: Date.now().toString() + Math.random(), text: `- ${npc.name} (${npc.title})`, type: 'output' });
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch NPCs:', error);
+    }
+    
+    // Show available exits
+    const exits = gameStateData.currentLocation.exits as Record<string, string>;
+    if (exits && Object.keys(exits).length > 0) {
+      lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
+      const exitList = Object.entries(exits)
+        .map(([direction, destination]) => `${direction.toUpperCase()}`)
+        .join(', ');
+      lines.push({ id: Date.now().toString() + Math.random(), text: `Exits: ${exitList}`, type: 'system' });
+    }
+    
+    // Show interactable objects
+    const interactables = gameStateData.currentLocation.interactables as string[];
+    if (interactables && interactables.length > 0) {
+      const interactableList = interactables
+        .map(item => item.toUpperCase())
+        .join(', ');
+      lines.push({ id: Date.now().toString() + Math.random(), text: `You can examine: ${interactableList}`, type: 'system' });
+    }
+    
+    return lines;
+  };
+
+  const handleLookCommand = async () => {
+    if (!gameState) return;
+    
+    addTerminalLine('');
+    addTerminalLine(gameState.currentLocation.name.toUpperCase(), 'system');
+    addTerminalLine(gameState.currentLocation.description);
+    
+    // Show NPCs in location
+    const npcs = await gameStateManager.getNPCsInCurrentLocation();
+    if (npcs.length > 0) {
+      addTerminalLine('');
+      addTerminalLine('You see:');
+      npcs.forEach(npc => {
+        addTerminalLine(`- ${npc.name} (${npc.title})`);
+      });
+    }
+    
+    // Show available exits
+    const exits = gameState.currentLocation.exits as Record<string, string>;
+    if (exits && Object.keys(exits).length > 0) {
+      addTerminalLine('');
+      const exitList = Object.entries(exits)
+        .map(([direction, destination]) => `${direction.toUpperCase()}`)
+        .join(', ');
+      addTerminalLine(`Exits: ${exitList}`);
+    }
+    
+    // Show interactable objects
+    const interactables = gameState.currentLocation.interactables as string[];
+    if (interactables && interactables.length > 0) {
+      const interactableList = interactables
+        .map(item => item.toUpperCase())
+        .join(', ');
+      addTerminalLine(`You can examine: ${interactableList}`);
+    }
+  };
+
+  const handleMovement = async (direction: string) => {
+    if (!gameState) return;
+    
+    const exits = gameState.currentLocation.exits as Record<string, string>;
+    const destination = exits[direction];
+    
+    if (!destination) {
+      addTerminalLine('');
+      addTerminalLine(`You can't go ${direction} from here.`, 'error');
+      return;
+    }
+    
+    const newLocation = await gameStateManager.moveToLocation(destination);
+    if (newLocation) {
+      const updatedGameState = gameStateManager.getGameState();
+      if (updatedGameState) {
+        setGameState(updatedGameState);
+        await handleLookCommand();
+      }
+    } else {
+      addTerminalLine('');
+      addTerminalLine('Something prevents you from going that way.', 'error');
+    }
+  };
+
+  const handleSave = async () => {
+    const success = await gameStateManager.manualSave();
+    addTerminalLine('');
+    if (success) {
+      addTerminalLine('Game saved successfully.', 'system');
+    } else {
+      addTerminalLine('Failed to save game.', 'error');
+    }
+  };
+
+  const handleCommand = async (command: string) => {
     const cmd = command.toLowerCase().trim();
+    const parts = cmd.split(' ');
+    const action = parts[0];
+    const target = parts.slice(1).join(' ');
     
     // Add command to terminal
     addTerminalLine(`> ${command}`, 'command');
 
-    // Process commands like classic text adventures
-    if (cmd === 'help') {
+    // Process commands
+    if (action === 'help') {
       addTerminalLine('');
       addTerminalLine('Available commands:');
       addTerminalLine('LOOK - Examine your surroundings');
-      addTerminalLine('GO [direction] - Move in a direction (NORTH, SOUTH, EAST, WEST, UP, DOWN)');
+      addTerminalLine('GO [direction] - Move (NORTH, SOUTH, EAST, WEST, UP, DOWN)');
       addTerminalLine('EXAMINE [object] - Look at something closely');
+      addTerminalLine('TALK [person] - Start a conversation');
       addTerminalLine('INVENTORY - Check your belongings');
       addTerminalLine('STATUS - View character information');
       addTerminalLine('SAVE - Save your progress');
       addTerminalLine('LOAD - Load saved game');
-    } else if (cmd === 'look') {
+    } else if (action === 'look') {
+      await handleLookCommand();
+    } else if (action === 'go' && target) {
+      await handleMovement(target);
+    } else if (['north', 'south', 'east', 'west', 'up', 'down'].includes(action)) {
+      await handleMovement(action);
+    } else if (action === 'examine' && target) {
+      await handleExamine(target);
+    } else if (action === 'talk' && target) {
+      await handleTalk(target);
+    } else if (action === 'inventory') {
+      handleInventory();
+    } else if (action === 'status') {
+      handleStatus();
+    } else if (action === 'save') {
+      await handleSave();
+    } else if (action === 'load') {
       addTerminalLine('');
-      addTerminalLine('MAIN LOBBY');
-      addTerminalLine('You are standing in the main lobby of The Academy. Ancient portraits');
-      addTerminalLine('line the walls, their eyes seeming to track your every movement. A');
-      addTerminalLine('receptionist desk sits eerily empty. Hallways branch off in multiple');
-      addTerminalLine('directions, leading deeper into the mysterious institution.');
-      addTerminalLine('');
-      addTerminalLine('Exits: NORTH (Cafeteria), EAST (Library), UP (Stairs)');
-    } else if (cmd === 'examine portraits' || cmd === 'examine portrait') {
-      addTerminalLine('');
-      addTerminalLine('You step closer to examine the portraits. The painted figures seem');
-      addTerminalLine('ancient, wearing academic robes from centuries past. Their eyes');
-      addTerminalLine('definitely follow you as you move. One portrait\'s nameplate reads');
-      addTerminalLine('"Professor Blackwood - Founder." You notice the paint seems to shift');
-      addTerminalLine('slightly when you\'re not looking directly at it.');
-    } else if (cmd === 'north' || cmd === 'go north' || cmd === 'cafeteria') {
-      setCurrentLocation('Cafeteria');
-      addTerminalLine('');
-      addTerminalLine('CAFETERIA');
-      addTerminalLine('You enter the Academy\'s cafeteria. Long wooden tables fill the space,');
-      addTerminalLine('and students from various factions sit in distinct groups. The food');
-      addTerminalLine('line serves mysterious dishes that seem to shimmer with otherworldly');
-      addTerminalLine('energy. You notice other students watching you curiously.');
-      addTerminalLine('');
-      addTerminalLine('Exits: SOUTH (Main Lobby)');
-    } else if (cmd === 'east' || cmd === 'go east' || cmd === 'library') {
-      setCurrentLocation('Library (Larcen)');
-      addTerminalLine('');
-      addTerminalLine('LIBRARY (LARCEN)');
-      addTerminalLine('You enter the vast library known as Larcen. Towering bookshelves');
-      addTerminalLine('stretch impossibly high, filled with ancient tomes and forbidden');
-      addTerminalLine('knowledge. Strange whispers echo from the darker sections. A sign');
-      addTerminalLine('warns: "Some knowledge is not meant for freshmen."');
-      addTerminalLine('');
-      addTerminalLine('Exits: WEST (Main Lobby), DEEP (Restricted Section)');
-    } else if (cmd === 'up' || cmd === 'go up' || cmd === 'stairs') {
-      addTerminalLine('');
-      addTerminalLine('As you approach the stairs, a mysterious force prevents you from');
-      addTerminalLine('ascending. A spectral voice whispers: "Only those who have proven');
-      addTerminalLine('themselves may access the upper floors." You feel a chill run down');
-      addTerminalLine('your spine.');
-    } else if (cmd === 'status') {
-      addTerminalLine('');
-      addTerminalLine('CHARACTER STATUS:');
-      addTerminalLine(`Name: ${character.name}`);
-      addTerminalLine(`Race: ${character.race}`);
-      addTerminalLine(`Class: ${character.class} (${character.subClass})`);
-      addTerminalLine(`Faction: ${character.faction}`);
-      addTerminalLine(`Location: ${currentLocation}`);
-      addTerminalLine(`Health: ${character.energy}/${character.maxEnergy}`);
-    } else if (cmd === 'inventory') {
-      addTerminalLine('');
-      addTerminalLine('INVENTORY:');
-      addTerminalLine('- Student ID badge (glowing with faction insignia)');
-      addTerminalLine('- Academy handbook (pages seem to change when not being read)');
-      addTerminalLine('- Dormitory key (room assignment: pending)');
-    } else if (cmd === 'save') {
-      addTerminalLine('');
-      addTerminalLine('Game saved successfully.', 'system');
-    } else if (cmd === 'load') {
-      addTerminalLine('');
-      addTerminalLine('No saved games found.', 'error');
+      addTerminalLine('Load functionality coming soon.', 'system');
     } else {
       addTerminalLine('');
       addTerminalLine(`I don't understand "${command}". Type HELP for available commands.`, 'error');
     }
   };
 
-  const statusLine = `${character.name} | ${character.race} ${character.class} | Location: ${currentLocation} | Health: ${character.energy}/${character.maxEnergy}`;
+  const handleExamine = async (target: string) => {
+    if (!gameState) return;
+    
+    const interactables = gameState.currentLocation.interactables as string[];
+    if (interactables.includes(target)) {
+      addTerminalLine('');
+      // Add specific examine descriptions based on the object
+      switch (target) {
+        case 'portraits':
+          addTerminalLine('You step closer to examine the portraits. The painted figures seem');
+          addTerminalLine('ancient, wearing academic robes from centuries past. Their eyes');
+          addTerminalLine('definitely follow you as you move. One portrait\'s nameplate reads');
+          addTerminalLine('"Professor Blackwood - Founder." The paint seems to shift when');
+          addTerminalLine('you\'re not looking directly at it.');
+          break;
+        case 'reception_desk':
+          addTerminalLine('The receptionist desk appears to be made of dark mahogany. It\'s');
+          addTerminalLine('currently unattended, but papers and schedules are neatly organized.');
+          addTerminalLine('A small nameplate reads "Emily Carter - Academy Receptionist."');
+          break;
+        default:
+          addTerminalLine(`You examine the ${target}. Nothing particularly unusual stands out.`);
+      }
+    } else {
+      addTerminalLine('');
+      addTerminalLine(`You don't see any ${target} here.`, 'error');
+    }
+  };
+
+  const handleTalk = async (target: string) => {
+    const npcs = await gameStateManager.getNPCsInCurrentLocation();
+    const npc = npcs.find(n => 
+      n.name.toLowerCase().includes(target) || 
+      n.title?.toLowerCase().includes(target)
+    );
+    
+    if (npc) {
+      addTerminalLine('');
+      const dialogue = npc.dialogue as any;
+      addTerminalLine(`${npc.name}: "${dialogue.greeting || 'Hello there.'}"`);
+    } else {
+      addTerminalLine('');
+      addTerminalLine(`You don't see anyone named ${target} here.`, 'error');
+    }
+  };
+
+  const handleInventory = () => {
+    if (!gameState) return;
+    
+    addTerminalLine('');
+    addTerminalLine('INVENTORY:');
+    
+    if (gameState.inventory.length === 0) {
+      addTerminalLine('- Student ID badge (glowing with faction insignia)');
+      addTerminalLine('- Academy handbook (pages seem to change when not being read)');
+      addTerminalLine('Your inventory is otherwise empty.');
+    } else {
+      gameState.inventory.forEach(item => {
+        addTerminalLine(`- ${item.itemId} (${item.quantity})`);
+      });
+    }
+  };
+
+  const handleStatus = () => {
+    if (!gameState) return;
+    
+    const stats = gameState.character.stats as GameStats;
+    const rep = gameState.character.reputation as GameReputation;
+    
+    addTerminalLine('');
+    addTerminalLine('CHARACTER STATUS:');
+    addTerminalLine(`Name: ${gameState.character.name}`);
+    addTerminalLine(`Race: ${gameState.character.race}`);
+    addTerminalLine(`Class: ${gameState.character.class} (${gameState.character.subClass})`);
+    addTerminalLine(`Faction: ${gameState.character.faction}`);
+    addTerminalLine(`Location: ${gameState.currentLocation.name}`);
+    addTerminalLine(`Energy: ${gameState.character.energy}/${gameState.character.maxEnergy}`);
+    addTerminalLine('');
+    addTerminalLine('REPUTATION:');
+    addTerminalLine(`Faculty: ${rep.faculty}`);
+    addTerminalLine(`Students: ${rep.students}`);
+    addTerminalLine(`Mysterious: ${rep.mysterious}`);
+  };
+
+  const statusLine = `${gameState.character.name} | ${gameState.character.race} ${gameState.character.class} | Location: ${gameState.currentLocation.name} | Energy: ${gameState.character.energy}/${gameState.character.maxEnergy}`;
 
   return (
     <TerminalInterface
