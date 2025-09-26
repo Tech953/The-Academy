@@ -495,8 +495,169 @@ export class MemStorage implements IStorage {
     });
   }
 
+  private generateStudentNPCs(): NPC[] {
+    const studentNames = [
+      // Diverse selection of names from various backgrounds
+      "Alex Chen", "Maya Patel", "Jordan Smith", "Zara Ali", "Kai Nakamura",
+      "Isabella Rodriguez", "Ethan O'Connor", "Amara Johnson", "Lucas Berg", "Naia Thompson",
+      "Darius Volkov", "Luna Martinez", "Sebastian Kim", "Aria Santos", "Phoenix Lee",
+      "Sage Williams", "River Andersen", "Nova Singh", "Atlas Cooper", "Iris Dimitriou",
+      "Felix Andersson", "Zoe Laurent", "Orion Jackson", "Maya Okafor", "Jasper Clarke",
+      "Lyra Petrova", "Storm Davidson", "Ember Walsh", "Rowan Fletcher", "Celeste Park",
+      "Adrian Müller", "Skylar Brown", "Magnus Olsson", "Violet Hayes", "Caspian Reed",
+      "Aurora Mitchell", "Dante Torres", "Willow Cameron", "Axel Novak", "Serenity Gray",
+      "Zephyr Ahmed", "Scarlett Ford", "Orion Bell", "Ivy Watanabe", "Atlas Morrison",
+      "Luna Foster", "Phoenix Rivera", "Sage Butler", "Storm Campbell", "Ember Wilson",
+      "River Martinez", "Nova Taylor", "Jasper Anderson", "Lyra Thompson", "Rowan Davis",
+      "Celeste Miller", "Adrian Johnson", "Skylar Wilson", "Magnus Brown", "Violet Jones",
+      "Caspian Garcia", "Aurora Rodriguez", "Dante Martinez", "Willow Lopez", "Axel Gonzalez",
+      "Serenity Hernandez", "Zephyr Young", "Scarlett King", "Orion Wright", "Ivy Scott",
+      "Atlas Green", "Luna Baker", "Phoenix Adams", "Sage Nelson", "Storm Carter",
+      "Ember Mitchell", "River Perez", "Nova Roberts", "Jasper Turner", "Lyra Phillips",
+      "Rowan Campbell", "Celeste Parker", "Adrian Evans", "Skylar Edwards", "Magnus Collins",
+      "Violet Stewart", "Caspian Sanchez", "Aurora Morris", "Dante Rogers", "Willow Reed",
+      "Axel Cook", "Serenity Bailey", "Zephyr Cooper", "Scarlett Richardson", "Orion Cox",
+      "Ivy Howard", "Atlas Ward", "Luna Torres", "Phoenix Peterson", "Sage Gray",
+      "Storm Ramirez", "Ember James", "River Watson", "Nova Brooks", "Jasper Kelly",
+      "Lyra Sanders", "Rowan Price", "Celeste Bennett", "Adrian Wood", "Skylar Barnes",
+      "Magnus Ross", "Violet Henderson", "Caspian Coleman", "Aurora Jenkins", "Dante Perry",
+      "Willow Powell", "Axel Long", "Serenity Patterson", "Zephyr Hughes", "Scarlett Flores",
+      "Orion Washington", "Ivy Butler", "Atlas Simmons", "Luna Foster", "Phoenix Bryant",
+      "Sage Alexander", "Storm Russell", "Ember Griffin", "River Diaz", "Nova Hayes",
+      "Jasper Myers", "Lyra Ford", "Rowan Hamilton", "Celeste Graham", "Adrian Sullivan",
+      "Skylar Wallace", "Magnus Woods", "Violet Cole", "Caspian West", "Aurora Jordan",
+      "Dante Owens", "Willow Reynolds", "Axel Fisher", "Serenity Ellis", "Zephyr Harrison",
+      "Scarlett Gibson", "Orion McDonald", "Ivy Cruz", "Atlas Marshall", "Luna Ortiz",
+      "Phoenix Gomez", "Sage Murray", "Storm Freeman", "Ember Wells"
+    ];
+    
+    const races = ["Human", "Elf", "Spirit", "Mer-Person", "Orc", "Furret", "Cartoon"];
+    const classes = ["Bard", "Rogue", "Wizard", "Paladin", "Ranger", "Barbarian", "Druid"];
+    const factions = ["Archivists", "Seekers", "Guardians", "Innovators"];
+    const subClasses = ["Berserker", "Assassin", "Elementalist", "Divine", "Beast Master", "Frenzy", "Circle of Stars"];
+    
+    // Common student locations during different times
+    const studentLocations = [
+      "student_dorms", "library_larcen", "cafeteria", "main_lobby", 
+      "study_hall", "common_room", "courtyard", "greenhouse", 
+      "art_studio", "computer_lab", "chemistry_lab", "music_room"
+    ];
+    
+    const personalityTraits = [
+      { curious: 8, friendly: 7, studious: 6, creative: 5 },
+      { mysterious: 7, intelligent: 9, reserved: 6, analytical: 8 },
+      { outgoing: 9, social: 8, energetic: 7, optimistic: 6 },
+      { protective: 8, loyal: 9, practical: 7, determined: 6 },
+      { artistic: 9, intuitive: 8, dreamy: 7, expressive: 6 },
+      { rebellious: 7, independent: 8, witty: 9, confident: 6 },
+      { wise: 8, patient: 7, observant: 9, calm: 8 }
+    ];
+    
+    const dialogueTemplates = [
+      {
+        greeting: "Hey there! Haven't seen you around before. I'm {name}!",
+        topics: {
+          academy: "This place is wild! Every day I discover something new and mysterious.",
+          classes: "The classes here are unlike anywhere else. Magic theory is my favorite!",
+          faction: "Being part of {faction} has opened my eyes to so many possibilities.",
+          students: "There are so many interesting people here. Everyone has their own story."
+        }
+      },
+      {
+        greeting: "Oh, hello. I was just studying. I'm {name}, nice to meet you.",
+        topics: {
+          studies: "I spend most of my time in the library. The knowledge here is incredible.",
+          academy: "The Academy has secrets layered upon secrets. Fascinating, really.",
+          faction: "{faction} values align perfectly with my pursuit of understanding.",
+          mystery: "Have you noticed how the shadows move differently here? Intriguing..."
+        }
+      },
+      {
+        greeting: "What's up! Always great to meet someone new. Name's {name}!",
+        topics: {
+          friends: "I love meeting new people! The social dynamics here are amazing.",
+          events: "There's always something happening around campus. Join the fun!",
+          faction: "{faction} has the best people - we stick together!",
+          academy: "This school has such a unique energy. You can feel it everywhere!"
+        }
+      }
+    ];
+    
+    const students: NPC[] = [];
+    
+    // Generate exactly 140 students (plus 4 faculty we'll add separately)
+    for (let i = 0; i < 140; i++) {
+      const name = studentNames[i % studentNames.length];
+      const race = races[i % races.length];
+      const npcClass = classes[i % classes.length];
+      const faction = factions[i % factions.length];
+      const personality = personalityTraits[i % personalityTraits.length];
+      const dialogueTemplate = dialogueTemplates[i % dialogueTemplates.length];
+      const currentLocation = studentLocations[i % studentLocations.length];
+      
+      // Create personalized dialogue
+      const dialogue = {
+        greeting: dialogueTemplate.greeting.replace('{name}', name.split(' ')[0]),
+        topics: Object.fromEntries(
+          Object.entries(dialogueTemplate.topics).map(([key, value]) => [
+            key,
+            value.replace('{name}', name.split(' ')[0]).replace('{faction}', faction)
+          ])
+        )
+      };
+      
+      // Generate schedule (students move around during the day)
+      const schedule = {
+        "8:00-12:00": i % 2 === 0 ? "study_hall" : "library_larcen",
+        "12:00-13:00": "cafeteria",
+        "13:00-17:00": currentLocation,
+        "17:00-22:00": i % 3 === 0 ? "common_room" : "student_dorms",
+        "22:00-8:00": "student_dorms"
+      };
+      
+      // Create backstory
+      const backstories = [
+        `${name} is a dedicated student who came to The Academy seeking knowledge and adventure.`,
+        `${name} has always felt drawn to mysterious places, and The Academy called to them.`,
+        `${name} is here to master their abilities and uncover the truth behind the Academy's secrets.`,
+        `${name} believes The Academy holds the key to understanding their true potential.`
+      ];
+      
+      const student: NPC = {
+        id: `student_${name.toLowerCase().replace(/[^a-z]/g, '_')}`,
+        name: name,
+        title: "Student",
+        race: race,
+        class: npcClass,
+        faction: faction,
+        personality: personality,
+        backstory: backstories[i % backstories.length],
+        currentLocation: currentLocation,
+        schedule: schedule,
+        relationships: {},
+        dialogue: dialogue,
+        stats: {
+          knowledge: Math.floor(Math.random() * 5) + 3,
+          social: Math.floor(Math.random() * 5) + 3,
+          athletics: Math.floor(Math.random() * 5) + 3,
+          creativity: Math.floor(Math.random() * 5) + 3,
+          mysticism: Math.floor(Math.random() * 5) + 3
+        },
+        isTeacher: false
+      };
+      
+      students.push(student);
+    }
+    
+    return students;
+  }
+
   private initializeNPCs() {
+    const students = this.generateStudentNPCs();
+    
     const npcs: NPC[] = [
+      // Faculty and staff
+      ...students,
       {
         id: "receptionist_emily",
         name: "Emily Carter",

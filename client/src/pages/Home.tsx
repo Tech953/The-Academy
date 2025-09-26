@@ -438,7 +438,70 @@ export default function Home() {
     } else if (action === 'examine' && target) {
       await handleExamine(target);
     } else if (action === 'talk' && target) {
-      await handleTalk(target);
+      // Enhanced TALK command - handle both "TALK person" and "TALK person topic"
+      // Need to be smarter about parsing: could be "TALK Zara", "TALK Zara Ali", or "TALK Zara Ali ACADEMY"
+      
+      // First, get all NPCs in current location to match names properly
+      const npcs = await gameStateManager.getNPCsInCurrentLocation();
+      let personName = '';
+      let topic = '';
+      
+      // Try to find the longest matching NPC name from the beginning of target
+      const targetParts = target.split(' ');
+      let bestMatch: any = null;
+      let matchLength = 0;
+      
+      // Try matching 1, 2, 3+ words as potential NPC names
+      for (let i = 1; i <= targetParts.length && i <= 3; i++) {
+        const candidateName = targetParts.slice(0, i).join(' ');
+        const npc = npcs.find(n => 
+          n.name.toLowerCase().includes(candidateName.toLowerCase()) ||
+          candidateName.toLowerCase().includes(n.name.toLowerCase().split(' ')[0]) ||
+          n.name.toLowerCase() === candidateName.toLowerCase()
+        );
+        
+        if (npc && i > matchLength) {
+          bestMatch = npc;
+          matchLength = i;
+          personName = candidateName;
+        }
+      }
+      
+      // Extract the person name and topic based on the best match
+      if (bestMatch) {
+        // We found a matching NPC - use the matched portion as person name
+        personName = targetParts.slice(0, matchLength).join(' ');
+        
+        // If there are remaining parts after the matched name, they form the topic
+        if (matchLength < targetParts.length) {
+          topic = targetParts.slice(matchLength).join(' ').toLowerCase().replace(/\s+/g, '_');
+        } else {
+          topic = '';
+        }
+      } else {
+        // Fallback: no NPC match found, use first word as person name
+        personName = targetParts[0];
+        topic = targetParts.slice(1).join(' ').toLowerCase().replace(/\s+/g, '_');
+      }
+      
+      // Debug logging
+      console.log('TALK Command Debug:', {
+        originalTarget: target,
+        targetParts: targetParts,
+        bestMatchName: bestMatch?.name,
+        matchLength: matchLength,
+        extractedPersonName: personName,
+        extractedTopic: topic,
+        hasTopicToHandle: !!topic
+      });
+      
+      if (topic) {
+        console.log('Calling handleTalkTopic with:', personName, topic);
+        await handleTalkTopic(personName, topic);
+      } else {
+        console.log('Calling handleTalk with:', personName);
+        await handleTalk(personName);
+      }
     } else if (action === 'inventory') {
       handleInventory();
     } else if (action === 'status') {
@@ -528,14 +591,38 @@ export default function Home() {
   const handleTalk = async (target: string) => {
     const npcs = await gameStateManager.getNPCsInCurrentLocation();
     const npc = npcs.find(n => 
-      n.name.toLowerCase().includes(target) || 
-      n.title?.toLowerCase().includes(target)
+      n.name.toLowerCase().includes(target.toLowerCase()) || 
+      n.title?.toLowerCase().includes(target.toLowerCase()) ||
+      target.toLowerCase().includes(n.name.toLowerCase().split(' ')[0]) // Match first name
     );
     
     if (npc) {
       addTerminalLine('');
       const dialogue = npc.dialogue as any;
-      addTerminalLine(`${npc.name}: "${dialogue.greeting || 'Hello there.'}"`);
+      const greeting = dialogue.greeting || 'Hello there.';
+      addTerminalLine(`${npc.name}: "${greeting}"`);
+      
+      // Show available conversation topics if they exist
+      if (dialogue.topics && Object.keys(dialogue.topics).length > 0) {
+        addTerminalLine('');
+        addTerminalLine(`You can ask ${npc.name.split(' ')[0]} about:`, 'system');
+        Object.keys(dialogue.topics).forEach(topic => {
+          const topicName = topic.replace(/_/g, ' ').toUpperCase();
+          addTerminalLine(`- ${topicName} (say "TALK ${npc.name.split(' ')[0]} ${topicName}")`);
+        });
+      }
+      
+      // Show faction-based reputation effect
+      if (gameState && npc.faction) {
+        const playerFaction = gameState.character.faction;
+        if (playerFaction === npc.faction) {
+          addTerminalLine('');
+          addTerminalLine(`${npc.name.split(' ')[0]} regards you warmly as a fellow ${npc.faction}.`, 'system');
+        } else if (playerFaction && npc.faction) {
+          addTerminalLine('');
+          addTerminalLine(`${npc.name.split(' ')[0]} seems cautious - different factions often have complex relationships.`, 'system');
+        }
+      }
     } else {
       addTerminalLine('');
       addTerminalLine(`You don't see anyone named ${target} here.`, 'error');
@@ -630,6 +717,100 @@ export default function Home() {
     addTerminalLine('Mysteries Uncovered: Beginning your journey...');
     addTerminalLine('');
     addTerminalLine('Continue exploring to uncover the Academy\'s secrets!');
+  };
+  
+  const handleTalkTopic = async (personName: string, topic: string) => {
+    const npcs = await gameStateManager.getNPCsInCurrentLocation();
+    const npc = npcs.find(n => 
+      n.name.toLowerCase().includes(personName.toLowerCase()) ||
+      personName.toLowerCase().includes(n.name.toLowerCase().split(' ')[0]) ||
+      n.name.toLowerCase() === personName.toLowerCase()
+    );
+    
+    if (!npc) {
+      addTerminalLine('');
+      addTerminalLine(`You don't see anyone named ${personName} here.`, 'error');
+      return;
+    }
+    
+    const dialogue = npc.dialogue as any;
+    const topics = dialogue.topics || {};
+    
+    // Enhanced topic matching - try multiple strategies
+    let matchedTopic = null;
+    let topicResponse = null;
+    
+    // 1. Direct match (exactly as stored)
+    if (topics[topic]) {
+      matchedTopic = topic;
+      topicResponse = topics[topic];
+    }
+    // 2. Try without underscores (convert "academy_secrets" to "academysecrets")
+    else if (topics[topic.replace(/_/g, '')]) {
+      matchedTopic = topic.replace(/_/g, '');
+      topicResponse = topics[matchedTopic];
+    }
+    // 3. Try the reverse - look for topics that match when converted to underscores
+    else {
+      const matchingTopicKey = Object.keys(topics).find(t => {
+        const normalizedTopic = t.toLowerCase().replace(/\s+/g, '_');
+        const userTopic = topic.toLowerCase().replace(/\s+/g, '_');
+        return normalizedTopic === userTopic;
+      });
+      
+      if (matchingTopicKey) {
+        matchedTopic = matchingTopicKey;
+        topicResponse = topics[matchingTopicKey];
+      }
+    }
+    
+    if (matchedTopic && topicResponse) {
+      addTerminalLine('');
+      addTerminalLine(`${npc.name}: "${topicResponse}"`);
+      
+      // Update reputation based on conversation
+      if (gameState) {
+        await updateConversationReputation(npc, matchedTopic);
+      }
+    } else {
+      addTerminalLine('');
+      const availableTopics = Object.keys(topics).map(t => t.replace(/_/g, ' ').toUpperCase()).join(', ');
+      if (availableTopics) {
+        addTerminalLine(`${npc.name}: "I don't know much about that. You could ask me about: ${availableTopics}"`);
+        // Debug info for development
+        console.log('Topic not found:', {
+          searchedTopic: topic,
+          availableTopics: Object.keys(topics),
+          npcName: npc.name
+        });
+      } else {
+        addTerminalLine(`${npc.name}: "I don't have much to say about that right now."`);
+      }
+    }
+  };
+  
+  const updateConversationReputation = async (npc: any, topic: string) => {
+    if (!gameState) return;
+    
+    // Small reputation gains for meaningful conversations
+    let reputationGain = 1;
+    
+    // Bonus reputation for faction members
+    if (npc.faction === gameState.character.faction) {
+      reputationGain += 1;
+    }
+    
+    // Special topics give different reputation
+    if (topic.includes('academy') || topic.includes('secret')) {
+      reputationGain += 1; // Mysterious reputation
+    }
+    
+    // Update character reputation (this would normally call the API)
+    // For now, just show a message
+    if (reputationGain > 1) {
+      addTerminalLine('');
+      addTerminalLine(`Your conversation with ${npc.name.split(' ')[0]} has strengthened your reputation.`, 'system');
+    }
   };
   
   const handleQuit = () => {
