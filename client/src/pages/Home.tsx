@@ -1,65 +1,70 @@
 import { useState } from 'react';
 import GameLayout from '@/components/GameLayout';
+import CharacterCreation from '@/components/CharacterCreation';
 import { GameMessage } from '@/components/NarrativeDisplay';
 import { GameChoice } from '@/components/ChoicePanel';
 import { Character } from '@/components/CharacterSheet';
 
 export default function Home() {
-  // Mock character state - todo: replace with real game state management
-  const [character] = useState<Character>({
-    name: "New Student",
-    background: "Mysterious Transfer Student",
-    stats: {
-      intellect: 50,
-      charisma: 50,
-      intuition: 50,
-      resilience: 50
-    },
-    reputation: {
-      faculty: 50,
-      students: 50,
-      mysterious: 0
-    },
-    energy: 100,
-    maxEnergy: 100
-  });
+  const [character, setCharacter] = useState<Character | null>(null);
+  const [gameStarted, setGameStarted] = useState(false);
+
+  // If character hasn't been created yet, show character creation
+  if (!character || !gameStarted) {
+    return (
+      <CharacterCreation 
+        onComplete={(newCharacter) => {
+          setCharacter(newCharacter);
+          setGameStarted(true);
+        }}
+      />
+    );
+  }
 
   // Game state - todo: replace with actual game engine
   const [messages, setMessages] = useState<GameMessage[]>([
     {
       id: '1',
-      type: 'narrative',
-      content: `Welcome to "The Academy", an esteemed private school located in the far reaches of Toronto, Canada. You are the "new kid", a freshman who just arrived from places unknown, to a place even more unknown.
+      type: 'narrative', 
+      content: `Welcome to "The Academy", ${character.name}. You are a ${character.race} ${character.class} who has aligned with the ${character.faction} faction.
 
-Prepare for a mysterious new environment to explore and live in, where every step you take is an imprint, every word you speak ripples out into its halls, and every corner promises a trip into the void of space itself.
+This esteemed private school houses exactly 144 students in the far reaches of Toronto, Canada. As a freshman arriving from places unknown to a place even more unknown, you must navigate the mysteries that await.
 
-Align yourself, arm your body and mind, and prepare for the future. Not even your dorm room can protect you from the darkness, after all.`,
+The Academy's mascot, the Polar Bear, watches over students as they explore halls where every step leaves an imprint, every word ripples through ancient corridors, and every corner promises a journey into the void itself.
+
+Your ${character.subClass} specialization will serve you well in the trials ahead. Not even your dormitory can protect you from the darkness that dwells within these walls.`,
       timestamp: new Date()
     },
     {
       id: '2',
       type: 'system',
-      content: '> You stand before the imposing gates of The Academy. Dark stone walls stretch upward, disappearing into the mist above. The iron gates creak open as you approach...'
+      content: `> You stand in the Main Lobby of The Academy. Ancient portraits line the walls, their eyes following your movement. A receptionist desk sits empty, and hallways branch off toward the Cafeteria, Library (Larcen), and mysterious upper floors. The ${character.faction} insignia glows faintly on your student badge.`
     }
   ]);
 
   const [choices, setChoices] = useState<GameChoice[]>([
     {
-      id: 'enter',
-      text: 'Enter The Academy',
-      description: 'Step through the gates and begin your mysterious journey',
+      id: 'explore_cafeteria',
+      text: 'Head to the Cafeteria',
+      description: 'Join other students for orientation meal - safe but predictable',
+      consequence: 'positive'
+    },
+    {
+      id: 'visit_library',
+      text: 'Explore the Library (Larcen)',
+      description: 'Seek forbidden knowledge among ancient tomes',
       consequence: 'neutral'
     },
     {
-      id: 'hesitate',
-      text: 'Hesitate at the threshold',
-      description: 'Something feels wrong about this place... maybe you should wait',
-      consequence: 'neutral'
+      id: 'investigate_portraits',
+      text: 'Examine the moving portraits',
+      description: 'The eyes seem to track your movement - what secrets do they hold?',
+      consequence: 'negative'
     },
     {
-      id: 'investigate',
-      text: 'Examine the gates more closely',
-      description: 'Look for clues about what lies within before proceeding',
+      id: 'check_faction',
+      text: `Connect with ${character.faction} members`,
+      description: `Look for other students aligned with the ${character.faction} faction`,
       consequence: 'positive'
     }
   ]);

@@ -6,11 +6,22 @@ import { User, BookOpen, Users, Zap } from 'lucide-react';
 export interface Character {
   name: string;
   background: string;
+  race?: string;
+  class?: string;
+  subClass?: string;
+  faction?: string;
   stats: {
-    intellect: number;
-    charisma: number;
-    intuition: number;
-    resilience: number;
+    perception?: number;
+    intelligence?: number;
+    charisma?: number;
+    dexterity?: number;
+    strength?: number;
+    health?: number;
+    endurance?: number;
+    // Legacy stats for backward compatibility
+    intellect?: number;
+    intuition?: number;
+    resilience?: number;
   };
   reputation: {
     faculty: number;
@@ -20,6 +31,7 @@ export interface Character {
   currentClass?: string;
   energy: number;
   maxEnergy: number;
+  perks?: string[];
 }
 
 interface CharacterSheetProps {
@@ -48,6 +60,13 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
           <div>
             <div className="text-sm font-medium" data-testid="text-character-name">{character.name}</div>
             <div className="text-xs text-muted-foreground">{character.background}</div>
+            {character.race && character.class && (
+              <div className="flex gap-1 mt-1">
+                <Badge variant="outline" className="text-xs">{character.race}</Badge>
+                <Badge variant="outline" className="text-xs">{character.class}</Badge>
+                {character.faction && <Badge variant="secondary" className="text-xs">{character.faction}</Badge>}
+              </div>
+            )}
           </div>
           
           {/* Energy */}
@@ -67,10 +86,12 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
         <div className="space-y-2">
           <div className="text-xs font-mono text-accent">Core Attributes</div>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>Intellect: {character.stats.intellect}</div>
-            <div>Charisma: {character.stats.charisma}</div>
-            <div>Intuition: {character.stats.intuition}</div>
-            <div>Resilience: {character.stats.resilience}</div>
+            <div>Perception: {character.stats.perception || character.stats.intellect || 50}</div>
+            <div>Intelligence: {character.stats.intelligence || character.stats.intellect || 50}</div>
+            <div>Charisma: {character.stats.charisma || 50}</div>
+            <div>Dexterity: {character.stats.dexterity || character.stats.intuition || 50}</div>
+            <div>Strength: {character.stats.strength || character.stats.resilience || 50}</div>
+            <div>Endurance: {character.stats.endurance || 50}</div>
           </div>
         </div>
 
@@ -110,6 +131,25 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
               Current Class
             </div>
             <div className="text-xs text-foreground">{character.currentClass}</div>
+          </div>
+        )}
+
+        {/* Perks */}
+        {character.perks && character.perks.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-mono text-accent">Active Perks</div>
+            <div className="space-y-1">
+              {character.perks.slice(0, 3).map((perk, index) => (
+                <Badge key={index} variant="outline" className="text-xs block w-full text-center">
+                  {perk}
+                </Badge>
+              ))}
+              {character.perks.length > 3 && (
+                <div className="text-xs text-muted-foreground text-center">
+                  +{character.perks.length - 3} more
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
