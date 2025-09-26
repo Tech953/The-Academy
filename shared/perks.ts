@@ -244,5 +244,4 @@ export function applyPerkEffects(baseStats: Record<string, number>, perks: Chara
   return modifiedStats;
 }
 
-// Type exports
-export type { Perk, PerkEffect, CharacterPerk };
+// Types already exported above

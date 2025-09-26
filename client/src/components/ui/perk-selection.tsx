@@ -29,7 +29,7 @@ export function PerkSelection({
 }: PerkSelectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<Perk['category']>('combat');
   
-  const character = { stats: characterStats, perks: currentPerks };
+  const character = { stats: characterStats as Record<string, number>, perks: currentPerks };
   const availablePerks = getAvailablePerks(character);
   const unlockedPerkIds = currentPerks.map(p => p.perkId);
   
