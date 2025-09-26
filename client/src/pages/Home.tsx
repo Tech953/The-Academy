@@ -12,6 +12,99 @@ export default function Home() {
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Helper functions
+  const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
+    const newLine: TerminalLine = {
+      id: Date.now().toString() + Math.random(),
+      text,
+      type
+    };
+    setTerminalLines(prev => [...prev, newLine]);
+  };
+
+  const generateLocationDescription = async (gameStateData: GameState): Promise<TerminalLine[]> => {
+    const lines: TerminalLine[] = [];
+    
+    lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
+    lines.push({ id: Date.now().toString() + Math.random(), text: gameStateData.currentLocation.name.toUpperCase(), type: 'system' });
+    lines.push({ id: Date.now().toString() + Math.random(), text: gameStateData.currentLocation.description, type: 'output' });
+    
+    // Show NPCs in location
+    try {
+      const npcs = await gameStateManager.getNPCsInCurrentLocation();
+      if (npcs.length > 0) {
+        lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
+        lines.push({ id: Date.now().toString() + Math.random(), text: 'You see:', type: 'output' });
+        npcs.forEach(npc => {
+          lines.push({ id: Date.now().toString() + Math.random(), text: `- ${npc.name} (${npc.title})`, type: 'output' });
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch NPCs:', error);
+    }
+    
+    // Show available exits
+    const exits = gameStateData.currentLocation.exits as Record<string, string>;
+    if (exits && Object.keys(exits).length > 0) {
+      lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
+      const exitList = Object.entries(exits)
+        .map(([direction, destination]) => `${direction.toUpperCase()}`)
+        .join(', ');
+      lines.push({ id: Date.now().toString() + Math.random(), text: `Exits: ${exitList}`, type: 'system' });
+    }
+    
+    // Show interactable objects
+    const interactables = gameStateData.currentLocation.interactables as string[];
+    if (interactables && interactables.length > 0) {
+      const interactableList = interactables
+        .map(item => item.toUpperCase())
+        .join(', ');
+      lines.push({ id: Date.now().toString() + Math.random(), text: `You can examine: ${interactableList}`, type: 'system' });
+    }
+    
+    return lines;
+  };
+
+  const displayLocationInfo = async (gameStateData: GameState) => {
+    addTerminalLine('');
+    addTerminalLine(gameStateData.currentLocation.name.toUpperCase(), 'system');
+    addTerminalLine(gameStateData.currentLocation.description);
+    
+    // Show NPCs in location
+    try {
+      const npcs = await gameStateManager.getNPCsInCurrentLocation();
+      if (npcs.length > 0) {
+        addTerminalLine('');
+        addTerminalLine('You see:');
+        npcs.forEach(npc => {
+          addTerminalLine(`- ${npc.name} (${npc.title})`);
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch NPCs:', error);
+    }
+    
+    // Show available exits
+    const exits = gameStateData.currentLocation.exits as Record<string, string>;
+    if (exits && Object.keys(exits).length > 0) {
+      addTerminalLine('');
+      const exitList = Object.entries(exits)
+        .map(([direction, destination]) => `${direction.toUpperCase()}`)
+        .join(', ');
+      addTerminalLine(`Exits: ${exitList}`, 'system');
+    }
+    
+    // Show interactable objects
+    const interactables = gameStateData.currentLocation.interactables as string[];
+    if (interactables && interactables.length > 0) {
+      addTerminalLine('');
+      const interactableList = interactables
+        .map(item => item.toUpperCase())
+        .join(', ');
+      addTerminalLine(`You can examine: ${interactableList}`, 'system');
+    }
+  };
+
   // Initialize game when character is created
   useEffect(() => {
     if (character && gameStarted && !gameState) {
@@ -71,16 +164,23 @@ export default function Home() {
           { id: '12', text: '', type: 'output' }
         ];
         
-        // Display initial location using the game state directly
-        const locationLines = await generateLocationDescription(initialGameState);
-        const allLines = [...welcomeLines, ...locationLines];
+        // Set initial welcome message and then display location
+        setTerminalLines(welcomeLines);
         
-        setTerminalLines(allLines);
+        // Use the shared display function for consistency
+        await displayLocationInfo(initialGameState);
         setGameState(initialGameState);
       }
     } catch (error) {
       console.error('Failed to initialize game:', error);
-      addTerminalLine('Failed to initialize game. Please try refreshing.', 'error');
+      
+      // Reset to character creation on failure
+      setCharacter(null);
+      setGameStarted(false);
+      setLoading(false);
+      
+      // Also add error message for debugging
+      addTerminalLine('Failed to initialize game. Returning to character creation.', 'error');
     } finally {
       setLoading(false);
     }
@@ -110,93 +210,9 @@ export default function Home() {
     );
   }
 
-  const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
-    const newLine: TerminalLine = {
-      id: Date.now().toString() + Math.random(),
-      text,
-      type
-    };
-    setTerminalLines(prev => [...prev, newLine]);
-  };
-
-  const generateLocationDescription = async (gameStateData: GameState): Promise<TerminalLine[]> => {
-    const lines: TerminalLine[] = [];
-    
-    lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
-    lines.push({ id: Date.now().toString() + Math.random(), text: gameStateData.currentLocation.name.toUpperCase(), type: 'system' });
-    lines.push({ id: Date.now().toString() + Math.random(), text: gameStateData.currentLocation.description, type: 'output' });
-    
-    // Show NPCs in location
-    try {
-      const npcs = await gameStateManager.getNPCsInCurrentLocation();
-      if (npcs.length > 0) {
-        lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
-        lines.push({ id: Date.now().toString() + Math.random(), text: 'You see:', type: 'output' });
-        npcs.forEach(npc => {
-          lines.push({ id: Date.now().toString() + Math.random(), text: `- ${npc.name} (${npc.title})`, type: 'output' });
-        });
-      }
-    } catch (error) {
-      console.warn('Failed to fetch NPCs:', error);
-    }
-    
-    // Show available exits
-    const exits = gameStateData.currentLocation.exits as Record<string, string>;
-    if (exits && Object.keys(exits).length > 0) {
-      lines.push({ id: Date.now().toString() + Math.random(), text: '', type: 'output' });
-      const exitList = Object.entries(exits)
-        .map(([direction, destination]) => `${direction.toUpperCase()}`)
-        .join(', ');
-      lines.push({ id: Date.now().toString() + Math.random(), text: `Exits: ${exitList}`, type: 'system' });
-    }
-    
-    // Show interactable objects
-    const interactables = gameStateData.currentLocation.interactables as string[];
-    if (interactables && interactables.length > 0) {
-      const interactableList = interactables
-        .map(item => item.toUpperCase())
-        .join(', ');
-      lines.push({ id: Date.now().toString() + Math.random(), text: `You can examine: ${interactableList}`, type: 'system' });
-    }
-    
-    return lines;
-  };
-
   const handleLookCommand = async () => {
     if (!gameState) return;
-    
-    addTerminalLine('');
-    addTerminalLine(gameState.currentLocation.name.toUpperCase(), 'system');
-    addTerminalLine(gameState.currentLocation.description);
-    
-    // Show NPCs in location
-    const npcs = await gameStateManager.getNPCsInCurrentLocation();
-    if (npcs.length > 0) {
-      addTerminalLine('');
-      addTerminalLine('You see:');
-      npcs.forEach(npc => {
-        addTerminalLine(`- ${npc.name} (${npc.title})`);
-      });
-    }
-    
-    // Show available exits
-    const exits = gameState.currentLocation.exits as Record<string, string>;
-    if (exits && Object.keys(exits).length > 0) {
-      addTerminalLine('');
-      const exitList = Object.entries(exits)
-        .map(([direction, destination]) => `${direction.toUpperCase()}`)
-        .join(', ');
-      addTerminalLine(`Exits: ${exitList}`);
-    }
-    
-    // Show interactable objects
-    const interactables = gameState.currentLocation.interactables as string[];
-    if (interactables && interactables.length > 0) {
-      const interactableList = interactables
-        .map(item => item.toUpperCase())
-        .join(', ');
-      addTerminalLine(`You can examine: ${interactableList}`);
-    }
+    await displayLocationInfo(gameState);
   };
 
   const handleMovement = async (direction: string) => {
@@ -211,12 +227,62 @@ export default function Home() {
       return;
     }
     
+    // Check access requirements before moving
+    try {
+      const response = await fetch(`/api/locations/${destination}`);
+      if (!response.ok) {
+        addTerminalLine('');
+        addTerminalLine('That location is not accessible.', 'error');
+        return;
+      }
+      
+      const targetLocation = await response.json();
+      const requirements = targetLocation.requirements as Record<string, any>;
+      
+      if (requirements && Object.keys(requirements).length > 0) {
+        // Check permission level requirements
+        if (requirements.permission_level === 'faculty') {
+          addTerminalLine('');
+          addTerminalLine('This area is restricted to faculty members only.', 'error');
+          return;
+        }
+        
+        if (requirements.permission_level === 'summons_only') {
+          addTerminalLine('');
+          addTerminalLine('You must be summoned to enter the Headmaster\'s office.', 'error');
+          return;
+        }
+        
+        if (requirements.permission_level === 'residents_only') {
+          addTerminalLine('');
+          addTerminalLine('This floor is restricted to dormitory residents.', 'error');
+          return;
+        }
+        
+        if (requirements.student_access === false) {
+          addTerminalLine('');
+          addTerminalLine('Students are not permitted in this area.', 'error');
+          return;
+        }
+        
+        if (requirements.special_key && !gameState.inventory.some(item => item.itemId === requirements.special_key)) {
+          addTerminalLine('');
+          addTerminalLine('This area requires special authorization to enter.', 'error');
+          return;
+        }
+      }
+    } catch (error) {
+      addTerminalLine('');
+      addTerminalLine('Something prevents you from going that way.', 'error');
+      return;
+    }
+    
     const newLocation = await gameStateManager.moveToLocation(destination);
     if (newLocation) {
       const updatedGameState = gameStateManager.getGameState();
       if (updatedGameState) {
-        setGameState(updatedGameState);
-        await handleLookCommand();
+        setGameState({...updatedGameState}); // Create new object to trigger React re-render
+        await displayLocationInfo(updatedGameState);
       }
     } else {
       addTerminalLine('');

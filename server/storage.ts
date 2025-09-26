@@ -245,6 +245,248 @@ export class MemStorage implements IStorage {
         items: [],
         interactables: ["room_assignments", "faction_banners", "mail_slots"],
         requirements: {}
+      },
+      {
+        id: "kitchen",
+        name: "Academy Kitchen",
+        description: "A bustling industrial kitchen filled with steam and the clatter of pots. The chef works tirelessly preparing meals that somehow taste better than they should.",
+        type: "service",
+        exits: { west: "cafeteria", south: "storage_room" },
+        npcs: ["sous_chef_maria"],
+        items: ["kitchen_knife", "recipe_book"],
+        interactables: ["stove", "preparation_counter", "walk_in_freezer"],
+        requirements: {}
+      },
+      {
+        id: "outdoor_courtyard",
+        name: "Academy Courtyard",
+        description: "An open courtyard surrounded by Academy buildings. Ancient oak trees provide shade, and stone benches invite contemplation. The sky above seems unusually starry, even during the day.",
+        type: "outdoor",
+        exits: { east: "cafeteria", south: "greenhouse", north: "athletics_field" },
+        npcs: ["groundskeeper_tom"],
+        items: ["fallen_leaves"],
+        interactables: ["ancient_oak", "stone_fountain", "memorial_plaques"],
+        requirements: {}
+      },
+      {
+        id: "restricted_section",
+        name: "Restricted Section",
+        description: "The forbidden part of the library. Chains and mystical wards protect these ancient tomes. The air crackles with magical energy, and whispers echo from the shadows.",
+        type: "restricted",
+        exits: { south: "library_larcen" },
+        npcs: ["archive_guardian"],
+        items: ["forbidden_grimoire", "ancient_scroll"],
+        interactables: ["warded_bookshelf", "ritual_circle", "enchanted_chains"],
+        requirements: { permission_level: "faculty", special_key: "master_librarian_key" }
+      },
+      {
+        id: "library_upper",
+        name: "Library Upper Level",
+        description: "The second floor of the library contains study carrels and rare book collections. Tall windows overlook the Academy grounds, and the silence here is profound.",
+        type: "study",
+        exits: { down: "library_larcen", west: "reading_room" },
+        npcs: ["student_scholar_jenny"],
+        items: ["research_notes", "quill_pen"],
+        interactables: ["study_carrels", "rare_book_collection", "observation_deck"],
+        requirements: {}
+      },
+      {
+        id: "classroom_101",
+        name: "History Classroom",
+        description: "Professor Dawn's history classroom. Maps of ancient civilizations cover the walls, and an antique globe sits on the desk. The lessons here reveal more than just textbook knowledge.",
+        type: "classroom",
+        exits: { south: "upper_hallway" },
+        npcs: ["professor_dawn"],
+        items: ["history_textbook", "ancient_map"],
+        interactables: ["chalkboard", "antique_globe", "artifact_display"],
+        requirements: {}
+      },
+      {
+        id: "classroom_102",
+        name: "Mathematics Classroom",
+        description: "A pristine classroom where numbers and equations seem to dance across the blackboard. Professor Klein's precise teaching makes even the most complex formulas comprehensible.",
+        type: "classroom",
+        exits: { north: "upper_hallway" },
+        npcs: ["professor_klein"],
+        items: ["calculator", "geometry_set"],
+        interactables: ["equation_board", "calculator_station", "geometric_models"],
+        requirements: {}
+      },
+      {
+        id: "faculty_wing",
+        name: "Faculty Wing",
+        description: "The domain of the Academy's teachers. Offices line the hallway, each door bearing nameplaques of distinguished faculty members. The air here feels heavy with academic authority.",
+        type: "faculty",
+        exits: { west: "upper_hallway", north: "headmaster_office", south: "teachers_lounge" },
+        npcs: ["department_head_wilson"],
+        items: [],
+        interactables: ["faculty_directory", "bulletin_board", "coffee_station"],
+        requirements: {}
+      },
+      {
+        id: "headmaster_office",
+        name: "Headmaster's Office",
+        description: "The seat of Academy authority. Heavy oak furniture dominates the room, and portraits of past headmasters watch with knowing eyes. The current Headmaster's presence fills every corner.",
+        type: "restricted",
+        exits: { south: "faculty_wing" },
+        npcs: ["headmaster_kane"],
+        items: ["academy_charter", "disciplinary_records"],
+        interactables: ["massive_desk", "portrait_gallery", "hidden_safe"],
+        requirements: { permission_level: "summons_only", appointment: true }
+      },
+      {
+        id: "teachers_lounge",
+        name: "Teachers' Lounge",
+        description: "A comfortable retreat for Academy faculty. Worn leather chairs and the aroma of coffee create a sanctuary away from student eyes. Hushed conversations hint at Academy secrets.",
+        type: "faculty",
+        exits: { north: "faculty_wing" },
+        npcs: ["teacher_collective"],
+        items: ["faculty_newsletter", "coffee_mug"],
+        interactables: ["coffee_machine", "comfortable_chairs", "faculty_mailboxes"],
+        requirements: { permission_level: "faculty", student_access: false }
+      },
+      {
+        id: "common_room",
+        name: "Student Common Room",
+        description: "A cozy gathering place for dormitory residents. Mismatched furniture and faction banners create a warm atmosphere. Late-night conversations and study sessions happen here.",
+        type: "social",
+        exits: { south: "dormitory_wing", east: "game_room" },
+        npcs: ["resident_assistant_mike"],
+        items: ["board_games", "study_materials"],
+        interactables: ["comfortable_couches", "study_tables", "faction_notice_boards"],
+        requirements: {}
+      },
+      {
+        id: "dorm_upper_floor",
+        name: "Upper Dormitory Floor",
+        description: "The second floor of the dormitory wing. Student rooms line both sides of the hallway. Each door tells a story through its decorations and posted schedules.",
+        type: "dormitory",
+        exits: { down: "dormitory_wing" },
+        npcs: ["various_students"],
+        items: [],
+        interactables: ["student_doors", "study_lounge", "laundry_room"],
+        requirements: { permission_level: "residents_only" }
+      },
+      {
+        id: "gymnasium",
+        name: "Gymnasium (Rixik)",
+        description: "The Academy's impressive gymnasium. Basketball hoops and exercise equipment fill the space, but strange symbols carved into the floor suggest this place serves purposes beyond normal athletics.",
+        type: "athletics",
+        exits: { north: "athletics_field", south: "locker_rooms", east: "equipment_storage" },
+        npcs: ["coach_reynolds", "athletic_director"],
+        items: ["basketball", "exercise_equipment"],
+        interactables: ["basketball_court", "climbing_wall", "mysterious_floor_symbols"],
+        requirements: {}
+      },
+      {
+        id: "athletics_field",
+        name: "Athletics Field",
+        description: "An outdoor field where students practice various sports. The track circles a central field marked with unusual geometric patterns. Evening practices here sometimes produce strange lights.",
+        type: "outdoor",
+        exits: { south: "outdoor_courtyard", down: "gymnasium" },
+        npcs: ["track_coach"],
+        items: ["sports_equipment"],
+        interactables: ["running_track", "field_markers", "equipment_shed"],
+        requirements: {}
+      },
+      {
+        id: "greenhouse",
+        name: "Academy Greenhouse",
+        description: "A glass structure filled with exotic plants that shouldn't grow in Toronto's climate. Professor Bloom tends to specimens that seem to respond to emotions and thoughts.",
+        type: "classroom",
+        exits: { north: "outdoor_courtyard" },
+        npcs: ["professor_bloom"],
+        items: ["rare_seeds", "botanical_journal"],
+        interactables: ["exotic_plants", "growth_chambers", "watering_system"],
+        requirements: {}
+      },
+      {
+        id: "chemistry_lab",
+        name: "Chemistry Laboratory",
+        description: "A well-equipped lab where students learn both mundane chemistry and more esoteric alchemical practices. Bubbling beakers and strange vapors fill the air with possibility.",
+        type: "classroom",
+        exits: { west: "science_wing", north: "chemical_storage" },
+        npcs: ["professor_vance"],
+        items: ["test_tubes", "chemical_samples"],
+        interactables: ["laboratory_benches", "fume_hoods", "periodic_table"],
+        requirements: {}
+      },
+      {
+        id: "computer_lab",
+        name: "Computer Laboratory",
+        description: "State-of-the-art computers hum quietly in perfect rows. The AI presence here feels almost sentient, and students often report their programs developing unexpected capabilities.",
+        type: "classroom",
+        exits: { south: "science_wing" },
+        npcs: ["tech_coordinator_ray"],
+        items: ["programming_manual", "data_storage"],
+        interactables: ["computer_stations", "server_rack", "ai_terminal"],
+        requirements: {}
+      },
+      {
+        id: "science_wing",
+        name: "Science Wing Corridor",
+        description: "A hallway connecting the Academy's science facilities. Display cases show student experiments and scientific achievements, though some exhibits seem to defy conventional physics.",
+        type: "hallway",
+        exits: { east: "chemistry_lab", north: "computer_lab", west: "main_lobby", south: "physics_lab" },
+        npcs: [],
+        items: [],
+        interactables: ["science_displays", "achievement_awards", "experiment_showcase"],
+        requirements: {}
+      },
+      {
+        id: "physics_lab",
+        name: "Physics Laboratory",
+        description: "Where the laws of physics are explored... and occasionally bent. Professor Newton's experiments with force and motion sometimes produce results that challenge conventional understanding.",
+        type: "classroom",
+        exits: { north: "science_wing" },
+        npcs: ["professor_newton"],
+        items: ["physics_equipment", "measurement_tools"],
+        interactables: ["experiment_tables", "force_demonstration", "gravity_chamber"],
+        requirements: {}
+      },
+      {
+        id: "art_studio",
+        name: "Art Studio",
+        description: "A creative space filled with canvases, sculptures, and artistic supplies. Student artwork covers the walls, and some pieces seem to move when viewed from different angles.",
+        type: "classroom",
+        exits: { east: "art_gallery", south: "supply_closet" },
+        npcs: ["art_teacher_luna"],
+        items: ["paint_supplies", "canvas"],
+        interactables: ["easels", "sculpture_station", "kiln"],
+        requirements: {}
+      },
+      {
+        id: "art_gallery",
+        name: "Art Exhibition Gallery",
+        description: "A refined space displaying the finest student and faculty artwork. The paintings here seem to watch visitors, and the sculptures cast shadows that don't match their forms.",
+        type: "exhibition",
+        exits: { west: "art_studio" },
+        npcs: ["gallery_curator"],
+        items: ["exhibition_catalog"],
+        interactables: ["painting_collection", "sculpture_display", "interactive_installations"],
+        requirements: {}
+      },
+      {
+        id: "music_room",
+        name: "Music Practice Room",
+        description: "Soundproofed walls contain the Academy's musical activities. Instruments of all kinds fill the space, and the acoustics here produce harmonies that resonate beyond normal hearing.",
+        type: "classroom",
+        exits: { north: "performance_hall" },
+        npcs: ["music_director"],
+        items: ["sheet_music", "instruments"],
+        interactables: ["piano", "instrument_collection", "recording_equipment"],
+        requirements: {}
+      },
+      {
+        id: "performance_hall",
+        name: "Academy Performance Hall",
+        description: "An elegant auditorium with perfect acoustics. The stage has hosted countless performances, and the building itself seems to retain echoes of every great moment performed here.",
+        type: "auditorium",
+        exits: { south: "music_room", west: "backstage" },
+        npcs: ["theater_director"],
+        items: ["program_archives"],
+        interactables: ["grand_stage", "lighting_booth", "orchestra_pit"],
+        requirements: {}
       }
     ];
 

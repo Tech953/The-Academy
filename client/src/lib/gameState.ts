@@ -64,15 +64,23 @@ export class GameStateManager {
     try {
       const newLocation = await this.fetchLocation(locationId);
       
-      // Update game state
-      this.gameState.currentLocation = newLocation;
-      this.gameState.character.currentLocation = locationId;
-      this.gameState.locationHistory.push(locationId);
+      // Create new game state object instead of mutating existing one
+      const newLocationHistory = [...this.gameState.locationHistory, locationId];
       
       // Keep location history to reasonable size
-      if (this.gameState.locationHistory.length > 50) {
-        this.gameState.locationHistory = this.gameState.locationHistory.slice(-50);
+      if (newLocationHistory.length > 50) {
+        newLocationHistory.splice(0, newLocationHistory.length - 50);
       }
+
+      this.gameState = {
+        ...this.gameState,
+        currentLocation: newLocation,
+        character: {
+          ...this.gameState.character,
+          currentLocation: locationId
+        },
+        locationHistory: newLocationHistory
+      };
 
       this.scheduleSave();
       return newLocation;
@@ -87,9 +95,16 @@ export class GameStateManager {
     if (!this.gameState) return;
 
     const currentStats = this.gameState.character.stats as GameStats;
-    this.gameState.character.stats = {
-      ...currentStats,
-      ...updates
+    
+    this.gameState = {
+      ...this.gameState,
+      character: {
+        ...this.gameState.character,
+        stats: {
+          ...currentStats,
+          ...updates
+        }
+      }
     };
 
     this.scheduleSave();
@@ -100,7 +115,18 @@ export class GameStateManager {
     if (!this.gameState) return;
 
     const currentRep = this.gameState.character.reputation as GameReputation;
-    currentRep[faction] = Math.max(-100, Math.min(100, currentRep[faction] + change));
+    const newRepValue = Math.max(-100, Math.min(100, currentRep[faction] + change));
+    
+    this.gameState = {
+      ...this.gameState,
+      character: {
+        ...this.gameState.character,
+        reputation: {
+          ...currentRep,
+          [faction]: newRepValue
+        }
+      }
+    };
 
     this.scheduleSave();
   }
@@ -109,17 +135,29 @@ export class GameStateManager {
   addItemToInventory(itemId: string, quantity: number = 1): boolean {
     if (!this.gameState) return false;
 
-    const existingItem = this.gameState.inventory.find(item => item.itemId === itemId);
+    const existingItemIndex = this.gameState.inventory.findIndex(item => item.itemId === itemId);
+    let newInventory;
     
-    if (existingItem) {
-      existingItem.quantity += quantity;
+    if (existingItemIndex >= 0) {
+      // Update existing item quantity
+      newInventory = [...this.gameState.inventory];
+      newInventory[existingItemIndex] = {
+        ...newInventory[existingItemIndex],
+        quantity: newInventory[existingItemIndex].quantity + quantity
+      };
     } else {
-      this.gameState.inventory.push({
+      // Add new item
+      newInventory = [...this.gameState.inventory, {
         itemId,
         quantity,
         equipped: false
-      });
+      }];
     }
+
+    this.gameState = {
+      ...this.gameState,
+      inventory: newInventory
+    };
 
     this.scheduleSave();
     return true;
