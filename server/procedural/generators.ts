@@ -89,6 +89,74 @@ class NameGenerator {
   }
 }
 
+// Structured Campus Layout Definition
+interface CampusBuilding {
+  id: string;
+  name: string;
+  type: 'dormitory' | 'academic' | 'central_plaza' | 'admin' | 'dining' | 'recreation' | 'forest';
+  rooms: number; // Number of rooms to generate inside
+  connections: string[]; // Building IDs this connects to
+  position: { x: number; y: number }; // Position on campus map
+}
+
+interface CampusLayout {
+  buildings: CampusBuilding[];
+  paths: { from: string; to: string; direction: string }[];
+}
+
+// Structured Campus Layout based on hand-drawn map
+const ACADEMY_CAMPUS_LAYOUT: CampusLayout = {
+  buildings: [
+    // Central Plaza (starting point)
+    { id: 'main_lobby', name: 'Central Plaza', type: 'central_plaza', rooms: 3, connections: ['north_dorm', 'south_dorm', 'east_dorm', 'west_dorm', 'main_hall', 'library'], position: { x: 50, y: 50 } },
+    
+    // Main Academic Buildings
+    { id: 'main_hall', name: 'Main Academic Hall', type: 'academic', rooms: 8, connections: ['main_lobby', 'library', 'lab_building'], position: { x: 50, y: 30 } },
+    { id: 'library', name: 'Grand Library', type: 'academic', rooms: 6, connections: ['main_lobby', 'main_hall', 'east_dorm'], position: { x: 70, y: 40 } },
+    { id: 'lab_building', name: 'Research Laboratories', type: 'academic', rooms: 10, connections: ['main_hall', 'west_dorm'], position: { x: 30, y: 30 } },
+    
+    // Dormitory Buildings (around perimeter)
+    { id: 'north_dorm', name: 'North Dormitory', type: 'dormitory', rooms: 12, connections: ['main_lobby', 'dining_hall'], position: { x: 50, y: 20 } },
+    { id: 'south_dorm', name: 'South Dormitory', type: 'dormitory', rooms: 12, connections: ['main_lobby', 'recreation'], position: { x: 50, y: 80 } },
+    { id: 'east_dorm', name: 'East Dormitory', type: 'dormitory', rooms: 12, connections: ['main_lobby', 'library'], position: { x: 80, y: 50 } },
+    { id: 'west_dorm', name: 'West Dormitory', type: 'dormitory', rooms: 12, connections: ['main_lobby', 'lab_building'], position: { x: 20, y: 50 } },
+    
+    // Support Buildings
+    { id: 'dining_hall', name: 'Dining Hall', type: 'dining', rooms: 4, connections: ['north_dorm', 'main_lobby'], position: { x: 40, y: 15 } },
+    { id: 'recreation', name: 'Recreation Center', type: 'recreation', rooms: 6, connections: ['south_dorm', 'main_lobby'], position: { x: 60, y: 85 } },
+    { id: 'admin_building', name: 'Administration Building', type: 'admin', rooms: 8, connections: ['main_lobby'], position: { x: 35, y: 65 } },
+    
+    // Forest Areas (surrounding campus)
+    { id: 'north_forest', name: 'Northern Woods', type: 'forest', rooms: 3, connections: ['north_dorm'], position: { x: 50, y: 5 } },
+    { id: 'south_forest', name: 'Southern Woods', type: 'forest', rooms: 3, connections: ['south_dorm'], position: { x: 50, y: 95 } },
+    { id: 'east_forest', name: 'Eastern Woods', type: 'forest', rooms: 3, connections: ['east_dorm'], position: { x: 95, y: 50 } },
+    { id: 'west_forest', name: 'Western Woods', type: 'forest', rooms: 3, connections: ['west_dorm'], position: { x: 5, y: 50 } }
+  ],
+  paths: [
+    // Central plaza connections
+    { from: 'main_lobby', to: 'north_dorm', direction: 'north' },
+    { from: 'main_lobby', to: 'south_dorm', direction: 'south' },
+    { from: 'main_lobby', to: 'east_dorm', direction: 'east' },
+    { from: 'main_lobby', to: 'west_dorm', direction: 'west' },
+    { from: 'main_lobby', to: 'main_hall', direction: 'northeast' },
+    { from: 'main_lobby', to: 'library', direction: 'southeast' },
+    
+    // Academic building connections
+    { from: 'main_hall', to: 'library', direction: 'east' },
+    { from: 'main_hall', to: 'lab_building', direction: 'west' },
+    
+    // Dormitory to support building connections
+    { from: 'north_dorm', to: 'dining_hall', direction: 'west' },
+    { from: 'south_dorm', to: 'recreation', direction: 'east' },
+    
+    // Forest connections
+    { from: 'north_dorm', to: 'north_forest', direction: 'north' },
+    { from: 'south_dorm', to: 'south_forest', direction: 'south' },
+    { from: 'east_dorm', to: 'east_forest', direction: 'east' },
+    { from: 'west_dorm', to: 'west_forest', direction: 'west' }
+  ]
+};
+
 // Template-based content generation
 export class ProceduralGenerator {
   private rng: SeededRandom;
@@ -143,7 +211,239 @@ export class ProceduralGenerator {
     return npcs;
   }
 
-  // Generate a procedural location
+  // Generate structured campus locations based on campus layout
+  generateStructuredCampus(): any[] {
+    const locations: any[] = [];
+    
+    for (const building of ACADEMY_CAMPUS_LAYOUT.buildings) {
+      const buildingLocation = this.generateBuildingLocation(building);
+      locations.push(buildingLocation);
+      
+      // Generate internal rooms for each building
+      const internalRooms = this.generateInternalRooms(building);
+      locations.push(...internalRooms);
+    }
+    
+    // Set up connections between buildings based on campus layout
+    this.setupCampusConnections(locations);
+    
+    return locations;
+  }
+  
+  // Generate a single building as a location
+  private generateBuildingLocation(building: CampusBuilding): any {
+    const description = this.generateBuildingDescription(building);
+    const exits = this.generateBuildingExits(building);
+    const interactables = this.generateBuildingInteractables(building.type);
+    
+    return {
+      id: building.id,
+      name: building.name,
+      description: description,
+      type: building.type,
+      exits: exits,
+      npcs: [], // NPCs will be assigned later
+      items: [],
+      interactables: interactables,
+      requirements: this.generateLocationRequirements(),
+      isBuilding: true,
+      internalRooms: [] // Will be populated by generateInternalRooms
+    };
+  }
+  
+  // Generate internal rooms within a building
+  private generateInternalRooms(building: CampusBuilding): any[] {
+    const rooms: any[] = [];
+    
+    for (let i = 0; i < building.rooms; i++) {
+      const roomId = `${building.id}_room_${i + 1}`;
+      const room = this.generateInternalRoom(roomId, building.type, i + 1);
+      rooms.push(room);
+    }
+    
+    return rooms;
+  }
+  
+  // Generate an internal room within a building
+  private generateInternalRoom(id: string, buildingType: string, roomNumber: number): any {
+    const roomType = this.generateRoomType(buildingType);
+    const name = this.generateRoomName(roomType, roomNumber);
+    const description = this.generateRoomDescription(name, roomType, buildingType);
+    const exits = this.generateRoomExits(roomNumber);
+    const interactables = this.generateRoomInteractables(roomType);
+    
+    return {
+      id: id,
+      name: name,
+      description: description,
+      type: roomType,
+      buildingType: buildingType,
+      exits: exits,
+      npcs: [],
+      items: [],
+      interactables: interactables,
+      requirements: this.generateLocationRequirements(),
+      isRoom: true,
+      roomNumber: roomNumber
+    };
+  }
+
+  // Helper methods for structured campus generation
+  private generateBuildingDescription(building: CampusBuilding): string {
+    const typeDescriptions: Record<string, string> = {
+      central_plaza: `The heart of the academy, where paths converge and students gather. The air hums with energy and conversation.`,
+      academic: `A stately academic building with tall windows and brick walls. Knowledge flows through its corridors.`,
+      dormitory: `A residential building where students make their temporary homes. Laughter and study sounds echo from within.`,
+      dining: `The rich aroma of food fills the air. This is where the academy community comes together to share meals.`,
+      recreation: `A place for leisure and social activities. Equipment and comfortable spaces invite relaxation and play.`,
+      admin: `The administrative heart of the academy, where important decisions are made and records are kept.`,
+      forest: `Ancient trees stretch skyward, their branches creating a natural canopy. The forest whispers with hidden secrets.`
+    };
+    
+    return typeDescriptions[building.type] || `${building.name} stands as an important part of the academy campus.`;
+  }
+  
+  private generateBuildingExits(building: CampusBuilding): any {
+    const exits: any = {};
+    
+    // Add connections to other buildings based on campus layout
+    for (const path of ACADEMY_CAMPUS_LAYOUT.paths) {
+      if (path.from === building.id) {
+        exits[path.direction] = path.to;
+      }
+      // Add reverse connections
+      if (path.to === building.id) {
+        const reverseDirection = this.getReverseDirection(path.direction);
+        exits[reverseDirection] = path.from;
+      }
+    }
+    
+    // Add internal room access
+    if (building.rooms > 0) {
+      exits['enter'] = `${building.id}_room_1`;
+    }
+    
+    return exits;
+  }
+  
+  private generateBuildingInteractables(buildingType: string): string[] {
+    const interactables: Record<string, string[]> = {
+      central_plaza: ['fountain', 'benches', 'notice_board', 'statue'],
+      academic: ['entrance_doors', 'directory', 'bulletin_board'],
+      dormitory: ['entrance', 'mailboxes', 'common_area'],
+      dining: ['entrance', 'menu_board', 'seating_area'],
+      recreation: ['entrance', 'activity_board', 'equipment'],
+      admin: ['reception_desk', 'waiting_area', 'directories'],
+      forest: ['ancient_trees', 'hidden_paths', 'wildlife']
+    };
+    
+    return this.rng.shuffle(interactables[buildingType] || ['doors', 'windows']).slice(0, this.rng.nextInt(2, 4));
+  }
+  
+  private setupCampusConnections(locations: any[]): void {
+    // Connect internal rooms to their building and each other
+    for (const location of locations) {
+      if (location.isRoom && location.roomNumber) {
+        const buildingId = location.id.split('_room_')[0];
+        
+        // Connect to building (exit)
+        location.exits['out'] = buildingId;
+        
+        // Connect to adjacent rooms
+        if (location.roomNumber > 1) {
+          location.exits['previous'] = `${buildingId}_room_${location.roomNumber - 1}`;
+        }
+        
+        // Check if next room exists
+        const nextRoomId = `${buildingId}_room_${location.roomNumber + 1}`;
+        if (locations.some(l => l.id === nextRoomId)) {
+          location.exits['next'] = nextRoomId;
+        }
+      }
+    }
+  }
+  
+  private generateRoomType(buildingType: string): string {
+    const roomTypes: Record<string, string[]> = {
+      central_plaza: ['information_center', 'seating_area', 'event_space'],
+      academic: ['classroom', 'lecture_hall', 'study_room', 'faculty_office', 'laboratory'],
+      dormitory: ['student_room', 'common_room', 'study_lounge', 'bathroom', 'laundry'],
+      dining: ['dining_room', 'kitchen', 'private_dining', 'storage'],
+      recreation: ['game_room', 'fitness_area', 'lounge', 'workshop', 'meeting_room'],
+      admin: ['office', 'reception', 'meeting_room', 'archive', 'records'],
+      forest: ['clearing', 'grove', 'hidden_spot']
+    };
+    
+    return this.rng.choice(roomTypes[buildingType] || ['room']);
+  }
+  
+  private generateRoomName(roomType: string, roomNumber: number): string {
+    const nameTemplates: Record<string, string[]> = {
+      classroom: ['Classroom', 'Lecture Hall', 'Seminar Room'],
+      laboratory: ['Research Lab', 'Experiment Chamber', 'Analysis Room'],
+      student_room: ['Student Room', 'Dormitory Room'],
+      common_room: ['Common Area', 'Social Lounge', 'Study Hall'],
+      office: ['Office', 'Administrative Office', 'Faculty Office'],
+      dining_room: ['Dining Hall', 'Banquet Room', 'Meal Area'],
+      game_room: ['Recreation Room', 'Game Area', 'Activity Center']
+    };
+    
+    const template = this.rng.choice(nameTemplates[roomType] || ['Room']);
+    return `${template} ${roomNumber}`;
+  }
+  
+  private generateRoomDescription(name: string, roomType: string, buildingType: string): string {
+    const templates: Record<string, string> = {
+      classroom: `${name} is equipped for learning with desks, a teaching area, and educational materials.`,
+      laboratory: `${name} contains specialized equipment for research and experimentation.`,
+      student_room: `${name} is a cozy living space for academy students with personal belongings and study materials.`,
+      common_room: `${name} provides a comfortable space for students to gather, socialize, and study together.`,
+      office: `${name} serves as a workspace with a desk, filing systems, and professional materials.`,
+      dining_room: `${name} offers seating and dining facilities for enjoying meals together.`,
+      game_room: `${name} is designed for recreation and leisure activities.`
+    };
+    
+    return templates[roomType] || `${name} is a functional space within the ${buildingType} building.`;
+  }
+  
+  private generateRoomExits(roomNumber: number): any {
+    return {
+      out: 'building_main' // Will be replaced with actual building ID by setupCampusConnections
+    };
+  }
+  
+  private generateRoomInteractables(roomType: string): string[] {
+    const interactables: Record<string, string[]> = {
+      classroom: ['desks', 'chalkboard', 'books', 'supplies', 'projector'],
+      laboratory: ['equipment', 'specimens', 'instruments', 'computers', 'safety_gear'],
+      student_room: ['bed', 'desk', 'wardrobe', 'books', 'personal_items'],
+      common_room: ['couches', 'tables', 'bulletin_board', 'games', 'study_materials'],
+      office: ['desk', 'filing_cabinet', 'computer', 'bookshelf', 'phone'],
+      dining_room: ['tables', 'chairs', 'food_service', 'beverages'],
+      game_room: ['games', 'entertainment_system', 'seating', 'equipment']
+    };
+    
+    return this.rng.shuffle(interactables[roomType] || ['furniture', 'fixtures']).slice(0, this.rng.nextInt(3, 5));
+  }
+  
+  private getReverseDirection(direction: string): string {
+    const reverseMap: Record<string, string> = {
+      north: 'south',
+      south: 'north',
+      east: 'west',
+      west: 'east',
+      northeast: 'southwest',
+      southeast: 'northwest',
+      northwest: 'southeast',
+      southwest: 'northeast',
+      up: 'down',
+      down: 'up'
+    };
+    
+    return reverseMap[direction] || direction;
+  }
+
+  // Generate a procedural location (fallback method)
   generateLocation(id: string): any {
     const locationType = this.rng.choice(this.template.locationTypes);
     const name = this.generateLocationName(locationType);
