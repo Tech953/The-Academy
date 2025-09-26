@@ -11,6 +11,7 @@ import {
   GameStats,
   GameReputation 
 } from "@shared/schema";
+import { ProceduralGenerator, WORLD_TEMPLATES } from "./procedural/generators";
 
 export interface IStorage {
   // User management
@@ -50,6 +51,7 @@ export class MemStorage implements IStorage {
   private npcs: Map<string, NPC>;
   private items: Map<string, Item>;
   private gameSessions: Map<string, GameSession>;
+  private events: Map<string, any>; // Store procedural events
 
   constructor() {
     this.users = new Map();
@@ -58,6 +60,7 @@ export class MemStorage implements IStorage {
     this.npcs = new Map();
     this.items = new Map();
     this.gameSessions = new Map();
+    this.events = new Map();
     
     // Initialize game world data
     this.initializeGameWorld();
@@ -100,6 +103,14 @@ export class MemStorage implements IStorage {
       id,
       userId: insertCharacter.userId || null,
       subClass: insertCharacter.subClass || null,
+      background: insertCharacter.background || null,
+      currentLocation: insertCharacter.currentLocation || null,
+      energy: insertCharacter.energy || null,
+      maxEnergy: insertCharacter.maxEnergy || null,
+      inventory: insertCharacter.inventory || [],
+      reputation: insertCharacter.reputation || {},
+      stats: insertCharacter.stats || {},
+      perks: insertCharacter.perks || [],
       createdAt: now,
       lastPlayed: now
     };
@@ -179,14 +190,16 @@ export class MemStorage implements IStorage {
   }
 
   private initializeGameWorld() {
-    // Initialize Academy locations
-    this.initializeLocations();
+    // Use procedural generation instead of hardcoded data
+    console.log('🌍 Initializing world with procedural generation...');
     
-    // Initialize the 144 Academy students and faculty
-    this.initializeNPCs();
+    // Generate the default academy world procedurally
+    this.generateWorld('academy', 12345); // Fixed seed for consistency
     
-    // Initialize items and objects
+    // Initialize basic items (these are universal across world types)
     this.initializeItems();
+    
+    console.log(`✅ Procedural world initialized: ${this.npcs.size} NPCs, ${this.locations.size} locations, ${this.events.size} events`);
   }
 
   private initializeLocations() {
@@ -495,7 +508,32 @@ export class MemStorage implements IStorage {
     });
   }
 
+  private generateProceduralContent() {
+    // Configuration for procedural generation
+    const config = {
+      seed: 12345, // Can be made configurable via API
+      worldType: 'academy',
+      npcCount: 140,
+      locationCount: 25,
+      factionCount: 4
+    };
+    
+    const generator = new ProceduralGenerator(config, WORLD_TEMPLATES.academy);
+    
+    // Generate NPCs procedurally
+    const students = generator.generateNPCs(140, 'student');
+    const faculty = generator.generateNPCs(4, 'faculty');
+    
+    return { students, faculty, generator };
+  }
+
   private generateStudentNPCs(): NPC[] {
+    // Now using procedural generation instead of hardcoded lists
+    const { students } = this.generateProceduralContent();
+    return students;
+    
+    // OLD HARDCODED VERSION - replaced with procedural generation
+    /*
     const studentNames = [
       // Diverse selection of names from various backgrounds
       "Alex Chen", "Maya Patel", "Jordan Smith", "Zara Ali", "Kai Nakamura",
@@ -650,6 +688,7 @@ export class MemStorage implements IStorage {
     }
     
     return students;
+    */
   }
 
   private initializeNPCs() {
@@ -732,6 +771,67 @@ export class MemStorage implements IStorage {
     npcs.forEach(npc => {
       this.npcs.set(npc.id, npc);
     });
+  }
+  
+  // New method for generating worlds with different templates
+  generateWorld(worldType: string = 'academy', seed?: number): void {
+    console.log(`🎲 Generating ${worldType} world with seed ${seed}...`);
+    const config = {
+      seed: seed || Math.floor(Math.random() * 1000000),
+      worldType: worldType,
+      npcCount: 100,
+      locationCount: 20,
+      factionCount: 4
+    };
+    
+    const template = WORLD_TEMPLATES[worldType as keyof typeof WORLD_TEMPLATES] || WORLD_TEMPLATES.academy;
+    const generator = new ProceduralGenerator(config, template);
+    
+    // Clear existing content
+    this.npcs.clear();
+    this.locations.clear();
+    
+    // Generate new procedural content
+    const students = generator.generateNPCs(80, 'student');
+    const faculty = generator.generateNPCs(10, 'faculty');
+    const staff = generator.generateNPCs(10, 'staff');
+    
+    // Store generated NPCs
+    [...students, ...faculty, ...staff].forEach(npc => {
+      this.npcs.set(npc.id, npc);
+    });
+    
+    // Generate procedural locations
+    for (let i = 0; i < config.locationCount; i++) {
+      // Ensure first location is main_lobby for frontend compatibility
+      const locationId = i === 0 ? 'main_lobby' : `proc_location_${i}`;
+      const location = generator.generateLocation(locationId);
+      this.locations.set(location.id, location);
+    }
+    
+    console.log(`Generated ${worldType} world with seed ${config.seed}:`);
+    console.log(`- ${this.npcs.size} NPCs`);
+    console.log(`- ${this.locations.size} locations`);
+  }
+  
+  // Method to generate procedural events
+  generateEvents(count: number = 10): any[] {
+    const config = {
+      seed: Math.floor(Math.random() * 1000000),
+      worldType: 'academy',
+      npcCount: 0,
+      locationCount: 0,
+      factionCount: 4
+    };
+    
+    const generator = new ProceduralGenerator(config, WORLD_TEMPLATES.academy);
+    const events = [];
+    
+    for (let i = 0; i < count; i++) {
+      events.push(generator.generateEvent(`event_${i}`));
+    }
+    
+    return events;
   }
 
   private initializeItems() {

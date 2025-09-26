@@ -325,7 +325,8 @@ export default function Home() {
       'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
       'u': 'up', 'd': 'down',
       'help': 'help', '?': 'help',
-      'quit': 'quit', 'exit': 'quit', 'q': 'quit'
+      'quit': 'quit', 'exit': 'quit', 'q': 'quit',
+      'who': 'list', 'people': 'list', 'characters': 'list'
     };
     
     // Special handling for "GO N/S/E/W" - convert to direct movement
@@ -347,7 +348,7 @@ export default function Home() {
   };
   
   const getCommandSuggestions = (invalidCommand: string): string[] => {
-    const commands = ['look', 'go', 'examine', 'talk', 'inventory', 'status', 'save', 'load', 'help', 'north', 'south', 'east', 'west', 'up', 'down'];
+    const commands = ['look', 'go', 'examine', 'talk', 'inventory', 'status', 'save', 'load', 'help', 'list', 'who', 'people', 'north', 'south', 'east', 'west', 'up', 'down'];
     const suggestions = commands.filter(cmd => 
       cmd.includes(invalidCommand) || invalidCommand.includes(cmd) ||
       cmd.startsWith(invalidCommand.charAt(0))
@@ -414,6 +415,7 @@ export default function Home() {
         addTerminalLine('== Interaction ==');
         addTerminalLine('EXAMINE/X [object] - Look closely at something');
         addTerminalLine('TALK/T [person] - Start a conversation');
+        addTerminalLine('LIST/WHO/PEOPLE - List people in current area');
         addTerminalLine('');
         addTerminalLine('== Character ==');
         addTerminalLine('INVENTORY/I - Check your belongings');
@@ -433,6 +435,29 @@ export default function Home() {
       await handleLookCommand();
     } else if (action === 'go' && target) {
       await handleMovement(target);
+    } else if (action === 'list' || (action === 'list' && (target === 'people' || target === 'characters' || target === ''))) {
+      // Handle list people command inline
+      if (!gameState) return;
+      try {
+        const npcs = await gameStateManager.getNPCsInCurrentLocation();
+        addTerminalLine('');
+        if (npcs.length === 0) {
+          addTerminalLine('There is no one else here.');
+        } else {
+          addTerminalLine(`People in ${gameState.currentLocation.name}:`);
+          addTerminalLine('');
+          npcs.forEach(npc => {
+            const title = npc.title ? ` (${npc.title})` : '';
+            const faction = npc.faction ? ` [${npc.faction}]` : '';
+            addTerminalLine(`- ${npc.name}${title}${faction}`);
+          });
+          addTerminalLine('');
+          addTerminalLine('Use "TALK [name]" to start a conversation.');
+        }
+      } catch (error) {
+        addTerminalLine('');
+        addTerminalLine('Unable to see who is here right now.', 'error');
+      }
     } else if (['north', 'south', 'east', 'west', 'up', 'down'].includes(action)) {
       await handleMovement(action);
     } else if (action === 'examine' && target) {
