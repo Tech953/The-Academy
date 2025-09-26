@@ -300,27 +300,135 @@ export default function Home() {
     }
   };
 
-  const handleCommand = async (command: string) => {
+  // Enhanced command parsing with aliases and synonyms
+  const parseCommand = (command: string) => {
     const cmd = command.toLowerCase().trim();
-    const parts = cmd.split(' ');
-    const action = parts[0];
-    const target = parts.slice(1).join(' ');
+    if (!cmd) {
+      return { action: '', target: '', originalAction: '', parts: [] };
+    }
+    
+    const parts = cmd.split(/\s+/).filter(part => part.length > 0);
+    if (parts.length === 0) {
+      return { action: '', target: '', originalAction: '', parts: [] };
+    }
+    
+    let action = parts[0];
+    let target = parts.slice(1).join(' ');
+    
+    // Handle command aliases and synonyms
+    const aliases: Record<string, string> = {
+      'l': 'look',
+      'i': 'inventory', 'inv': 'inventory',
+      'st': 'status', 'stat': 'status', 'stats': 'status',
+      'ex': 'examine', 'x': 'examine',
+      't': 'talk', 'say': 'talk', 'speak': 'talk',
+      'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
+      'u': 'up', 'd': 'down',
+      'help': 'help', '?': 'help',
+      'quit': 'quit', 'exit': 'quit', 'q': 'quit'
+    };
+    
+    // Special handling for "GO N/S/E/W" - convert to direct movement
+    if (action === 'go' && target && ['n', 's', 'e', 'w', 'u', 'd'].includes(target)) {
+      const directionMap: Record<string, string> = {
+        'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
+        'u': 'up', 'd': 'down'
+      };
+      return { 
+        action: directionMap[target], 
+        target: '', 
+        originalAction: `${action} ${target}`, 
+        parts 
+      };
+    }
+    
+    const normalizedAction = aliases[action] || action;
+    return { action: normalizedAction, target, originalAction: action, parts };
+  };
+  
+  const getCommandSuggestions = (invalidCommand: string): string[] => {
+    const commands = ['look', 'go', 'examine', 'talk', 'inventory', 'status', 'save', 'load', 'help', 'north', 'south', 'east', 'west', 'up', 'down'];
+    const suggestions = commands.filter(cmd => 
+      cmd.includes(invalidCommand) || invalidCommand.includes(cmd) ||
+      cmd.startsWith(invalidCommand.charAt(0))
+    );
+    return suggestions.slice(0, 3); // Return up to 3 suggestions
+  };
+
+  const handleCommand = async (command: string) => {
+    // Handle empty or whitespace-only commands
+    if (!command || command.trim().length === 0) {
+      addTerminalLine(`> ${command}`, 'command');
+      return; // Silently ignore empty commands
+    }
+    
+    const { action, target, originalAction } = parseCommand(command);
+    
+    // Additional safety check in case parsing fails
+    if (!action) {
+      addTerminalLine(`> ${command}`, 'command');
+      addTerminalLine('', '');
+      addTerminalLine('Invalid command. Type HELP for available commands.', 'error');
+      return;
+    }
     
     // Add command to terminal
     addTerminalLine(`> ${command}`, 'command');
 
     // Process commands
-    if (action === 'help') {
-      addTerminalLine('');
-      addTerminalLine('Available commands:');
-      addTerminalLine('LOOK - Examine your surroundings');
-      addTerminalLine('GO [direction] - Move (NORTH, SOUTH, EAST, WEST, UP, DOWN)');
-      addTerminalLine('EXAMINE [object] - Look at something closely');
-      addTerminalLine('TALK [person] - Start a conversation');
-      addTerminalLine('INVENTORY - Check your belongings');
-      addTerminalLine('STATUS - View character information');
-      addTerminalLine('SAVE - Save your progress');
-      addTerminalLine('LOAD - Load saved game');
+    if (action === 'help' || action === '?') {
+      if (target) {
+        // Context-specific help
+        addTerminalLine('');
+        addTerminalLine(`Help for "${target.toUpperCase()}":`);
+        switch (target.toLowerCase()) {
+          case 'movement':
+          case 'go':
+          case 'move':
+            addTerminalLine('Movement commands:');
+            addTerminalLine('GO [direction] or just [direction] - Move in that direction');
+            addTerminalLine('Directions: NORTH/N, SOUTH/S, EAST/E, WEST/W, UP/U, DOWN/D');
+            addTerminalLine('Example: "GO NORTH" or just "NORTH" or "N"');
+            break;
+          case 'examine':
+          case 'look':
+            addTerminalLine('Observation commands:');
+            addTerminalLine('LOOK/L - Examine your surroundings');
+            addTerminalLine('EXAMINE/EX/X [object] - Look closely at something');
+            addTerminalLine('Example: "EXAMINE desk" or "X portraits"');
+            break;
+          default:
+            addTerminalLine(`No specific help available for "${target}".`);
+            addTerminalLine('Type HELP for general commands.');
+        }
+      } else {
+        // General help
+        addTerminalLine('');
+        addTerminalLine('THE ACADEMY - Available Commands:');
+        addTerminalLine('');
+        addTerminalLine('== Movement ==');
+        addTerminalLine('LOOK/L - Examine your surroundings');
+        addTerminalLine('GO [dir] - Move (or just use direction)');
+        addTerminalLine('Directions: NORTH/N, SOUTH/S, EAST/E, WEST/W, UP/U, DOWN/D');
+        addTerminalLine('');
+        addTerminalLine('== Interaction ==');
+        addTerminalLine('EXAMINE/X [object] - Look closely at something');
+        addTerminalLine('TALK/T [person] - Start a conversation');
+        addTerminalLine('');
+        addTerminalLine('== Character ==');
+        addTerminalLine('INVENTORY/I - Check your belongings');
+        addTerminalLine('STATUS/STAT - View character information');
+        addTerminalLine('');
+        addTerminalLine('== Game ==');
+        addTerminalLine('SAVE - Save your progress');
+        addTerminalLine('LOAD - Load saved game');
+        addTerminalLine('TIME - Check current game time');
+        addTerminalLine('SCORE - View your progress');
+        addTerminalLine('CLEAR - Clear terminal');
+        addTerminalLine('QUIT/EXIT - Leave the game');
+        addTerminalLine('');
+        addTerminalLine('Type HELP [topic] for specific help (e.g., HELP MOVEMENT)');
+      }
     } else if (action === 'look') {
       await handleLookCommand();
     } else if (action === 'go' && target) {
@@ -340,9 +448,23 @@ export default function Home() {
     } else if (action === 'load') {
       addTerminalLine('');
       addTerminalLine('Load functionality coming soon.', 'system');
+    } else if (action === 'time') {
+      handleTime();
+    } else if (action === 'score') {
+      handleScore();
+    } else if (action === 'quit' || action === 'exit') {
+      handleQuit();
+    } else if (action === 'clear') {
+      setTerminalLines([]);
+      addTerminalLine('Terminal cleared.', 'system');
     } else {
       addTerminalLine('');
-      addTerminalLine(`I don't understand "${command}". Type HELP for available commands.`, 'error');
+      const suggestions = getCommandSuggestions(originalAction);
+      if (suggestions.length > 0) {
+        addTerminalLine(`I don't understand "${originalAction}". Did you mean: ${suggestions.join(', ')}?`, 'error');
+      } else {
+        addTerminalLine(`I don't understand "${originalAction}". Type HELP for available commands.`, 'error');
+      }
     }
   };
 
@@ -365,6 +487,34 @@ export default function Home() {
           addTerminalLine('The receptionist desk appears to be made of dark mahogany. It\'s');
           addTerminalLine('currently unattended, but papers and schedules are neatly organized.');
           addTerminalLine('A small nameplate reads "Emily Carter - Academy Receptionist."');
+          break;
+        case 'fireplace':
+          addTerminalLine('A grand stone fireplace dominates this wall. The fire crackles');
+          addTerminalLine('warmly, but the flames seem to dance in patterns that almost');
+          addTerminalLine('look like they\'re trying to form shapes or symbols.');
+          break;
+        case 'bookshelves':
+        case 'books':
+          addTerminalLine('Towering bookshelves stretch from floor to ceiling, packed with');
+          addTerminalLine('ancient tomes and mysterious volumes. Some books seem to');
+          addTerminalLine('shimmer slightly, and you swear you saw one move on its own.');
+          break;
+        case 'chandelier':
+          addTerminalLine('An ornate crystal chandelier hangs overhead, casting dancing');
+          addTerminalLine('shadows throughout the room. The crystals tinkle softly even');
+          addTerminalLine('when there\'s no breeze.');
+          break;
+        case 'windows':
+        case 'window':
+          addTerminalLine('Large windows offer a view of the Academy grounds. The glass');
+          addTerminalLine('seems unusually thick, and sometimes you glimpse movement');
+          addTerminalLine('in the reflections that doesn\'t match what\'s in the room.');
+          break;
+        case 'food':
+        case 'cafeteria_food':
+          addTerminalLine('The food looks surprisingly appetizing for institutional fare.');
+          addTerminalLine('There\'s a wide variety, and some dishes seem to shift and');
+          addTerminalLine('change when you\'re not looking directly at them.');
           break;
         default:
           addTerminalLine(`You examine the ${target}. Nothing particularly unusual stands out.`);
@@ -401,10 +551,16 @@ export default function Home() {
     if (gameState.inventory.length === 0) {
       addTerminalLine('- Student ID badge (glowing with faction insignia)');
       addTerminalLine('- Academy handbook (pages seem to change when not being read)');
-      addTerminalLine('Your inventory is otherwise empty.');
+      addTerminalLine('Your pockets are otherwise empty.');
+      addTerminalLine('');
+      addTerminalLine('(The mystical items you always carry are not lost or consumed)');
     } else {
+      addTerminalLine('- Student ID badge (glowing with faction insignia)');
+      addTerminalLine('- Academy handbook (pages seem to change when not being read)');
+      addTerminalLine('');
+      addTerminalLine('Additional items:');
       gameState.inventory.forEach(item => {
-        addTerminalLine(`- ${item.itemId} (${item.quantity})`);
+        addTerminalLine(`- ${item.itemId} (qty: ${item.quantity})`);
       });
     }
   };
@@ -428,6 +584,61 @@ export default function Home() {
     addTerminalLine(`Faculty: ${rep.faculty}`);
     addTerminalLine(`Students: ${rep.students}`);
     addTerminalLine(`Mysterious: ${rep.mysterious}`);
+    addTerminalLine('');
+    addTerminalLine('STATISTICS:');
+    addTerminalLine(`Knowledge: ${stats.knowledge}`);
+    addTerminalLine(`Social: ${stats.social}`);
+    addTerminalLine(`Athletics: ${stats.athletics}`);
+    addTerminalLine(`Creativity: ${stats.creativity}`);
+    addTerminalLine(`Mysticism: ${stats.mysticism}`);
+  };
+  
+  const handleTime = () => {
+    addTerminalLine('');
+    addTerminalLine('ACADEMY TIME:');
+    addTerminalLine('Term: Fall Semester, 1993');
+    addTerminalLine('Week: First Week of Classes');
+    addTerminalLine('Time: Morning (Classes in session)');
+    addTerminalLine('');
+    addTerminalLine('The Academy operates on its own mysterious schedule.');
+    addTerminalLine('Time seems to flow differently within these walls.');
+  };
+  
+  const handleScore = () => {
+    if (!gameState) return;
+    
+    const stats = gameState.character.stats as GameStats;
+    const rep = gameState.character.reputation as GameReputation;
+    
+    addTerminalLine('');
+    addTerminalLine('ACADEMY PROGRESS REPORT:');
+    addTerminalLine('========================');
+    addTerminalLine(`Student: ${gameState.character.name}`);
+    addTerminalLine(`Faction: ${gameState.character.faction}`);
+    addTerminalLine('');
+    
+    // Calculate total reputation
+    const totalRep = rep.faculty + rep.students + rep.mysterious;
+    addTerminalLine(`Total Reputation Points: ${totalRep}`);
+    
+    // Calculate total stats
+    const totalStats = stats.knowledge + stats.social + stats.athletics + stats.creativity + stats.mysticism;
+    addTerminalLine(`Total Skill Points: ${totalStats}`);
+    
+    addTerminalLine('');
+    addTerminalLine('Academic Standing: Enrolled');
+    addTerminalLine('Mysteries Uncovered: Beginning your journey...');
+    addTerminalLine('');
+    addTerminalLine('Continue exploring to uncover the Academy\'s secrets!');
+  };
+  
+  const handleQuit = () => {
+    addTerminalLine('');
+    addTerminalLine('Are you sure you want to leave The Academy?');
+    addTerminalLine('Your progress has been automatically saved.');
+    addTerminalLine('');
+    addTerminalLine('Thank you for playing! Type any command to continue.');
+    addTerminalLine('Or refresh the page to start fresh.');
   };
 
   const statusLine = `${gameState.character.name} | ${gameState.character.race} ${gameState.character.class} | Location: ${gameState.currentLocation.name} | Energy: ${gameState.character.energy}/${gameState.character.maxEnergy}`;
