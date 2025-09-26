@@ -107,6 +107,8 @@
 
   --background: 0 0% 0%;
   --foreground: 120 100% 50%;
+  --terminal-glow: 120 100% 50%;
+  --terminal-bg: 0 0% 0%;
   --border: 120 100% 50%;
   --card: 0 0% 0%;
   --card-foreground: 120 100% 50%;
@@ -156,8 +158,23 @@
     @apply border-border;
   }
 
+  html {
+    /* Enable hardware acceleration and crisp text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-mono antialiased bg-background text-foreground;
+    /* High contrast terminal colors for better visual acuity */
+    background: hsl(0, 0%, 0%);
+    color: hsl(120, 100%, 50%);
+    /* GPU acceleration for smooth scrolling */
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -270,5 +287,65 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+
+  /* High-performance terminal effects */
+  .terminal-container {
+    /* GPU acceleration for smooth scrolling */
+    will-change: scroll-position;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    
+    /* Crisp text rendering */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .terminal-text {
+    /* Enhanced text clarity */
+    text-shadow: 0 0 1px hsl(var(--terminal-glow));
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+
+  /* Optional CRT scanline effect */
+  .crt-effect::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      transparent 0%,
+      rgba(0, 255, 0, 0.03) 50%,
+      transparent 100%
+    );
+    background-size: 100% 2px;
+    animation: scanlines 0.1s linear infinite;
+    z-index: 1;
+  }
+
+  @keyframes scanlines {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(2px); }
+  }
+
+  /* Smooth cursor blink */
+  .terminal-cursor {
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* High-performance scrolling */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+    overflow-anchor: none;
   }
 }
