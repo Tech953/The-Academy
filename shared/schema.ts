@@ -134,6 +134,12 @@ export interface GameInventoryItem {
   equipped?: boolean;
 }
 
+export interface GamePerk {
+  perkId: string;
+  level: number;
+  unlockedAt: string;
+}
+
 export interface SocialConnection {
   npcId: string;
   relationship: number; // -100 to 100
