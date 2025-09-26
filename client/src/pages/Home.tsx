@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import GameLayout from '@/components/GameLayout';
-import CharacterCreation from '@/components/CharacterCreation';
-import { GameMessage } from '@/components/NarrativeDisplay';
-import { GameChoice } from '@/components/ChoicePanel';
+import TerminalInterface from '@/components/TerminalInterface';
+import TextCharacterCreation from '@/components/TextCharacterCreation';
 import { Character } from '@/components/CharacterSheet';
 
 export default function Home() {
@@ -12,7 +10,7 @@ export default function Home() {
   // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {
     return (
-      <CharacterCreation 
+      <TextCharacterCreation 
         onComplete={(newCharacter) => {
           setCharacter(newCharacter);
           setGameStarted(true);
@@ -21,219 +19,148 @@ export default function Home() {
     );
   }
 
-  // Game state - todo: replace with actual game engine
-  const [messages, setMessages] = useState<GameMessage[]>([
-    {
-      id: '1',
-      type: 'narrative', 
-      content: `Welcome to "The Academy", ${character.name}. You are a ${character.race} ${character.class} who has aligned with the ${character.faction} faction.
+  interface TerminalLine {
+    id: string;
+    text: string;
+    type: 'output' | 'command' | 'system' | 'error';
+  }
 
-This esteemed private school houses exactly 144 students in the far reaches of Toronto, Canada. As a freshman arriving from places unknown to a place even more unknown, you must navigate the mysteries that await.
-
-The Academy's mascot, the Polar Bear, watches over students as they explore halls where every step leaves an imprint, every word ripples through ancient corridors, and every corner promises a journey into the void itself.
-
-Your ${character.subClass} specialization will serve you well in the trials ahead. Not even your dormitory can protect you from the darkness that dwells within these walls.`,
-      timestamp: new Date()
-    },
-    {
-      id: '2',
-      type: 'system',
-      content: `> You stand in the Main Lobby of The Academy. Ancient portraits line the walls, their eyes following your movement. A receptionist desk sits empty, and hallways branch off toward the Cafeteria, Library (Larcen), and mysterious upper floors. The ${character.faction} insignia glows faintly on your student badge.`
-    }
+  // Terminal-style game state
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([
+    { id: '1', text: 'THE ACADEMY', type: 'system' },
+    { id: '2', text: '', type: 'output' },
+    { id: '3', text: `Welcome to "The Academy", ${character.name}.`, type: 'output' },
+    { id: '4', text: `You are a ${character.race} ${character.class} aligned with the ${character.faction} faction.`, type: 'output' },
+    { id: '5', text: '', type: 'output' },
+    { id: '6', text: 'This esteemed private school houses exactly 144 students in the far', type: 'output' },
+    { id: '7', text: 'reaches of Toronto, Canada. As a freshman arriving from places unknown', type: 'output' },
+    { id: '8', text: 'to a place even more unknown, you must navigate the mysteries that await.', type: 'output' },
+    { id: '9', text: '', type: 'output' },
+    { id: '10', text: 'The Academy\'s mascot, the Polar Bear, watches over students as they', type: 'output' },
+    { id: '11', text: 'explore halls where every step leaves an imprint, every word ripples', type: 'output' },
+    { id: '12', text: 'through ancient corridors, and every corner promises a journey into', type: 'output' },
+    { id: '13', text: 'the void itself.', type: 'output' },
+    { id: '14', text: '', type: 'output' },
+    { id: '15', text: `Your ${character.subClass} specialization will serve you well in the`, type: 'output' },
+    { id: '16', text: 'trials ahead. Not even your dormitory can protect you from the', type: 'output' },
+    { id: '17', text: 'darkness that dwells within these walls.', type: 'output' },
+    { id: '18', text: '', type: 'output' },
+    { id: '19', text: 'MAIN LOBBY', type: 'system' },
+    { id: '20', text: 'You are standing in the main lobby of The Academy. Ancient portraits', type: 'output' },
+    { id: '21', text: 'line the walls, their eyes following your movement. A receptionist', type: 'output' },
+    { id: '22', text: 'desk sits empty, and hallways branch off toward the Cafeteria,', type: 'output' },
+    { id: '23', text: `Library (Larcen), and mysterious upper floors. The ${character.faction}`, type: 'output' },
+    { id: '24', text: 'insignia glows faintly on your student badge.', type: 'output' },
+    { id: '25', text: '', type: 'output' },
+    { id: '26', text: 'Exits: NORTH (Cafeteria), EAST (Library), UP (Stairs), EXAMINE (Portraits)', type: 'system' },
+    { id: '27', text: 'Type HELP for available commands.', type: 'system' },
   ]);
 
-  const [choices, setChoices] = useState<GameChoice[]>([
-    {
-      id: 'explore_cafeteria',
-      text: 'Head to the Cafeteria',
-      description: 'Join other students for orientation meal - safe but predictable',
-      consequence: 'positive'
-    },
-    {
-      id: 'visit_library',
-      text: 'Explore the Library (Larcen)',
-      description: 'Seek forbidden knowledge among ancient tomes',
-      consequence: 'neutral'
-    },
-    {
-      id: 'investigate_portraits',
-      text: 'Examine the moving portraits',
-      description: 'The eyes seem to track your movement - what secrets do they hold?',
-      consequence: 'negative'
-    },
-    {
-      id: 'check_faction',
-      text: `Connect with ${character.faction} members`,
-      description: `Look for other students aligned with the ${character.faction} faction`,
-      consequence: 'positive'
-    }
-  ]);
+  const [currentLocation, setCurrentLocation] = useState('Main Lobby');
 
-  const [gameInProgress, setGameInProgress] = useState(true);
+  const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
+    const newLine: TerminalLine = {
+      id: Date.now().toString() + Math.random(),
+      text,
+      type
+    };
+    setTerminalLines(prev => [...prev, newLine]);
+  };
 
-  // todo: implement actual game logic
   const handleCommand = (command: string) => {
-    console.log('Processing command:', command);
+    const cmd = command.toLowerCase().trim();
     
-    // Mock response - todo: replace with game engine
-    const newMessage: GameMessage = {
-      id: Date.now().toString(),
-      type: 'action',
-      content: `> ${command}`,
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
+    // Add command to terminal
+    addTerminalLine(`> ${command}`, 'command');
 
-    // Mock game response
-    setTimeout(() => {
-      const response: GameMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'narrative',
-        content: 'The Academy seems to respond to your action with an eerie silence. The shadows shift slightly, as if watching your every move.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, response]);
-    }, 1000);
+    // Process commands like classic text adventures
+    if (cmd === 'help') {
+      addTerminalLine('');
+      addTerminalLine('Available commands:');
+      addTerminalLine('LOOK - Examine your surroundings');
+      addTerminalLine('GO [direction] - Move in a direction (NORTH, SOUTH, EAST, WEST, UP, DOWN)');
+      addTerminalLine('EXAMINE [object] - Look at something closely');
+      addTerminalLine('INVENTORY - Check your belongings');
+      addTerminalLine('STATUS - View character information');
+      addTerminalLine('SAVE - Save your progress');
+      addTerminalLine('LOAD - Load saved game');
+    } else if (cmd === 'look') {
+      addTerminalLine('');
+      addTerminalLine('MAIN LOBBY');
+      addTerminalLine('You are standing in the main lobby of The Academy. Ancient portraits');
+      addTerminalLine('line the walls, their eyes seeming to track your every movement. A');
+      addTerminalLine('receptionist desk sits eerily empty. Hallways branch off in multiple');
+      addTerminalLine('directions, leading deeper into the mysterious institution.');
+      addTerminalLine('');
+      addTerminalLine('Exits: NORTH (Cafeteria), EAST (Library), UP (Stairs)');
+    } else if (cmd === 'examine portraits' || cmd === 'examine portrait') {
+      addTerminalLine('');
+      addTerminalLine('You step closer to examine the portraits. The painted figures seem');
+      addTerminalLine('ancient, wearing academic robes from centuries past. Their eyes');
+      addTerminalLine('definitely follow you as you move. One portrait\'s nameplate reads');
+      addTerminalLine('"Professor Blackwood - Founder." You notice the paint seems to shift');
+      addTerminalLine('slightly when you\'re not looking directly at it.');
+    } else if (cmd === 'north' || cmd === 'go north' || cmd === 'cafeteria') {
+      setCurrentLocation('Cafeteria');
+      addTerminalLine('');
+      addTerminalLine('CAFETERIA');
+      addTerminalLine('You enter the Academy\'s cafeteria. Long wooden tables fill the space,');
+      addTerminalLine('and students from various factions sit in distinct groups. The food');
+      addTerminalLine('line serves mysterious dishes that seem to shimmer with otherworldly');
+      addTerminalLine('energy. You notice other students watching you curiously.');
+      addTerminalLine('');
+      addTerminalLine('Exits: SOUTH (Main Lobby)');
+    } else if (cmd === 'east' || cmd === 'go east' || cmd === 'library') {
+      setCurrentLocation('Library (Larcen)');
+      addTerminalLine('');
+      addTerminalLine('LIBRARY (LARCEN)');
+      addTerminalLine('You enter the vast library known as Larcen. Towering bookshelves');
+      addTerminalLine('stretch impossibly high, filled with ancient tomes and forbidden');
+      addTerminalLine('knowledge. Strange whispers echo from the darker sections. A sign');
+      addTerminalLine('warns: "Some knowledge is not meant for freshmen."');
+      addTerminalLine('');
+      addTerminalLine('Exits: WEST (Main Lobby), DEEP (Restricted Section)');
+    } else if (cmd === 'up' || cmd === 'go up' || cmd === 'stairs') {
+      addTerminalLine('');
+      addTerminalLine('As you approach the stairs, a mysterious force prevents you from');
+      addTerminalLine('ascending. A spectral voice whispers: "Only those who have proven');
+      addTerminalLine('themselves may access the upper floors." You feel a chill run down');
+      addTerminalLine('your spine.');
+    } else if (cmd === 'status') {
+      addTerminalLine('');
+      addTerminalLine('CHARACTER STATUS:');
+      addTerminalLine(`Name: ${character.name}`);
+      addTerminalLine(`Race: ${character.race}`);
+      addTerminalLine(`Class: ${character.class} (${character.subClass})`);
+      addTerminalLine(`Faction: ${character.faction}`);
+      addTerminalLine(`Location: ${currentLocation}`);
+      addTerminalLine(`Health: ${character.energy}/${character.maxEnergy}`);
+    } else if (cmd === 'inventory') {
+      addTerminalLine('');
+      addTerminalLine('INVENTORY:');
+      addTerminalLine('- Student ID badge (glowing with faction insignia)');
+      addTerminalLine('- Academy handbook (pages seem to change when not being read)');
+      addTerminalLine('- Dormitory key (room assignment: pending)');
+    } else if (cmd === 'save') {
+      addTerminalLine('');
+      addTerminalLine('Game saved successfully.', 'system');
+    } else if (cmd === 'load') {
+      addTerminalLine('');
+      addTerminalLine('No saved games found.', 'error');
+    } else {
+      addTerminalLine('');
+      addTerminalLine(`I don't understand "${command}". Type HELP for available commands.`, 'error');
+    }
   };
 
-  // todo: implement choice consequences and branching narrative
-  const handleChoice = (choiceId: string) => {
-    console.log('Processing choice:', choiceId);
-    
-    const choice = choices.find(c => c.id === choiceId);
-    if (!choice) return;
-
-    // Add choice to narrative
-    const choiceMessage: GameMessage = {
-      id: Date.now().toString(),
-      type: 'action',
-      content: `> ${choice.text}`,
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, choiceMessage]);
-
-    // Mock consequence - todo: implement real game logic
-    setTimeout(() => {
-      let response = '';
-      let newChoices: GameChoice[] = [];
-
-      switch (choiceId) {
-        case 'enter':
-          response = 'You step through the gates and onto the Academy grounds. The massive doors of the main building loom before you, carved with symbols that seem to writhe in your peripheral vision. A figure in dark robes approaches from the shadows.';
-          newChoices = [
-            {
-              id: 'greet',
-              text: 'Greet the robed figure',
-              description: 'Introduce yourself politely',
-              consequence: 'positive'
-            },
-            {
-              id: 'avoid',
-              text: 'Try to avoid the figure',
-              description: 'Duck behind a pillar and hope they pass by',
-              consequence: 'neutral'
-            }
-          ];
-          break;
-        case 'hesitate':
-          response = 'Your hesitation proves wise. As you stand at the threshold, you notice strange symbols carved into the gate posts, pulsing with a faint, otherworldly light. The Academy\'s secrets are deeper than they first appeared.';
-          newChoices = [
-            {
-              id: 'study_symbols',
-              text: 'Study the symbols closely',
-              description: 'Try to decipher their meaning',
-              consequence: 'positive'
-            },
-            {
-              id: 'enter_prepared',
-              text: 'Enter with newfound caution',
-              description: 'Proceed, but stay alert for danger',
-              consequence: 'neutral'
-            }
-          ];
-          break;
-        case 'investigate':
-          response = 'Your careful examination reveals hidden mechanisms within the gate. Ancient runes glow softly when touched, and you hear whispers in languages you don\'t recognize. This place is far more than a simple school.';
-          newChoices = [
-            {
-              id: 'touch_runes',
-              text: 'Touch the glowing runes',
-              description: 'Risk activating whatever magic lies within',
-              consequence: 'negative'
-            },
-            {
-              id: 'listen',
-              text: 'Listen to the whispers',
-              description: 'Try to understand what the voices are saying',
-              consequence: 'positive'
-            }
-          ];
-          break;
-      }
-
-      const responseMessage: GameMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'narrative',
-        content: response,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, responseMessage]);
-      setChoices(newChoices);
-    }, 1500);
-  };
-
-  // todo: implement actual save/load functionality
-  const handleSave = () => {
-    console.log('Saving game state...');
-    // Mock save notification
-    const saveMessage: GameMessage = {
-      id: Date.now().toString(),
-      type: 'system',
-      content: '> Game saved successfully.',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, saveMessage]);
-  };
-
-  const handleLoad = () => {
-    console.log('Loading game state...');
-    // Mock load notification
-    const loadMessage: GameMessage = {
-      id: Date.now().toString(),
-      type: 'system',
-      content: '> No saved games found. Starting new adventure...',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, loadMessage]);
-  };
-
-  const handleSettings = () => {
-    console.log('Opening settings...');
-    setGameInProgress(!gameInProgress);
-    
-    const settingsMessage: GameMessage = {
-      id: Date.now().toString(),
-      type: 'system',
-      content: `> Game ${gameInProgress ? 'paused' : 'resumed'}.`,
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, settingsMessage]);
-  };
+  const statusLine = `${character.name} | ${character.race} ${character.class} | Location: ${currentLocation} | Health: ${character.energy}/${character.maxEnergy}`;
 
   return (
-    <GameLayout
-      character={character}
-      messages={messages}
-      choices={choices}
+    <TerminalInterface
+      lines={terminalLines}
       onCommand={handleCommand}
-      onChoice={handleChoice}
-      onSave={handleSave}
-      onLoad={handleLoad}
-      onSettings={handleSettings}
-      gameInProgress={gameInProgress}
+      prompt=">"
+      statusLine={statusLine}
     />
   );
 }

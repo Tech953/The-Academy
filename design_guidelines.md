@@ -1,64 +1,56 @@
-# Design Guidelines: The Academy - Text-Based RPG
+# Design Guidelines: The Academy - Classic Text Adventure
 
 ## Design Approach
-**System-Based Approach**: Using a dark, atmospheric design system optimized for extended reading sessions and immersive gaming experiences. Drawing inspiration from terminal interfaces and modern dark-themed productivity tools like Linear and Notion.
+**Terminal-First Approach**: Authentic recreation of early 90s text adventure games like Zork, with a pure terminal aesthetic that prioritizes text and commands over visual elements.
 
 ## Core Design Elements
 
 ### Color Palette
-**Dark Mode Primary** (default):
-- Background: 210 25% 8% (deep navy-black)
-- Surface: 210 20% 12% (elevated panels)
-- Primary: 280 60% 70% (mystical purple)
-- Text: 210 15% 95% (near-white)
-- Accent: 180 40% 65% (subtle cyan for highlights)
+**Classic Terminal** (only palette):
+- Background: 0 0% 0% (pure black)
+- Text: 120 100% 50% (bright green - classic terminal)
+- Input: 60 100% 50% (bright yellow for command input)
+- System: 0 0% 70% (gray for system messages)
+- Error: 0 100% 50% (bright red for errors)
 
 ### Typography
-- **Primary Font**: 'JetBrains Mono' (monospace for terminal feel)
-- **Secondary Font**: 'Inter' (clean sans-serif for UI elements)
-- **Sizes**: Text-sm for body, text-lg for titles, text-xs for metadata
+- **Only Font**: 'Courier New' or system monospace
+- **Only Size**: Single size (16px equivalent) for everything
+- **No variations**: No bold, italic, or size changes except for headers
 
 ### Layout System
-**Spacing Primitives**: Tailwind units of 2, 4, 6, and 8 (p-2, m-4, gap-6, h-8)
+**Minimal Spacing**: Only basic padding and line breaks, no complex layouts
 
-### Component Library
+### Interface Elements
 
 #### Core Game Interface
-- **Command Terminal**: Fixed-bottom input with glowing border effect
-- **Narrative Display**: Scrollable text area with typewriter-like appearance
-- **Choice Buttons**: Outline variant with subtle hover glow
-- **Status Panels**: Floating cards showing character stats and progress
+- **Terminal Window**: Full-screen black background with green text
+- **Text Output**: Scrolling text only, no cards or panels
+- **Command Input**: Simple text input with ">" prompt
+- **Status Line**: Single line at top showing basic stats
 
-#### Navigation & Menus
-- **Menu System**: Slide-out sidebar with hierarchical navigation
-- **Modal Overlays**: Semi-transparent backdrop with centered content
-- **Tab Interface**: Underlined active states for different game sections
-
-#### Data Displays
-- **Character Sheet**: Grid-based stat display with progress bars
-- **Inventory**: Card-grid layout for items and abilities
-- **Social Network**: Node-based visualization for relationships
-- **Class Schedule**: Calendar-style grid with course information
-
-#### Forms & Interactions
-- **Character Creation**: Multi-step wizard with validation
-- **Save/Load Interface**: File-browser style list with metadata
-- **Settings Panel**: Toggle switches and dropdown selectors
+#### No Modern UI Elements
+- **No Cards**: Plain text only
+- **No Buttons**: Text-based menu options with numbers
+- **No Sidebars**: Everything in single column
+- **No Progress Bars**: Text-based status (e.g., "Health: 75/100")
 
 ### Visual Atmosphere
-- **Terminal Aesthetic**: Monospace fonts with subtle scan-line effects
-- **Glow Effects**: Subtle box-shadows on interactive elements
-- **Dark Borders**: Use border-gray-700 for panel separation
-- **Minimal Animation**: Subtle fade transitions only (100-200ms duration)
+- **Pure Terminal**: Exactly like old DOS/Unix terminals
+- **No Graphics**: Zero visual elements beyond text
+- **No Colors**: Only green text on black background
+- **No Animations**: Instant text display
+- **No Borders**: No visual separators except line breaks
 
 ### Layout Structure
-- **Main Game View**: Full-height layout with narrative area (60%), command input (10%), sidebar (30%)
-- **Responsive**: Single-column on mobile with collapsible panels
-- **Typography Hierarchy**: Clear distinction between narrative text, UI labels, and interactive elements
+- **Single Column**: Everything flows vertically
+- **Status Line**: Character name, location, basic stats on one line
+- **Game Text**: Scrolling narrative and system messages
+- **Command Prompt**: "> " at bottom for user input
 
 ### Key Design Principles
-1. **Immersion First**: Dark theme reduces eye strain during long sessions
-2. **Readability**: High contrast ratios for extended text reading
-3. **Terminal Inspiration**: Monospace elements evoke classic text adventures
-4. **Minimal Distraction**: Clean interface keeps focus on narrative
-5. **Atmospheric Consistency**: Purple/cyan accents maintain mysterious academy theme
+1. **Authenticity**: Exact replica of 1990s text adventures
+2. **Simplicity**: No visual complexity whatsoever
+3. **Text-Only**: Everything communicated through text
+4. **Terminal Feel**: Green text on black background only
+5. **Command-Driven**: All interaction through typed commands
