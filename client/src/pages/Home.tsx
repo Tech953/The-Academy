@@ -484,6 +484,7 @@ export default function Home() {
         addTerminalLine('SCHEDULE - View class schedule');
         addTerminalLine('GPA - View current GPA and standing');
         addTerminalLine('READ [textbook] - Read a course textbook');
+        addTerminalLine('ATTEND [course] - Mark attendance for a class');
         addTerminalLine('');
         addTerminalLine('== Game ==');
         addTerminalLine('SAVE - Save your progress');
@@ -605,6 +606,8 @@ export default function Home() {
       await handleGPA();
     } else if (action === 'read') {
       await handleRead(target);
+    } else if (action === 'attend') {
+      await handleAttend(target);
     } else if (action === 'save') {
       await handleSave();
     } else if (action === 'load') {
@@ -1060,6 +1063,102 @@ export default function Home() {
       console.error('Error reading textbook:', error);
       addTerminalLine('');
       addTerminalLine('Error reading textbook. Please try again.', 'error');
+    }
+  };
+
+  const handleAttend = async (target: string) => {
+    if (!gameState) return;
+    
+    if (!target) {
+      addTerminalLine('');
+      addTerminalLine('Which class would you like to attend? Try ATTEND [course name].', 'error');
+      addTerminalLine('Type SCHEDULE to see your enrolled courses.');
+      return;
+    }
+    
+    try {
+      // Get character's enrollments
+      const enrollmentsResponse = await fetch(`/api/enrollments/character/${gameState.character.id}`);
+      if (!enrollmentsResponse.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to fetch enrollments.', 'error');
+        return;
+      }
+      
+      const enrollments = await enrollmentsResponse.json();
+      const activeEnrollments = enrollments.filter((e: any) => e.status === 'enrolled');
+      
+      if (activeEnrollments.length === 0) {
+        addTerminalLine('');
+        addTerminalLine('You are not enrolled in any courses.', 'error');
+        addTerminalLine('Visit the library to enroll in GED preparation courses.');
+        return;
+      }
+      
+      // Find matching enrollment
+      let matchingEnrollment = null;
+      for (const enrollment of activeEnrollments) {
+        const courseResponse = await fetch(`/api/courses/${enrollment.courseId}`);
+        const course = await courseResponse.json();
+        
+        if (course.name.toLowerCase().includes(target.toLowerCase()) ||
+            course.id.toLowerCase() === target.toLowerCase()) {
+          matchingEnrollment = { enrollment, course };
+          break;
+        }
+      }
+      
+      if (!matchingEnrollment) {
+        addTerminalLine('');
+        addTerminalLine(`You are not enrolled in "${target}".`, 'error');
+        addTerminalLine('Type SCHEDULE to see your enrolled courses.');
+        return;
+      }
+      
+      const { enrollment, course } = matchingEnrollment;
+      
+      // Mark attendance (energy validation and deduction is atomic on server)
+      const attendResponse = await fetch(`/api/enrollments/${enrollment.id}/attend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterId: gameState.character.id }),
+      });
+      
+      if (!attendResponse.ok) {
+        const error = await attendResponse.json();
+        addTerminalLine('');
+        
+        if (error.error === 'Insufficient energy') {
+          addTerminalLine('You are too tired to attend class.', 'error');
+          addTerminalLine(`Attending class requires ${error.required} energy. You have ${error.available}.`);
+        } else {
+          addTerminalLine(error.error || 'Failed to mark attendance.', 'error');
+        }
+        return;
+      }
+      
+      const result = await attendResponse.json();
+      const schedule = course.schedule as any;
+      
+      addTerminalLine('');
+      addTerminalLine(`You attend ${course.name}.`);
+      addTerminalLine(`Location: ${schedule.room}`);
+      addTerminalLine(`Time: ${schedule.time}`);
+      addTerminalLine('');
+      addTerminalLine('You participate in class discussions and take notes.');
+      addTerminalLine(`Energy: -${result.energyCost} (${gameState.character.energy} → ${result.character.energy})`);
+      addTerminalLine('');
+      addTerminalLine('Attendance has been recorded. Keep attending to maintain good standing!');
+      
+      // Update game state with new energy value from server
+      const updatedState = await gameStateManager.getGameState(gameState.character.id);
+      if (updatedState) {
+        setGameState(updatedState);
+      }
+    } catch (error) {
+      console.error('Error attending class:', error);
+      addTerminalLine('');
+      addTerminalLine('Error attending class. Please try again.', 'error');
     }
   };
   

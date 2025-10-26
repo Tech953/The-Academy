@@ -4,33 +4,42 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 
 # Recent Changes
 
-## Curriculum System Foundation (Latest - October 26, 2025)
-Implemented comprehensive academic curriculum system with **triple theme support**:
-- **Database Schema:** Added 5 new tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
-- **Current Theme - GED Preparation (Active):** 24 high school equivalency courses across 4 GED test areas:
-  - **Mathematical Reasoning** (6 courses): Basic Math Skills → Pre-Algebra → Algebra Fundamentals → Geometry & Measurement → Data Analysis & Statistics → GED Math Test Prep
-  - **Language Arts** (6 courses): Reading Comprehension → Grammar & Writing Mechanics → Essay Writing → Literature Analysis → Workplace Reading → GED Language Arts Test Prep
-  - **Science** (6 courses): Life Science Basics → Physical Science → Earth & Space Science → Human Body & Health → Scientific Reasoning → GED Science Test Prep
-  - **Social Studies** (6 courses): U.S. History → World History → Civics & Government → Economics → Geography → GED Social Studies Test Prep
-  - **Total:** 24 courses, 168 assignments, 5 pathways (1 GED Diploma + 4 Test Area Certificates)
-  - Each course includes comprehensive syllabus, learning objectives, and test preparation strategies
-- **Collegiate Theme - Saved for Sequel (server/procedural/collegiatecurriculum.ts):**
-  - 144 courses across 12 real-world departments: Mathematics, Natural Sciences, Computer Science, History, Literature, Philosophy, Language Studies, Psychology, Economics, Political Science, Art, Music
-  - Traditional college experience with 100-400 level courses
-  - 1,008 assignments and 24 pathways (12 majors + 12 minors)
-  - Perfect for a university/college sequel
-- **Fantasy Theme - Saved for Spin-off (server/procedural/fantasycurriculum.ts):**
-  - 96 courses across 8 mystical departments: Mysticism, Combat Arts, Arcane Sciences, Diplomacy, History, Philosophy, Investigation, Leadership
-  - Complete course templates with magical/fantasy content
-  - 672 assignments and 16 pathways (8 majors + 8 minors)
-  - Can be activated for fantasy academy spin-off
-  - See `CURRICULUM_README.md` for theme switching instructions
-- **Assignment Structure:** All courses include 7 assignments with proper weighting:
-  - Class participation (20%), midterm exam (20%), 4 assignments (30%), final project (30%)
-  - Each with point values, weights, due dates, and detailed content
-- **Graduation Pathways:** Students can earn GED diploma or individual test area certificates
-- **Academic Progress Tracking:** Schema for GPA calculation, transcripts, semester tracking
-- **Status:** Core infrastructure complete - enrollment, attendance, grading UI remaining
+## Complete Curriculum System (Latest - October 26, 2025)
+Implemented fully functional academic curriculum system with **triple theme support**:
+
+### Core Features
+- **Database Schema:** 5 tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
+- **24 Textbooks:** Auto-generated textbook items for all courses containing syllabi and study materials
+- **Security:** Enrollment ownership validation, course-assignment matching prevents grade manipulation
+- **Natural Language Support:** Academic commands work with NLP (e.g., "show my grades", "what's my GPA?")
+
+### GED Preparation Theme (Active)
+24 high school equivalency courses across 4 GED test areas:
+- **Mathematical Reasoning** (6 courses): Basic Math Skills → Pre-Algebra → Algebra Fundamentals → Geometry & Measurement → Data Analysis & Statistics → GED Math Test Prep
+- **Language Arts** (6 courses): Reading Comprehension → Grammar & Writing Mechanics → Essay Writing → Literature Analysis → Workplace Reading → GED Language Arts Test Prep
+- **Science** (6 courses): Life Science Basics → Physical Science → Earth & Space Science → Human Body & Health → Scientific Reasoning → GED Science Test Prep
+- **Social Studies** (6 courses): U.S. History → World History → Civics & Government → Economics → Geography → GED Social Studies Test Prep
+
+### Terminal Commands (All Working)
+- **GRADES** - View current course grades with completion percentages
+- **TRANSCRIPT** - View completed courses with final grades and credits
+- **SCHEDULE** - View class schedule with times/locations for enrolled courses
+- **GPA** - View cumulative GPA, academic standing (honors/good/probation/warning), and total credits
+- **READ [textbook]** - Read course textbooks with full syllabus and description
+- **ATTEND [course]** - Attend class sessions (costs 10 energy, tracks attendance)
+
+### Academic Systems
+- **Auto-Grading:** Multiple choice questions graded automatically, essays simulated with word count/structure analysis
+- **GPA Calculation:** Letter grade conversion, GPA points (4.0 scale × 100), cumulative/semester tracking
+- **Academic Standing:** Honors (3.5+), Good (2.0-3.5), Probation (1.5-2.0), Warning (<1.5)
+- **Attendance Tracking:** Records class attendance, affects participation grades
+- **Graduation Pathways:** 5 pathways - GED Diploma + 4 individual test area certificates
+- **Game Integration:** Attending class costs energy, grades affect character progression
+
+### Saved Themes for Future Releases
+- **Collegiate Theme** (server/procedural/collegiatecurriculum.ts): 144 courses, 12 departments, perfect for university sequel
+- **Fantasy Theme** (server/procedural/fantasycurriculum.ts): 96 courses, 8 mystical departments, for fantasy spin-off
+- See `CURRICULUM_README.md` for theme switching instructions
 
 ## Natural Language Processing System (October 26, 2025)
 Implemented comprehensive AI-powered command interpreter that allows players to use natural questions instead of memorizing exact commands:

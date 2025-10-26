@@ -356,6 +356,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark attendance for a class session (with atomic energy deduction)
+  app.post("/api/enrollments/:id/attend", async (req, res) => {
+    try {
+      const { characterId, date } = req.body;
+      const energyCost = 10; // Fixed cost for attending class
+      
+      if (!characterId) {
+        return res.status(400).json({ error: "Character ID required" });
+      }
+      
+      const enrollment = await storage.getEnrollment(req.params.id);
+      if (!enrollment) {
+        return res.status(404).json({ error: "Enrollment not found" });
+      }
+      
+      // Verify enrollment belongs to character
+      if (enrollment.characterId !== characterId) {
+        return res.status(403).json({ error: "Enrollment does not belong to this character" });
+      }
+      
+      if (enrollment.status !== 'enrolled') {
+        return res.status(400).json({ error: "Cannot attend inactive enrollment" });
+      }
+      
+      // Get character and check energy
+      const character = await storage.getCharacter(characterId);
+      if (!character) {
+        return res.status(404).json({ error: "Character not found" });
+      }
+      
+      if (character.energy < energyCost) {
+        return res.status(400).json({ 
+          error: "Insufficient energy",
+          required: energyCost,
+          available: character.energy
+        });
+      }
+      
+      // Check duplicate attendance
+      const currentAttendanceRecord = (enrollment.attendanceRecord as string[]) || [];
+      const attendanceDate = date || new Date().toISOString();
+      const dateOnly = attendanceDate.split('T')[0];
+      const alreadyAttended = currentAttendanceRecord.some(record => 
+        record.startsWith(dateOnly)
+      );
+      
+      if (alreadyAttended) {
+        return res.status(400).json({ error: "Attendance already marked for this date" });
+      }
+      
+      // Atomic update: deduct energy FIRST, then mark attendance
+      // This ensures if anything fails, we haven't marked attendance yet
+      const updatedCharacter = await storage.updateCharacter(characterId, {
+        energy: character.energy - energyCost,
+      });
+      
+      if (!updatedCharacter) {
+        return res.status(500).json({ error: "Failed to update character energy" });
+      }
+      
+      // Clone the attendance array to avoid mutating the original until persistence succeeds
+      const updatedAttendanceRecord = [...currentAttendanceRecord, attendanceDate];
+      
+      const updatedEnrollment = await storage.updateEnrollment(req.params.id, {
+        attendanceRecord: updatedAttendanceRecord as any,
+      });
+      
+      if (!updatedEnrollment) {
+        // Rollback: restore energy if attendance update failed
+        await storage.updateCharacter(characterId, {
+          energy: character.energy, // Restore original energy
+        });
+        return res.status(500).json({ error: "Failed to mark attendance" });
+      }
+      
+      res.json({ 
+        success: true,
+        enrollment: updatedEnrollment,
+        character: updatedCharacter,
+        energyCost,
+        message: "Attendance marked successfully"
+      });
+    } catch (error) {
+      console.error('Attendance marking error:', error);
+      res.status(500).json({ error: "Failed to mark attendance" });
+    }
+  });
+
   // Submit assignment
   app.post("/api/assignments/:id/submit", async (req, res) => {
     try {
