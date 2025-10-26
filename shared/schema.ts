@@ -20,6 +20,8 @@ export const characters = pgTable("characters", {
   subClass: text("sub_class"),
   faction: text("faction").notNull(),
   background: text("background"),
+  characterSummary: text("character_summary"), // Player-written character description
+  physicalTraits: jsonb("physical_traits").default("{}"), // AI-generated questions and player answers
   currentLocation: text("current_location").default("main_lobby"),
   stats: jsonb("stats").notNull(),
   reputation: jsonb("reputation").notNull(),

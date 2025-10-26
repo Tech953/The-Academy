@@ -11,6 +11,12 @@ interface TerminalLine {
   type: 'output' | 'command' | 'system' | 'error';
 }
 
+interface PhysicalQuestion {
+  question: string;
+  category: string;
+  suggestedAnswers?: string[];
+}
+
 export default function TextCharacterCreation({ onComplete }: TextCharacterCreationProps) {
   const [lines, setLines] = useState<TerminalLine[]>([
     { id: '1', text: 'THE ACADEMY - CHARACTER CREATION', type: 'system' },
@@ -28,8 +34,14 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
     race: '',
     class: '',
     subClass: '',
-    faction: ''
+    faction: '',
+    characterSummary: '',
+    physicalTraits: {} as Record<string, string>
   });
+
+  const [physicalQuestions, setPhysicalQuestions] = useState<PhysicalQuestion[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
 
   const addLine = (text: string, type: TerminalLine['type'] = 'output') => {
     const newLine: TerminalLine = {
@@ -45,7 +57,59 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
   const subClasses = ['Berserker', 'Assassin', 'Paladin', 'Demon', 'Angel', 'Beast Hunter', 'Lich', 'Lunar Guardian', 'Light Worker'];
   const factions = ['Archivist', 'Raider', 'Outcast', 'AI', 'Magi'];
 
-  const handleCommand = (command: string) => {
+  const generatePhysicalQuestions = async (summary: string) => {
+    setIsGeneratingQuestions(true);
+    addLine('');
+    addLine('Generating personalized questions based on your character...', 'system');
+    
+    try {
+      const response = await fetch('/api/character-creation/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterSummary: summary }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate questions');
+      }
+
+      const data = await response.json();
+      setPhysicalQuestions(data.questions);
+      setCurrentQuestionIndex(0);
+      
+      addLine('');
+      addLine('Now let\'s define your character\'s physical traits...', 'system');
+      addLine('');
+      
+      // Show first question
+      const firstQ = data.questions[0];
+      addLine(firstQ.question);
+      if (firstQ.suggestedAnswers) {
+        firstQ.suggestedAnswers.forEach((answer: string, idx: number) => {
+          addLine(`${idx + 1}. ${answer}`);
+        });
+      }
+      addLine('');
+      addLine('(You can type a number or write your own answer)');
+      
+      setStep('physical-traits');
+    } catch (error) {
+      console.error('Error generating questions:', error);
+      addLine('');
+      addLine('Could not generate custom questions. Continuing with basic setup...', 'error');
+      // Skip to race selection
+      addLine('');
+      addLine('Choose your race by typing the number:');
+      races.forEach((race, index) => {
+        addLine(`${index + 1}. ${race}`);
+      });
+      setStep('race');
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  };
+
+  const handleCommand = async (command: string) => {
     // Add the command to terminal
     addLine(`> ${command}`, 'command');
 
@@ -56,13 +120,86 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
           addLine('');
           addLine(`Welcome, ${command.trim()}.`);
           addLine('');
-          addLine('Choose your race by typing the number:');
-          races.forEach((race, index) => {
-            addLine(`${index + 1}. ${race}`);
-          });
-          setStep('race');
+          addLine('Before we continue, tell us about your character in your own words.');
+          addLine('Who are they? What\'s their background? What brought them to The Academy?');
+          addLine('');
+          addLine('Write a brief summary (at least 20 characters):');
+          setStep('summary');
         } else {
           addLine('Please enter a valid name.', 'error');
+        }
+        break;
+
+      case 'summary':
+        if (command.trim().length >= 20) {
+          setCharacter(prev => ({ ...prev, characterSummary: command.trim() }));
+          addLine('');
+          addLine('Excellent! Your character summary has been recorded.');
+          
+          // Generate AI questions based on the summary
+          await generatePhysicalQuestions(command.trim());
+        } else {
+          addLine('Please write at least 20 characters to describe your character.', 'error');
+        }
+        break;
+
+      case 'physical-traits':
+        if (isGeneratingQuestions) {
+          addLine('Please wait while questions are being generated...', 'system');
+          break;
+        }
+
+        const currentQ = physicalQuestions[currentQuestionIndex];
+        let answer = command.trim();
+        
+        // Check if they entered a number (selecting from suggested answers)
+        if (currentQ.suggestedAnswers) {
+          const answerIndex = parseInt(command) - 1;
+          if (answerIndex >= 0 && answerIndex < currentQ.suggestedAnswers.length) {
+            answer = currentQ.suggestedAnswers[answerIndex];
+          }
+        }
+        
+        if (answer) {
+          // Store the answer
+          setCharacter(prev => ({
+            ...prev,
+            physicalTraits: {
+              ...prev.physicalTraits,
+              [currentQ.category]: answer
+            }
+          }));
+          
+          addLine('');
+          addLine(`Recorded: ${answer}`);
+          
+          // Move to next question or continue to race selection
+          if (currentQuestionIndex < physicalQuestions.length - 1) {
+            const nextQ = physicalQuestions[currentQuestionIndex + 1];
+            setCurrentQuestionIndex(currentQuestionIndex + 1);
+            
+            addLine('');
+            addLine(nextQ.question);
+            if (nextQ.suggestedAnswers) {
+              nextQ.suggestedAnswers.forEach((ans, idx) => {
+                addLine(`${idx + 1}. ${ans}`);
+              });
+            }
+            addLine('');
+            addLine('(You can type a number or write your own answer)');
+          } else {
+            // All questions answered, move to race selection
+            addLine('');
+            addLine('Great! Your physical characteristics have been recorded.');
+            addLine('');
+            addLine('Now choose your race by typing the number:');
+            races.forEach((race, index) => {
+              addLine(`${index + 1}. ${race}`);
+            });
+            setStep('race');
+          }
+        } else {
+          addLine('Please provide an answer.', 'error');
         }
         break;
 
@@ -154,6 +291,19 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
           addLine('');
           addLine('CHARACTER SUMMARY:');
           addLine(`Name: ${finalCharacter.name}`);
+          addLine(`Background: ${finalCharacter.characterSummary}`);
+          
+          // Show physical traits if any were recorded
+          const physicalTraitsEntries = Object.entries(finalCharacter.physicalTraits);
+          if (physicalTraitsEntries.length > 0) {
+            addLine('');
+            addLine('Physical Traits:');
+            physicalTraitsEntries.forEach(([category, value]) => {
+              addLine(`  ${category}: ${value}`);
+            });
+          }
+          
+          addLine('');
           addLine(`Race: ${finalCharacter.race}`);
           addLine(`Class: ${finalCharacter.class}`);
           addLine(`Specialization: ${finalCharacter.subClass}`);

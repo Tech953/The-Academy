@@ -5,6 +5,7 @@ import { insertCharacterSchema, insertEnrollmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { processNaturalLanguage, type GameContext } from "./nlp/commandProcessor";
 import { calculateGPA, gradeAssignment, getAcademicStanding, numericToLetterGrade, letterGradeToPoints } from "./utils/academicUtils";
+import { generatePhysicalQuestions } from "./ai/characterQuestions";
 
 // Character update validation schema
 const characterUpdateSchema = z.object({
@@ -238,6 +239,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('NLP processing error:', error);
       res.status(500).json({ 
         error: "Failed to process natural language input",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Character creation AI - Generate physical characteristic questions
+  app.post("/api/character-creation/generate-questions", async (req, res) => {
+    try {
+      const { characterSummary } = req.body;
+      
+      if (!characterSummary || typeof characterSummary !== 'string') {
+        return res.status(400).json({ error: "Character summary is required" });
+      }
+      
+      if (characterSummary.length < 20) {
+        return res.status(400).json({ error: "Character summary must be at least 20 characters" });
+      }
+      
+      const questions = await generatePhysicalQuestions(characterSummary);
+      res.json({ questions });
+    } catch (error) {
+      console.error('Error generating character questions:', error);
+      res.status(500).json({ 
+        error: "Failed to generate questions",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
