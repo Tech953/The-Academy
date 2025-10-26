@@ -304,3 +304,58 @@ export interface GraduationRequirements {
   minGPA: number;
   requiredCourses: string[];
 }
+
+// Textbook and Lecture System Interfaces
+
+export interface TextbookSection {
+  title: string;
+  content: string;
+  keyPoints?: string[];
+  examples?: string[];
+}
+
+export interface TextbookChapter {
+  number: number;
+  title: string;
+  summary: string;
+  sections: TextbookSection[];
+  practiceProblems?: string[];
+  reviewQuestions?: string[];
+  relatedAssignments?: string[]; // Assignment IDs
+}
+
+export interface Lecture {
+  id: string;
+  courseId: string;
+  week: number;
+  title: string;
+  topic: string;
+  objectives: string[];
+  content: string;
+  keyTerms?: Array<{ term: string; definition: string }>;
+  examples?: string[];
+  homework?: string;
+  relatedChapters?: number[]; // Chapter numbers
+  duration: string; // e.g., "90 minutes"
+}
+
+export interface Textbook {
+  id: string;
+  courseId: string;
+  courseName: string;
+  department: string;
+  authors: string[];
+  edition: string;
+  chapters: TextbookChapter[];
+  glossary?: Array<{ term: string; definition: string }>;
+  references?: string[];
+}
+
+export interface ReadingProgress {
+  characterId: string;
+  textbookId: string;
+  chaptersRead: number[];
+  lecturesAttended: string[];
+  lastRead?: string;
+  notes?: string;
+}
