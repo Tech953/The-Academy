@@ -34,6 +34,7 @@ export interface CharacterPerk {
 // Polar cub icon mapping - each image represents different perk themes
 export const POLAR_CUB_ICONS = {
   strong: 'cute_polar_bear_cub__98a707c7.jpg',    // Strong/determined pose for combat perks
+
   smart: 'cute_polar_bear_cub__ec414e02.jpg',     // Curious/thinking pose for academic perks  
   social: 'cute_polar_bear_cub__5ff14998.jpg',    // Friendly/playful pose for social perks
   stealth: 'cute_polar_bear_cub__da0b1b5b.jpg',   // Alert/cautious pose for survival perks
