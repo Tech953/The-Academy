@@ -345,7 +345,26 @@
 
   /* High-performance scrolling */
   .smooth-scroll {
-    scroll-behavior: smooth;
     overflow-anchor: none;
+    -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+    overscroll-behavior: contain; /* Prevent scroll chaining */
+  }
+  
+  /* Custom scrollbar styling for terminal */
+  .smooth-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .smooth-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .smooth-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--terminal-glow) / 0.3);
+    border-radius: 4px;
+  }
+  
+  .smooth-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--terminal-glow) / 0.5);
   }
 }

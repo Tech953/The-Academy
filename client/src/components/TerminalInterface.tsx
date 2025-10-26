@@ -23,31 +23,135 @@ export default function TerminalInterface({
 }: TerminalInterfaceProps) {
   const [currentCommand, setCurrentCommand] = useState('');
   const [isPending, startTransition] = useTransition();
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollAnimationRef = useRef<number | null>(null);
+  const lastScrollTopRef = useRef(0);
 
-  // Smooth auto-scroll to bottom when new lines are added
+  // Check if user is near the bottom of the scroll
+  const isNearBottom = (container: HTMLElement): boolean => {
+    const threshold = 150; // pixels from bottom
+    const position = container.scrollTop + container.clientHeight;
+    const bottom = container.scrollHeight;
+    return bottom - position < threshold;
+  };
+
+  // Auto-scroll to bottom when new lines are added
   useEffect(() => {
-    if (terminalRef.current) {
-      const scrollContainer = terminalRef.current;
-      const targetScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-      
-      // Use requestAnimationFrame for smooth 60fps scrolling
-      const smoothScroll = () => {
-        const currentScrollTop = scrollContainer.scrollTop;
-        const distance = targetScrollTop - currentScrollTop;
+    if (!terminalRef.current) return;
+
+    const scrollContainer = terminalRef.current;
+    
+    // Cancel any ongoing scroll animation
+    if (scrollAnimationRef.current) {
+      cancelAnimationFrame(scrollAnimationRef.current);
+      scrollAnimationRef.current = null;
+    }
+
+    // Only auto-scroll if:
+    // 1. User hasn't manually scrolled up, OR
+    // 2. User is near the bottom (within threshold)
+    const shouldAutoScroll = !userHasScrolled || isNearBottom(scrollContainer);
+    
+    if (shouldAutoScroll) {
+      // Small delay to allow manual scrolling to take effect
+      const scrollTimer = setTimeout(() => {
+        const scrollToBottom = () => {
+          if (!scrollContainer) return;
+          
+          const targetScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+          const currentScrollTop = scrollContainer.scrollTop;
+          const distance = targetScrollTop - currentScrollTop;
+          
+          // If close enough, snap to bottom
+          if (Math.abs(distance) < 2) {
+            scrollContainer.scrollTop = targetScrollTop;
+            lastScrollTopRef.current = targetScrollTop;
+            scrollAnimationRef.current = null;
+            return;
+          }
+          
+          // Smooth scroll
+          const newScrollTop = currentScrollTop + (distance * 0.3);
+          scrollContainer.scrollTop = newScrollTop;
+          lastScrollTopRef.current = newScrollTop;
+          scrollAnimationRef.current = requestAnimationFrame(scrollToBottom);
+        };
         
-        if (Math.abs(distance) > 1) {
-          scrollContainer.scrollTop = currentScrollTop + (distance * 0.15);
-          requestAnimationFrame(smoothScroll);
-        } else {
-          scrollContainer.scrollTop = targetScrollTop;
+        scrollAnimationRef.current = requestAnimationFrame(scrollToBottom);
+      }, 50); // 50ms delay
+
+      return () => {
+        clearTimeout(scrollTimer);
+        if (scrollAnimationRef.current) {
+          cancelAnimationFrame(scrollAnimationRef.current);
+          scrollAnimationRef.current = null;
         }
       };
-      
-      requestAnimationFrame(smoothScroll);
     }
-  }, [lines]);
+
+    // Cleanup function to cancel animation on unmount
+    return () => {
+      if (scrollAnimationRef.current) {
+        cancelAnimationFrame(scrollAnimationRef.current);
+        scrollAnimationRef.current = null;
+      }
+    };
+  }, [lines, userHasScrolled]);
+
+  // Detect user scrolling and interaction
+  useEffect(() => {
+    const scrollContainer = terminalRef.current;
+    if (!scrollContainer) return;
+
+    const cancelAutoScroll = () => {
+      if (scrollAnimationRef.current) {
+        cancelAnimationFrame(scrollAnimationRef.current);
+        scrollAnimationRef.current = null;
+      }
+    };
+
+    // Detect user interaction starting (before scroll events)
+    const handleInteractionStart = () => {
+      cancelAutoScroll();
+      if (!isNearBottom(scrollContainer)) {
+        setUserHasScrolled(true);
+      }
+    };
+
+    const handleScroll = () => {
+      // Cancel any ongoing auto-scroll
+      cancelAutoScroll();
+      
+      // Check if user is near bottom
+      if (isNearBottom(scrollContainer)) {
+        setUserHasScrolled(false);
+      } else {
+        setUserHasScrolled(true);
+      }
+      
+      // Only update lastScrollTopRef if not auto-scrolling
+      if (!scrollAnimationRef.current) {
+        lastScrollTopRef.current = scrollContainer.scrollTop;
+      }
+    };
+
+    // Listen for user interaction starts
+    scrollContainer.addEventListener('mousedown', handleInteractionStart);
+    scrollContainer.addEventListener('touchstart', handleInteractionStart, { passive: true });
+    scrollContainer.addEventListener('wheel', handleInteractionStart, { passive: true });
+    
+    // Listen for scroll events
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      scrollContainer.removeEventListener('mousedown', handleInteractionStart);
+      scrollContainer.removeEventListener('touchstart', handleInteractionStart);
+      scrollContainer.removeEventListener('wheel', handleInteractionStart);
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   // Keep input focused for seamless typing experience
   useEffect(() => {
