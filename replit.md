@@ -5,9 +5,9 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 # Recent Changes
 
 ## Curriculum System Foundation (Latest - October 26, 2025)
-Implemented comprehensive academic curriculum system with real-world subjects:
+Implemented comprehensive academic curriculum system with **dual theme support**:
 - **Database Schema:** Added 5 new tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
-- **Course Catalog:** 144 procedurally generated courses across 12 real-world departments:
+- **Current Theme - Realistic Academia (Active):** 144 procedurally generated courses across 12 real-world departments:
   - **STEM:** Mathematics, Natural Sciences, Computer Science
   - **Humanities:** History, Literature, Philosophy, Language Studies
   - **Social Sciences:** Psychology, Economics, Political Science
@@ -20,6 +20,11 @@ Implemented comprehensive academic curriculum system with real-world subjects:
   - Languages: English Composition, Spanish, French, Linguistics
   - Computer Science: Programming, Data Structures, Algorithms, Databases
   - And many more traditional college courses across all departments
+- **Fantasy Theme - Preserved for Spin-off (server/procedural/fantasycurriculum.ts):**
+  - 96 courses across 8 mystical departments: Mysticism, Combat Arts, Arcane Sciences, Diplomacy, History, Philosophy, Investigation, Leadership
+  - Complete course templates with magical/fantasy content
+  - Can be activated via configuration flag for alternate game builds
+  - See `CURRICULUM_README.md` for theme switching instructions
 - **Assignments:** 1,008 total assignments (7 per course):
   - Class participation (20%), midterm exam (20%), 4 assignments (30%), final project (30%)
   - Each with point values, weights, due dates, and content
