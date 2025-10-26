@@ -126,6 +126,8 @@ export default function Home() {
         subClass: character.subClass,
         faction: character.faction,
         background: character.background,
+        characterSummary: character.characterSummary || '',
+        physicalTraits: character.physicalTraits || {},
         currentLocation: 'main_lobby',
         stats: character.stats,
         reputation: character.reputation,
@@ -154,7 +156,31 @@ export default function Home() {
           { id: '2', text: '', type: 'output' },
           { id: '3', text: `Welcome to "The Academy", ${character.name}.`, type: 'output' },
           { id: '4', text: `You are a ${character.race} ${character.class} aligned with the ${character.faction} faction.`, type: 'output' },
-          { id: '5', text: '', type: 'output' },
+          { id: '5', text: '', type: 'output' }
+        ];
+
+        // Add character summary if available
+        if (character.characterSummary) {
+          welcomeLines.push({ id: '5a', text: 'YOUR STORY:', type: 'system' });
+          welcomeLines.push({ id: '5b', text: character.characterSummary, type: 'output' });
+          welcomeLines.push({ id: '5c', text: '', type: 'output' });
+        }
+
+        // Add physical description if available
+        const physicalTraitsEntries = Object.entries(character.physicalTraits || {});
+        if (physicalTraitsEntries.length > 0) {
+          const traitsText = physicalTraitsEntries
+            .map(([, value]) => value)
+            .filter(Boolean)
+            .slice(0, 2) // Show first 2 traits
+            .join('. ');
+          if (traitsText) {
+            welcomeLines.push({ id: '5d', text: `At first glance: ${traitsText}.`, type: 'output' });
+            welcomeLines.push({ id: '5e', text: '', type: 'output' });
+          }
+        }
+
+        welcomeLines.push(
           { id: '6', text: 'This esteemed private school houses exactly 144 students in the far', type: 'output' },
           { id: '7', text: 'reaches of Toronto, Canada. As a freshman arriving from places unknown', type: 'output' },
           { id: '8', text: 'to a place even more unknown, you must navigate the mysteries that await.', type: 'output' },
@@ -162,7 +188,7 @@ export default function Home() {
           { id: '10', text: `Your ${character.subClass} specialization will serve you well in the`, type: 'output' },
           { id: '11', text: 'trials ahead. Type HELP for available commands.', type: 'output' },
           { id: '12', text: '', type: 'output' }
-        ];
+        );
         
         // Set initial welcome message and then display location
         setTerminalLines(welcomeLines);
