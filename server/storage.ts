@@ -9,9 +9,20 @@ import {
   Item,
   GameSession,
   GameStats,
-  GameReputation 
+  GameReputation,
+  Course,
+  InsertCourse,
+  Enrollment,
+  InsertEnrollment,
+  Assignment,
+  InsertAssignment,
+  GraduationPathway,
+  InsertGraduationPathway,
+  AcademicProgress,
+  InsertAcademicProgress
 } from "@shared/schema";
 import { ProceduralGenerator, WORLD_TEMPLATES } from "./procedural/generators";
+import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments } from "./procedural/courseGenerator";
 
 export interface IStorage {
   // User management
@@ -42,6 +53,27 @@ export interface IStorage {
   // Game sessions
   saveGameSession(characterId: string, sessionData: any): Promise<GameSession>;
   getLatestGameSession(characterId: string): Promise<GameSession | undefined>;
+  
+  // Curriculum system
+  getCourse(id: string): Promise<Course | undefined>;
+  getAllCourses(): Promise<Course[]>;
+  getCoursesByDepartment(department: string): Promise<Course[]>;
+  
+  getEnrollment(id: string): Promise<Enrollment | undefined>;
+  getEnrollmentsByCourse(courseId: string): Promise<Enrollment[]>;
+  getEnrollmentsByCharacter(characterId: string): Promise<Enrollment[]>;
+  createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
+  updateEnrollment(id: string, updates: Partial<Enrollment>): Promise<Enrollment | undefined>;
+  
+  getAssignment(id: string): Promise<Assignment | undefined>;
+  getAssignmentsByCourse(courseId: string): Promise<Assignment[]>;
+  
+  getGraduationPathway(id: string): Promise<GraduationPathway | undefined>;
+  getAllGraduationPathways(): Promise<GraduationPathway[]>;
+  
+  getAcademicProgress(characterId: string): Promise<AcademicProgress | undefined>;
+  createAcademicProgress(progress: InsertAcademicProgress): Promise<AcademicProgress>;
+  updateAcademicProgress(characterId: string, updates: Partial<AcademicProgress>): Promise<AcademicProgress | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -52,6 +84,11 @@ export class MemStorage implements IStorage {
   private items: Map<string, Item>;
   private gameSessions: Map<string, GameSession>;
   private events: Map<string, any>; // Store procedural events
+  private courses: Map<string, Course>;
+  private enrollments: Map<string, Enrollment>;
+  private assignments: Map<string, Assignment>;
+  private graduationPathways: Map<string, GraduationPathway>;
+  private academicProgress: Map<string, AcademicProgress>; // Keyed by characterId
 
   constructor() {
     this.users = new Map();
@@ -61,6 +98,11 @@ export class MemStorage implements IStorage {
     this.items = new Map();
     this.gameSessions = new Map();
     this.events = new Map();
+    this.courses = new Map();
+    this.enrollments = new Map();
+    this.assignments = new Map();
+    this.graduationPathways = new Map();
+    this.academicProgress = new Map();
     
     // Initialize game world data
     this.initializeGameWorld();
@@ -111,6 +153,8 @@ export class MemStorage implements IStorage {
       reputation: insertCharacter.reputation || {},
       stats: insertCharacter.stats || {},
       perks: insertCharacter.perks || [],
+      questProgress: insertCharacter.questProgress || {},
+      socialConnections: insertCharacter.socialConnections || {},
       createdAt: now,
       lastPlayed: now
     };
@@ -199,7 +243,35 @@ export class MemStorage implements IStorage {
     // Initialize basic items (these are universal across world types)
     this.initializeItems();
     
-    console.log(`✅ Procedural world initialized: ${this.npcs.size} NPCs, ${this.locations.size} locations, ${this.events.size} events`);
+    // Initialize curriculum system
+    this.initializeCurriculum();
+    
+    console.log(`✅ Procedural world initialized: ${this.npcs.size} NPCs, ${this.locations.size} locations, ${this.courses.size} courses, ${this.events.size} events`);
+  }
+  
+  private initializeCurriculum() {
+    const npcArray = Array.from(this.npcs.values());
+    const locationArray = Array.from(this.locations.values());
+    
+    // Generate course catalog
+    const courses = generateCourseCatalog(npcArray, locationArray);
+    courses.forEach((course: Course) => {
+      this.courses.set(course.id, course);
+      
+      // Generate assignments for each course
+      const assignments = generateCourseAssignments(course);
+      assignments.forEach((assignment: Assignment) => {
+        this.assignments.set(assignment.id, assignment);
+      });
+    });
+    
+    // Generate graduation pathways
+    const pathways = generateGraduationPathways();
+    pathways.forEach((pathway: GraduationPathway) => {
+      this.graduationPathways.set(pathway.id, pathway);
+    });
+    
+    console.log(`📚 Curriculum initialized: ${this.courses.size} courses, ${this.assignments.size} assignments, ${this.graduationPathways.size} pathways`);
   }
 
   private initializeLocations() {
@@ -874,6 +946,117 @@ export class MemStorage implements IStorage {
     items.forEach(item => {
       this.items.set(item.id, item);
     });
+  }
+  
+  // Curriculum system methods
+  
+  async getCourse(id: string): Promise<Course | undefined> {
+    return this.courses.get(id);
+  }
+  
+  async getAllCourses(): Promise<Course[]> {
+    return Array.from(this.courses.values());
+  }
+  
+  async getCoursesByDepartment(department: string): Promise<Course[]> {
+    return Array.from(this.courses.values()).filter(
+      course => course.department === department
+    );
+  }
+  
+  async getEnrollment(id: string): Promise<Enrollment | undefined> {
+    return this.enrollments.get(id);
+  }
+  
+  async getEnrollmentsByCourse(courseId: string): Promise<Enrollment[]> {
+    return Array.from(this.enrollments.values()).filter(
+      enrollment => enrollment.courseId === courseId
+    );
+  }
+  
+  async getEnrollmentsByCharacter(characterId: string): Promise<Enrollment[]> {
+    return Array.from(this.enrollments.values()).filter(
+      enrollment => enrollment.characterId === characterId
+    );
+  }
+  
+  async createEnrollment(insertEnrollment: InsertEnrollment): Promise<Enrollment> {
+    const id = randomUUID();
+    const now = new Date();
+    const enrollment: Enrollment = {
+      ...insertEnrollment,
+      id,
+      status: insertEnrollment.status || 'enrolled',
+      attendanceRecord: insertEnrollment.attendanceRecord || [],
+      currentGrade: insertEnrollment.currentGrade || null,
+      finalGrade: insertEnrollment.finalGrade || null,
+      gradePoints: insertEnrollment.gradePoints || null,
+      assignmentGrades: insertEnrollment.assignmentGrades || {},
+      enrolledAt: now,
+      completedAt: null
+    };
+    this.enrollments.set(id, enrollment);
+    return enrollment;
+  }
+  
+  async updateEnrollment(id: string, updates: Partial<Enrollment>): Promise<Enrollment | undefined> {
+    const enrollment = this.enrollments.get(id);
+    if (!enrollment) return undefined;
+    
+    const updatedEnrollment = { ...enrollment, ...updates };
+    this.enrollments.set(id, updatedEnrollment);
+    return updatedEnrollment;
+  }
+  
+  async getAssignment(id: string): Promise<Assignment | undefined> {
+    return this.assignments.get(id);
+  }
+  
+  async getAssignmentsByCourse(courseId: string): Promise<Assignment[]> {
+    return Array.from(this.assignments.values()).filter(
+      assignment => assignment.courseId === courseId
+    );
+  }
+  
+  async getGraduationPathway(id: string): Promise<GraduationPathway | undefined> {
+    return this.graduationPathways.get(id);
+  }
+  
+  async getAllGraduationPathways(): Promise<GraduationPathway[]> {
+    return Array.from(this.graduationPathways.values());
+  }
+  
+  async getAcademicProgress(characterId: string): Promise<AcademicProgress | undefined> {
+    return this.academicProgress.get(characterId);
+  }
+  
+  async createAcademicProgress(insertProgress: InsertAcademicProgress): Promise<AcademicProgress> {
+    const id = randomUUID();
+    const progress: AcademicProgress = {
+      ...insertProgress,
+      id,
+      currentSemester: insertProgress.currentSemester || 'Fall 2025',
+      semestersCompleted: insertProgress.semestersCompleted || 0,
+      totalCreditsEarned: insertProgress.totalCreditsEarned || 0,
+      cumulativeGPA: insertProgress.cumulativeGPA || 0,
+      semesterGPA: insertProgress.semesterGPA || 0,
+      major: insertProgress.major || null,
+      minor: insertProgress.minor || null,
+      academicStanding: insertProgress.academicStanding || 'good',
+      transcript: insertProgress.transcript || [],
+      degreesEarned: insertProgress.degreesEarned || []
+    };
+    this.academicProgress.set(progress.characterId, progress);
+    return progress;
+  }
+  
+  async updateAcademicProgress(characterId: string, updates: Partial<AcademicProgress>): Promise<AcademicProgress | undefined> {
+    const progress = this.academicProgress.get(characterId);
+    if (!progress) return undefined;
+    
+    const updatedProgress = { ...progress, ...updates };
+    this.academicProgress.set(characterId, updatedProgress);
+    return updatedProgress;
   }
 }
 

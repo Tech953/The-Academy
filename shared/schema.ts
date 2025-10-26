@@ -85,6 +85,84 @@ export const gameSessions = pgTable("game_sessions", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Curriculum System Tables
+
+// Course catalog
+export const courses = pgTable("courses", {
+  id: text("id").primaryKey(), // e.g., "HIST-101", "MYST-301"
+  name: text("name").notNull(), // "Introduction to Academy History"
+  department: text("department").notNull(), // "History", "Mysticism", "Combat", etc.
+  level: integer("level").notNull(), // 100-level, 200-level, etc.
+  credits: integer("credits").default(3),
+  description: text("description").notNull(),
+  syllabus: text("syllabus").notNull(), // Full course syllabus
+  prerequisites: jsonb("prerequisites").default("[]"), // Array of course IDs
+  difficulty: integer("difficulty").default(1), // 1-5 difficulty rating
+  professorId: text("professor_id"), // NPC ID of the professor
+  schedule: jsonb("schedule").notNull(), // Days/times the class meets
+  maxStudents: integer("max_students").default(20),
+  categoryTags: jsonb("category_tags").default("[]"), // "core", "elective", "major-requirement", etc.
+});
+
+// Student enrollments
+export const enrollments = pgTable("enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  characterId: varchar("character_id").references(() => characters.id).notNull(),
+  courseId: text("course_id").references(() => courses.id).notNull(),
+  semester: text("semester").notNull(), // "Fall 2025", "Spring 2026"
+  status: text("status").default("enrolled"), // "enrolled", "dropped", "completed"
+  attendanceRecord: jsonb("attendance_record").default("[]"), // Array of attendance dates
+  currentGrade: integer("current_grade"), // 0-100
+  finalGrade: text("final_grade"), // "A", "B+", "C", etc.
+  gradePoints: integer("grade_points"), // Numeric grade value for GPA (4.0 scale * 100)
+  assignmentGrades: jsonb("assignment_grades").default("{}"), // { assignmentId: grade }
+  enrolledAt: timestamp("enrolled_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Assignments/coursework
+export const assignments = pgTable("assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  courseId: text("course_id").references(() => courses.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  type: text("type").notNull(), // "essay", "exam", "project", "participation"
+  maxPoints: integer("max_points").default(100),
+  weight: integer("weight").default(10), // Percentage of final grade
+  dueDate: text("due_date"), // In-game date
+  content: jsonb("content").notNull(), // Assignment details, questions, etc.
+  requirements: jsonb("requirements").default("{}"), // Stat or skill requirements
+});
+
+// Graduation pathways and requirements
+export const graduationPathways = pgTable("graduation_pathways", {
+  id: text("id").primaryKey(), // "major-mysticism", "minor-history"
+  name: text("name").notNull(), // "Bachelor of Mysticism"
+  type: text("type").notNull(), // "major", "minor", "certificate"
+  description: text("description").notNull(),
+  requiredCredits: integer("required_credits").default(120),
+  requiredCourses: jsonb("required_courses").notNull(), // Array of specific course IDs
+  electiveCredits: integer("elective_credits").default(30),
+  departmentRequirements: jsonb("department_requirements").default("{}"), // Credits per department
+  minGPA: integer("min_gpa").default(200), // Minimum GPA * 100 (2.0 = 200)
+});
+
+// Character academic progress
+export const academicProgress = pgTable("academic_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  characterId: varchar("character_id").references(() => characters.id).notNull().unique(),
+  currentSemester: text("current_semester").default("Fall 2025"),
+  semestersCompleted: integer("semesters_completed").default(0),
+  totalCreditsEarned: integer("total_credits_earned").default(0),
+  cumulativeGPA: integer("cumulative_gpa").default(0), // GPA * 100
+  semesterGPA: integer("semester_gpa").default(0), // Current semester GPA * 100
+  major: text("major"), // Pathway ID
+  minor: text("minor"), // Pathway ID
+  academicStanding: text("academic_standing").default("good"), // "good", "probation", "honors"
+  transcript: jsonb("transcript").default("[]"), // Full course history
+  degreesEarned: jsonb("degrees_earned").default("[]"), // Completed pathways
+});
+
 // Schemas for inserts
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -100,6 +178,19 @@ export const insertCharacterSchema = createInsertSchema(characters).omit({
 export const insertLocationSchema = createInsertSchema(locations);
 export const insertNpcSchema = createInsertSchema(npcs);
 export const insertItemSchema = createInsertSchema(items);
+export const insertCourseSchema = createInsertSchema(courses);
+export const insertEnrollmentSchema = createInsertSchema(enrollments).omit({
+  id: true,
+  enrolledAt: true,
+  completedAt: true,
+});
+export const insertAssignmentSchema = createInsertSchema(assignments).omit({
+  id: true,
+});
+export const insertGraduationPathwaySchema = createInsertSchema(graduationPathways);
+export const insertAcademicProgressSchema = createInsertSchema(academicProgress).omit({
+  id: true,
+});
 
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -110,6 +201,16 @@ export type Location = typeof locations.$inferSelect;
 export type NPC = typeof npcs.$inferSelect;
 export type Item = typeof items.$inferSelect;
 export type GameSession = typeof gameSessions.$inferSelect;
+export type Course = typeof courses.$inferSelect;
+export type InsertCourse = z.infer<typeof insertCourseSchema>;
+export type Enrollment = typeof enrollments.$inferSelect;
+export type InsertEnrollment = z.infer<typeof insertEnrollmentSchema>;
+export type Assignment = typeof assignments.$inferSelect;
+export type InsertAssignment = z.infer<typeof insertAssignmentSchema>;
+export type GraduationPathway = typeof graduationPathways.$inferSelect;
+export type InsertGraduationPathway = z.infer<typeof insertGraduationPathwaySchema>;
+export type AcademicProgress = typeof academicProgress.$inferSelect;
+export type InsertAcademicProgress = z.infer<typeof insertAcademicProgressSchema>;
 
 // Game state interfaces
 export interface GameStats {
@@ -154,4 +255,52 @@ export interface QuestProgress {
     progress: number;
     variables?: Record<string, any>;
   };
+}
+
+// Curriculum System Interfaces
+
+export interface CourseSchedule {
+  daysOfWeek: string[]; // ["Monday", "Wednesday", "Friday"]
+  timeSlot: string; // "9:00 AM - 10:30 AM"
+  location: string; // Location ID where class meets
+}
+
+export interface AttendanceRecord {
+  date: string;
+  attended: boolean;
+  excused?: boolean;
+}
+
+export interface AssignmentContent {
+  questions?: Array<{
+    question: string;
+    type: 'multiple-choice' | 'essay' | 'short-answer';
+    options?: string[];
+    correctAnswer?: string;
+    points: number;
+  }>;
+  prompt?: string;
+  requirements?: string[];
+}
+
+export interface TranscriptEntry {
+  courseId: string;
+  courseName: string;
+  semester: string;
+  credits: number;
+  grade: string;
+  gradePoints: number;
+}
+
+export interface DepartmentCredits {
+  [department: string]: number; // e.g., { "Mysticism": 12, "History": 6 }
+}
+
+export interface GraduationRequirements {
+  totalCredits: number;
+  coreCredits: number;
+  majorCredits: number;
+  electiveCredits: number;
+  minGPA: number;
+  requiredCourses: string[];
 }
