@@ -560,6 +560,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== Textbook and Lecture System Routes =====
+  
+  // Get all textbooks
+  app.get("/api/textbooks", async (req, res) => {
+    try {
+      const textbooks = await storage.getAllTextbooks();
+      res.json(textbooks);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch textbooks" });
+    }
+  });
+
+  // Get textbook by ID
+  app.get("/api/textbooks/:id", async (req, res) => {
+    try {
+      const textbook = await storage.getTextbook(req.params.id);
+      if (!textbook) {
+        return res.status(404).json({ error: "Textbook not found" });
+      }
+      res.json(textbook);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch textbook" });
+    }
+  });
+
+  // Get textbook for a specific course
+  app.get("/api/courses/:courseId/textbook", async (req, res) => {
+    try {
+      const textbook = await storage.getTextbookByCourse(req.params.courseId);
+      if (!textbook) {
+        return res.status(404).json({ error: "Textbook not found for this course" });
+      }
+      res.json(textbook);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch textbook" });
+    }
+  });
+
+  // Get all lectures for a course
+  app.get("/api/courses/:courseId/lectures", async (req, res) => {
+    try {
+      const lectures = await storage.getLecturesByCourse(req.params.courseId);
+      res.json(lectures);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch lectures" });
+    }
+  });
+
+  // Get specific lecture by week
+  app.get("/api/courses/:courseId/lectures/:week", async (req, res) => {
+    try {
+      const week = parseInt(req.params.week);
+      const lecture = await storage.getLectureByWeek(req.params.courseId, week);
+      if (!lecture) {
+        return res.status(404).json({ error: "Lecture not found" });
+      }
+      res.json(lecture);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch lecture" });
+    }
+  });
+
+  // Get reading progress for a character and textbook
+  app.get("/api/reading-progress/:characterId/:textbookId", async (req, res) => {
+    try {
+      const progress = await storage.getReadingProgress(
+        req.params.characterId,
+        req.params.textbookId
+      );
+      res.json(progress || { 
+        characterId: req.params.characterId,
+        textbookId: req.params.textbookId,
+        chaptersRead: [],
+        lecturesAttended: [],
+        notes: ''
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reading progress" });
+    }
+  });
+
+  // Update reading progress
+  app.post("/api/reading-progress/:characterId/:textbookId", async (req, res) => {
+    try {
+      const { chaptersRead, lecturesAttended, notes } = req.body;
+      
+      const progress = await storage.updateReadingProgress(
+        req.params.characterId,
+        req.params.textbookId,
+        { chaptersRead, lecturesAttended, notes }
+      );
+      
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update reading progress" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
