@@ -4,7 +4,23 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 
 # Recent Changes
 
-## Natural Language Processing System (Latest - October 26, 2025)
+## Curriculum System Foundation (Latest - October 26, 2025)
+Implemented comprehensive academic curriculum system with procedural course generation:
+- **Database Schema:** Added 5 new tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
+- **Course Catalog:** 96 procedurally generated courses across 8 departments:
+  - Mysticism, History, Combat Arts, Diplomacy, Arcane Sciences, Philosophy, Investigation, Leadership
+  - 100-400 level courses with full syllabi, descriptions, and prerequisites
+  - Each course includes schedule (days/times), location, professor assignment, and credit hours
+- **Assignments:** 672 total assignments (7 per course):
+  - Class participation, midterm exam, 4 regular assignments, final project
+  - Each with point values, weights, due dates, and content
+- **Graduation Pathways:** 16 pathways (8 majors + 8 minors)
+  - Each pathway includes required courses, credit requirements, GPA minimums
+  - Department-specific credit distribution requirements
+- **Academic Progress Tracking:** Schema for GPA calculation, transcripts, semester tracking
+- **Status:** Core infrastructure complete - enrollment, attendance, grading UI remaining
+
+## Natural Language Processing System (October 26, 2025)
 Implemented comprehensive AI-powered command interpreter that allows players to use natural questions instead of memorizing exact commands:
 - **Technology:** GPT-4.1-mini via Replit AI Integrations (no API key needed, billed to user credits)
 - **Context-Aware:** System receives current location, NPCs present, exits, interactables, and character data for intelligent interpretation
