@@ -606,6 +606,10 @@ export default function Home() {
       await handleGPA();
     } else if (action === 'read') {
       await handleRead(target);
+    } else if (action === 'chapter') {
+      await handleChapter(target);
+    } else if (action === 'lecture') {
+      await handleLecture(target);
     } else if (action === 'attend') {
       await handleAttend(target);
     } else if (action === 'save') {
@@ -1042,23 +1046,49 @@ export default function Home() {
         return;
       }
       
-      const textbookId = `textbook-${matchingCourse.id}`;
+      // Fetch comprehensive textbook
+      const textbookResponse = await fetch(`/api/courses/${matchingCourse.id}/textbook`);
+      if (!textbookResponse.ok) {
+        // Fallback to basic course info
+        addTerminalLine('');
+        addTerminalLine(`Reading: ${matchingCourse.name} Textbook`);
+        addTerminalLine('='.repeat(matchingCourse.name.length + 18));
+        addTerminalLine('');
+        addTerminalLine(matchingCourse.description);
+        return;
+      }
+      
+      const textbook = await textbookResponse.json();
       
       addTerminalLine('');
-      addTerminalLine(`Reading: ${matchingCourse.name} Textbook`);
-      addTerminalLine('='.repeat(matchingCourse.name.length + 18));
+      addTerminalLine(`📚 ${textbook.courseName} Textbook`);
+      addTerminalLine('='.repeat(textbook.courseName.length + 4));
       addTerminalLine('');
-      addTerminalLine(`Department: ${matchingCourse.department}`);
-      addTerminalLine(`Credits: ${matchingCourse.credits}`);
+      addTerminalLine(`Authors: ${textbook.authors.join(', ')}`);
+      addTerminalLine(`Edition: ${textbook.edition}`);
+      addTerminalLine(`Department: ${textbook.department}`);
       addTerminalLine('');
-      addTerminalLine('COURSE DESCRIPTION:');
-      addTerminalLine(matchingCourse.description);
+      addTerminalLine('TABLE OF CONTENTS:');
       addTerminalLine('');
-      addTerminalLine('SYLLABUS:');
-      const syllabusLines = matchingCourse.syllabus.split('\n');
-      syllabusLines.forEach((line: string) => addTerminalLine(line));
+      textbook.chapters.forEach((chapter: any) => {
+        addTerminalLine(`Chapter ${chapter.number}: ${chapter.title}`);
+        addTerminalLine(`  ${chapter.summary}`);
+      });
       addTerminalLine('');
-      addTerminalLine('(Study this material to prepare for assignments and exams)');
+      addTerminalLine('COMMANDS:');
+      addTerminalLine(`  CHAPTER "${textbook.courseName}" <number>  - Read a specific chapter`);
+      addTerminalLine(`  LECTURE "${textbook.courseName}" <week>    - View lecture notes`);
+      addTerminalLine('');
+      if (textbook.glossary && textbook.glossary.length > 0) {
+        addTerminalLine('KEY TERMS:');
+        textbook.glossary.slice(0, 5).forEach((term: any) => {
+          addTerminalLine(`  ${term.term}: ${term.definition}`);
+        });
+        if (textbook.glossary.length > 5) {
+          addTerminalLine(`  ... and ${textbook.glossary.length - 5} more terms`);
+        }
+        addTerminalLine('');
+      }
     } catch (error) {
       console.error('Error reading textbook:', error);
       addTerminalLine('');
@@ -1159,6 +1189,238 @@ export default function Home() {
       console.error('Error attending class:', error);
       addTerminalLine('');
       addTerminalLine('Error attending class. Please try again.', 'error');
+    }
+  };
+
+  const handleChapter = async (courseNameAndNumber: string) => {
+    if (!gameState) return;
+    
+    if (!courseNameAndNumber) {
+      addTerminalLine('');
+      addTerminalLine('Usage: CHAPTER "[course name]" <number>', 'error');
+      addTerminalLine('Example: CHAPTER "Basic Math Skills" 1');
+      return;
+    }
+    
+    try {
+      // Parse course name and chapter number
+      const parts = courseNameAndNumber.match(/"([^"]+)"\s+(\d+)|(.+)\s+(\d+)/);
+      if (!parts) {
+        addTerminalLine('');
+        addTerminalLine('Usage: CHAPTER "[course name]" <number>', 'error');
+        return;
+      }
+      
+      const courseName = parts[1] || parts[3];
+      const chapterNum = parseInt(parts[2] || parts[4]);
+      
+      // Find matching course
+      const coursesResponse = await fetch('/api/courses');
+      const courses = await coursesResponse.json();
+      const matchingCourse = courses.find((c: any) => 
+        c.name.toLowerCase().includes(courseName.toLowerCase())
+      );
+      
+      if (!matchingCourse) {
+        addTerminalLine('');
+        addTerminalLine(`Course "${courseName}" not found.`, 'error');
+        return;
+      }
+      
+      // Fetch textbook
+      const textbookResponse = await fetch(`/api/courses/${matchingCourse.id}/textbook`);
+      if (!textbookResponse.ok) {
+        addTerminalLine('');
+        addTerminalLine('Textbook not available.', 'error');
+        return;
+      }
+      
+      const textbook = await textbookResponse.json();
+      const chapter = textbook.chapters.find((ch: any) => ch.number === chapterNum);
+      
+      if (!chapter) {
+        addTerminalLine('');
+        addTerminalLine(`Chapter ${chapterNum} not found in this textbook.`, 'error');
+        addTerminalLine(`Available chapters: 1-${textbook.chapters.length}`);
+        return;
+      }
+      
+      // Display chapter content
+      addTerminalLine('');
+      addTerminalLine(`📖 ${textbook.courseName}`);
+      addTerminalLine(`Chapter ${chapter.number}: ${chapter.title}`);
+      addTerminalLine('='.repeat(chapter.title.length + 12));
+      addTerminalLine('');
+      addTerminalLine('CHAPTER SUMMARY:');
+      addTerminalLine(chapter.summary);
+      addTerminalLine('');
+      
+      // Display sections
+      chapter.sections.forEach((section: any, idx: number) => {
+        addTerminalLine(`SECTION ${idx + 1}: ${section.title}`);
+        addTerminalLine('');
+        addTerminalLine(section.content);
+        addTerminalLine('');
+        
+        if (section.keyPoints && section.keyPoints.length > 0) {
+          addTerminalLine('Key Points:');
+          section.keyPoints.forEach((point: string) => {
+            addTerminalLine(`  • ${point}`);
+          });
+          addTerminalLine('');
+        }
+        
+        if (section.examples && section.examples.length > 0) {
+          addTerminalLine('Examples:');
+          section.examples.forEach((example: string) => {
+            addTerminalLine(`  ${example}`);
+          });
+          addTerminalLine('');
+        }
+      });
+      
+      // Display practice problems if available
+      if (chapter.practiceProblems && chapter.practiceProblems.length > 0) {
+        addTerminalLine('PRACTICE PROBLEMS:');
+        chapter.practiceProblems.forEach((problem: string, idx: number) => {
+          addTerminalLine(`  ${idx + 1}. ${problem}`);
+        });
+        addTerminalLine('');
+      }
+      
+      // Display review questions if available
+      if (chapter.reviewQuestions && chapter.reviewQuestions.length > 0) {
+        addTerminalLine('REVIEW QUESTIONS:');
+        chapter.reviewQuestions.forEach((question: string) => {
+          addTerminalLine(`  • ${question}`);
+        });
+        addTerminalLine('');
+      }
+      
+      // Update reading progress
+      await fetch(`/api/reading-progress/${gameState.character.id}/${textbook.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chaptersRead: [chapterNum],
+          lecturesAttended: [],
+        }),
+      });
+      
+    } catch (error) {
+      console.error('Error reading chapter:', error);
+      addTerminalLine('');
+      addTerminalLine('Error reading chapter. Please try again.', 'error');
+    }
+  };
+
+  const handleLecture = async (courseNameAndWeek: string) => {
+    if (!gameState) return;
+    
+    if (!courseNameAndWeek) {
+      addTerminalLine('');
+      addTerminalLine('Usage: LECTURE "[course name]" <week>', 'error');
+      addTerminalLine('Example: LECTURE "Basic Math Skills" 1');
+      return;
+    }
+    
+    try {
+      // Parse course name and week number
+      const parts = courseNameAndWeek.match(/"([^"]+)"\s+(\d+)|(.+)\s+(\d+)/);
+      if (!parts) {
+        addTerminalLine('');
+        addTerminalLine('Usage: LECTURE "[course name]" <week>', 'error');
+        return;
+      }
+      
+      const courseName = parts[1] || parts[3];
+      const week = parseInt(parts[2] || parts[4]);
+      
+      // Find matching course
+      const coursesResponse = await fetch('/api/courses');
+      const courses = await coursesResponse.json();
+      const matchingCourse = courses.find((c: any) => 
+        c.name.toLowerCase().includes(courseName.toLowerCase())
+      );
+      
+      if (!matchingCourse) {
+        addTerminalLine('');
+        addTerminalLine(`Course "${courseName}" not found.`, 'error');
+        return;
+      }
+      
+      // Fetch lecture
+      const lectureResponse = await fetch(`/api/courses/${matchingCourse.id}/lectures/${week}`);
+      if (!lectureResponse.ok) {
+        addTerminalLine('');
+        addTerminalLine(`Lecture for week ${week} not found.`, 'error');
+        addTerminalLine('Available weeks: 1-12');
+        return;
+      }
+      
+      const lecture = await lectureResponse.json();
+      
+      // Display lecture content
+      addTerminalLine('');
+      addTerminalLine(`🎓 ${matchingCourse.name}`);
+      addTerminalLine(lecture.title);
+      addTerminalLine('='.repeat(lecture.title.length));
+      addTerminalLine('');
+      addTerminalLine(`Duration: ${lecture.duration}`);
+      addTerminalLine(`Topic: ${lecture.topic}`);
+      addTerminalLine('');
+      
+      addTerminalLine('LEARNING OBJECTIVES:');
+      lecture.objectives.forEach((obj: string) => {
+        addTerminalLine(`  • ${obj}`);
+      });
+      addTerminalLine('');
+      
+      addTerminalLine('LECTURE CONTENT:');
+      addTerminalLine('');
+      const contentLines = lecture.content.split('\n\n');
+      contentLines.forEach((line: string) => {
+        addTerminalLine(line);
+        addTerminalLine('');
+      });
+      
+      if (lecture.keyTerms && lecture.keyTerms.length > 0) {
+        addTerminalLine('KEY TERMS:');
+        lecture.keyTerms.forEach((term: any) => {
+          addTerminalLine(`  ${term.term}: ${term.definition}`);
+        });
+        addTerminalLine('');
+      }
+      
+      if (lecture.examples && lecture.examples.length > 0) {
+        addTerminalLine('EXAMPLES:');
+        lecture.examples.forEach((example: string) => {
+          addTerminalLine(`  ${example}`);
+        });
+        addTerminalLine('');
+      }
+      
+      if (lecture.homework) {
+        addTerminalLine('HOMEWORK:');
+        addTerminalLine(`  ${lecture.homework}`);
+        addTerminalLine('');
+      }
+      
+      // Update reading progress
+      const textbookId = `textbook-${matchingCourse.id}`;
+      await fetch(`/api/reading-progress/${gameState.character.id}/${textbookId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chaptersRead: [],
+          lecturesAttended: [lecture.id],
+        }),
+      });
+      
+    } catch (error) {
+      console.error('Error viewing lecture:', error);
+      addTerminalLine('');
+      addTerminalLine('Error viewing lecture. Please try again.', 'error');
     }
   };
   
