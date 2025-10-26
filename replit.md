@@ -5,16 +5,25 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 # Recent Changes
 
 ## Curriculum System Foundation (Latest - October 26, 2025)
-Implemented comprehensive academic curriculum system with procedural course generation:
+Implemented comprehensive academic curriculum system with real-world subjects:
 - **Database Schema:** Added 5 new tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
-- **Course Catalog:** 96 procedurally generated courses across 8 departments:
-  - Mysticism, History, Combat Arts, Diplomacy, Arcane Sciences, Philosophy, Investigation, Leadership
+- **Course Catalog:** 144 procedurally generated courses across 12 real-world departments:
+  - **STEM:** Mathematics, Natural Sciences, Computer Science
+  - **Humanities:** History, Literature, Philosophy, Language Studies
+  - **Social Sciences:** Psychology, Economics, Political Science
+  - **Fine Arts:** Art, Music
   - 100-400 level courses with full syllabi, descriptions, and prerequisites
   - Each course includes schedule (days/times), location, professor assignment, and credit hours
-- **Assignments:** 672 total assignments (7 per course):
-  - Class participation, midterm exam, 4 regular assignments, final project
+- **Realistic Course Content:**
+  - Mathematics: Calculus, Linear Algebra, Statistics, Discrete Math
+  - Sciences: Biology, Chemistry, Physics, Environmental Science
+  - Languages: English Composition, Spanish, French, Linguistics
+  - Computer Science: Programming, Data Structures, Algorithms, Databases
+  - And many more traditional college courses across all departments
+- **Assignments:** 1,008 total assignments (7 per course):
+  - Class participation (20%), midterm exam (20%), 4 assignments (30%), final project (30%)
   - Each with point values, weights, due dates, and content
-- **Graduation Pathways:** 16 pathways (8 majors + 8 minors)
+- **Graduation Pathways:** 24 pathways (12 majors + 12 minors)
   - Each pathway includes required courses, credit requirements, GPA minimums
   - Department-specific credit distribution requirements
 - **Academic Progress Tracking:** Schema for GPA calculation, transcripts, semester tracking

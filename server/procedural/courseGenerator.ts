@@ -1,15 +1,19 @@
 import type { Course, Assignment, GraduationPathway, CourseSchedule, AssignmentContent } from '@shared/schema';
 
-// Academy departments aligned with game themes
+// Real-world academic departments
 export const DEPARTMENTS = [
-  'Mysticism',
+  'Mathematics',
+  'Natural Sciences',
+  'Language Studies',
   'History',
-  'Combat Arts',
-  'Diplomacy',
-  'Arcane Sciences',
+  'Literature',
   'Philosophy',
-  'Investigation',
-  'Leadership',
+  'Psychology',
+  'Computer Science',
+  'Economics',
+  'Political Science',
+  'Art',
+  'Music',
 ] as const;
 
 export type Department = typeof DEPARTMENTS[number];
@@ -63,7 +67,24 @@ function generateDepartmentCourses(
   idOffset: number
 ): Course[] {
   const courses: Course[] = [];
-  const deptCode = department.substring(0, 4).toUpperCase();
+  
+  // Map department names to course codes
+  const deptCodeMap: Record<Department, string> = {
+    'Mathematics': 'MATH',
+    'Natural Sciences': 'SCI',
+    'Language Studies': 'LANG',
+    'History': 'HIST',
+    'Literature': 'LIT',
+    'Philosophy': 'PHIL',
+    'Psychology': 'PSYCH',
+    'Computer Science': 'CS',
+    'Economics': 'ECON',
+    'Political Science': 'POLI',
+    'Art': 'ART',
+    'Music': 'MUS',
+  };
+  
+  const deptCode = deptCodeMap[department];
 
   for (let i = 0; i < count; i++) {
     const courseNumber = level + i;
@@ -104,140 +125,268 @@ function generateDepartmentCourses(
 
 function generateCourseContent(department: Department, level: number, variant: number) {
   const courseTemplates = {
-    'Mysticism': [
+    'Mathematics': [
       {
-        name: 'Introduction to the Arcane',
-        description: 'Explore the fundamental principles of mystical energy manipulation and perception. Learn to sense and channel basic arcane forces.',
-        topics: ['Energy Perception', 'Basic Channeling', 'Mystical Theory', 'Safety Protocols'],
+        name: 'Calculus',
+        description: 'Study limits, derivatives, integrals, and their applications to real-world problems.',
+        topics: ['Limits and Continuity', 'Differentiation', 'Integration', 'Applications'],
       },
       {
-        name: 'Advanced Scrying Techniques',
-        description: 'Master the art of distant observation and information gathering through mystical means.',
-        topics: ['Remote Viewing', 'Temporal Scrying', 'Warding Detection', 'Ethical Considerations'],
+        name: 'Linear Algebra',
+        description: 'Explore vector spaces, matrices, linear transformations, and eigenvalues.',
+        topics: ['Vector Spaces', 'Matrix Operations', 'Linear Transformations', 'Eigenvalues'],
       },
       {
-        name: 'Dimensional Theory',
-        description: 'Study the nature of reality, parallel dimensions, and the spaces between worlds.',
-        topics: ['Planar Geography', 'Dimensional Rifts', 'Portal Mechanics', 'Safety Protocols'],
+        name: 'Statistics',
+        description: 'Learn probability theory, statistical inference, and data analysis techniques.',
+        topics: ['Probability Theory', 'Distributions', 'Hypothesis Testing', 'Regression Analysis'],
+      },
+      {
+        name: 'Discrete Mathematics',
+        description: 'Study mathematical structures and logic fundamental to computer science.',
+        topics: ['Set Theory', 'Graph Theory', 'Combinatorics', 'Logic'],
+      },
+    ],
+    'Natural Sciences': [
+      {
+        name: 'Biology',
+        description: 'Examine living organisms, their structure, function, growth, and evolution.',
+        topics: ['Cell Biology', 'Genetics', 'Evolution', 'Ecology'],
+      },
+      {
+        name: 'Chemistry',
+        description: 'Study matter, its properties, composition, structure, and changes.',
+        topics: ['Atomic Structure', 'Chemical Bonding', 'Reactions', 'Thermodynamics'],
+      },
+      {
+        name: 'Physics',
+        description: 'Explore the fundamental laws governing energy, matter, motion, and force.',
+        topics: ['Mechanics', 'Thermodynamics', 'Electromagnetism', 'Modern Physics'],
+      },
+      {
+        name: 'Environmental Science',
+        description: 'Analyze ecosystems, natural resources, and human environmental impact.',
+        topics: ['Ecosystems', 'Conservation', 'Climate Change', 'Sustainability'],
+      },
+    ],
+    'Language Studies': [
+      {
+        name: 'English Composition',
+        description: 'Develop writing skills for academic and professional communication.',
+        topics: ['Essay Writing', 'Research Papers', 'Argumentation', 'Grammar'],
+      },
+      {
+        name: 'Spanish Language',
+        description: 'Learn Spanish grammar, vocabulary, and conversational skills.',
+        topics: ['Grammar Fundamentals', 'Vocabulary Building', 'Conversation', 'Culture'],
+      },
+      {
+        name: 'Linguistics',
+        description: 'Study the scientific analysis of language structure and development.',
+        topics: ['Phonetics', 'Syntax', 'Semantics', 'Language Acquisition'],
+      },
+      {
+        name: 'French Language',
+        description: 'Master French language skills including reading, writing, and speaking.',
+        topics: ['Grammar', 'Pronunciation', 'Composition', 'French Literature'],
       },
     ],
     'History': [
       {
-        name: 'Academy Origins',
-        description: 'Uncover the mysterious founding of The Academy and its enigmatic purpose.',
-        topics: ['Founding Era', 'Original 144', 'Hidden Archives', 'Unexplained Events'],
+        name: 'World History',
+        description: 'Survey major civilizations, events, and movements throughout human history.',
+        topics: ['Ancient Civilizations', 'Medieval Period', 'Renaissance', 'Modern Era'],
       },
       {
-        name: 'Secret Societies Through Time',
-        description: 'Examine the role of secret organizations in shaping world events.',
-        topics: ['Known Organizations', 'Power Structures', 'Historical Influence', 'Modern Connections'],
+        name: 'American History',
+        description: 'Examine the political, social, and economic development of the United States.',
+        topics: ['Colonial Period', 'Revolution', 'Civil War', '20th Century'],
       },
       {
-        name: 'Forbidden Knowledge',
-        description: 'Study the historical suppression of dangerous information and its consequences.',
-        topics: ['Lost Civilizations', 'Censored Records', 'Recovered Texts', 'Modern Implications'],
-      },
-    ],
-    'Combat Arts': [
-      {
-        name: 'Tactical Analysis',
-        description: 'Learn to assess combat situations and develop effective strategies.',
-        topics: ['Threat Assessment', 'Resource Management', 'Team Tactics', 'Adaptation'],
+        name: 'European History',
+        description: 'Study the history of Europe from antiquity to the present.',
+        topics: ['Classical Greece and Rome', 'Middle Ages', 'World Wars', 'Modern Europe'],
       },
       {
-        name: 'Advanced Self-Defense',
-        description: 'Master defensive techniques for various threat scenarios.',
-        topics: ['Hand-to-Hand Combat', 'Weapon Defense', 'Environmental Awareness', 'De-escalation'],
-      },
-      {
-        name: 'Strategic Leadership',
-        description: 'Develop skills for leading others in high-pressure situations.',
-        topics: ['Command Presence', 'Decision Making', 'Team Coordination', 'Crisis Management'],
+        name: 'History of Science',
+        description: 'Explore the development of scientific thought and discovery.',
+        topics: ['Scientific Revolution', 'Major Discoveries', 'Scientists', 'Impact on Society'],
       },
     ],
-    'Diplomacy': [
+    'Literature': [
       {
-        name: 'Negotiation Fundamentals',
-        description: 'Master the art of productive discourse and conflict resolution.',
-        topics: ['Active Listening', 'Win-Win Strategies', 'Cultural Sensitivity', 'Mediation'],
+        name: 'American Literature',
+        description: 'Study major works and movements in American literary history.',
+        topics: ['Colonial Literature', 'Romanticism', 'Modernism', 'Contemporary'],
       },
       {
-        name: 'Social Engineering',
-        description: 'Study the psychology of influence and persuasion.',
-        topics: ['Trust Building', 'Behavioral Analysis', 'Persuasion Techniques', 'Ethical Boundaries'],
+        name: 'British Literature',
+        description: 'Explore classic and contemporary works from British authors.',
+        topics: ['Shakespeare', 'Victorian Era', 'Romantic Poets', 'Modern British'],
       },
       {
-        name: 'Coalition Building',
-        description: 'Learn to form and maintain strategic alliances.',
-        topics: ['Stakeholder Analysis', 'Alliance Management', 'Conflict Resolution', 'Long-term Partnerships'],
-      },
-    ],
-    'Arcane Sciences': [
-      {
-        name: 'Magical Mathematics',
-        description: 'Explore the mathematical foundations underlying mystical phenomena.',
-        topics: ['Geometric Principles', 'Numerical Resonance', 'Pattern Recognition', 'Practical Applications'],
+        name: 'World Literature',
+        description: 'Read and analyze significant works from diverse global traditions.',
+        topics: ['Classical Works', 'Non-Western Literature', 'Translation', 'Cultural Context'],
       },
       {
-        name: 'Artifact Analysis',
-        description: 'Study techniques for identifying and safely handling enchanted objects.',
-        topics: ['Detection Methods', 'Power Assessment', 'Curse Identification', 'Containment Protocols'],
-      },
-      {
-        name: 'Energy Systems',
-        description: 'Examine the flow and interaction of various mystical energy types.',
-        topics: ['Energy Classification', 'Interference Patterns', 'Amplification', 'Dampening Fields'],
+        name: 'Creative Writing',
+        description: 'Develop skills in fiction, poetry, and creative nonfiction.',
+        topics: ['Fiction Techniques', 'Poetry', 'Character Development', 'Workshop'],
       },
     ],
     'Philosophy': [
       {
-        name: 'Ethics of Power',
-        description: 'Examine moral frameworks for wielding supernatural abilities.',
-        topics: ['Responsibility', 'Moral Dilemmas', 'Historical Case Studies', 'Personal Code Development'],
+        name: 'Introduction to Philosophy',
+        description: 'Explore fundamental questions about knowledge, reality, and ethics.',
+        topics: ['Metaphysics', 'Epistemology', 'Ethics', 'Logic'],
       },
       {
-        name: 'Nature of Reality',
-        description: 'Question fundamental assumptions about existence and perception.',
-        topics: ['Epistemology', 'Metaphysics', 'Consciousness', 'Reality Manipulation'],
+        name: 'Ethics',
+        description: 'Study moral philosophy and ethical decision-making frameworks.',
+        topics: ['Moral Theories', 'Applied Ethics', 'Ethical Dilemmas', 'Justice'],
       },
       {
-        name: 'Logic and Reasoning',
-        description: 'Develop critical thinking skills essential for navigating deception.',
-        topics: ['Logical Fallacies', 'Argument Analysis', 'Evidence Evaluation', 'Sound Reasoning'],
-      },
-    ],
-    'Investigation': [
-      {
-        name: 'Evidence Collection',
-        description: 'Learn systematic approaches to gathering and preserving information.',
-        topics: ['Scene Analysis', 'Documentation', 'Chain of Custody', 'Digital Forensics'],
+        name: 'Political Philosophy',
+        description: 'Examine theories of government, justice, rights, and political authority.',
+        topics: ['Social Contract', 'Democracy', 'Justice', 'Freedom'],
       },
       {
-        name: 'Deductive Reasoning',
-        description: 'Master the art of drawing conclusions from incomplete information.',
-        topics: ['Pattern Recognition', 'Hypothesis Testing', 'Elimination', 'Intuition vs Logic'],
-      },
-      {
-        name: 'Interrogation Techniques',
-        description: 'Study methods for extracting truth from reluctant sources.',
-        topics: ['Behavioral Cues', 'Questioning Strategies', 'Building Rapport', 'Detecting Deception'],
+        name: 'Philosophy of Mind',
+        description: 'Investigate the nature of consciousness, mental states, and cognition.',
+        topics: ['Consciousness', 'Mind-Body Problem', 'Artificial Intelligence', 'Free Will'],
       },
     ],
-    'Leadership': [
+    'Psychology': [
       {
-        name: 'Principles of Command',
-        description: 'Understand the foundations of effective leadership.',
-        topics: ['Authority vs Influence', 'Vision Setting', 'Accountability', 'Leading by Example'],
+        name: 'General Psychology',
+        description: 'Introduction to the scientific study of behavior and mental processes.',
+        topics: ['Research Methods', 'Cognition', 'Development', 'Social Psychology'],
       },
       {
-        name: 'Team Dynamics',
-        description: 'Study how groups function and how to optimize performance.',
-        topics: ['Group Psychology', 'Conflict Management', 'Motivation', 'Diversity & Inclusion'],
+        name: 'Developmental Psychology',
+        description: 'Study human growth and development across the lifespan.',
+        topics: ['Childhood', 'Adolescence', 'Adulthood', 'Aging'],
       },
       {
-        name: 'Strategic Planning',
-        description: 'Develop long-term thinking and organizational skills.',
-        topics: ['Goal Setting', 'Resource Allocation', 'Risk Assessment', 'Adaptive Planning'],
+        name: 'Cognitive Psychology',
+        description: 'Explore mental processes including memory, perception, and reasoning.',
+        topics: ['Memory', 'Attention', 'Problem Solving', 'Language'],
+      },
+      {
+        name: 'Abnormal Psychology',
+        description: 'Examine psychological disorders, their causes, and treatments.',
+        topics: ['Diagnostic Criteria', 'Anxiety Disorders', 'Mood Disorders', 'Treatment'],
+      },
+    ],
+    'Computer Science': [
+      {
+        name: 'Programming Fundamentals',
+        description: 'Learn core programming concepts and problem-solving techniques.',
+        topics: ['Variables and Types', 'Control Structures', 'Functions', 'Algorithms'],
+      },
+      {
+        name: 'Data Structures',
+        description: 'Study efficient ways to organize and manipulate data.',
+        topics: ['Arrays and Lists', 'Trees', 'Graphs', 'Hash Tables'],
+      },
+      {
+        name: 'Algorithms',
+        description: 'Analyze algorithm design, complexity, and optimization.',
+        topics: ['Sorting', 'Searching', 'Dynamic Programming', 'Complexity Analysis'],
+      },
+      {
+        name: 'Database Systems',
+        description: 'Learn database design, SQL, and data management principles.',
+        topics: ['Relational Model', 'SQL', 'Normalization', 'Transactions'],
+      },
+    ],
+    'Economics': [
+      {
+        name: 'Microeconomics',
+        description: 'Study individual economic decisions, markets, and price mechanisms.',
+        topics: ['Supply and Demand', 'Market Structures', 'Consumer Theory', 'Pricing'],
+      },
+      {
+        name: 'Macroeconomics',
+        description: 'Analyze economy-wide phenomena including inflation, unemployment, and growth.',
+        topics: ['GDP', 'Inflation', 'Monetary Policy', 'Fiscal Policy'],
+      },
+      {
+        name: 'International Economics',
+        description: 'Examine trade, finance, and economic relationships between nations.',
+        topics: ['Trade Theory', 'Exchange Rates', 'Global Markets', 'Trade Policy'],
+      },
+      {
+        name: 'Economic Development',
+        description: 'Study factors contributing to economic growth and development.',
+        topics: ['Growth Theory', 'Poverty', 'Institutions', 'Development Policy'],
+      },
+    ],
+    'Political Science': [
+      {
+        name: 'American Government',
+        description: 'Examine the structure and function of U.S. political institutions.',
+        topics: ['Constitution', 'Congress', 'Presidency', 'Judiciary'],
+      },
+      {
+        name: 'Comparative Politics',
+        description: 'Analyze different political systems and governance structures worldwide.',
+        topics: ['Political Systems', 'Democratization', 'Authoritarianism', 'Institutions'],
+      },
+      {
+        name: 'International Relations',
+        description: 'Study interactions between states, international organizations, and global politics.',
+        topics: ['Foreign Policy', 'Conflict', 'Cooperation', 'Global Governance'],
+      },
+      {
+        name: 'Political Theory',
+        description: 'Explore foundational texts and ideas in political thought.',
+        topics: ['Classical Theory', 'Modern Theory', 'Democracy', 'Power'],
+      },
+    ],
+    'Art': [
+      {
+        name: 'Art History',
+        description: 'Survey major periods, movements, and works in visual art history.',
+        topics: ['Ancient Art', 'Renaissance', 'Modern Art', 'Contemporary'],
+      },
+      {
+        name: 'Studio Art',
+        description: 'Develop practical skills in drawing, painting, and composition.',
+        topics: ['Drawing Techniques', 'Color Theory', 'Composition', 'Mixed Media'],
+      },
+      {
+        name: 'Digital Art',
+        description: 'Explore digital tools and techniques for creating visual art.',
+        topics: ['Digital Painting', 'Photo Editing', 'Vector Graphics', 'Design Principles'],
+      },
+      {
+        name: 'Sculpture',
+        description: 'Learn three-dimensional art creation using various materials.',
+        topics: ['Clay', 'Stone', 'Metal', 'Installation'],
+      },
+    ],
+    'Music': [
+      {
+        name: 'Music Theory',
+        description: 'Study the fundamental elements of music including harmony and composition.',
+        topics: ['Notation', 'Harmony', 'Counterpoint', 'Form'],
+      },
+      {
+        name: 'Music History',
+        description: 'Explore the development of Western music from medieval to modern.',
+        topics: ['Medieval Music', 'Baroque', 'Classical', 'Romantic and Modern'],
+      },
+      {
+        name: 'Applied Music',
+        description: 'Develop performance skills through private instruction and practice.',
+        topics: ['Technique', 'Repertoire', 'Performance', 'Interpretation'],
+      },
+      {
+        name: 'World Music',
+        description: 'Study musical traditions from diverse cultures around the globe.',
+        topics: ['African Music', 'Asian Music', 'Latin American', 'Folk Traditions'],
       },
     ],
   };
@@ -314,12 +463,27 @@ All work must be your own. Collaboration is encouraged for learning, but submiss
 // Generate graduation pathways
 export function generateGraduationPathways(): GraduationPathway[] {
   const pathways: GraduationPathway[] = [];
+  
+  const deptCodeMap: Record<Department, string> = {
+    'Mathematics': 'MATH',
+    'Natural Sciences': 'SCI',
+    'Language Studies': 'LANG',
+    'History': 'HIST',
+    'Literature': 'LIT',
+    'Philosophy': 'PHIL',
+    'Psychology': 'PSYCH',
+    'Computer Science': 'CS',
+    'Economics': 'ECON',
+    'Political Science': 'POLI',
+    'Art': 'ART',
+    'Music': 'MUS',
+  };
 
   // Major pathways
   DEPARTMENTS.forEach(dept => {
-    const deptCode = dept.substring(0, 4).toUpperCase();
+    const deptCode = deptCodeMap[dept];
     pathways.push({
-      id: `major-${dept.toLowerCase().replace(' ', '-')}`,
+      id: `major-${dept.toLowerCase().replace(/ /g, '-')}`,
       name: `Bachelor of ${dept}`,
       type: 'major',
       description: `A comprehensive program in ${dept}, preparing students for advanced roles in this field.`,
@@ -342,9 +506,9 @@ export function generateGraduationPathways(): GraduationPathway[] {
 
   // Minor pathways (require fewer credits)
   DEPARTMENTS.forEach(dept => {
-    const deptCode = dept.substring(0, 4).toUpperCase();
+    const deptCode = deptCodeMap[dept];
     pathways.push({
-      id: `minor-${dept.toLowerCase().replace(' ', '-')}`,
+      id: `minor-${dept.toLowerCase().replace(/ /g, '-')}`,
       name: `Minor in ${dept}`,
       type: 'minor',
       description: `A focused study in ${dept} to complement your major.`,
