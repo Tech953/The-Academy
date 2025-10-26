@@ -34,7 +34,7 @@ const GAME_COMMANDS = {
   inventory: ['inventory', 'items', 'possessions'],
   status: ['status', 'stats', 'character', 'self'],
   social: ['list', 'who', 'people', 'characters'],
-  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read'],
+  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read', 'chapter', 'lecture', 'attend'],
   meta: ['help', 'save', 'load', 'quit', 'exit', 'time', 'score', 'clear'],
 };
 
@@ -51,7 +51,15 @@ AVAILABLE COMMAND TYPES:
 - Interaction: talk (to NPC), ask (NPC about topic)
 - Inventory: inventory, status
 - Social: list (show people in location - use for "who's here?", "who else is around?", "show people", etc.)
-- Academic: grades (view current course grades), transcript (view completed courses), schedule (view class schedule), gpa (view GPA and academic standing), read (read a textbook - requires textbook name/course name)
+- Academic: 
+  * grades (view current course grades)
+  * transcript (view completed courses)
+  * schedule (view class schedule)
+  * gpa (view GPA and academic standing)
+  * read (read a textbook table of contents - requires textbook name/course name)
+  * chapter (read a specific chapter - requires course name and chapter number)
+  * lecture (view lecture notes - requires course name and week number)
+  * attend (attend a class session - requires course name)
 - Meta: help, save, load, quit, time, score, clear
 
 CURRENT GAME CONTEXT:
@@ -74,6 +82,11 @@ INSTRUCTIONS:
 9. Consider the context - if they ask about a specific person by name, use "talk" or "examine"
 10. For inventory questions ("what am I carrying?", "check my stuff") → action: "inventory"
 11. For status questions ("how am I doing?", "check myself") → action: "status"
+12. For academic content:
+    - "read math textbook" → action: "read", target: "math"
+    - "show chapter 3 of algebra" → action: "chapter", target: "algebra 3"
+    - "view week 5 lecture for science" → action: "lecture", target: "science 5"
+    - "go to geometry class" → action: "attend", target: "geometry"
 
 Respond ONLY with valid JSON in this exact format:
 {

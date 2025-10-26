@@ -4,12 +4,37 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 
 # Recent Changes
 
-## Complete Curriculum System (Latest - October 26, 2025)
+## Comprehensive Textbook & Lecture System (Latest - October 26, 2025)
+Added full educational content generation with detailed textbooks and lecture notes:
+
+### Content Generation
+- **24 Comprehensive Textbooks:** Each course has a 12-chapter textbook with table of contents, authors, glossary (20+ terms per book)
+- **288 Weekly Lectures:** 12 lectures per course covering learning objectives, content, key terms, examples, and homework
+- **Rich Chapter Content:** Each chapter includes 3-5 sections with explanations, key points, examples, practice problems, and review questions
+- **Connected Learning:** Chapters link to related assignments, lectures reference specific chapters for study
+- **Reading Progress Tracking:** System tracks which chapters and lectures each student has viewed
+
+### New Terminal Commands
+- **READ [textbook]** - View textbook table of contents with all 12 chapters, authors, key terms
+- **CHAPTER "[course]" <number>** - Read specific chapter with all sections, examples, and practice problems
+- **LECTURE "[course]" <week>** - View weekly lecture notes with objectives, content, and homework
+- **Examples:**
+  - `READ "Basic Math Skills"` - Shows full textbook TOC
+  - `CHAPTER "Basic Math Skills" 3` - Reads Chapter 3
+  - `LECTURE "Algebra Fundamentals" 5` - Views Week 5 lecture
+
+### Natural Language Support
+NLP processor updated to recognize:
+- "read math textbook" → READ command
+- "show chapter 3 of algebra" → CHAPTER command  
+- "view week 5 lecture for science" → LECTURE command
+
+## Complete Curriculum System (October 26, 2025)
 Implemented fully functional academic curriculum system with **triple theme support**:
 
 ### Core Features
 - **Database Schema:** 5 tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
-- **24 Textbooks:** Auto-generated textbook items for all courses containing syllabi and study materials
+- **Textbook Items:** Auto-generated textbook items in inventory for easy access to course materials
 - **Security:** Enrollment ownership validation, course-assignment matching prevents grade manipulation
 - **Natural Language Support:** Academic commands work with NLP (e.g., "show my grades", "what's my GPA?")
 
