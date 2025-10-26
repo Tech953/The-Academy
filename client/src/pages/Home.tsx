@@ -301,7 +301,59 @@ export default function Home() {
   };
 
   // Enhanced command parsing with aliases and synonyms
-  const parseCommand = (command: string) => {
+  const parseCommandWithNLP = async (command: string): Promise<{ action: string; target: string; originalAction: string; parts: string[]; nlpUsed?: boolean; confidence?: number; reasoning?: string }> => {
+    // Try NLP processing first for more natural input
+    if (gameState) {
+      try {
+        const npcs = await gameStateManager.getNPCsInCurrentLocation();
+        const context = {
+          currentLocation: gameState.currentLocation.name,
+          locationDescription: gameState.currentLocation.description,
+          availableExits: Object.keys((gameState.currentLocation.exits as Record<string, string>) || {}),
+          npcsPresent: npcs.map(n => n.name),
+          interactables: (gameState.currentLocation.interactables as string[]) || [],
+          characterName: gameState.character.name,
+          characterClass: gameState.character.class,
+          characterRace: gameState.character.race,
+          characterFaction: gameState.character.faction,
+          inventory: gameState.inventory.map(i => i.itemId),
+          energy: gameState.character.energy || 100,
+        };
+
+        const response = await fetch('/api/nlp/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: command, context }),
+        });
+
+        if (response.ok) {
+          const nlpResult = await response.json();
+          
+          // Log NLP interpretation for transparency
+          if (nlpResult.confidence < 0.5) {
+            console.log('Low confidence NLP result:', nlpResult);
+          }
+          
+          return {
+            action: nlpResult.action,
+            target: nlpResult.target || '',
+            originalAction: command,
+            parts: command.toLowerCase().split(/\s+/),
+            nlpUsed: true,
+            confidence: nlpResult.confidence,
+            reasoning: nlpResult.reasoning,
+          };
+        }
+      } catch (error) {
+        console.warn('NLP processing failed, falling back to traditional parsing:', error);
+      }
+    }
+
+    // Fallback to traditional parsing
+    return parseCommandTraditional(command);
+  };
+
+  const parseCommandTraditional = (command: string) => {
     const cmd = command.toLowerCase().trim();
     if (!cmd) {
       return { action: '', target: '', originalAction: '', parts: [] };
@@ -363,7 +415,7 @@ export default function Home() {
       return; // Silently ignore empty commands
     }
     
-    const { action, target, originalAction } = parseCommand(command);
+    const { action, target, originalAction, nlpUsed, confidence, reasoning } = await parseCommandWithNLP(command);
     
     // Additional safety check in case parsing fails
     if (!action) {
@@ -375,6 +427,11 @@ export default function Home() {
     
     // Add command to terminal
     addTerminalLine(`> ${command}`, 'command');
+    
+    // Show NLP interpretation if used and confidence is low (for transparency)
+    if (nlpUsed && confidence !== undefined && confidence < 0.7) {
+      addTerminalLine(`[Interpreting as: ${action}${target ? ' ' + target : ''}]`, 'system');
+    }
 
     // Process commands
     if (action === 'help' || action === '?') {

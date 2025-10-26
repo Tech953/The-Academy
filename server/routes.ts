@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCharacterSchema } from "@shared/schema";
 import { z } from "zod";
+import { processNaturalLanguage, type GameContext } from "./nlp/commandProcessor";
 
 // Character update validation schema
 const characterUpdateSchema = z.object({
@@ -199,6 +200,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(session.sessionData);
     } catch (error) {
       res.status(500).json({ error: "Failed to load game session" });
+    }
+  });
+
+  // Natural Language Processing route
+  app.post("/api/nlp/process", async (req, res) => {
+    try {
+      const { input, context } = req.body;
+      
+      if (!input || typeof input !== 'string') {
+        return res.status(400).json({ error: "Input text is required" });
+      }
+      
+      if (!context) {
+        return res.status(400).json({ error: "Game context is required" });
+      }
+      
+      // Validate context structure
+      const gameContext: GameContext = {
+        currentLocation: context.currentLocation || 'Unknown',
+        locationDescription: context.locationDescription || '',
+        availableExits: context.availableExits || [],
+        npcsPresent: context.npcsPresent || [],
+        interactables: context.interactables || [],
+        characterName: context.characterName || 'Player',
+        characterClass: context.characterClass || 'Unknown',
+        characterRace: context.characterRace || 'Unknown',
+        characterFaction: context.characterFaction || 'Unknown',
+        inventory: context.inventory || [],
+        energy: context.energy || 100,
+      };
+      
+      const result = await processNaturalLanguage(input, gameContext);
+      res.json(result);
+    } catch (error) {
+      console.error('NLP processing error:', error);
+      res.status(500).json({ 
+        error: "Failed to process natural language input",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
