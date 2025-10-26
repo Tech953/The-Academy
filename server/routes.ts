@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCharacterSchema } from "@shared/schema";
+import { insertCharacterSchema, insertEnrollmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { processNaturalLanguage, type GameContext } from "./nlp/commandProcessor";
+import { calculateGPA, gradeAssignment, getAcademicStanding, numericToLetterGrade, letterGradeToPoints } from "./utils/academicUtils";
 
 // Character update validation schema
 const characterUpdateSchema = z.object({
@@ -239,6 +240,235 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to process natural language input",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // ===== CURRICULUM SYSTEM ROUTES =====
+  
+  // Get all courses
+  app.get("/api/courses", async (req, res) => {
+    try {
+      const courses = await storage.getAllCourses();
+      res.json(courses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch courses" });
+    }
+  });
+
+  // Get courses by department
+  app.get("/api/courses/department/:department", async (req, res) => {
+    try {
+      const courses = await storage.getCoursesByDepartment(req.params.department);
+      res.json(courses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch courses" });
+    }
+  });
+
+  // Get single course
+  app.get("/api/courses/:id", async (req, res) => {
+    try {
+      const course = await storage.getCourse(req.params.id);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.json(course);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch course" });
+    }
+  });
+
+  // Get course assignments
+  app.get("/api/courses/:id/assignments", async (req, res) => {
+    try {
+      const assignments = await storage.getAssignmentsByCourse(req.params.id);
+      res.json(assignments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch assignments" });
+    }
+  });
+
+  // Enroll in a course
+  app.post("/api/enrollments", async (req, res) => {
+    try {
+      const enrollmentData = insertEnrollmentSchema.parse(req.body);
+      
+      // Check if already enrolled
+      const existing = await storage.getEnrollmentsByCharacter(enrollmentData.characterId);
+      const alreadyEnrolled = existing.some(e => 
+        e.courseId === enrollmentData.courseId && 
+        e.semester === enrollmentData.semester &&
+        e.status !== 'dropped'
+      );
+      
+      if (alreadyEnrolled) {
+        return res.status(400).json({ error: "Already enrolled in this course" });
+      }
+      
+      const enrollment = await storage.createEnrollment(enrollmentData);
+      res.status(201).json(enrollment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid enrollment data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to enroll in course" });
+    }
+  });
+
+  // Get character's enrollments
+  app.get("/api/enrollments/character/:characterId", async (req, res) => {
+    try {
+      const enrollments = await storage.getEnrollmentsByCharacter(req.params.characterId);
+      res.json(enrollments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch enrollments" });
+    }
+  });
+
+  // Complete a course and finalize grade
+  app.post("/api/enrollments/:id/complete", async (req, res) => {
+    try {
+      const enrollment = await storage.getEnrollment(req.params.id);
+      if (!enrollment) {
+        return res.status(404).json({ error: "Enrollment not found" });
+      }
+      
+      if (enrollment.status !== 'enrolled') {
+        return res.status(400).json({ error: "Course already completed or dropped" });
+      }
+      
+      // Use current grade as final grade
+      const finalNumericGrade = enrollment.currentGrade || 0;
+      const finalLetterGrade = numericToLetterGrade(finalNumericGrade);
+      const gradePoints = letterGradeToPoints(finalLetterGrade);
+      
+      const updated = await storage.updateEnrollment(req.params.id, {
+        status: 'completed',
+        finalGrade: finalLetterGrade,
+        gradePoints,
+        completedAt: new Date(),
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Course completion error:', error);
+      res.status(500).json({ error: "Failed to complete course" });
+    }
+  });
+
+  // Submit assignment
+  app.post("/api/assignments/:id/submit", async (req, res) => {
+    try {
+      const { enrollmentId, submission } = req.body;
+      
+      if (!enrollmentId || !submission) {
+        return res.status(400).json({ error: "Enrollment ID and submission required" });
+      }
+      
+      const assignment = await storage.getAssignment(req.params.id);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      // Get enrollment and validate
+      const enrollment = await storage.getEnrollment(enrollmentId);
+      if (!enrollment) {
+        return res.status(404).json({ error: "Enrollment not found" });
+      }
+      
+      // SECURITY: Verify enrollment belongs to the assignment's course
+      if (enrollment.courseId !== assignment.courseId) {
+        return res.status(403).json({ error: "Assignment does not belong to this enrollment" });
+      }
+      
+      // SECURITY: Verify enrollment is active
+      if (enrollment.status !== 'enrolled') {
+        return res.status(403).json({ error: "Cannot submit to inactive enrollment" });
+      }
+      
+      // Grade the assignment
+      const { grade, feedback } = gradeAssignment(assignment, submission);
+      
+      const assignmentGrades = enrollment.assignmentGrades as Record<string, number> || {};
+      assignmentGrades[assignment.id] = grade;
+      
+      // Calculate current grade (weighted average of completed assignments)
+      const allAssignments = await storage.getAssignmentsByCourse(assignment.courseId);
+      let totalWeightedGrade = 0;
+      let totalWeight = 0;
+      
+      allAssignments.forEach(a => {
+        if (assignmentGrades[a.id] !== undefined) {
+          totalWeightedGrade += assignmentGrades[a.id] * (a.weight || 0);
+          totalWeight += a.weight || 0;
+        }
+      });
+      
+      const currentGrade = totalWeight > 0 ? Math.round(totalWeightedGrade / totalWeight) : null;
+      
+      await storage.updateEnrollment(enrollmentId, {
+        assignmentGrades,
+        currentGrade,
+      });
+      
+      res.json({ grade, feedback, currentGrade });
+    } catch (error) {
+      console.error('Assignment submission error:', error);
+      res.status(500).json({ error: "Failed to submit assignment" });
+    }
+  });
+
+  // Get academic progress
+  app.get("/api/academic-progress/:characterId", async (req, res) => {
+    try {
+      let progress = await storage.getAcademicProgress(req.params.characterId);
+      
+      // Create if doesn't exist
+      if (!progress) {
+        progress = await storage.createAcademicProgress({
+          characterId: req.params.characterId,
+          currentSemester: 'Fall 2025',
+          semestersCompleted: 0,
+          totalCreditsEarned: 0,
+          cumulativeGPA: 0,
+          semesterGPA: 0,
+          academicStanding: 'good',
+          transcript: [],
+          degreesEarned: [],
+        });
+      }
+      
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch academic progress" });
+    }
+  });
+
+  // Update academic progress (calculate GPA, etc.)
+  app.post("/api/academic-progress/:characterId/calculate", async (req, res) => {
+    try {
+      const enrollments = await storage.getEnrollmentsByCharacter(req.params.characterId);
+      const gpa = calculateGPA(enrollments);
+      const academicStanding = getAcademicStanding(gpa);
+      
+      const progress = await storage.updateAcademicProgress(req.params.characterId, {
+        cumulativeGPA: gpa,
+        academicStanding,
+      });
+      
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update academic progress" });
+    }
+  });
+
+  // Get graduation pathways
+  app.get("/api/graduation-pathways", async (req, res) => {
+    try {
+      const pathways = await storage.getAllGraduationPathways();
+      res.json(pathways);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch graduation pathways" });
     }
   });
 
