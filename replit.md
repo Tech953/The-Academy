@@ -5,32 +5,30 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 # Recent Changes
 
 ## Curriculum System Foundation (Latest - October 26, 2025)
-Implemented comprehensive academic curriculum system with **dual theme support**:
+Implemented comprehensive academic curriculum system with **triple theme support**:
 - **Database Schema:** Added 5 new tables (courses, enrollments, assignments, graduation_pathways, academic_progress)
-- **Current Theme - Realistic Academia (Active):** 144 procedurally generated courses across 12 real-world departments:
-  - **STEM:** Mathematics, Natural Sciences, Computer Science
-  - **Humanities:** History, Literature, Philosophy, Language Studies
-  - **Social Sciences:** Psychology, Economics, Political Science
-  - **Fine Arts:** Art, Music
-  - 100-400 level courses with full syllabi, descriptions, and prerequisites
-  - Each course includes schedule (days/times), location, professor assignment, and credit hours
-- **Realistic Course Content:**
-  - Mathematics: Calculus, Linear Algebra, Statistics, Discrete Math
-  - Sciences: Biology, Chemistry, Physics, Environmental Science
-  - Languages: English Composition, Spanish, French, Linguistics
-  - Computer Science: Programming, Data Structures, Algorithms, Databases
-  - And many more traditional college courses across all departments
-- **Fantasy Theme - Preserved for Spin-off (server/procedural/fantasycurriculum.ts):**
+- **Current Theme - GED Preparation (Active):** 24 high school equivalency courses across 4 GED test areas:
+  - **Mathematical Reasoning** (6 courses): Basic Math Skills → Pre-Algebra → Algebra Fundamentals → Geometry & Measurement → Data Analysis & Statistics → GED Math Test Prep
+  - **Language Arts** (6 courses): Reading Comprehension → Grammar & Writing Mechanics → Essay Writing → Literature Analysis → Workplace Reading → GED Language Arts Test Prep
+  - **Science** (6 courses): Life Science Basics → Physical Science → Earth & Space Science → Human Body & Health → Scientific Reasoning → GED Science Test Prep
+  - **Social Studies** (6 courses): U.S. History → World History → Civics & Government → Economics → Geography → GED Social Studies Test Prep
+  - **Total:** 24 courses, 168 assignments, 5 pathways (1 GED Diploma + 4 Test Area Certificates)
+  - Each course includes comprehensive syllabus, learning objectives, and test preparation strategies
+- **Collegiate Theme - Saved for Sequel (server/procedural/collegiatecurriculum.ts):**
+  - 144 courses across 12 real-world departments: Mathematics, Natural Sciences, Computer Science, History, Literature, Philosophy, Language Studies, Psychology, Economics, Political Science, Art, Music
+  - Traditional college experience with 100-400 level courses
+  - 1,008 assignments and 24 pathways (12 majors + 12 minors)
+  - Perfect for a university/college sequel
+- **Fantasy Theme - Saved for Spin-off (server/procedural/fantasycurriculum.ts):**
   - 96 courses across 8 mystical departments: Mysticism, Combat Arts, Arcane Sciences, Diplomacy, History, Philosophy, Investigation, Leadership
   - Complete course templates with magical/fantasy content
-  - Can be activated via configuration flag for alternate game builds
+  - 672 assignments and 16 pathways (8 majors + 8 minors)
+  - Can be activated for fantasy academy spin-off
   - See `CURRICULUM_README.md` for theme switching instructions
-- **Assignments:** 1,008 total assignments (7 per course):
+- **Assignment Structure:** All courses include 7 assignments with proper weighting:
   - Class participation (20%), midterm exam (20%), 4 assignments (30%), final project (30%)
-  - Each with point values, weights, due dates, and content
-- **Graduation Pathways:** 24 pathways (12 majors + 12 minors)
-  - Each pathway includes required courses, credit requirements, GPA minimums
-  - Department-specific credit distribution requirements
+  - Each with point values, weights, due dates, and detailed content
+- **Graduation Pathways:** Students can earn GED diploma or individual test area certificates
 - **Academic Progress Tracking:** Schema for GPA calculation, transcripts, semester tracking
 - **Status:** Core infrastructure complete - enrollment, attendance, grading UI remaining
 

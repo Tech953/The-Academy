@@ -1,10 +1,24 @@
-# Curriculum System - Dual Theme Support
+# Curriculum System - Triple Theme Support
 
-The Academy features two complete curriculum systems that can be easily switched:
+The Academy features three complete curriculum systems that can be easily switched:
 
-## 🎓 Realistic Curriculum (Currently Active)
+## 📝 GED Curriculum (Currently Active)
 
 **File:** `courseGenerator.ts`
+
+Features 24 courses across the 4 GED test areas:
+- **Mathematical Reasoning** (6 courses: Basic Math → Algebra → Geometry → Statistics → Test Prep)
+- **Language Arts** (6 courses: Reading → Grammar → Essay Writing → Literature → Test Prep)
+- **Science** (6 courses: Life Science → Physical Science → Earth Science → Health → Test Prep)
+- **Social Studies** (6 courses: U.S. History → World History → Civics → Economics → Geography → Test Prep)
+
+**Total:** 24 courses, 168 assignments, 5 pathways (1 GED Diploma + 4 Test Area Certificates)
+
+Perfect for a high school equivalency preparation academy focused on helping students pass the GED exam.
+
+## 🎓 Collegiate Curriculum (Saved for Sequel)
+
+**File:** `collegiatecurriculum.ts`
 
 Features 144 courses across 12 real-world departments:
 - **STEM:** Mathematics, Natural Sciences, Computer Science
@@ -12,9 +26,11 @@ Features 144 courses across 12 real-world departments:
 - **Social Sciences:** Psychology, Economics, Political Science
 - **Fine Arts:** Art, Music
 
+**Total:** 144 courses, 1,008 assignments, 24 pathways (12 majors + 12 minors)
+
 Perfect for players who want a traditional college experience with realistic academic content.
 
-## ⚔️ Fantasy Curriculum (Preserved for Spin-off)
+## ⚔️ Fantasy Curriculum (Saved for Spin-off)
 
 **File:** `fantasycurriculum.ts`
 
@@ -28,34 +44,33 @@ Features 96 courses across 8 mystical departments:
 - Investigation (detective work, forensic magic)
 - Leadership (organizational management, strategy)
 
+**Total:** 96 courses, 672 assignments, 16 pathways (8 majors + 8 minors)
+
 Perfect for a fantasy/magical academy setting.
 
 ---
 
 ## How to Switch Curricula
 
-### Option 1: Simple Flag Toggle (Recommended)
+### Option 1: Simple File Replacement (Recommended)
 
-1. Open `server/procedural/generators.ts`
-2. At the top, import the fantasy curriculum:
-   ```typescript
-   import { generateFantasyCourses, generateFantasyPathways, USE_FANTASY_CURRICULUM } from './fantasycurriculum';
-   ```
-3. In the `initializeCurriculum()` function, add a conditional:
-   ```typescript
-   export function initializeCurriculum() {
-     const courses = USE_FANTASY_CURRICULUM 
-       ? generateFantasyCourses() 
-       : generateCourses();
-     
-     const pathways = USE_FANTASY_CURRICULUM
-       ? generateFantasyPathways()
-       : generateGraduationPathways();
-     
-     // ... rest of initialization
-   }
-   ```
-4. Toggle `USE_FANTASY_CURRICULUM` in `fantasycurriculum.ts` to switch themes
+To switch curriculum themes, simply replace the imports in `server/procedural/generators.ts`:
+
+**For GED (current):**
+```typescript
+import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments } from './courseGenerator';
+```
+
+**For Collegiate:**
+```typescript
+import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments } from './collegiatecurriculum';
+```
+
+**For Fantasy:**
+```typescript
+import { generateFantasyCourses as generateCourseCatalog, generateFantasyPathways as generateGraduationPathways } from './fantasycurriculum';
+// Note: You'll need to add generateCourseAssignments to fantasycurriculum.ts
+```
 
 ### Option 2: Environment Variable
 
@@ -87,14 +102,16 @@ Each can maintain its own world generation seed and configuration.
 
 ## Content Comparison
 
-| Feature | Realistic | Fantasy |
-|---------|-----------|---------|
-| Total Courses | 144 | 96 |
-| Departments | 12 | 8 |
-| Majors/Minors | 24 (12+12) | 16 (8+8) |
-| Theme | Modern academia | Mystical academy |
-| Course Names | Calculus I, Biology | Ritual Magic, Combat Arts |
-| Professors | Regular faculty | Mystical masters |
+| Feature | GED (Active) | Collegiate | Fantasy |
+|---------|--------------|------------|---------|
+| Total Courses | 24 | 144 | 96 |
+| Test Areas/Departments | 4 | 12 | 8 |
+| Pathways | 5 (1+4) | 24 (12+12) | 16 (8+8) |
+| Total Assignments | 168 | 1,008 | 672 |
+| Theme | High school equivalency | College/University | Mystical academy |
+| Course Names | Basic Math Skills, Reading Comprehension | Calculus I, Biology | Ritual Magic, Combat Arts |
+| Target Audience | GED test prep | Traditional college | Fantasy RPG |
+| Difficulty Level | High school | Undergraduate | Fantasy themed |
 
 ---
 
