@@ -28,6 +28,7 @@ export default function TerminalInterface({
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollAnimationRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
+  const isAutoScrollingRef = useRef(false);
 
   // Check if user is near the bottom of the scroll
   const isNearBottom = (container: HTMLElement): boolean => {
@@ -57,6 +58,8 @@ export default function TerminalInterface({
     if (shouldAutoScroll) {
       // Small delay to allow manual scrolling to take effect
       const scrollTimer = setTimeout(() => {
+        isAutoScrollingRef.current = true;
+        
         const scrollToBottom = () => {
           if (!scrollContainer) return;
           
@@ -69,6 +72,7 @@ export default function TerminalInterface({
             scrollContainer.scrollTop = targetScrollTop;
             lastScrollTopRef.current = targetScrollTop;
             scrollAnimationRef.current = null;
+            isAutoScrollingRef.current = false;
             return;
           }
           
@@ -87,6 +91,7 @@ export default function TerminalInterface({
         if (scrollAnimationRef.current) {
           cancelAnimationFrame(scrollAnimationRef.current);
           scrollAnimationRef.current = null;
+          isAutoScrollingRef.current = false;
         }
       };
     }
@@ -110,18 +115,25 @@ export default function TerminalInterface({
         cancelAnimationFrame(scrollAnimationRef.current);
         scrollAnimationRef.current = null;
       }
+      // Always reset the flag when canceling
+      isAutoScrollingRef.current = false;
     };
 
     // Detect user interaction starting (before scroll events)
     const handleInteractionStart = () => {
       cancelAutoScroll();
-      if (!isNearBottom(scrollContainer)) {
-        setUserHasScrolled(true);
-      }
+      // Mark that user is manually scrolling
+      // handleScroll will determine if they're near bottom
+      setUserHasScrolled(true);
     };
 
     const handleScroll = () => {
-      // Cancel any ongoing auto-scroll
+      // Don't interfere with auto-scroll
+      if (isAutoScrollingRef.current) {
+        return;
+      }
+      
+      // Cancel any ongoing auto-scroll (user is scrolling)
       cancelAutoScroll();
       
       // Check if user is near bottom
@@ -131,10 +143,7 @@ export default function TerminalInterface({
         setUserHasScrolled(true);
       }
       
-      // Only update lastScrollTopRef if not auto-scrolling
-      if (!scrollAnimationRef.current) {
-        lastScrollTopRef.current = scrollContainer.scrollTop;
-      }
+      lastScrollTopRef.current = scrollContainer.scrollTop;
     };
 
     // Listen for user interaction starts
