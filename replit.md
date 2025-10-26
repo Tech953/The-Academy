@@ -4,7 +4,47 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 
 # Recent Changes
 
-## Comprehensive Textbook & Lecture System (Latest - October 26, 2025)
+## AI-Powered Character Creation System (Latest - October 26, 2025)
+Implemented intelligent character creation that uses player-generated summaries to create personalized experiences:
+
+### Enhanced Creation Flow
+- **Player-Written Summary:** Players describe their character in their own words (background, personality, motivations)
+- **AI-Generated Questions:** System analyzes the summary and generates 4-6 contextual questions about physical characteristics
+- **Personalized Questions:** Questions adapt to the character's background (e.g., scholar vs warrior gets different questions)
+- **Flexible Answers:** Players can select from suggested answers or write their own custom responses
+- **Character Data Storage:** Summary and physical traits stored in database and used throughout gameplay
+
+### How It Works
+1. Player enters character name
+2. **NEW: Write character summary** - Free-form description (minimum 20 characters)
+3. **NEW: AI generates questions** - GPT-4.1-mini creates contextual physical trait questions
+4. **NEW: Answer questions** - Build, appearance, style, features, mannerisms
+5. Select race, class, specialization, faction (existing flow)
+6. Review complete character with summary and traits
+7. Begin adventure
+
+### Example Flow
+```
+> Tell us about your character:
+"A determined student from a small town who excels in math..."
+
+> Generating personalized questions...
+> What is most striking about your academic appearance?
+1. Thick-rimmed glasses
+2. Always carries multiple textbooks
+3. Ink-stained fingers from note-taking
+...
+```
+
+### Technical Implementation
+- OpenAI integration via Replit AI Integrations (no API key needed, billed to credits)
+- AI service generates 4-6 questions based on character summary
+- Questions categorized: appearance, build, features, mannerisms, style
+- Fallback to generic questions if AI unavailable
+- Character schema updated with characterSummary and physicalTraits fields
+- Data persisted and available throughout gameplay
+
+## Comprehensive Textbook & Lecture System (October 26, 2025)
 Added full educational content generation with detailed textbooks and lecture notes:
 
 ### Content Generation
