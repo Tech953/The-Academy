@@ -4,7 +4,22 @@ This is "The Academy", an interactive text-based RPG game that recreates the cla
 
 # Recent Changes
 
-## Terminal Scrolling Fix (Latest)
+## Natural Language Processing System (Latest - October 26, 2025)
+Implemented comprehensive AI-powered command interpreter that allows players to use natural questions instead of memorizing exact commands:
+- **Technology:** GPT-4.1-mini via Replit AI Integrations (no API key needed, billed to user credits)
+- **Context-Aware:** System receives current location, NPCs present, exits, interactables, and character data for intelligent interpretation
+- **Intelligent Prompting:** Explicit mappings for common query patterns (social queries → "list", observation → "look", inventory/status questions)
+- **Fallback System:** Gracefully falls back to traditional command parsing if AI unavailable
+- **Transparency:** Shows interpretation message when confidence is low (<70%)
+- **Examples:**
+  - "what do I see here?" → look command
+  - "who else is around?" → list NPCs
+  - "check my stuff" → inventory
+  - "how am I doing?" → status
+  - "I'd like to head north" → north movement
+- **Test Status:** ✅ All test cases passed - natural language commands work reliably across all command types
+
+## Terminal Scrolling Fix
 Fixed critical bug where users couldn't reliably access terminal history and the page would get stuck during scrolling:
 - **Issue:** Auto-scroll animation was fighting against manual user scrolling, causing race conditions and view jumping
 - **Solution:** Implemented `isAutoScrollingRef` flag to prevent scroll event handlers from canceling their own animations
