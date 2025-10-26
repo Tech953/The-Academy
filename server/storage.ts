@@ -19,10 +19,14 @@ import {
   GraduationPathway,
   InsertGraduationPathway,
   AcademicProgress,
-  InsertAcademicProgress
+  InsertAcademicProgress,
+  Textbook,
+  Lecture,
+  ReadingProgress
 } from "@shared/schema";
 import { ProceduralGenerator, WORLD_TEMPLATES } from "./procedural/generators";
-import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments, generateTextbooks } from "./procedural/courseGenerator";
+import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments, generateTextbooks as generateTextbookItems } from "./procedural/courseGenerator";
+import { generateTextbooks, generateLectures } from "./procedural/textbookGenerator";
 
 export interface IStorage {
   // User management
@@ -74,6 +78,18 @@ export interface IStorage {
   getAcademicProgress(characterId: string): Promise<AcademicProgress | undefined>;
   createAcademicProgress(progress: InsertAcademicProgress): Promise<AcademicProgress>;
   updateAcademicProgress(characterId: string, updates: Partial<AcademicProgress>): Promise<AcademicProgress | undefined>;
+  
+  // Textbook and Lecture system
+  getTextbook(id: string): Promise<Textbook | undefined>;
+  getTextbookByCourse(courseId: string): Promise<Textbook | undefined>;
+  getAllTextbooks(): Promise<Textbook[]>;
+  
+  getLecture(id: string): Promise<Lecture | undefined>;
+  getLecturesByCourse(courseId: string): Promise<Lecture[]>;
+  getLectureByWeek(courseId: string, week: number): Promise<Lecture | undefined>;
+  
+  getReadingProgress(characterId: string, textbookId: string): Promise<ReadingProgress | undefined>;
+  updateReadingProgress(characterId: string, textbookId: string, updates: Partial<ReadingProgress>): Promise<ReadingProgress>;
 }
 
 export class MemStorage implements IStorage {
@@ -89,6 +105,9 @@ export class MemStorage implements IStorage {
   private assignments: Map<string, Assignment>;
   private graduationPathways: Map<string, GraduationPathway>;
   private academicProgress: Map<string, AcademicProgress>; // Keyed by characterId
+  private textbooks: Map<string, Textbook>;
+  private lectures: Map<string, Lecture>;
+  private readingProgress: Map<string, ReadingProgress>; // Keyed by characterId-textbookId
 
   constructor() {
     this.users = new Map();
@@ -103,6 +122,9 @@ export class MemStorage implements IStorage {
     this.assignments = new Map();
     this.graduationPathways = new Map();
     this.academicProgress = new Map();
+    this.textbooks = new Map();
+    this.lectures = new Map();
+    this.readingProgress = new Map();
     
     // Initialize game world data
     this.initializeGameWorld();
@@ -265,10 +287,22 @@ export class MemStorage implements IStorage {
       });
     });
     
-    // Generate textbooks for all courses
-    const textbooks = generateTextbooks(Array.from(this.courses.values()));
-    textbooks.forEach((textbook: any) => {
+    // Generate textbook items for all courses (legacy system for inventory)
+    const textbookItems = generateTextbookItems(Array.from(this.courses.values()));
+    textbookItems.forEach((textbook: any) => {
       this.items.set(textbook.id, textbook);
+    });
+    
+    // Generate comprehensive textbooks with chapters and sections
+    const comprehensiveTextbooks = generateTextbooks(Array.from(this.courses.values()));
+    comprehensiveTextbooks.forEach((textbook: Textbook) => {
+      this.textbooks.set(textbook.id, textbook);
+    });
+    
+    // Generate lectures for all courses
+    const lectures = generateLectures(Array.from(this.courses.values()));
+    lectures.forEach((lecture: Lecture) => {
+      this.lectures.set(lecture.id, lecture);
     });
     
     // Generate graduation pathways
@@ -277,7 +311,7 @@ export class MemStorage implements IStorage {
       this.graduationPathways.set(pathway.id, pathway);
     });
     
-    console.log(`📚 Curriculum initialized: ${this.courses.size} courses, ${this.assignments.size} assignments, ${this.graduationPathways.size} pathways, ${textbooks.length} textbooks`);
+    console.log(`📚 Curriculum initialized: ${this.courses.size} courses, ${this.assignments.size} assignments, ${this.graduationPathways.size} pathways, ${comprehensiveTextbooks.length} textbooks, ${lectures.length} lectures`);
   }
 
   private initializeLocations() {
@@ -1063,6 +1097,61 @@ export class MemStorage implements IStorage {
     const updatedProgress = { ...progress, ...updates };
     this.academicProgress.set(characterId, updatedProgress);
     return updatedProgress;
+  }
+  
+  // Textbook and Lecture system methods
+  
+  async getTextbook(id: string): Promise<Textbook | undefined> {
+    return this.textbooks.get(id);
+  }
+  
+  async getTextbookByCourse(courseId: string): Promise<Textbook | undefined> {
+    return Array.from(this.textbooks.values()).find(
+      textbook => textbook.courseId === courseId
+    );
+  }
+  
+  async getAllTextbooks(): Promise<Textbook[]> {
+    return Array.from(this.textbooks.values());
+  }
+  
+  async getLecture(id: string): Promise<Lecture | undefined> {
+    return this.lectures.get(id);
+  }
+  
+  async getLecturesByCourse(courseId: string): Promise<Lecture[]> {
+    return Array.from(this.lectures.values()).filter(
+      lecture => lecture.courseId === courseId
+    );
+  }
+  
+  async getLectureByWeek(courseId: string, week: number): Promise<Lecture | undefined> {
+    return Array.from(this.lectures.values()).find(
+      lecture => lecture.courseId === courseId && lecture.week === week
+    );
+  }
+  
+  async getReadingProgress(characterId: string, textbookId: string): Promise<ReadingProgress | undefined> {
+    const key = `${characterId}-${textbookId}`;
+    return this.readingProgress.get(key);
+  }
+  
+  async updateReadingProgress(characterId: string, textbookId: string, updates: Partial<ReadingProgress>): Promise<ReadingProgress> {
+    const key = `${characterId}-${textbookId}`;
+    const existing = this.readingProgress.get(key);
+    
+    const progress: ReadingProgress = {
+      characterId,
+      textbookId,
+      chaptersRead: existing?.chaptersRead || [],
+      lecturesAttended: existing?.lecturesAttended || [],
+      lastRead: new Date().toISOString(),
+      notes: existing?.notes || '',
+      ...updates
+    };
+    
+    this.readingProgress.set(key, progress);
+    return progress;
   }
 }
 
