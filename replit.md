@@ -2,6 +2,20 @@
 
 This is "The Academy", an interactive text-based RPG game that recreates the classic terminal adventure experience of early 90s games like Zork. Built as a full-stack application, it features a React frontend with a pure terminal aesthetic and an Express.js backend with PostgreSQL database storage. Players create characters and navigate through a mysterious private school setting with 144 students and faculty, making choices that affect their stats, reputation, and story progression.
 
+# Recent Changes
+
+## Terminal Scrolling Fix (Latest)
+Fixed critical bug where users couldn't reliably access terminal history and the page would get stuck during scrolling:
+- **Issue:** Auto-scroll animation was fighting against manual user scrolling, causing race conditions and view jumping
+- **Solution:** Implemented `isAutoScrollingRef` flag to prevent scroll event handlers from canceling their own animations
+- **Improvements:**
+  - User interaction (mousedown, touchstart, wheel) immediately cancels auto-scroll and pauses future auto-scrolling
+  - Auto-scroll only resumes when user manually scrolls back near bottom (within 150px threshold)
+  - Proper cleanup of animation frames and state flags prevents memory leaks
+  - 50ms delay gives manual scrolling priority over auto-scroll
+  - Custom green terminal-themed scrollbar with smooth touch scrolling support
+- **Test Status:** ✅ Verified working - users can now scroll up to view history, auto-scroll pauses appropriately, and rapid commands work smoothly
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
