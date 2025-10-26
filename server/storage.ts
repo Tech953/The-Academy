@@ -22,7 +22,7 @@ import {
   InsertAcademicProgress
 } from "@shared/schema";
 import { ProceduralGenerator, WORLD_TEMPLATES } from "./procedural/generators";
-import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments } from "./procedural/courseGenerator";
+import { generateCourseCatalog, generateGraduationPathways, generateCourseAssignments, generateTextbooks } from "./procedural/courseGenerator";
 
 export interface IStorage {
   // User management
@@ -265,13 +265,19 @@ export class MemStorage implements IStorage {
       });
     });
     
+    // Generate textbooks for all courses
+    const textbooks = generateTextbooks(Array.from(this.courses.values()));
+    textbooks.forEach((textbook: any) => {
+      this.items.set(textbook.id, textbook);
+    });
+    
     // Generate graduation pathways
     const pathways = generateGraduationPathways();
     pathways.forEach((pathway: GraduationPathway) => {
       this.graduationPathways.set(pathway.id, pathway);
     });
     
-    console.log(`📚 Curriculum initialized: ${this.courses.size} courses, ${this.assignments.size} assignments, ${this.graduationPathways.size} pathways`);
+    console.log(`📚 Curriculum initialized: ${this.courses.size} courses, ${this.assignments.size} assignments, ${this.graduationPathways.size} pathways, ${textbooks.length} textbooks`);
   }
 
   private initializeLocations() {

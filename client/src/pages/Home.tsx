@@ -478,6 +478,13 @@ export default function Home() {
         addTerminalLine('INVENTORY/I - Check your belongings');
         addTerminalLine('STATUS/STAT - View character information');
         addTerminalLine('');
+        addTerminalLine('== Academic ==');
+        addTerminalLine('GRADES - View current course grades');
+        addTerminalLine('TRANSCRIPT - View full academic transcript');
+        addTerminalLine('SCHEDULE - View class schedule');
+        addTerminalLine('GPA - View current GPA and standing');
+        addTerminalLine('READ [textbook] - Read a course textbook');
+        addTerminalLine('');
         addTerminalLine('== Game ==');
         addTerminalLine('SAVE - Save your progress');
         addTerminalLine('LOAD - Load saved game');
@@ -588,6 +595,16 @@ export default function Home() {
       handleInventory();
     } else if (action === 'status') {
       handleStatus();
+    } else if (action === 'grades') {
+      await handleGrades();
+    } else if (action === 'transcript') {
+      await handleTranscript();
+    } else if (action === 'schedule') {
+      await handleSchedule();
+    } else if (action === 'gpa') {
+      await handleGPA();
+    } else if (action === 'read') {
+      await handleRead(target);
     } else if (action === 'save') {
       await handleSave();
     } else if (action === 'load') {
@@ -799,6 +816,251 @@ export default function Home() {
     addTerminalLine('Mysteries Uncovered: Beginning your journey...');
     addTerminalLine('');
     addTerminalLine('Continue exploring to uncover the Academy\'s secrets!');
+  };
+
+  const handleGrades = async () => {
+    if (!gameState) return;
+    
+    try {
+      const response = await fetch(`/api/enrollments/character/${gameState.character.id}`);
+      if (!response.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to fetch grades.', 'error');
+        return;
+      }
+      
+      const enrollments = await response.json();
+      
+      addTerminalLine('');
+      addTerminalLine('CURRENT GRADES:');
+      addTerminalLine('===============');
+      
+      if (enrollments.length === 0) {
+        addTerminalLine('You are not currently enrolled in any courses.');
+        addTerminalLine('Visit the library or academic hall to enroll in GED preparation courses.');
+      } else {
+        const activeEnrollments = enrollments.filter((e: any) => e.status === 'enrolled');
+        
+        if (activeEnrollments.length === 0) {
+          addTerminalLine('You have no active enrollments.');
+        } else {
+          for (const enrollment of activeEnrollments) {
+            const courseResponse = await fetch(`/api/courses/${enrollment.courseId}`);
+            const course = await courseResponse.json();
+            
+            const grade = enrollment.currentGrade || 0;
+            const gradeDisplay = grade > 0 ? `${grade.toFixed(1)}%` : 'No assignments submitted';
+            
+            addTerminalLine(`${course.name}: ${gradeDisplay}`);
+          }
+        }
+      }
+      addTerminalLine('');
+      addTerminalLine('Type TRANSCRIPT to see completed courses or GPA to see overall standing.');
+    } catch (error) {
+      console.error('Error fetching grades:', error);
+      addTerminalLine('');
+      addTerminalLine('Error fetching grades. Please try again.', 'error');
+    }
+  };
+
+  const handleTranscript = async () => {
+    if (!gameState) return;
+    
+    try {
+      const response = await fetch(`/api/enrollments/character/${gameState.character.id}`);
+      if (!response.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to fetch transcript.', 'error');
+        return;
+      }
+      
+      const enrollments = await response.json();
+      
+      addTerminalLine('');
+      addTerminalLine('OFFICIAL ACADEMIC TRANSCRIPT');
+      addTerminalLine('============================');
+      addTerminalLine(`Student: ${gameState.character.name}`);
+      addTerminalLine(`Student ID: ${gameState.character.id.substring(0, 8).toUpperCase()}`);
+      addTerminalLine('');
+      
+      const completedEnrollments = enrollments.filter((e: any) => e.status === 'completed');
+      
+      if (completedEnrollments.length === 0) {
+        addTerminalLine('No completed courses yet.');
+        addTerminalLine('');
+        addTerminalLine('Type GRADES to see current enrollments.');
+      } else {
+        addTerminalLine('COMPLETED COURSES:');
+        addTerminalLine('');
+        
+        for (const enrollment of completedEnrollments) {
+          const courseResponse = await fetch(`/api/courses/${enrollment.courseId}`);
+          const course = await courseResponse.json();
+          
+          addTerminalLine(`${course.name} (${course.id})`);
+          addTerminalLine(`  Grade: ${enrollment.finalGrade} | Credits: ${course.credits}`);
+          addTerminalLine(`  Completed: ${new Date(enrollment.completedAt).toLocaleDateString()}`);
+          addTerminalLine('');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching transcript:', error);
+      addTerminalLine('');
+      addTerminalLine('Error fetching transcript. Please try again.', 'error');
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!gameState) return;
+    
+    try {
+      const response = await fetch(`/api/enrollments/character/${gameState.character.id}`);
+      if (!response.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to fetch schedule.', 'error');
+        return;
+      }
+      
+      const enrollments = await response.json();
+      const activeEnrollments = enrollments.filter((e: any) => e.status === 'enrolled');
+      
+      addTerminalLine('');
+      addTerminalLine('CLASS SCHEDULE');
+      addTerminalLine('==============');
+      addTerminalLine(`Semester: ${activeEnrollments[0]?.semester || 'Fall 2025'}`);
+      addTerminalLine('');
+      
+      if (activeEnrollments.length === 0) {
+        addTerminalLine('You are not currently enrolled in any courses.');
+        addTerminalLine('Visit the library to browse available GED preparation courses.');
+      } else {
+        for (const enrollment of activeEnrollments) {
+          const courseResponse = await fetch(`/api/courses/${enrollment.courseId}`);
+          const course = await courseResponse.json();
+          const schedule = course.schedule as any;
+          
+          addTerminalLine(`${course.name} (${course.id})`);
+          addTerminalLine(`  ${schedule.days.join(', ')} | ${schedule.time}`);
+          addTerminalLine(`  Location: ${schedule.room}`);
+          addTerminalLine('');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+      addTerminalLine('');
+      addTerminalLine('Error fetching schedule. Please try again.', 'error');
+    }
+  };
+
+  const handleGPA = async () => {
+    if (!gameState) return;
+    
+    try {
+      const progressResponse = await fetch(`/api/academic-progress/${gameState.character.id}`);
+      if (!progressResponse.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to fetch GPA information.', 'error');
+        return;
+      }
+      
+      const progress = await progressResponse.json();
+      
+      // Calculate GPA
+      const calculateResponse = await fetch(`/api/academic-progress/${gameState.character.id}/calculate`, {
+        method: 'POST'
+      });
+      
+      if (!calculateResponse.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to calculate GPA.', 'error');
+        return;
+      }
+      
+      const updatedProgress = await calculateResponse.json();
+      
+      const gpa = (updatedProgress.cumulativeGPA / 100).toFixed(2);
+      const standing = updatedProgress.academicStanding;
+      
+      addTerminalLine('');
+      addTerminalLine('GPA & ACADEMIC STANDING');
+      addTerminalLine('=======================');
+      addTerminalLine(`Student: ${gameState.character.name}`);
+      addTerminalLine(`Cumulative GPA: ${gpa}`);
+      addTerminalLine(`Academic Standing: ${standing.toUpperCase()}`);
+      addTerminalLine(`Total Credits: ${updatedProgress.totalCredits}`);
+      addTerminalLine('');
+      
+      if (standing === 'honors') {
+        addTerminalLine('Congratulations! You are on the Honor Roll!');
+      } else if (standing === 'probation' || standing === 'warning') {
+        addTerminalLine('Warning: Your GPA is below good standing. Work on improving your grades.');
+      } else {
+        addTerminalLine('Keep up the good work!');
+      }
+      
+      addTerminalLine('');
+      addTerminalLine('Type GRADES to see current course grades.');
+    } catch (error) {
+      console.error('Error fetching GPA:', error);
+      addTerminalLine('');
+      addTerminalLine('Error fetching GPA. Please try again.', 'error');
+    }
+  };
+
+  const handleRead = async (target: string) => {
+    if (!gameState) return;
+    
+    if (!target) {
+      addTerminalLine('');
+      addTerminalLine('What would you like to read? Try READ [textbook name].', 'error');
+      return;
+    }
+    
+    try {
+      // Try to find the textbook by matching the target with course names
+      const coursesResponse = await fetch('/api/courses');
+      if (!coursesResponse.ok) {
+        addTerminalLine('');
+        addTerminalLine('Failed to access course catalog.', 'error');
+        return;
+      }
+      
+      const courses = await coursesResponse.json();
+      const matchingCourse = courses.find((c: any) => 
+        c.name.toLowerCase().includes(target.toLowerCase()) ||
+        c.id.toLowerCase() === target.toLowerCase()
+      );
+      
+      if (!matchingCourse) {
+        addTerminalLine('');
+        addTerminalLine(`You don't have a textbook about "${target}".`, 'error');
+        addTerminalLine('Type SCHEDULE to see your enrolled courses.');
+        return;
+      }
+      
+      const textbookId = `textbook-${matchingCourse.id}`;
+      
+      addTerminalLine('');
+      addTerminalLine(`Reading: ${matchingCourse.name} Textbook`);
+      addTerminalLine('='.repeat(matchingCourse.name.length + 18));
+      addTerminalLine('');
+      addTerminalLine(`Department: ${matchingCourse.department}`);
+      addTerminalLine(`Credits: ${matchingCourse.credits}`);
+      addTerminalLine('');
+      addTerminalLine('COURSE DESCRIPTION:');
+      addTerminalLine(matchingCourse.description);
+      addTerminalLine('');
+      addTerminalLine('SYLLABUS:');
+      const syllabusLines = matchingCourse.syllabus.split('\n');
+      syllabusLines.forEach((line: string) => addTerminalLine(line));
+      addTerminalLine('');
+      addTerminalLine('(Study this material to prepare for assignments and exams)');
+    } catch (error) {
+      console.error('Error reading textbook:', error);
+      addTerminalLine('');
+      addTerminalLine('Error reading textbook. Please try again.', 'error');
+    }
   };
   
   const handleTalkTopic = async (personName: string, topic: string) => {

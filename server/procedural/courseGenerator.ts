@@ -541,3 +541,43 @@ function getFinalProjectPrompt(dept: Department, courseName: string): string {
   
   return prompts[dept];
 }
+
+/**
+ * Generate textbook items for all courses
+ * Students can read these textbooks to study course material
+ */
+export function generateTextbooks(courses: Course[]): Array<{
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  weight: number;
+  value: number;
+  properties: {
+    courseId: string;
+    courseName: string;
+    department: string;
+    canRead: boolean;
+    content: string;
+  };
+  canUse: boolean;
+  isQuestItem: boolean;
+}> {
+  return courses.map(course => ({
+    id: `textbook-${course.id}`,
+    name: `${course.name} Textbook`,
+    description: `Official textbook for ${course.name}. Contains all course material, syllabus, and study guides needed for this ${course.department} course.`,
+    type: 'book',
+    weight: 2,
+    value: 50,
+    properties: {
+      courseId: course.id,
+      courseName: course.name,
+      department: course.department,
+      canRead: true,
+      content: course.syllabus,
+    },
+    canUse: true,
+    isQuestItem: false,
+  }));
+}

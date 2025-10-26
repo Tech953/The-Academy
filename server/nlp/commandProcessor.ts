@@ -34,6 +34,7 @@ const GAME_COMMANDS = {
   inventory: ['inventory', 'items', 'possessions'],
   status: ['status', 'stats', 'character', 'self'],
   social: ['list', 'who', 'people', 'characters'],
+  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read'],
   meta: ['help', 'save', 'load', 'quit', 'exit', 'time', 'score', 'clear'],
 };
 
@@ -50,6 +51,7 @@ AVAILABLE COMMAND TYPES:
 - Interaction: talk (to NPC), ask (NPC about topic)
 - Inventory: inventory, status
 - Social: list (show people in location - use for "who's here?", "who else is around?", "show people", etc.)
+- Academic: grades (view current course grades), transcript (view completed courses), schedule (view class schedule), gpa (view GPA and academic standing), read (read a textbook - requires textbook name/course name)
 - Meta: help, save, load, quit, time, score, clear
 
 CURRENT GAME CONTEXT:
