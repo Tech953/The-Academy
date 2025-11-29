@@ -184,139 +184,27 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         boxShadow: 'inset 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 60px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.5)',
       }}
     >
-      {/* Icon Construction Animation - expands from border after boot text */}
-      {showIconConstruction && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: iconConstructionPhase >= 4 ? 'rgba(0, 0, 0, 0.9)' : 'transparent',
-          transition: 'background 0.3s ease-out',
-          zIndex: 10,
-        }}>
-          {/* Border glow pulse effect */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            border: `3px solid #00ff00`,
-            boxShadow: iconConstructionPhase >= 2 
-              ? `inset 0 0 ${40 + iconConstructionPhase * 20}px rgba(0, 255, 0, ${0.2 + iconConstructionPhase * 0.1}), 0 0 ${20 + iconConstructionPhase * 10}px rgba(0, 255, 0, 0.5)`
-              : 'inset 0 0 30px rgba(0, 255, 0, 0.3)',
-            transition: 'all 0.3s ease-out',
-          }} />
-
-          {/* Constructing icon - grows from center */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '20px',
-            transform: `scale(${0.5 + iconConstructionPhase * 0.15})`,
-            opacity: iconConstructionPhase >= 1 ? 1 : 0,
-            transition: 'all 0.3s ease-out',
-          }}>
-            {/* Icon container */}
-            <div style={{
-              width: '140px',
-              height: '140px',
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              {/* Phase 1-2: Outer ring with scanning effect */}
-              <div style={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                border: `3px solid ${iconConstructionPhase >= 1 ? '#00ff00' : 'transparent'}`,
-                borderRadius: '50%',
-                boxShadow: iconConstructionPhase >= 1 ? '0 0 30px #00ff00, inset 0 0 20px #00ff0044' : 'none',
-                transition: 'all 0.2s ease-out',
-              }} />
-              
-              {/* Phase 2: Inner scanning ring */}
-              <div style={{
-                position: 'absolute',
-                width: '80%',
-                height: '80%',
-                border: `2px solid ${iconConstructionPhase >= 2 ? '#00ff00' : 'transparent'}`,
-                borderRadius: '50%',
-                opacity: iconConstructionPhase >= 2 ? 0.7 : 0,
-                transition: 'all 0.2s ease-out',
-              }} />
-              
-              {/* Phase 3: Crosshair lines */}
-              {iconConstructionPhase >= 3 && (
-                <>
-                  <div style={{ position: 'absolute', width: '2px', height: '100%', background: 'linear-gradient(to bottom, transparent, #00ff00, transparent)', opacity: 0.5 }} />
-                  <div style={{ position: 'absolute', width: '100%', height: '2px', background: 'linear-gradient(to right, transparent, #00ff00, transparent)', opacity: 0.5 }} />
-                </>
-              )}
-              
-              {/* Phase 4-5: Mascot emerges */}
-              <div style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '50%',
-                overflow: 'hidden',
-                opacity: iconConstructionPhase >= 4 ? 1 : 0,
-                transform: iconConstructionPhase >= 4 ? 'scale(1)' : 'scale(0.3)',
-                transition: 'all 0.4s ease-out',
-                boxShadow: iconConstructionPhase >= 5 ? '0 0 40px #00ff00, 0 0 80px #00ff0066' : '0 0 20px #00ff0044',
-                border: '2px solid #00ff00',
-              }}>
-                <BearMascot 
-                  animation={iconConstructionPhase >= 5 ? "celebrate" : "idle"}
-                  size="xl"
-                  glowIntensity="high"
-                />
-              </div>
-            </div>
-            
-            {/* Status text below icon */}
-            <div style={{
-              color: '#00ff00',
-              fontFamily: 'monospace',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              textShadow: '0 0 15px #00ff00',
-              letterSpacing: '4px',
-              textAlign: 'center',
-            }}>
-              {iconConstructionPhase < 5 ? 'INITIALIZING' : 'WELCOME TO THE ACADEMY'}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div 
         style={{
           height: '100%',
           width: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
           alignItems: 'center',
-          padding: '16px',
+          padding: '20px',
+          gap: '20px',
           boxSizing: 'border-box',
           overflow: 'hidden',
         }}
       >
+        {/* Left side: Scrolling boot text */}
         <div 
           ref={containerRef}
           style={{ 
-            maxWidth: '900px',
-            maxHeight: '80vh',
-            width: '100%',
+            flex: '1 1 auto',
+            maxWidth: '600px',
+            maxHeight: '90vh',
             overflowY: 'auto',
             scrollbarWidth: 'none',
           }}
@@ -325,7 +213,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
             style={{ 
               color: '#00ff00',
               fontFamily: 'Courier New, Courier, monospace',
-              fontSize: '13px',
+              fontSize: '12px',
               lineHeight: '1.3',
               whiteSpace: 'pre',
               textAlign: 'left',
@@ -341,6 +229,125 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
               <span style={{ animation: 'blink 1s infinite' }}>█</span>
             )}
           </div>
+        </div>
+
+        {/* Right side: Icon construction area */}
+        <div 
+          style={{
+            flex: '0 0 auto',
+            width: '180px',
+            height: '200px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: '20px',
+          }}
+        >
+          {/* Icon constructs after boot text completes */}
+          {showIconConstruction ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px',
+              opacity: iconConstructionPhase >= 1 ? 1 : 0,
+              transform: `scale(${0.6 + iconConstructionPhase * 0.1})`,
+              transition: 'all 0.25s ease-out',
+            }}>
+              {/* Icon container */}
+              <div style={{
+                width: '100px',
+                height: '100px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {/* Phase 1: Outer ring */}
+                <div style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  border: `2px solid ${iconConstructionPhase >= 1 ? '#00ff00' : 'transparent'}`,
+                  borderRadius: '50%',
+                  boxShadow: iconConstructionPhase >= 1 ? '0 0 15px #00ff00, inset 0 0 10px #00ff0033' : 'none',
+                  transition: 'all 0.2s ease-out',
+                }} />
+                
+                {/* Phase 2: Inner ring */}
+                <div style={{
+                  position: 'absolute',
+                  width: '75%',
+                  height: '75%',
+                  border: `1px solid ${iconConstructionPhase >= 2 ? '#00ff00' : 'transparent'}`,
+                  borderRadius: '50%',
+                  opacity: iconConstructionPhase >= 2 ? 0.6 : 0,
+                  transition: 'all 0.2s ease-out',
+                }} />
+                
+                {/* Phase 3: Crosshairs */}
+                {iconConstructionPhase >= 3 && (
+                  <>
+                    <div style={{ position: 'absolute', width: '1px', height: '80%', background: 'linear-gradient(to bottom, transparent, #00ff00, transparent)', opacity: 0.4 }} />
+                    <div style={{ position: 'absolute', width: '80%', height: '1px', background: 'linear-gradient(to right, transparent, #00ff00, transparent)', opacity: 0.4 }} />
+                  </>
+                )}
+                
+                {/* Phase 4-5: Mascot */}
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  opacity: iconConstructionPhase >= 4 ? 1 : 0,
+                  transform: iconConstructionPhase >= 4 ? 'scale(1)' : 'scale(0.3)',
+                  transition: 'all 0.3s ease-out',
+                  boxShadow: iconConstructionPhase >= 5 ? '0 0 25px #00ff00' : '0 0 10px #00ff0044',
+                  border: '2px solid #00ff00',
+                }}>
+                  <BearMascot 
+                    animation={iconConstructionPhase >= 5 ? "pulse" : "idle"}
+                    size="lg"
+                    glowIntensity={iconConstructionPhase >= 5 ? "high" : "medium"}
+                  />
+                </div>
+              </div>
+              
+              {/* Status text */}
+              <div style={{
+                color: '#00ff00',
+                fontFamily: 'monospace',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                textShadow: '0 0 8px #00ff00',
+                letterSpacing: '2px',
+                textAlign: 'center',
+              }}>
+                {iconConstructionPhase < 5 ? 'LOADING' : 'READY'}
+              </div>
+            </div>
+          ) : (
+            /* Placeholder before construction - subtle waiting indicator */
+            <div style={{
+              width: '80px',
+              height: '80px',
+              border: '1px dashed #00ff0033',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <div style={{
+                color: '#00ff0044',
+                fontFamily: 'monospace',
+                fontSize: '8px',
+                textAlign: 'center',
+              }}>
+                STANDBY
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
