@@ -55,10 +55,11 @@ const BOOT_LINES = [
 ];
 
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
-  // Boot sequence phases: 'icon' -> 'loading' -> 'complete'
-  const [bootPhase, setBootPhase] = useState<'icon' | 'loading' | 'complete'>('icon');
+  // Boot sequence phases: 'icon' -> 'loading' -> 'finalizing' -> 'complete'
+  const [bootPhase, setBootPhase] = useState<'icon' | 'loading' | 'finalizing' | 'complete'>('icon');
   const [iconPhase, setIconPhase] = useState(0); // 0-5 for icon construction
   const [visibleLineCount, setVisibleLineCount] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0); // 0-100 for loading bar
   const [showSkipHint, setShowSkipHint] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -129,8 +130,11 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          // Brief pause then complete
-          setTimeout(completeBootSequence, 500);
+          // Transition to finalizing phase
+          setTimeout(() => {
+            console.log('[BOOT] Text complete, starting finalizing phase');
+            setBootPhase('finalizing');
+          }, 300);
           return BOOT_LINES.length;
         }
         return next;
@@ -143,6 +147,32 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         clearInterval(intervalRef.current);
       }
     };
+  }, [bootPhase]);
+
+  // Phase 3: Finalizing with loading bar
+  useEffect(() => {
+    if (bootPhase !== 'finalizing') return;
+    
+    console.log('[BOOT] Phase 3: Finalizing');
+    let progress = 0;
+    
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 15 + 5; // Random increments for retro feel
+      if (progress >= 100) {
+        progress = 100;
+        setLoadingProgress(100);
+        clearInterval(progressInterval);
+        // Brief hold at 100%, then instant transition
+        setTimeout(() => {
+          console.log('[BOOT] Loading complete, transitioning to UI');
+          completeBootSequence();
+        }, 400);
+      } else {
+        setLoadingProgress(Math.floor(progress));
+      }
+    }, 150);
+
+    return () => clearInterval(progressInterval);
   }, [bootPhase, completeBootSequence]);
 
   useEffect(() => {
@@ -342,7 +372,147 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         </div>
       )}
 
-      {showSkipHint && skipEnabled && visibleLineCount > 10 && visibleLineCount < BOOT_LINES.length && (
+      {/* Phase 3: Finalizing with loading bar */}
+      {bootPhase === 'finalizing' && (
+        <div 
+          style={{
+            height: '100%',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '40px',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Center content */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '30px',
+            maxWidth: '500px',
+            width: '100%',
+          }}>
+            {/* Status text */}
+            <div style={{
+              color: '#00ff00',
+              fontFamily: 'Courier New, Courier, monospace',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              textShadow: '0 0 10px #00ff00',
+              letterSpacing: '3px',
+              textAlign: 'center',
+            }}>
+              INITIALIZING TERMINAL INTERFACE
+            </div>
+
+            {/* Loading bar container */}
+            <div style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}>
+              {/* Bar border */}
+              <div style={{
+                width: '100%',
+                height: '24px',
+                border: '2px solid #00ff00',
+                boxShadow: '0 0 10px #00ff0044, inset 0 0 10px #00ff0022',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                {/* Fill bar */}
+                <div style={{
+                  position: 'absolute',
+                  left: '2px',
+                  top: '2px',
+                  height: 'calc(100% - 4px)',
+                  width: `calc(${loadingProgress}% - 4px)`,
+                  background: 'linear-gradient(90deg, #00ff00 0%, #00cc00 50%, #00ff00 100%)',
+                  boxShadow: '0 0 15px #00ff00, 0 0 30px #00ff0066',
+                  transition: 'width 0.1s ease-out',
+                }}>
+                  {/* Scanline effect on bar */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px)',
+                  }} />
+                </div>
+
+                {/* Block segments for retro look */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  gap: '2px',
+                  padding: '2px',
+                }}>
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        background: i < Math.floor(loadingProgress / 5) 
+                          ? '#00ff00' 
+                          : 'transparent',
+                        boxShadow: i < Math.floor(loadingProgress / 5)
+                          ? '0 0 5px #00ff00'
+                          : 'none',
+                        opacity: i < Math.floor(loadingProgress / 5) ? 1 : 0.2,
+                        border: '1px solid #00ff0044',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Percentage and status */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                color: '#00ff00',
+                fontFamily: 'Courier New, Courier, monospace',
+                fontSize: '12px',
+              }}>
+                <span style={{ opacity: 0.7 }}>
+                  {loadingProgress < 100 ? 'Loading modules...' : 'Complete'}
+                </span>
+                <span style={{ 
+                  fontWeight: 'bold',
+                  textShadow: '0 0 8px #00ff00',
+                }}>
+                  {loadingProgress}%
+                </span>
+              </div>
+            </div>
+
+            {/* Blinking ready indicator when complete */}
+            {loadingProgress >= 100 && (
+              <div style={{
+                color: '#00ff00',
+                fontFamily: 'Courier New, Courier, monospace',
+                fontSize: '14px',
+                animation: 'blink 0.5s infinite',
+                textShadow: '0 0 15px #00ff00',
+              }}>
+                READY
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showSkipHint && skipEnabled && bootPhase === 'loading' && visibleLineCount > 10 && visibleLineCount < BOOT_LINES.length && (
         <div 
           style={{
             position: 'absolute',
