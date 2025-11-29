@@ -256,6 +256,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   const [showSkipHint, setShowSkipHint] = useState(false);
   const [activeAnimations, setActiveAnimations] = useState<Set<string>>(new Set());
   const [completedAnimations, setCompletedAnimations] = useState<Set<string>>(new Set());
+  const [isExiting, setIsExiting] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const muteButtonRef = useRef<HTMLButtonElement>(null);
@@ -360,10 +361,13 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     cleanupRef.current = true;
     setIsBooting(false);
     playSound('success');
+    
+    setIsExiting(true);
+    
     setTimeout(() => {
       cleanupAudio();
       onBootComplete();
-    }, 500);
+    }, 800);
   }, [onBootComplete, playSound, cleanupAudio]);
 
   useEffect(() => {
@@ -484,7 +488,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     const baseStyle: React.CSSProperties = {
       fontFamily: 'monospace',
       whiteSpace: 'pre',
-      lineHeight: '1.4',
+      lineHeight: '1.5',
     };
 
     switch (line.type) {
@@ -582,16 +586,64 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
   return (
     <div 
-      className="fixed inset-0 z-50 boot-screen"
+      className={`fixed inset-0 z-50 boot-screen ${isExiting ? 'boot-exit' : ''}`}
       style={{ 
         background: 'hsl(var(--terminal-bg))',
-        cursor: skipEnabled && currentLineIndex > 5 ? 'pointer' : 'default'
+        cursor: skipEnabled && currentLineIndex > 5 ? 'pointer' : 'default',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
       role="alert"
       aria-live="polite"
       aria-label="System boot sequence in progress"
       data-testid="boot-screen"
     >
+      <style>{`
+        .boot-scroll-container::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .boot-exit {
+          animation: bootFadeOut 0.8s ease-out forwards;
+        }
+        
+        @keyframes bootFadeOut {
+          0% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(0.98);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(0.95) translateY(-20px);
+          }
+        }
+        
+        .boot-content-centered {
+          font-size: clamp(0.7rem, 1.2vw, 1rem);
+          max-height: 85vh;
+          max-width: min(95vw, 1000px);
+          width: 100%;
+        }
+        
+        @media (min-width: 768px) {
+          .boot-content-centered {
+            font-size: clamp(0.85rem, 1vw, 1.1rem);
+          }
+        }
+        
+        @media (min-width: 1200px) {
+          .boot-content-centered {
+            font-size: 1rem;
+          }
+        }
+      `}</style>
+      
       <button
         ref={muteButtonRef}
         onClick={toggleMute}
@@ -599,7 +651,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         style={{ 
           color: 'hsl(var(--terminal-glow))',
           zIndex: 100,
-          position: 'relative'
+          position: 'absolute'
         }}
         aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
         data-testid="button-mute-toggle"
@@ -609,20 +661,13 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
       <div 
         ref={containerRef}
-        className="h-full p-4 md:p-8 pb-20 boot-scroll-container"
+        className="boot-scroll-container boot-content-centered p-4 md:p-6"
         style={{ 
-          maxWidth: '900px',
-          margin: '0 auto',
           overflowY: 'auto',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
         }}
       >
-        <style>{`
-          .boot-scroll-container::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
         <div className="boot-text">
           {displayedLines.map((line, index) => renderLine(line, index))}
           
@@ -638,7 +683,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
       {showSkipHint && skipEnabled && isBooting && currentLineIndex > 5 && (
         <div 
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm opacity-50 animate-pulse"
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-sm opacity-50 animate-pulse"
           style={{ 
             color: 'hsl(var(--terminal-glow))',
             zIndex: 100
@@ -649,7 +694,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       )}
 
       <div 
-        className="absolute bottom-2 right-4 text-xs opacity-30"
+        className="absolute bottom-3 right-4 text-xs opacity-30"
         style={{ 
           color: 'hsl(var(--terminal-glow))',
           zIndex: 100

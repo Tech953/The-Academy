@@ -225,25 +225,83 @@ export default function Home() {
     }
   };
 
-  // Show boot screen on first load (skippable after a few seconds)
+  // Render content with parallel boot screen transition
+  const renderGameContent = () => {
+    if (!character || !gameStarted) {
+      return (
+        <TextCharacterCreation 
+          onComplete={(newCharacter) => {
+            setCharacter(newCharacter);
+            setGameStarted(true);
+          }}
+        />
+      );
+    }
+    
+    if (loading || !gameState) {
+      return (
+        <div className="h-screen bg-background text-foreground font-mono flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-2xl mb-4">THE ACADEMY</div>
+            <div>Initializing game world...</div>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  // Show boot screen overlaying game content for parallel transition
   if (!bootComplete) {
     return (
-      <RetroBootScreen 
-        onBootComplete={handleBootComplete}
-        skipEnabled={true}
-      />
+      <div className="relative h-screen w-screen overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-0 game-content-enter"
+          style={{ 
+            animation: 'none',
+            zIndex: 1
+          }}
+        >
+          {renderGameContent()}
+        </div>
+        <RetroBootScreen 
+          onBootComplete={handleBootComplete}
+          skipEnabled={true}
+        />
+        <style>{`
+          .game-reveal {
+            animation: gameReveal 0.8s ease-out forwards;
+          }
+          @keyframes gameReveal {
+            0% { opacity: 0; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+      </div>
     );
   }
 
-  // If character hasn't been created yet, show character creation
+  // If character hasn't been created yet, show character creation with fade-in
   if (!character || !gameStarted) {
     return (
-      <TextCharacterCreation 
-        onComplete={(newCharacter) => {
-          setCharacter(newCharacter);
-          setGameStarted(true);
-        }}
-      />
+      <div 
+        className="game-reveal"
+        style={{ animation: 'gameReveal 0.6s ease-out forwards' }}
+      >
+        <style>{`
+          @keyframes gameReveal {
+            0% { opacity: 0; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+        <TextCharacterCreation 
+          onComplete={(newCharacter) => {
+            setCharacter(newCharacter);
+            setGameStarted(true);
+          }}
+        />
+      </div>
     );
   }
 
