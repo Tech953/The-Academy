@@ -178,7 +178,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
   return (
     <div 
-      className={`fixed inset-0 z-50 ${isExiting ? 'boot-exit' : ''}`}
+      className={`fixed inset-0 z-[9999] ${isExiting ? 'boot-exit' : ''}`}
       style={{ 
         backgroundColor: '#000000',
         cursor: skipEnabled && showSkipHint && visibleLineCount > 10 ? 'pointer' : 'default',
