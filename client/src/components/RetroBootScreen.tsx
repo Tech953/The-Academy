@@ -381,6 +381,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       return next;
     });
     playSound('click');
+    setCurrentLineIndex(prev => prev + 1);
   }, [playSound]);
 
   useEffect(() => {
@@ -395,55 +396,31 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     const currentLine = BOOT_SEQUENCE[currentLineIndex];
     
     const timer = setTimeout(() => {
+      setDisplayedLines(prev => [...prev, currentLine]);
+      
       if (currentLine.animationId && !completedAnimations.has(currentLine.animationId)) {
         setActiveAnimations(prev => new Set(Array.from(prev).concat(currentLine.animationId!)));
         if (currentLine.type === 'spinner') {
           playSound('disk');
         }
-      }
-      
-      setDisplayedLines(prev => [...prev, currentLine]);
-      
-      if (currentLine.type === 'check' || currentLine.type === 'header') {
-        playSound('click');
-      } else if (currentLine.type === 'warning' || currentLine.glitch) {
-        playSound('warning');
-      } else if (currentLine.type === 'success') {
-        playSound('success');
+      } else {
+        if (currentLine.type === 'check' || currentLine.type === 'header') {
+          playSound('click');
+        } else if (currentLine.type === 'warning' || currentLine.glitch) {
+          playSound('warning');
+        } else if (currentLine.type === 'success') {
+          playSound('success');
+        }
+        setCurrentLineIndex(prev => prev + 1);
       }
       
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
-      
-      if (!currentLine.animationId || completedAnimations.has(currentLine.animationId)) {
-        setCurrentLineIndex(prev => prev + 1);
-      }
     }, currentLine.delay);
 
     return () => clearTimeout(timer);
   }, [currentLineIndex, playSound, activeAnimations, completedAnimations]);
-
-  useEffect(() => {
-    if (activeAnimations.size === 0 && displayedLines.length > 0) {
-      const lastLine = BOOT_SEQUENCE[currentLineIndex - 1];
-      if (lastLine?.animationId && completedAnimations.has(lastLine.animationId)) {
-        setCurrentLineIndex(prev => prev);
-      }
-    }
-  }, [completedAnimations, activeAnimations, currentLineIndex, displayedLines.length]);
-
-  useEffect(() => {
-    if (activeAnimations.size > 0) {
-      const checkComplete = () => {
-        const allComplete = Array.from(activeAnimations).every(id => completedAnimations.has(id));
-        if (allComplete) {
-          setCurrentLineIndex(prev => prev + 1);
-        }
-      };
-      checkComplete();
-    }
-  }, [completedAnimations, activeAnimations]);
 
   useEffect(() => {
     if (currentLineIndex >= BOOT_SEQUENCE.length && isBooting && activeAnimations.size === 0) {
