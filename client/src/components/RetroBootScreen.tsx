@@ -177,18 +177,18 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-end',
+          justifyContent: 'center',
           alignItems: 'center',
           padding: '16px',
-          paddingBottom: '64px',
           boxSizing: 'border-box',
+          overflow: 'hidden',
         }}
       >
         <div 
           ref={containerRef}
           style={{ 
             maxWidth: '900px',
-            maxHeight: '100%',
+            maxHeight: '80vh',
             width: '100%',
             overflowY: 'auto',
             scrollbarWidth: 'none',
@@ -197,10 +197,11 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
           <div 
             style={{ 
               color: '#00ff00',
-              fontFamily: 'monospace',
-              fontSize: '14px',
-              lineHeight: '1.4',
+              fontFamily: 'Courier New, Courier, monospace',
+              fontSize: '13px',
+              lineHeight: '1.3',
               whiteSpace: 'pre',
+              textAlign: 'left',
             }}
           >
             {visibleLines.map((line, index) => (
