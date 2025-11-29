@@ -399,12 +399,8 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         }
         
         @keyframes bootFadeOut {
-          0% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 0;
-          }
+          0% { opacity: 1; }
+          100% { opacity: 0; }
         }
         
         .glitch-text {
@@ -432,33 +428,43 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       </button>
 
       <div 
-        ref={containerRef}
-        className="h-full p-4 md:p-8 boot-scroll-container overflow-y-auto"
-        style={{ 
-          maxWidth: '900px',
-          margin: '0 auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        }}
+        className="h-full w-full flex items-center justify-center p-4 md:p-8"
       >
-        <div className="boot-text pt-4">
-          {displayedLines.map((line, index) => (
-            <div 
-              key={index}
-              className={`boot-line ${line.glitch ? 'glitch-text' : ''}`}
-              style={getLineStyle(line)}
-            >
-              {line.text || '\u00A0'}
-            </div>
-          ))}
-          
-          {isBooting && currentLineIndex < BOOT_SEQUENCE.length && (
-            <span 
-              className="inline-block w-2 h-4 ml-1 animate-pulse"
-              style={{ background: 'hsl(var(--terminal-glow))' }}
-              aria-hidden="true"
-            />
-          )}
+        <div 
+          ref={containerRef}
+          className="boot-scroll-container overflow-y-auto max-h-full"
+          style={{ 
+            maxWidth: '900px',
+            width: '100%',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
+          <div className="boot-text" style={{ minHeight: '100px' }}>
+            {displayedLines.length === 0 && isBooting && (
+              <div style={{ color: 'hsl(var(--terminal-glow))', fontFamily: 'monospace' }}>
+                Initializing THEMNION OS...
+                <span className="terminal-cursor" style={{ color: 'hsl(var(--terminal-glow))' }}>█</span>
+              </div>
+            )}
+            {displayedLines.map((line, index) => (
+              <div 
+                key={index}
+                className={`boot-line ${line.glitch ? 'glitch-text' : ''}`}
+                style={getLineStyle(line)}
+              >
+                {line.text || '\u00A0'}
+              </div>
+            ))}
+            
+            {isBooting && currentLineIndex < BOOT_SEQUENCE.length && displayedLines.length > 0 && (
+              <span 
+                className="terminal-cursor"
+                style={{ color: 'hsl(var(--terminal-glow))' }}
+                aria-hidden="true"
+              >█</span>
+            )}
+          </div>
         </div>
       </div>
 

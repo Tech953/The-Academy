@@ -74,6 +74,7 @@ const commandCategories: CommandCategory[] = [
     commands: [
       { command: 'STATUS', description: 'View character status' },
       { command: 'INVENTORY', description: 'Check your inventory', shortcut: 'I' },
+      { command: 'TUTORIAL', description: 'Open detailed game guide' },
       { command: 'HELP', description: 'Show all commands', shortcut: 'H' },
       { command: 'SAVE', description: 'Save game progress' },
       { command: 'LOAD', description: 'Load saved game' },

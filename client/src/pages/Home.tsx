@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
 import RetroBootScreen from '@/components/RetroBootScreen';
+import Tutorial from '@/components/Tutorial';
 import { Character } from '@/components/CharacterSheet';
 import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
@@ -15,6 +16,7 @@ export default function Home() {
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const handleBootComplete = () => {
     setBootComplete(true);
@@ -422,7 +424,8 @@ export default function Home() {
       'u': 'up', 'd': 'down',
       'help': 'help', '?': 'help',
       'quit': 'quit', 'exit': 'quit', 'q': 'quit',
-      'who': 'list', 'people': 'list', 'characters': 'list'
+      'who': 'list', 'people': 'list', 'characters': 'list',
+      'guide': 'tutorial', 'howto': 'tutorial', 'instructions': 'tutorial'
     };
     
     // Special handling for "GO N/S/E/W" - convert to direct movement
@@ -534,6 +537,7 @@ export default function Home() {
         addTerminalLine('ATTEND [course] - Mark attendance for a class');
         addTerminalLine('');
         addTerminalLine('== Game ==');
+        addTerminalLine('TUTORIAL - Open the detailed game tutorial');
         addTerminalLine('SAVE - Save your progress');
         addTerminalLine('LOAD - Load saved game');
         addTerminalLine('TIME - Check current game time');
@@ -673,6 +677,10 @@ export default function Home() {
     } else if (action === 'clear') {
       setTerminalLines([]);
       addTerminalLine('Terminal cleared.', 'system');
+    } else if (action === 'tutorial' || action === 'guide') {
+      addTerminalLine('');
+      addTerminalLine('Opening tutorial...', 'system');
+      setShowTutorial(true);
     } else {
       addTerminalLine('');
       const suggestions = getCommandSuggestions(originalAction);
@@ -1577,12 +1585,20 @@ export default function Home() {
   const statusLine = `${gameState.character.name} | ${gameState.character.race} ${gameState.character.class} | Location: ${gameState.currentLocation.name} | Energy: ${gameState.character.energy}/${gameState.character.maxEnergy}`;
 
   return (
-    <TerminalInterface
-      lines={terminalLines}
-      onCommand={handleCommand}
-      prompt=">"
-      statusLine={statusLine}
-      commandHistory={commandHistory}
-    />
+    <>
+      <TerminalInterface
+        lines={terminalLines}
+        onCommand={handleCommand}
+        prompt=">"
+        statusLine={statusLine}
+        commandHistory={commandHistory}
+      />
+      {showTutorial && (
+        <Tutorial 
+          onClose={() => setShowTutorial(false)}
+          characterName={gameState.character.name}
+        />
+      )}
+    </>
   );
 }
