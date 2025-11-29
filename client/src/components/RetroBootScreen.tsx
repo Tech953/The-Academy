@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import BearMascot from './BearMascot';
+import bearImage from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
 interface RetroBootScreenProps {
   onBootComplete: () => void;
@@ -258,11 +258,21 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
                 transition: 'all 0.35s ease-out',
                 boxShadow: iconPhase >= 5 ? '0 0 40px #00ff00, 0 0 80px #00ff0044' : '0 0 20px #00ff0044',
                 border: '3px solid #00ff00',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}>
-                <BearMascot 
-                  animation={iconPhase >= 5 ? "pulse" : "idle"}
-                  size="title"
-                  glowIntensity={iconPhase >= 5 ? "high" : "medium"}
+                <img 
+                  src={bearImage}
+                  alt="Academy Mascot"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    filter: iconPhase >= 5 
+                      ? 'drop-shadow(0 0 10px #00ff00) drop-shadow(0 0 20px #00ff0066)'
+                      : 'drop-shadow(0 0 5px #00ff0044)',
+                  }}
                 />
               </div>
             </div>
