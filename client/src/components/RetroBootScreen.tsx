@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import BearMascot from './BearMascot';
 
 interface RetroBootScreenProps {
   onBootComplete: () => void;
@@ -157,20 +158,34 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         boxShadow: 'inset 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 60px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.5)',
       }}
     >
-      {/* Large centered test message - guaranteed visible */}
+      {/* Header with mascot and loading text */}
       <div style={{
         position: 'absolute',
         top: '20px',
         left: '50%',
         transform: 'translateX(-50%)',
-        color: '#00ff00',
-        fontSize: '24px',
-        fontFamily: 'monospace',
-        fontWeight: 'bold',
-        textAlign: 'center',
-        textShadow: '0 0 10px #00ff00',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
       }}>
-        ARCHIVE OS - LOADING...
+        <BearMascot 
+          animation="entrance" 
+          size="lg" 
+          glowIntensity="high"
+        />
+        <div style={{
+          color: '#00ff00',
+          fontSize: '24px',
+          fontFamily: 'monospace',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          textShadow: '0 0 10px #00ff00',
+        }}>
+          ARCHIVE OS
+          <div style={{ fontSize: '14px', opacity: 0.7 }}>
+            LOADING SYSTEMS...
+          </div>
+        </div>
       </div>
 
       <div 
