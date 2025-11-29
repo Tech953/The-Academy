@@ -12,6 +12,8 @@ export interface Character {
   class?: string;
   subClass?: string;
   faction?: string;
+  characterSummary?: string;
+  physicalTraits?: Record<string, string>;
   stats: {
     perception?: number;
     intelligence?: number;
