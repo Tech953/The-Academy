@@ -55,12 +55,12 @@ const BOOT_LINES = [
 ];
 
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
-  // Start with 1 line visible immediately
-  const [visibleLineCount, setVisibleLineCount] = useState(1);
+  // Boot sequence phases: 'icon' -> 'loading' -> 'complete'
+  const [bootPhase, setBootPhase] = useState<'icon' | 'loading' | 'complete'>('icon');
+  const [iconPhase, setIconPhase] = useState(0); // 0-5 for icon construction
+  const [visibleLineCount, setVisibleLineCount] = useState(0);
   const [showSkipHint, setShowSkipHint] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [showIconConstruction, setShowIconConstruction] = useState(false);
-  const [iconConstructionPhase, setIconConstructionPhase] = useState(0);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const bootCompleteRef = useRef(false);
@@ -89,52 +89,53 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     onBootComplete();
   }, [onBootComplete]);
 
-  // Icon construction animation - runs after boot text completes
+  // Phase 1: Icon construction (appears first)
   useEffect(() => {
-    if (!showIconConstruction) return;
+    if (bootPhase !== 'icon') return;
     
-    console.log('[BOOT] Starting icon construction');
+    console.log('[BOOT] Phase 1: Icon construction');
     let phase = 0;
-    const constructionInterval = setInterval(() => {
+    
+    const iconInterval = setInterval(() => {
       phase++;
-      setIconConstructionPhase(phase);
-      console.log('[BOOT] Construction phase', phase);
+      setIconPhase(phase);
+      console.log('[BOOT] Icon phase', phase);
       
       if (phase >= 5) {
-        clearInterval(constructionInterval);
-        // Brief pause to show completed icon, then transition
+        clearInterval(iconInterval);
+        // Hold the completed icon for a moment, then transition to loading
         setTimeout(() => {
-          console.log('[BOOT] Icon complete, transitioning...');
-          completeBootSequence();
-        }, 400);
+          console.log('[BOOT] Icon complete, starting loading phase');
+          setBootPhase('loading');
+        }, 800);
       }
-    }, 200);
+    }, 250);
 
-    return () => clearInterval(constructionInterval);
-  }, [showIconConstruction, completeBootSequence]);
+    return () => clearInterval(iconInterval);
+  }, [bootPhase]);
 
-  // Boot animation effect - starts immediately on mount
+  // Phase 2: Loading text animation
   useEffect(() => {
-    console.log('[BOOT] Starting boot animation');
-    const skipTimer = setTimeout(() => setShowSkipHint(true), 2000);
+    if (bootPhase !== 'loading') return;
     
-    // Slower animation: 100ms per line for better visibility
+    console.log('[BOOT] Phase 2: Loading text');
+    const skipTimer = setTimeout(() => setShowSkipHint(true), 1500);
+    
     intervalRef.current = setInterval(() => {
       setVisibleLineCount(prev => {
         const next = prev + 1;
-        console.log('[BOOT] Line', next, 'of', BOOT_LINES.length);
         if (next >= BOOT_LINES.length) {
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          // Start icon construction after boot text completes
-          setTimeout(() => setShowIconConstruction(true), 300);
+          // Brief pause then complete
+          setTimeout(completeBootSequence, 500);
           return BOOT_LINES.length;
         }
         return next;
       });
-    }, 100);
+    }, 80);
 
     return () => {
       clearTimeout(skipTimer);
@@ -142,7 +143,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         clearInterval(intervalRef.current);
       }
     };
-  }, []);
+  }, [bootPhase, completeBootSequence]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -184,174 +185,152 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         boxShadow: 'inset 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 60px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.5)',
       }}
     >
-      <div 
-        style={{
-          height: '100%',
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          padding: '20px',
-          gap: '20px',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Left side: Scrolling boot text */}
-        <div 
-          ref={containerRef}
-          style={{ 
-            flex: '1 1 auto',
-            maxWidth: '600px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            scrollbarWidth: 'none',
-          }}
-        >
-          <div 
-            style={{ 
-              color: '#00ff00',
-              fontFamily: 'Courier New, Courier, monospace',
-              fontSize: '12px',
-              lineHeight: '1.3',
-              whiteSpace: 'pre',
-              textAlign: 'left',
-            }}
-          >
-            {visibleLines.map((line, index) => (
-              <div key={index}>
-                {line || '\u00A0'}
-              </div>
-            ))}
-            
-            {visibleLineCount < BOOT_LINES.length && (
-              <span style={{ animation: 'blink 1s infinite' }}>█</span>
-            )}
-          </div>
-        </div>
-
-        {/* Right side: Icon construction area */}
+      {/* Phase 1: Icon appears first, centered */}
+      {bootPhase === 'icon' && (
         <div 
           style={{
-            flex: '0 0 auto',
-            width: '220px',
-            height: '220px',
+            height: '100%',
+            width: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: '30px',
+            gap: '24px',
           }}
         >
-          {/* Icon constructs after boot text completes */}
-          {showIconConstruction ? (
+          {/* Large centered icon construction */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            opacity: iconPhase >= 1 ? 1 : 0,
+            transform: `scale(${0.6 + iconPhase * 0.1})`,
+            transition: 'all 0.3s ease-out',
+          }}>
+            {/* Icon container */}
             <div style={{
+              width: '180px',
+              height: '180px',
+              position: 'relative',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '16px',
-              opacity: iconConstructionPhase >= 1 ? 1 : 0,
-              transform: `scale(${0.7 + iconConstructionPhase * 0.08})`,
-              transition: 'all 0.25s ease-out',
             }}>
-              {/* Icon container - larger and centered */}
+              {/* Phase 1: Outer ring */}
               <div style={{
-                width: '160px',
-                height: '160px',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                {/* Phase 1: Outer ring */}
-                <div style={{
-                  position: 'absolute',
-                  width: '100%',
-                  height: '100%',
-                  border: `3px solid ${iconConstructionPhase >= 1 ? '#00ff00' : 'transparent'}`,
-                  borderRadius: '50%',
-                  boxShadow: iconConstructionPhase >= 1 ? '0 0 25px #00ff00, inset 0 0 15px #00ff0044' : 'none',
-                  transition: 'all 0.2s ease-out',
-                }} />
-                
-                {/* Phase 2: Inner ring */}
-                <div style={{
-                  position: 'absolute',
-                  width: '80%',
-                  height: '80%',
-                  border: `2px solid ${iconConstructionPhase >= 2 ? '#00ff00' : 'transparent'}`,
-                  borderRadius: '50%',
-                  opacity: iconConstructionPhase >= 2 ? 0.7 : 0,
-                  transition: 'all 0.2s ease-out',
-                }} />
-                
-                {/* Phase 3: Crosshairs */}
-                {iconConstructionPhase >= 3 && (
-                  <>
-                    <div style={{ position: 'absolute', width: '2px', height: '85%', background: 'linear-gradient(to bottom, transparent, #00ff00, transparent)', opacity: 0.5 }} />
-                    <div style={{ position: 'absolute', width: '85%', height: '2px', background: 'linear-gradient(to right, transparent, #00ff00, transparent)', opacity: 0.5 }} />
-                  </>
-                )}
-                
-                {/* Phase 4-5: Mascot - larger */}
-                <div style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  opacity: iconConstructionPhase >= 4 ? 1 : 0,
-                  transform: iconConstructionPhase >= 4 ? 'scale(1)' : 'scale(0.3)',
-                  transition: 'all 0.3s ease-out',
-                  boxShadow: iconConstructionPhase >= 5 ? '0 0 35px #00ff00, 0 0 60px #00ff0044' : '0 0 15px #00ff0044',
-                  border: '3px solid #00ff00',
-                }}>
-                  <BearMascot 
-                    animation={iconConstructionPhase >= 5 ? "pulse" : "idle"}
-                    size="xl"
-                    glowIntensity={iconConstructionPhase >= 5 ? "high" : "medium"}
-                  />
-                </div>
-              </div>
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+                border: `3px solid ${iconPhase >= 1 ? '#00ff00' : 'transparent'}`,
+                borderRadius: '50%',
+                boxShadow: iconPhase >= 1 ? '0 0 30px #00ff00, inset 0 0 20px #00ff0044' : 'none',
+                transition: 'all 0.25s ease-out',
+              }} />
               
-              {/* Status text */}
+              {/* Phase 2: Inner ring */}
               <div style={{
-                color: '#00ff00',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                textShadow: '0 0 10px #00ff00',
-                letterSpacing: '3px',
-                textAlign: 'center',
+                position: 'absolute',
+                width: '80%',
+                height: '80%',
+                border: `2px solid ${iconPhase >= 2 ? '#00ff00' : 'transparent'}`,
+                borderRadius: '50%',
+                opacity: iconPhase >= 2 ? 0.7 : 0,
+                transition: 'all 0.25s ease-out',
+              }} />
+              
+              {/* Phase 3: Crosshairs */}
+              {iconPhase >= 3 && (
+                <>
+                  <div style={{ position: 'absolute', width: '2px', height: '90%', background: 'linear-gradient(to bottom, transparent, #00ff00, transparent)', opacity: 0.5 }} />
+                  <div style={{ position: 'absolute', width: '90%', height: '2px', background: 'linear-gradient(to right, transparent, #00ff00, transparent)', opacity: 0.5 }} />
+                </>
+              )}
+              
+              {/* Phase 4-5: Mascot emerges */}
+              <div style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                opacity: iconPhase >= 4 ? 1 : 0,
+                transform: iconPhase >= 4 ? 'scale(1)' : 'scale(0.3)',
+                transition: 'all 0.35s ease-out',
+                boxShadow: iconPhase >= 5 ? '0 0 40px #00ff00, 0 0 80px #00ff0044' : '0 0 20px #00ff0044',
+                border: '3px solid #00ff00',
               }}>
-                {iconConstructionPhase < 5 ? 'LOADING' : 'READY'}
+                <BearMascot 
+                  animation={iconPhase >= 5 ? "pulse" : "idle"}
+                  size="title"
+                  glowIntensity={iconPhase >= 5 ? "high" : "medium"}
+                />
               </div>
             </div>
-          ) : (
-            /* Placeholder before construction - centered waiting indicator */
+            
+            {/* Status text */}
             <div style={{
-              width: '140px',
-              height: '140px',
-              border: '2px dashed #00ff0044',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              color: '#00ff00',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 12px #00ff00',
+              letterSpacing: '4px',
+              textAlign: 'center',
             }}>
-              <div style={{
-                color: '#00ff0055',
-                fontFamily: 'monospace',
-                fontSize: '10px',
-                textAlign: 'center',
-                letterSpacing: '2px',
-              }}>
-                STANDBY
-              </div>
+              {iconPhase < 5 ? 'INITIALIZING' : 'THE ACADEMY'}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Phase 2: Loading text scrolls */}
+      {bootPhase === 'loading' && (
+        <div 
+          style={{
+            height: '100%',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '20px',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+          }}
+        >
+          <div 
+            ref={containerRef}
+            style={{ 
+              maxWidth: '700px',
+              maxHeight: '85vh',
+              width: '100%',
+              overflowY: 'auto',
+              scrollbarWidth: 'none',
+            }}
+          >
+            <div 
+              style={{ 
+                color: '#00ff00',
+                fontFamily: 'Courier New, Courier, monospace',
+                fontSize: '13px',
+                lineHeight: '1.3',
+                whiteSpace: 'pre',
+                textAlign: 'left',
+              }}
+            >
+              {visibleLines.map((line, index) => (
+                <div key={index}>
+                  {line || '\u00A0'}
+                </div>
+              ))}
+              
+              {visibleLineCount < BOOT_LINES.length && (
+                <span style={{ animation: 'blink 1s infinite' }}>█</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSkipHint && skipEnabled && visibleLineCount > 10 && visibleLineCount < BOOT_LINES.length && (
         <div 
