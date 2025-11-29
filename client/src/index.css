@@ -309,7 +309,7 @@
     line-height: 1.4;
   }
 
-  /* Optional CRT scanline effect */
+  /* Optional CRT scanline effect - static overlay for subtle retro feel without flickering */
   .crt-effect::before {
     content: '';
     position: absolute;
@@ -318,19 +318,14 @@
     right: 0;
     bottom: 0;
     pointer-events: none;
-    background: linear-gradient(
+    background: repeating-linear-gradient(
+      0deg,
       transparent 0%,
-      rgba(0, 255, 0, 0.03) 50%,
+      rgba(0, 255, 0, 0.015) 50%,
       transparent 100%
     );
-    background-size: 100% 2px;
-    animation: scanlines 0.1s linear infinite;
+    background-size: 100% 3px;
     z-index: 1;
-  }
-
-  @keyframes scanlines {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(2px); }
   }
 
   /* Smooth cursor blink */
