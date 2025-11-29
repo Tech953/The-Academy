@@ -28,6 +28,8 @@ export default function TerminalInterface({
   const [isPending, startTransition] = useTransition();
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [savedInput, setSavedInput] = useState('');
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollAnimationRef = useRef<number | null>(null);
@@ -216,9 +218,44 @@ export default function TerminalInterface({
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
+  // Handle arrow key navigation for command history
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (commandHistory.length === 0) return;
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      
+      // Save current input if starting to navigate
+      if (historyIndex === -1) {
+        setSavedInput(currentCommand);
+      }
+      
+      // Move up in history (towards older commands)
+      const newIndex = Math.min(historyIndex + 1, commandHistory.length - 1);
+      setHistoryIndex(newIndex);
+      setCurrentCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      
+      if (historyIndex > 0) {
+        // Move down in history (towards newer commands)
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setCurrentCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      } else if (historyIndex === 0) {
+        // Back to current input
+        setHistoryIndex(-1);
+        setCurrentCommand(savedInput);
+      }
+    }
+  }, [commandHistory, historyIndex, currentCommand, savedInput]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (currentCommand.trim()) {
+      // Reset history navigation
+      setHistoryIndex(-1);
+      setSavedInput('');
       // Use transition for responsive state updates
       startTransition(() => {
         onCommand(currentCommand.trim());
@@ -334,6 +371,7 @@ export default function TerminalInterface({
               type="text"
               value={currentCommand}
               onChange={(e) => setCurrentCommand(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="flex-1 bg-transparent border-none outline-none font-mono text-base terminal-text"
               style={{ 
                 color: 'hsl(var(--accent))',
@@ -343,8 +381,12 @@ export default function TerminalInterface({
               spellCheck={false}
               disabled={isPending}
               aria-label="Enter command"
+              aria-describedby="history-hint"
             />
             <span className="terminal-cursor">█</span>
+            <span id="history-hint" className="sr-only">
+              Press up and down arrow keys to navigate command history
+            </span>
           </form>
         </div>
       </div>

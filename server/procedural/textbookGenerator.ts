@@ -1,14 +1,23 @@
 import type { Textbook, TextbookChapter, Lecture } from '@shared/schema';
 import type { Department } from './courseGenerator';
+import { textbookCache, lectureCache } from './contentCache';
 
 /**
  * Generate comprehensive textbooks with detailed chapters for all GED courses
+ * Uses caching to avoid regenerating content for console memory optimization
  */
 export function generateTextbooks(courses: Array<{ id: string; name: string; department: string; syllabus: string }>): Textbook[] {
   return courses.map(course => {
+    // Check cache first for this specific textbook
+    const cacheKey = `textbook-${course.id}`;
+    const cached = textbookCache.get<Textbook>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const chapters = generateChaptersForCourse(course.department as Department, course.name);
     
-    return {
+    const textbook: Textbook = {
       id: `textbook-${course.id}`,
       courseId: course.id,
       courseName: course.name,
@@ -19,21 +28,65 @@ export function generateTextbooks(courses: Array<{ id: string; name: string; dep
       glossary: generateGlossary(course.department as Department, course.name),
       references: generateReferences(course.department as Department),
     };
+
+    // Store in cache for future access
+    textbookCache.set(cacheKey, textbook);
+    return textbook;
+  });
+}
+
+/**
+ * Get a single textbook by course ID with caching
+ */
+export function getTextbookByCourseId(courseId: string, courseName: string, department: string): Textbook | null {
+  const cacheKey = `textbook-${courseId}`;
+  return textbookCache.getOrCreate(cacheKey, () => {
+    const chapters = generateChaptersForCourse(department as Department, courseName);
+    return {
+      id: `textbook-${courseId}`,
+      courseId,
+      courseName,
+      department,
+      authors: getAuthorsForDepartment(department as Department),
+      edition: '2024 GED Edition',
+      chapters,
+      glossary: generateGlossary(department as Department, courseName),
+      references: generateReferences(department as Department),
+    };
   });
 }
 
 /**
  * Generate lectures for all courses
+ * Uses caching to optimize memory usage for console platforms
  */
 export function generateLectures(courses: Array<{ id: string; name: string; department: string }>): Lecture[] {
   const allLectures: Lecture[] = [];
   
   courses.forEach(course => {
-    const lectures = generateLecturesForCourse(course.id, course.name, course.department as Department);
+    // Check cache for this course's lectures
+    const cacheKey = `lectures-${course.id}`;
+    let lectures = lectureCache.get<Lecture[]>(cacheKey);
+    
+    if (!lectures) {
+      lectures = generateLecturesForCourse(course.id, course.name, course.department as Department);
+      lectureCache.set(cacheKey, lectures);
+    }
+    
     allLectures.push(...lectures);
   });
   
   return allLectures;
+}
+
+/**
+ * Get lectures for a specific course with caching
+ */
+export function getLecturesForCourse(courseId: string, courseName: string, department: string): Lecture[] {
+  const cacheKey = `lectures-${courseId}`;
+  return lectureCache.getOrCreate(cacheKey, () => {
+    return generateLecturesForCourse(courseId, courseName, department as Department);
+  });
 }
 
 function getAuthorsForDepartment(dept: Department): string[] {
