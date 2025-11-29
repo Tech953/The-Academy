@@ -1,26 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
 
 interface RetroBootScreenProps {
   onBootComplete: () => void;
   skipEnabled?: boolean;
 }
-
-const getStoredMuteState = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  try {
-    return localStorage.getItem('themnion-muted') === 'true';
-  } catch {
-    return false;
-  }
-};
-
-const setStoredMuteState = (muted: boolean): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('themnion-muted', String(muted));
-  } catch {}
-};
 
 const BOOT_LINES = [
   '',
@@ -100,7 +83,6 @@ const BOOT_LINES = [
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
   // Start with 1 line visible immediately
   const [visibleLineCount, setVisibleLineCount] = useState(1);
-  const [isMuted, setIsMuted] = useState(getStoredMuteState);
   const [isExiting, setIsExiting] = useState(false);
   const [showSkipHint, setShowSkipHint] = useState(false);
   
@@ -158,23 +140,11 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   }, [visibleLineCount]);
 
   const handleSkip = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-testid="button-mute-toggle"]')) {
-      return;
-    }
     // Only allow skip if the skip hint is visible (ensures minimum display time)
     if (skipEnabled && showSkipHint && visibleLineCount > 10) {
       completeBootSequence();
     }
   }, [skipEnabled, showSkipHint, visibleLineCount, completeBootSequence]);
-
-  const toggleMute = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    setStoredMuteState(newMuted);
-  }, [isMuted]);
 
   const visibleLines = BOOT_LINES.slice(0, visibleLineCount);
 
@@ -200,25 +170,6 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         transition: isExiting ? 'opacity 0.6s ease-out' : 'none',
       }}
     >
-      <button
-        onClick={toggleMute}
-        aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
-        data-testid="button-mute-toggle"
-        style={{
-          position: 'absolute',
-          top: '16px',
-          right: '16px',
-          padding: '8px',
-          background: 'transparent',
-          border: 'none',
-          color: '#00ff00',
-          opacity: 0.6,
-          cursor: 'pointer',
-          zIndex: 100000,
-        }}
-      >
-        {isMuted ? <VolumeX style={{ width: '20px', height: '20px' }} /> : <Volume2 style={{ width: '20px', height: '20px' }} />}
-      </button>
 
       <div 
         style={{
