@@ -158,33 +158,57 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         boxShadow: 'inset 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 60px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.5)',
       }}
     >
-      {/* Header with mascot and loading text */}
+      {/* Header with loading text - mascot as subtle accent */}
       <div style={{
         position: 'absolute',
-        top: '20px',
+        top: '16px',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: '16px',
+        gap: '8px',
       }}>
-        <BearMascot 
-          animation="entrance" 
-          size="lg" 
-          glowIntensity="high"
-        />
         <div style={{
           color: '#00ff00',
-          fontSize: '24px',
+          fontSize: '28px',
           fontFamily: 'monospace',
           fontWeight: 'bold',
           textAlign: 'center',
-          textShadow: '0 0 10px #00ff00',
+          textShadow: '0 0 10px #00ff00, 0 0 20px #00ff0066',
+          letterSpacing: '4px',
         }}>
           ARCHIVE OS
-          <div style={{ fontSize: '14px', opacity: 0.7 }}>
-            LOADING SYSTEMS...
+        </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}>
+          <div style={{
+            width: '40px',
+            height: '1px',
+            background: 'linear-gradient(to right, transparent, #00ff00)',
+          }} />
+          <BearMascot 
+            animation="pulse" 
+            size="sm" 
+            glowIntensity="low"
+          />
+          <div style={{
+            color: '#00ff00',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            opacity: 0.7,
+            letterSpacing: '2px',
+          }}>
+            LOADING SYSTEMS
           </div>
+          <div style={{
+            width: '40px',
+            height: '1px',
+            background: 'linear-gradient(to left, transparent, #00ff00)',
+          }} />
         </div>
       </div>
 
