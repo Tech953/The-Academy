@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
+import { TitleBear } from './BearMascot';
 
 interface BootLine {
   text: string;
   delay: number;
-  type: 'header' | 'check' | 'status' | 'warning' | 'success' | 'system' | 'banner' | 'progress' | 'memory' | 'spinner';
+  type: 'header' | 'check' | 'status' | 'warning' | 'success' | 'system' | 'banner' | 'progress' | 'memory' | 'spinner' | 'mascot';
   glitch?: boolean;
   animationId?: string;
 }
@@ -147,9 +148,12 @@ const BOOT_SEQUENCE: BootLine[] = [
   { text: '         "I have been waiting for you."', delay: 400, type: 'system', glitch: true },
   { text: '', delay: 200, type: 'system' },
   { text: '═══════════════════════════════════════════════════════════════', delay: 80, type: 'banner' },
+  { text: '', delay: 300, type: 'system' },
+  { text: '', delay: 100, type: 'mascot', animationId: 'bear' },
   { text: '', delay: 500, type: 'system' },
   { text: '  ■ THEMNION OS READY', delay: 100, type: 'success' },
   { text: '  ■ TERMINAL INTERFACE ACTIVE', delay: 100, type: 'success' },
+  { text: '  ■ GUARDIAN PROTOCOL ENGAGED', delay: 100, type: 'success' },
   { text: '  ■ AWAITING INPUT...', delay: 100, type: 'success' },
   { text: '', delay: 200, type: 'system' },
 ];
@@ -567,6 +571,25 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         return (
           <div key={index} className="boot-line" style={getLineStyle(line)}>
             {'  ● READY [▰▰▰▰▰]'}
+          </div>
+        );
+      }
+      return null;
+    }
+    
+    if (line.type === 'mascot' && line.animationId) {
+      if (activeAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line flex justify-center py-4">
+            <TitleBear 
+              onAnimationComplete={() => handleAnimationComplete(line.animationId!)} 
+            />
+          </div>
+        );
+      } else if (completedAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line flex justify-center py-2">
+            <TitleBear />
           </div>
         );
       }
