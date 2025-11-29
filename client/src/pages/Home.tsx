@@ -1,19 +1,13 @@
 import { useState, useEffect } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
-import RetroBootScreen from '@/components/RetroBootScreen';
 import Tutorial from '@/components/Tutorial';
 import { Character } from '@/components/CharacterSheet';
 import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
 
 export default function Home() {
-  // Boot screen shows every page load (no session storage caching)
-  // Force bootComplete to false on every mount to prevent HMR state preservation
-  const [bootComplete, setBootComplete] = useState(() => {
-    console.log('[Home] Initial render, bootComplete = false');
-    return false;
-  });
+  // Boot screen is now handled at App.tsx level
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -21,16 +15,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
-
-  // Log when bootComplete changes
-  useEffect(() => {
-    console.log('[Home] bootComplete changed to:', bootComplete);
-  }, [bootComplete]);
-
-  const handleBootComplete = () => {
-    console.log('[Home] handleBootComplete called');
-    setBootComplete(true);
-  };
 
   // Helper functions
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
@@ -231,16 +215,6 @@ export default function Home() {
       setLoading(false);
     }
   };
-
-  // Show boot screen on first load
-  if (!bootComplete) {
-    return (
-      <RetroBootScreen 
-        onBootComplete={handleBootComplete}
-        skipEnabled={true}
-      />
-    );
-  }
 
   // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {

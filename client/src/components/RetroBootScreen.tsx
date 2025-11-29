@@ -98,8 +98,7 @@ const BOOT_LINES = [
 ];
 
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
-  console.log('[RetroBootScreen] Component rendering');
-  
+  // Start with 1 line visible immediately
   const [visibleLineCount, setVisibleLineCount] = useState(1);
   const [isMuted, setIsMuted] = useState(getStoredMuteState);
   const [isExiting, setIsExiting] = useState(false);
@@ -107,7 +106,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   
   const containerRef = useRef<HTMLDivElement>(null);
   const bootCompleteRef = useRef(false);
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const completeBootSequence = useCallback(() => {
     if (bootCompleteRef.current) return;
@@ -125,10 +124,11 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     }, 600);
   }, [onBootComplete]);
 
+  // Boot animation effect - starts immediately on mount
   useEffect(() => {
     const skipTimer = setTimeout(() => setShowSkipHint(true), 1500);
     
-    intervalRef.current = window.setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setVisibleLineCount(prev => {
         const next = prev + 1;
         if (next >= BOOT_LINES.length) {
