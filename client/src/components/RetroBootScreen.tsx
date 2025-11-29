@@ -157,6 +157,9 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         opacity: isExiting ? 0 : 1,
         transition: isExiting ? 'opacity 0.6s ease-out' : 'none',
         overflow: 'hidden',
+        boxSizing: 'border-box',
+        border: '3px solid #00ff00',
+        boxShadow: 'inset 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 60px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.5)',
       }}
     >
       {/* Large centered test message - guaranteed visible */}
