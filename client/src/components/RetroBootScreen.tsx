@@ -155,27 +155,16 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     }
   }, [visibleLineCount]);
 
-  useEffect(() => {
-    const handleSkip = (e: KeyboardEvent | MouseEvent) => {
-      if (e.type === 'click') {
-        const target = e.target as HTMLElement;
-        if (target.closest('[data-testid="button-mute-toggle"]')) {
-          return;
-        }
-      }
-      if (skipEnabled && visibleLineCount > 10) {
-        completeBootSequence();
-      }
-    };
-
-    window.addEventListener('keydown', handleSkip);
-    window.addEventListener('click', handleSkip);
-    
-    return () => {
-      window.removeEventListener('keydown', handleSkip);
-      window.removeEventListener('click', handleSkip);
-    };
-  }, [skipEnabled, visibleLineCount, completeBootSequence]);
+  const handleSkip = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-testid="button-mute-toggle"]')) {
+      return;
+    }
+    // Only allow skip if the skip hint is visible (ensures minimum display time)
+    if (skipEnabled && showSkipHint && visibleLineCount > 10) {
+      completeBootSequence();
+    }
+  }, [skipEnabled, showSkipHint, visibleLineCount, completeBootSequence]);
 
   const toggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -192,12 +181,15 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       className={`fixed inset-0 z-50 ${isExiting ? 'boot-exit' : ''}`}
       style={{ 
         backgroundColor: '#000000',
-        cursor: skipEnabled && visibleLineCount > 10 ? 'pointer' : 'default',
+        cursor: skipEnabled && showSkipHint && visibleLineCount > 10 ? 'pointer' : 'default',
       }}
       role="alert"
       aria-live="polite"
       aria-label="System boot sequence in progress"
       data-testid="boot-screen"
+      onClick={handleSkip}
+      onKeyDown={handleSkip}
+      tabIndex={0}
     >
       <style>{`
         .boot-exit {
@@ -230,7 +222,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       </button>
 
       <div 
-        className="h-full w-full flex items-center justify-center p-4 md:p-8"
+        className="h-full w-full flex flex-col justify-end items-center p-4 md:p-8 pb-16"
       >
         <div 
           ref={containerRef}
