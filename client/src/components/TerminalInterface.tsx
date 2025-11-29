@@ -200,23 +200,39 @@ export default function TerminalInterface({
     };
   }, []);
 
-  // Keep input focused for seamless typing experience
+  // Keep input focused for seamless typing experience (scoped to terminal container only)
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     const focusInput = () => {
+      // Don't steal focus when command palette is open
+      if (showCommandPalette) return;
+      
       if (inputRef.current && document.activeElement !== inputRef.current) {
         inputRef.current.focus();
       }
     };
 
-    // Focus on click anywhere in terminal
-    const handleClick = () => focusInput();
-    document.addEventListener('click', handleClick);
-    
-    // Initial focus
-    focusInput();
+    const container = containerRef.current;
+    if (!container) return;
 
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
+    // Focus only when clicking within the terminal container (not palette or floating controls)
+    const handleClick = (e: MouseEvent) => {
+      // Check if click is within the terminal container
+      if (container.contains(e.target as Node)) {
+        focusInput();
+      }
+    };
+    
+    container.addEventListener('click', handleClick);
+    
+    // Initial focus (only if palette is closed)
+    if (!showCommandPalette) {
+      focusInput();
+    }
+
+    return () => container.removeEventListener('click', handleClick);
+  }, [showCommandPalette]);
 
   // Handle arrow key navigation for command history
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -305,6 +321,7 @@ export default function TerminalInterface({
 
       {/* Terminal Container */}
       <div 
+        ref={containerRef}
         className={`h-full bg-background text-foreground font-mono text-base flex flex-col terminal-container ${enableCrtEffect ? 'crt-effect' : ''} ${showCommandPalette ? 'pr-72' : ''}`}
         data-testid="terminal-interface"
         style={{ 
