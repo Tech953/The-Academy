@@ -149,15 +149,31 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         position: 'fixed',
         top: 0,
         left: 0,
-        right: 0,
-        bottom: 0,
+        width: '100vw',
+        height: '100vh',
         zIndex: 99999,
         backgroundColor: '#000000',
         cursor: skipEnabled && showSkipHint && visibleLineCount > 10 ? 'pointer' : 'default',
         opacity: isExiting ? 0 : 1,
         transition: isExiting ? 'opacity 0.6s ease-out' : 'none',
+        overflow: 'hidden',
       }}
     >
+      {/* Large centered test message - guaranteed visible */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        color: '#00ff00',
+        fontSize: '24px',
+        fontFamily: 'monospace',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        textShadow: '0 0 10px #00ff00',
+      }}>
+        ARCHIVE OS - LOADING...
+      </div>
 
       <div 
         style={{
