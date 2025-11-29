@@ -4,8 +4,9 @@ import { Volume2, VolumeX } from 'lucide-react';
 interface BootLine {
   text: string;
   delay: number;
-  type: 'header' | 'check' | 'status' | 'warning' | 'success' | 'system' | 'banner';
+  type: 'header' | 'check' | 'status' | 'warning' | 'success' | 'system' | 'banner' | 'progress' | 'memory' | 'spinner';
   glitch?: boolean;
+  animationId?: string;
 }
 
 interface RetroBootScreenProps {
@@ -27,7 +28,6 @@ const setStoredMuteState = (muted: boolean): void => {
   try {
     localStorage.setItem('themnion-muted', String(muted));
   } catch {
-    // localStorage unavailable, fail silently
   }
 };
 
@@ -50,47 +50,203 @@ const BOOT_SEQUENCE: BootLine[] = [
   { text: 'THEMNION SYSTEMS (C) 1959-1987  ALL RIGHTS RESERVED', delay: 120, type: 'system' },
   { text: 'BIOS VERSION 2.4.1 - ACADEMY TERMINAL INTERFACE', delay: 100, type: 'system' },
   { text: '', delay: 300, type: 'system' },
-  { text: 'INITIALIZING POWER-ON SELF TEST...', delay: 200, type: 'header' },
+  
+  { text: '╔══════════════════════════════════════════════════════════════╗', delay: 60, type: 'banner' },
+  { text: '║              POWER-ON SELF TEST DIAGNOSTICS                  ║', delay: 60, type: 'banner' },
+  { text: '╚══════════════════════════════════════════════════════════════╝', delay: 60, type: 'banner' },
   { text: '', delay: 150, type: 'system' },
-  { text: 'CPU: THEMNION TH-6800 NEURAL PROCESSOR.............. [  OK  ]', delay: 180, type: 'check' },
-  { text: 'FPU: MATH CO-PROCESSOR UNIT......................... [  OK  ]', delay: 120, type: 'check' },
-  { text: 'CACHE: L1 64KB / L2 256KB........................... [  OK  ]', delay: 100, type: 'check' },
+  
+  { text: 'CPU: THEMNION TH-6800 NEURAL PROCESSOR', delay: 80, type: 'header' },
+  { text: '', delay: 50, type: 'progress', animationId: 'cpu' },
+  { text: '  └─ STATUS: OPERATIONAL                              [  OK  ]', delay: 120, type: 'check' },
+  { text: '', delay: 100, type: 'system' },
+  
+  { text: 'MEMORY TEST: SCANNING RAM MODULES', delay: 100, type: 'header' },
+  { text: '', delay: 50, type: 'memory', animationId: 'ram' },
+  { text: '  ├─ CONVENTIONAL:  640K                              [  OK  ]', delay: 80, type: 'check' },
+  { text: '  ├─ EXTENDED:      8192K                             [  OK  ]', delay: 80, type: 'check' },
+  { text: '  └─ ARCHIVE BUFFER: 16384K                           [  OK  ]', delay: 80, type: 'check' },
+  { text: '', delay: 150, type: 'system' },
+  
+  { text: 'STORAGE SUBSYSTEM: INITIALIZING ARCHIVE DRIVE', delay: 100, type: 'header' },
+  { text: '', delay: 50, type: 'spinner', animationId: 'disk' },
+  { text: '  ├─ THEMNION MAG-OPTICAL 2.4GB                       [MOUNTED]', delay: 100, type: 'check' },
+  { text: '  ├─ SECTOR INTEGRITY: VERIFIED', delay: 80, type: 'check' },
+  { text: '  └─ READ/WRITE HEAD: CALIBRATED                      [  OK  ]', delay: 100, type: 'check' },
   { text: '', delay: 200, type: 'system' },
-  { text: 'MEMORY TEST: EXTENDED MEMORY CHECK', delay: 150, type: 'header' },
-  { text: '  CONVENTIONAL:  640K................................. [  OK  ]', delay: 120, type: 'check' },
-  { text: '  EXTENDED:      8192K................................ [  OK  ]', delay: 180, type: 'check' },
-  { text: '  ARCHIVE BUFFER: 16384K............................. [  OK  ]', delay: 150, type: 'check' },
+  
+  { text: '╔══════════════════════════════════════════════════════════════╗', delay: 60, type: 'banner' },
+  { text: '║                 PERIPHERAL ENUMERATION                       ║', delay: 60, type: 'banner' },
+  { text: '╚══════════════════════════════════════════════════════════════╝', delay: 60, type: 'banner' },
+  { text: '', delay: 100, type: 'system' },
+  
+  { text: '  ┌─────────────────────────────────────────────────────────┐', delay: 40, type: 'system' },
+  { text: '  │ DEVICE                              PORT      STATUS    │', delay: 40, type: 'system' },
+  { text: '  ├─────────────────────────────────────────────────────────┤', delay: 40, type: 'system' },
+  { text: '  │ PHOSPHOR TERMINAL CRT-7            VGA-0     ACTIVE    │', delay: 60, type: 'check' },
+  { text: '  │ MECHANICAL KEYBOARD 104-KEY        PS/2-1    ACTIVE    │', delay: 60, type: 'check' },
+  { text: '  │ ARCHIVE DRIVE MAG-OPTICAL          SCSI-0    MOUNTED   │', delay: 60, type: 'check' },
+  { text: '  │ ACADEMY INTRANET ADAPTER           NET-7     STANDBY   │', delay: 60, type: 'check' },
+  { text: '  │ AUDIO SUBSYSTEM TH-SND             AUD-0     ENABLED   │', delay: 60, type: 'check' },
+  { text: '  └─────────────────────────────────────────────────────────┘', delay: 40, type: 'system' },
   { text: '', delay: 250, type: 'system' },
-  { text: 'PERIPHERAL SCAN:', delay: 120, type: 'header' },
-  { text: '  PRIMARY DISPLAY: PHOSPHOR TERMINAL CRT-7........... [ACTIVE]', delay: 100, type: 'check' },
-  { text: '  KEYBOARD INTERFACE: MECHANICAL 104-KEY............. [ACTIVE]', delay: 80, type: 'check' },
-  { text: '  ARCHIVE DRIVE: THEMNION MAG-OPTICAL 2.4GB.......... [MOUNTED]', delay: 120, type: 'check' },
-  { text: '  NETWORK ADAPTER: ACADEMY INTRANET NODE 7........... [STANDBY]', delay: 100, type: 'check' },
-  { text: '', delay: 300, type: 'system' },
-  { text: 'LOADING MOTHER-ARCHIVE SUBSYSTEMS...', delay: 250, type: 'header' },
-  { text: '', delay: 150, type: 'system' },
-  { text: '  [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■] 100%', delay: 800, type: 'status' },
+  
+  { text: 'LOADING MOTHER-ARCHIVE KERNEL...', delay: 150, type: 'header' },
+  { text: '', delay: 50, type: 'progress', animationId: 'kernel' },
   { text: '', delay: 200, type: 'system' },
-  { text: 'MOUNTING ARCHIVE VOLUMES:', delay: 120, type: 'header' },
-  { text: '  /arc/curriculum_matrix........................ [INDEXED]', delay: 150, type: 'check' },
-  { text: '  /arc/faculty_dossiers......................... [RESTRICTED]', delay: 120, type: 'check' },
-  { text: '  /arc/student_records.......................... [ENCRYPTED]', delay: 100, type: 'check' },
-  { text: '  /arc/anomaly_index............................ [CLASSIFIED]', delay: 180, type: 'warning', glitch: true },
+  
+  { text: '╔══════════════════════════════════════════════════════════════╗', delay: 60, type: 'banner' },
+  { text: '║                   ARCHIVE VOLUME MOUNT                       ║', delay: 60, type: 'banner' },
+  { text: '╚══════════════════════════════════════════════════════════════╝', delay: 60, type: 'banner' },
+  { text: '', delay: 100, type: 'system' },
+  
+  { text: '  Mounting /arc/curriculum_matrix', delay: 80, type: 'system' },
+  { text: '', delay: 50, type: 'progress', animationId: 'mount1' },
+  { text: '    └─ 24 courses indexed, 168 assignments loaded    [INDEXED]', delay: 100, type: 'check' },
+  { text: '', delay: 80, type: 'system' },
+  
+  { text: '  Mounting /arc/faculty_dossiers', delay: 80, type: 'system' },
+  { text: '', delay: 50, type: 'progress', animationId: 'mount2' },
+  { text: '    └─ 44 faculty records, 12 restricted         [RESTRICTED]', delay: 100, type: 'warning' },
+  { text: '', delay: 80, type: 'system' },
+  
+  { text: '  Mounting /arc/student_records', delay: 80, type: 'system' },
+  { text: '', delay: 50, type: 'progress', animationId: 'mount3' },
+  { text: '    └─ 100 student profiles, encryption active   [ENCRYPTED]', delay: 100, type: 'check' },
+  { text: '', delay: 80, type: 'system' },
+  
+  { text: '  Mounting /arc/anomaly_index', delay: 80, type: 'system', glitch: true },
+  { text: '', delay: 50, type: 'progress', animationId: 'mount4' },
+  { text: '    └─ [REDACTED] entries, clearance required   [CLASSIFIED]', delay: 150, type: 'warning', glitch: true },
   { text: '', delay: 300, type: 'system' },
-  { text: 'SECURITY PROTOCOL HANDSHAKE:', delay: 150, type: 'header' },
-  { text: '  CLEARANCE LEVEL: STUDENT (LIMITED ACCESS)', delay: 120, type: 'system' },
-  { text: '  SESSION TOKEN: 0x7F3A-9E2B-C4D1', delay: 100, type: 'system' },
-  { text: '  TIMESTAMP: [TEMPORAL SYNC ERROR - USING LOCAL]', delay: 150, type: 'warning' },
+  
+  { text: '╔══════════════════════════════════════════════════════════════╗', delay: 60, type: 'banner' },
+  { text: '║                  SECURITY HANDSHAKE                          ║', delay: 60, type: 'banner' },
+  { text: '╚══════════════════════════════════════════════════════════════╝', delay: 60, type: 'banner' },
+  { text: '', delay: 100, type: 'system' },
+  
+  { text: '  AUTHENTICATING...', delay: 100, type: 'system' },
+  { text: '', delay: 50, type: 'spinner', animationId: 'auth' },
+  { text: '', delay: 150, type: 'system' },
+  { text: '  ┌─────────────────────────────────────────────────────────┐', delay: 40, type: 'system' },
+  { text: '  │ CLEARANCE LEVEL:    STUDENT (LIMITED ACCESS)           │', delay: 60, type: 'system' },
+  { text: '  │ SESSION TOKEN:      0x7F3A-9E2B-C4D1-8A7F              │', delay: 60, type: 'system' },
+  { text: '  │ ENCRYPTION:         AES-256-THEMNION                   │', delay: 60, type: 'system' },
+  { text: '  │ TIMESTAMP:          [TEMPORAL SYNC ERROR]              │', delay: 80, type: 'warning' },
+  { text: '  └─────────────────────────────────────────────────────────┘', delay: 40, type: 'system' },
   { text: '', delay: 400, type: 'system' },
+  
   { text: '═══════════════════════════════════════════════════════════════', delay: 80, type: 'banner' },
-  { text: '  MOTHER-ARCHIVE STATUS: OBSERVING', delay: 200, type: 'status', glitch: true },
-  { text: '  "I have been waiting for you."', delay: 300, type: 'system', glitch: true },
+  { text: '', delay: 100, type: 'system' },
+  { text: '              ╔═══════════════════════════════╗', delay: 100, type: 'status' },
+  { text: '              ║  MOTHER-ARCHIVE STATUS        ║', delay: 100, type: 'status' },
+  { text: '              ║  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ ║', delay: 100, type: 'status', glitch: true },
+  { text: '              ║       O B S E R V I N G       ║', delay: 150, type: 'status', glitch: true },
+  { text: '              ╚═══════════════════════════════╝', delay: 100, type: 'status' },
+  { text: '', delay: 300, type: 'system' },
+  { text: '         "I have been waiting for you."', delay: 400, type: 'system', glitch: true },
+  { text: '', delay: 200, type: 'system' },
   { text: '═══════════════════════════════════════════════════════════════', delay: 80, type: 'banner' },
   { text: '', delay: 500, type: 'system' },
-  { text: 'THEMNION OS READY. TERMINAL INTERFACE ACTIVE.', delay: 200, type: 'success' },
-  { text: '', delay: 100, type: 'system' },
-  { text: 'Press any key to continue...', delay: 100, type: 'system' },
+  { text: '  ■ THEMNION OS READY', delay: 100, type: 'success' },
+  { text: '  ■ TERMINAL INTERFACE ACTIVE', delay: 100, type: 'success' },
+  { text: '  ■ AWAITING INPUT...', delay: 100, type: 'success' },
+  { text: '', delay: 200, type: 'system' },
 ];
+
+function AnimatedProgressBar({ onComplete }: { onComplete: () => void }) {
+  const [progress, setProgress] = useState(0);
+  const chars = '░▒▓█';
+  
+  useEffect(() => {
+    const totalSteps = 40;
+    let step = 0;
+    const interval = setInterval(() => {
+      step++;
+      setProgress(step);
+      if (step >= totalSteps) {
+        clearInterval(interval);
+        onComplete();
+      }
+    }, 25);
+    return () => clearInterval(interval);
+  }, [onComplete]);
+  
+  const filled = Math.floor(progress);
+  const partial = progress % 1;
+  const empty = 40 - filled - (partial > 0 ? 1 : 0);
+  
+  const bar = '█'.repeat(filled) + 
+              (partial > 0 ? chars[Math.floor(partial * 4)] : '') +
+              '░'.repeat(Math.max(0, empty));
+  
+  const percent = Math.floor((progress / 40) * 100);
+  
+  return (
+    <div style={{ color: 'hsl(var(--terminal-glow))', fontFamily: 'monospace' }}>
+      {`  [${bar}] ${percent.toString().padStart(3)}%`}
+    </div>
+  );
+}
+
+function AnimatedMemoryBlocks({ onComplete }: { onComplete: () => void }) {
+  const [blocks, setBlocks] = useState<string[]>(Array(32).fill('░'));
+  
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index >= 32) {
+        clearInterval(interval);
+        onComplete();
+        return;
+      }
+      setBlocks(prev => {
+        const next = [...prev];
+        next[index] = '█';
+        return next;
+      });
+      index++;
+    }, 30);
+    return () => clearInterval(interval);
+  }, [onComplete]);
+  
+  const row1 = blocks.slice(0, 16).join('');
+  const row2 = blocks.slice(16, 32).join('');
+  
+  return (
+    <div style={{ color: 'hsl(180, 100%, 70%)', fontFamily: 'monospace' }}>
+      <div>{`  BANK 0: [${row1}]`}</div>
+      <div>{`  BANK 1: [${row2}]`}</div>
+    </div>
+  );
+}
+
+function AnimatedSpinner({ onComplete }: { onComplete: () => void }) {
+  const [frame, setFrame] = useState(0);
+  const spinnerFrames = ['◐', '◓', '◑', '◒'];
+  const diskFrames = ['[▰▱▱▱▱]', '[▰▰▱▱▱]', '[▰▰▰▱▱]', '[▰▰▰▰▱]', '[▰▰▰▰▰]'];
+  
+  useEffect(() => {
+    let count = 0;
+    const interval = setInterval(() => {
+      count++;
+      setFrame(f => (f + 1) % spinnerFrames.length);
+      if (count >= 12) {
+        clearInterval(interval);
+        onComplete();
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [onComplete, spinnerFrames.length]);
+  
+  const diskProgress = diskFrames[Math.min(Math.floor(frame / 2), diskFrames.length - 1)];
+  
+  return (
+    <div style={{ color: 'hsl(var(--terminal-glow))', fontFamily: 'monospace' }}>
+      {`  ${spinnerFrames[frame]} ACCESSING ${diskProgress}`}
+    </div>
+  );
+}
 
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
   const [displayedLines, setDisplayedLines] = useState<BootLine[]>([]);
@@ -98,6 +254,8 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   const [isBooting, setIsBooting] = useState(true);
   const [isMuted, setIsMuted] = useState(getStoredMuteState);
   const [showSkipHint, setShowSkipHint] = useState(false);
+  const [activeAnimations, setActiveAnimations] = useState<Set<string>>(new Set());
+  const [completedAnimations, setCompletedAnimations] = useState<Set<string>>(new Set());
   
   const containerRef = useRef<HTMLDivElement>(null);
   const muteButtonRef = useRef<HTMLButtonElement>(null);
@@ -105,7 +263,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   const bootCompleteRef = useRef(false);
   const cleanupRef = useRef(false);
 
-  const playSound = useCallback((type: 'beep' | 'click' | 'hum' | 'success' | 'warning' | 'boot') => {
+  const playSound = useCallback((type: 'beep' | 'click' | 'hum' | 'success' | 'warning' | 'boot' | 'disk') => {
     if (isMuted || !audioContextRef.current) return;
     
     const ctx = audioContextRef.current;
@@ -140,6 +298,16 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
         oscillator.start(now);
         oscillator.stop(now + 0.02);
+        break;
+      case 'disk':
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(50, now);
+        oscillator.frequency.setValueAtTime(80, now + 0.05);
+        oscillator.frequency.setValueAtTime(50, now + 0.1);
+        gainNode.gain.setValueAtTime(0.02, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        oscillator.start(now);
+        oscillator.stop(now + 0.15);
         break;
       case 'success':
         oscillator.frequency.setValueAtTime(523, now);
@@ -198,7 +366,6 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     }, 500);
   }, [onBootComplete, playSound, cleanupAudio]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       cleanupRef.current = true;
@@ -206,14 +373,35 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     };
   }, [cleanupAudio]);
 
+  const handleAnimationComplete = useCallback((animationId: string) => {
+    setCompletedAnimations(prev => new Set(Array.from(prev).concat(animationId)));
+    setActiveAnimations(prev => {
+      const next = new Set(Array.from(prev));
+      next.delete(animationId);
+      return next;
+    });
+    playSound('click');
+  }, [playSound]);
+
   useEffect(() => {
     if (currentLineIndex >= BOOT_SEQUENCE.length) {
+      return;
+    }
+
+    if (activeAnimations.size > 0) {
       return;
     }
 
     const currentLine = BOOT_SEQUENCE[currentLineIndex];
     
     const timer = setTimeout(() => {
+      if (currentLine.animationId && !completedAnimations.has(currentLine.animationId)) {
+        setActiveAnimations(prev => new Set(Array.from(prev).concat(currentLine.animationId!)));
+        if (currentLine.type === 'spinner') {
+          playSound('disk');
+        }
+      }
+      
       setDisplayedLines(prev => [...prev, currentLine]);
       
       if (currentLine.type === 'check' || currentLine.type === 'header') {
@@ -228,18 +416,41 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
       
-      setCurrentLineIndex(prev => prev + 1);
+      if (!currentLine.animationId || completedAnimations.has(currentLine.animationId)) {
+        setCurrentLineIndex(prev => prev + 1);
+      }
     }, currentLine.delay);
 
     return () => clearTimeout(timer);
-  }, [currentLineIndex, playSound]);
+  }, [currentLineIndex, playSound, activeAnimations, completedAnimations]);
 
   useEffect(() => {
-    if (currentLineIndex >= BOOT_SEQUENCE.length && isBooting) {
+    if (activeAnimations.size === 0 && displayedLines.length > 0) {
+      const lastLine = BOOT_SEQUENCE[currentLineIndex - 1];
+      if (lastLine?.animationId && completedAnimations.has(lastLine.animationId)) {
+        setCurrentLineIndex(prev => prev);
+      }
+    }
+  }, [completedAnimations, activeAnimations, currentLineIndex, displayedLines.length]);
+
+  useEffect(() => {
+    if (activeAnimations.size > 0) {
+      const checkComplete = () => {
+        const allComplete = Array.from(activeAnimations).every(id => completedAnimations.has(id));
+        if (allComplete) {
+          setCurrentLineIndex(prev => prev + 1);
+        }
+      };
+      checkComplete();
+    }
+  }, [completedAnimations, activeAnimations]);
+
+  useEffect(() => {
+    if (currentLineIndex >= BOOT_SEQUENCE.length && isBooting && activeAnimations.size === 0) {
       const finalTimer = setTimeout(completeBootSequence, 1500);
       return () => clearTimeout(finalTimer);
     }
-  }, [currentLineIndex, isBooting, completeBootSequence]);
+  }, [currentLineIndex, isBooting, completeBootSequence, activeAnimations]);
 
   useEffect(() => {
     const skipTimer = setTimeout(() => setShowSkipHint(true), 2000);
@@ -254,7 +465,11 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       }
     };
 
-    const handleClick = () => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-testid="button-mute-toggle"]')) {
+        return;
+      }
       initAudio();
       if (skipEnabled && currentLineIndex > 5) {
         completeBootSequence();
@@ -278,6 +493,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
   const toggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     const newMuted = !isMuted;
     setIsMuted(newMuted);
     setStoredMuteState(newMuted);
@@ -307,10 +523,84 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         return { ...baseStyle, color: 'hsl(45, 100%, 60%)' };
       case 'success':
         return { ...baseStyle, color: 'hsl(120, 100%, 70%)', fontWeight: 'bold' };
+      case 'progress':
+      case 'memory':
+      case 'spinner':
+        return { ...baseStyle, color: 'hsl(var(--terminal-glow))' };
       case 'system':
       default:
         return { ...baseStyle, color: 'hsl(var(--terminal-glow))' };
     }
+  };
+
+  const renderLine = (line: BootLine, index: number) => {
+    if (line.type === 'progress' && line.animationId) {
+      if (activeAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line">
+            <AnimatedProgressBar 
+              onComplete={() => handleAnimationComplete(line.animationId!)} 
+            />
+          </div>
+        );
+      } else if (completedAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line" style={getLineStyle(line)}>
+            {'  [████████████████████████████████████████] 100%'}
+          </div>
+        );
+      }
+      return null;
+    }
+    
+    if (line.type === 'memory' && line.animationId) {
+      if (activeAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line">
+            <AnimatedMemoryBlocks 
+              onComplete={() => handleAnimationComplete(line.animationId!)} 
+            />
+          </div>
+        );
+      } else if (completedAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line" style={{ color: 'hsl(180, 100%, 70%)', fontFamily: 'monospace' }}>
+            <div>{'  BANK 0: [████████████████]'}</div>
+            <div>{'  BANK 1: [████████████████]'}</div>
+          </div>
+        );
+      }
+      return null;
+    }
+    
+    if (line.type === 'spinner' && line.animationId) {
+      if (activeAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line">
+            <AnimatedSpinner 
+              onComplete={() => handleAnimationComplete(line.animationId!)} 
+            />
+          </div>
+        );
+      } else if (completedAnimations.has(line.animationId)) {
+        return (
+          <div key={index} className="boot-line" style={getLineStyle(line)}>
+            {'  ● READY [▰▰▰▰▰]'}
+          </div>
+        );
+      }
+      return null;
+    }
+    
+    return (
+      <div 
+        key={index}
+        className={`boot-line ${line.glitch ? 'glitch-text' : ''}`}
+        style={getLineStyle(line)}
+      >
+        {line.text || '\u00A0'}
+      </div>
+    );
   };
 
   return (
@@ -328,10 +618,10 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       <button
         ref={muteButtonRef}
         onClick={toggleMute}
-        className="absolute top-4 right-4 p-2 opacity-60 hover:opacity-100 transition-opacity focus-visible-ring"
+        className="absolute top-4 right-4 p-2 opacity-60 hover:opacity-100 transition-opacity"
         style={{ 
           color: 'hsl(var(--terminal-glow))',
-          zIndex: 10,
+          zIndex: 100,
           position: 'relative'
         }}
         aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
@@ -342,24 +632,24 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
       <div 
         ref={containerRef}
-        className="h-full overflow-y-auto p-4 md:p-8 pb-20"
+        className="h-full p-4 md:p-8 pb-20 boot-scroll-container"
         style={{ 
           maxWidth: '900px',
           margin: '0 auto',
+          overflowY: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}
       >
+        <style>{`
+          .boot-scroll-container::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
         <div className="boot-text">
-          {displayedLines.map((line, index) => (
-            <div 
-              key={index}
-              className={`boot-line ${line.glitch ? 'glitch-text' : ''}`}
-              style={getLineStyle(line)}
-            >
-              {line.text || '\u00A0'}
-            </div>
-          ))}
+          {displayedLines.map((line, index) => renderLine(line, index))}
           
-          {isBooting && currentLineIndex < BOOT_SEQUENCE.length && (
+          {isBooting && currentLineIndex < BOOT_SEQUENCE.length && activeAnimations.size === 0 && (
             <span 
               className="inline-block w-2 h-4 ml-1 terminal-cursor"
               style={{ background: 'hsl(var(--terminal-glow))' }}
@@ -374,7 +664,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
           className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm opacity-50 animate-pulse"
           style={{ 
             color: 'hsl(var(--terminal-glow))',
-            zIndex: 10
+            zIndex: 100
           }}
         >
           Press any key to skip...
@@ -385,7 +675,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         className="absolute bottom-2 right-4 text-xs opacity-30"
         style={{ 
           color: 'hsl(var(--terminal-glow))',
-          zIndex: 10
+          zIndex: 100
         }}
       >
         THEMNION OS v3.7.1
