@@ -7,12 +7,8 @@ import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
 
 export default function Home() {
-  const [bootComplete, setBootComplete] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('themnion-booted') === 'true';
-    }
-    return false;
-  });
+  // Boot screen shows every page load (no session storage caching)
+  const [bootComplete, setBootComplete] = useState(false);
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -22,7 +18,6 @@ export default function Home() {
 
   const handleBootComplete = () => {
     setBootComplete(true);
-    sessionStorage.setItem('themnion-booted', 'true');
   };
 
   // Helper functions
@@ -225,34 +220,7 @@ export default function Home() {
     }
   };
 
-  // Render content with parallel boot screen transition
-  const renderGameContent = () => {
-    if (!character || !gameStarted) {
-      return (
-        <TextCharacterCreation 
-          onComplete={(newCharacter) => {
-            setCharacter(newCharacter);
-            setGameStarted(true);
-          }}
-        />
-      );
-    }
-    
-    if (loading || !gameState) {
-      return (
-        <div className="h-screen bg-background text-foreground font-mono flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-2xl mb-4">THE ACADEMY</div>
-            <div>Initializing game world...</div>
-          </div>
-        </div>
-      );
-    }
-    
-    return null;
-  };
-
-  // Show boot screen overlaying game content for parallel transition
+  // Show boot screen on first load
   if (!bootComplete) {
     return (
       <RetroBootScreen 
@@ -262,26 +230,15 @@ export default function Home() {
     );
   }
 
-  // If character hasn't been created yet, show character creation with fade-in
+  // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {
     return (
-      <div 
-        className="game-reveal"
-        style={{ animation: 'gameReveal 0.6s ease-out forwards' }}
-      >
-        <style>{`
-          @keyframes gameReveal {
-            0% { opacity: 0; transform: scale(1.02); }
-            100% { opacity: 1; transform: scale(1); }
-          }
-        `}</style>
-        <TextCharacterCreation 
-          onComplete={(newCharacter) => {
-            setCharacter(newCharacter);
-            setGameStarted(true);
-          }}
-        />
-      </div>
+      <TextCharacterCreation 
+        onComplete={(newCharacter) => {
+          setCharacter(newCharacter);
+          setGameStarted(true);
+        }}
+      />
     );
   }
 

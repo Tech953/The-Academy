@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { User, BookOpen, Users, Zap, Star } from 'lucide-react';
 import PerkIcon from '@/components/ui/perk-icon';
 import { applyPerkEffects, type CharacterPerk } from '@shared/perks';
+import BearMascot, { type BearAnimation } from '@/components/BearMascot';
 
 export interface Character {
   name: string;
@@ -50,6 +51,14 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
     return 'bg-red-500/20 text-red-400 border-red-500/30';
   };
 
+  const getBearAnimation = (): BearAnimation => {
+    const energyPercent = character.energy / character.maxEnergy;
+    if (energyPercent >= 0.8) return 'celebrate';
+    if (energyPercent >= 0.5) return 'idle';
+    if (energyPercent >= 0.3) return 'think';
+    return 'sleep';
+  };
+
   // Apply perk effects to stats
   const baseStats = {
     perception: character.stats.perception || character.stats.intellect || 50,
@@ -66,10 +75,20 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
   return (
     <Card className={`bg-card/80 border-primary/20 ${className}`} data-testid="character-sheet">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-mono">
-          <User className="h-4 w-4 text-primary" />
-          Character Profile
-        </CardTitle>
+        <div className="flex items-start gap-3">
+          <BearMascot 
+            animation={getBearAnimation()} 
+            size="sm" 
+            glowIntensity="low"
+          />
+          <div className="flex-1">
+            <CardTitle className="flex items-center gap-2 text-sm font-mono">
+              <User className="h-4 w-4 text-primary" />
+              Character Profile
+            </CardTitle>
+            <div className="text-xs text-muted-foreground mt-1">Academy Guardian watching over you</div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Basic Info */}
@@ -78,7 +97,7 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
             <div className="text-sm font-medium" data-testid="text-character-name">{character.name}</div>
             <div className="text-xs text-muted-foreground">{character.background}</div>
             {character.race && character.class && (
-              <div className="flex gap-1 mt-1">
+              <div className="flex gap-1 mt-1 flex-wrap">
                 <Badge variant="outline" className="text-xs">{character.race}</Badge>
                 <Badge variant="outline" className="text-xs">{character.class}</Badge>
                 {character.faction && <Badge variant="secondary" className="text-xs">{character.faction}</Badge>}
