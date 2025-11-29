@@ -28,6 +28,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
     { id: '7', text: 'Please enter your character name:', type: 'output' },
   ]);
 
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [step, setStep] = useState('name');
   const [character, setCharacter] = useState({
     name: '',
@@ -110,6 +111,11 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
   };
 
   const handleCommand = async (command: string) => {
+    // Track command in history (normalized to uppercase for consistency with main game)
+    if (command.trim()) {
+      setCommandHistory(prev => [...prev.slice(-49), command.toUpperCase()]);
+    }
+    
     // Add the command to terminal
     addLine(`> ${command}`, 'command');
 
@@ -333,6 +339,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
       onCommand={handleCommand}
       prompt=">"
       statusLine="THE ACADEMY - Character Creation System"
+      commandHistory={commandHistory}
     />
   );
 }
