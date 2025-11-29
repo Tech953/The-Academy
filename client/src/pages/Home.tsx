@@ -255,30 +255,10 @@ export default function Home() {
   // Show boot screen overlaying game content for parallel transition
   if (!bootComplete) {
     return (
-      <div className="relative h-screen w-screen overflow-hidden">
-        <div 
-          className="absolute inset-0 opacity-0 game-content-enter"
-          style={{ 
-            animation: 'none',
-            zIndex: 1
-          }}
-        >
-          {renderGameContent()}
-        </div>
-        <RetroBootScreen 
-          onBootComplete={handleBootComplete}
-          skipEnabled={true}
-        />
-        <style>{`
-          .game-reveal {
-            animation: gameReveal 0.8s ease-out forwards;
-          }
-          @keyframes gameReveal {
-            0% { opacity: 0; transform: scale(1.02); }
-            100% { opacity: 1; transform: scale(1); }
-          }
-        `}</style>
-      </div>
+      <RetroBootScreen 
+        onBootComplete={handleBootComplete}
+        skipEnabled={true}
+      />
     );
   }
 
