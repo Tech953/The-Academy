@@ -56,7 +56,6 @@ const BOOT_LINES = [
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
   // Start with 1 line visible immediately
   const [visibleLineCount, setVisibleLineCount] = useState(1);
-  const [isExiting, setIsExiting] = useState(false);
   const [showSkipHint, setShowSkipHint] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -83,11 +82,8 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       intervalRef.current = null;
     }
     
-    setIsExiting(true);
-    
-    setTimeout(() => {
-      onBootComplete();
-    }, 600);
+    // Instant transition - no fade, like a real computer
+    onBootComplete();
   }, [onBootComplete]);
 
   // Boot animation effect - starts immediately on mount
@@ -154,8 +150,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         zIndex: 99999,
         backgroundColor: '#000000',
         cursor: skipEnabled && showSkipHint && visibleLineCount > 10 ? 'pointer' : 'default',
-        opacity: isExiting ? 0 : 1,
-        transition: isExiting ? 'opacity 0.6s ease-out' : 'none',
+        opacity: 1,
         overflow: 'hidden',
         boxSizing: 'border-box',
         border: '3px solid #00ff00',
