@@ -377,11 +377,14 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     }
   };
 
+  const terminalGreen = '#00ff00';
+  const terminalBg = '#000000';
+
   return (
     <div 
       className={`fixed inset-0 z-50 boot-screen ${isExiting ? 'boot-exit' : ''}`}
       style={{ 
-        background: 'hsl(var(--terminal-bg))',
+        backgroundColor: terminalBg,
         cursor: skipEnabled && currentLineIndex > 5 ? 'pointer' : 'default',
       }}
       role="alert"
@@ -414,13 +417,22 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
           60% { transform: translateX(-1px); }
           80% { transform: translateX(1px); }
         }
+        
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+        
+        .boot-cursor {
+          animation: blink 1s infinite;
+        }
       `}</style>
       
       <button
         ref={muteButtonRef}
         onClick={toggleMute}
         className="absolute top-4 right-4 p-2 opacity-60 hover:opacity-100 transition-opacity z-50"
-        style={{ color: 'hsl(var(--terminal-glow))' }}
+        style={{ color: terminalGreen }}
         aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
         data-testid="button-mute-toggle"
       >
@@ -440,29 +452,30 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
             msOverflowStyle: 'none',
           }}
         >
-          <div className="boot-text" style={{ minHeight: '100px' }}>
+          <div style={{ minHeight: '100px', color: terminalGreen, fontFamily: 'monospace' }}>
             {displayedLines.length === 0 && isBooting && (
-              <div style={{ color: 'hsl(var(--terminal-glow))', fontFamily: 'monospace' }}>
+              <div>
                 Initializing THEMNION OS...
-                <span className="terminal-cursor" style={{ color: 'hsl(var(--terminal-glow))' }}>█</span>
+                <span className="boot-cursor">█</span>
               </div>
             )}
             {displayedLines.map((line, index) => (
               <div 
                 key={index}
-                className={`boot-line ${line.glitch ? 'glitch-text' : ''}`}
-                style={getLineStyle(line)}
+                className={line.glitch ? 'glitch-text' : ''}
+                style={{
+                  ...getLineStyle(line),
+                  color: line.type === 'warning' ? '#ffcc00' : 
+                         line.type === 'header' || line.type === 'success' ? '#00ff88' :
+                         line.type === 'status' ? '#00ccff' : terminalGreen,
+                }}
               >
                 {line.text || '\u00A0'}
               </div>
             ))}
             
             {isBooting && currentLineIndex < BOOT_SEQUENCE.length && displayedLines.length > 0 && (
-              <span 
-                className="terminal-cursor"
-                style={{ color: 'hsl(var(--terminal-glow))' }}
-                aria-hidden="true"
-              >█</span>
+              <span className="boot-cursor" aria-hidden="true">█</span>
             )}
           </div>
         </div>
@@ -471,7 +484,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       {showSkipHint && skipEnabled && isBooting && currentLineIndex > 5 && (
         <div 
           className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm opacity-50 animate-pulse"
-          style={{ color: 'hsl(var(--terminal-glow))' }}
+          style={{ color: terminalGreen }}
         >
           Press any key to skip...
         </div>
@@ -479,7 +492,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
       <div 
         className="absolute bottom-2 right-4 text-xs opacity-30"
-        style={{ color: 'hsl(var(--terminal-glow))' }}
+        style={{ color: terminalGreen }}
       >
         THEMNION OS v3.7.1
       </div>
