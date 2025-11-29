@@ -1,17 +1,29 @@
 import { useState, useEffect } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
+import RetroBootScreen from '@/components/RetroBootScreen';
 import { Character } from '@/components/CharacterSheet';
 import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
 
 export default function Home() {
+  const [bootComplete, setBootComplete] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('themnion-booted') === 'true';
+    }
+    return false;
+  });
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
+
+  const handleBootComplete = () => {
+    setBootComplete(true);
+    sessionStorage.setItem('themnion-booted', 'true');
+  };
 
   // Helper functions
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
@@ -212,6 +224,16 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  // Show boot screen on first load (skippable after a few seconds)
+  if (!bootComplete) {
+    return (
+      <RetroBootScreen 
+        onBootComplete={handleBootComplete}
+        skipEnabled={true}
+      />
+    );
+  }
 
   // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {

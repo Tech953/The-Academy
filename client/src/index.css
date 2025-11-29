@@ -406,4 +406,149 @@
   .floating-controls > * {
     pointer-events: auto;
   }
+
+  /* ============================================
+     THEMNION OS BOOT SCREEN STYLES
+     ============================================ */
+
+  /* Boot screen container with phosphor glow */
+  .boot-screen {
+    font-family: 'Courier New', Courier, monospace;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: none;
+    image-rendering: pixelated;
+  }
+
+  /* Boot text with phosphor afterglow effect */
+  .boot-text {
+    text-shadow: 
+      0 0 2px hsl(var(--terminal-glow)),
+      0 0 4px hsl(var(--terminal-glow) / 0.5);
+  }
+
+  /* Individual boot line with fade-in */
+  .boot-line {
+    animation: bootLineIn 0.15s ease-out forwards;
+    opacity: 0;
+    transform: translateX(-2px);
+  }
+
+  @keyframes bootLineIn {
+    0% {
+      opacity: 0;
+      transform: translateX(-2px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Glitch text effect for mysterious/warning lines */
+  .glitch-text {
+    position: relative;
+    animation: glitchFlicker 0.3s ease-in-out;
+  }
+
+  @keyframes glitchFlicker {
+    0%, 100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    10% {
+      opacity: 0.8;
+      transform: translateX(-2px);
+    }
+    20% {
+      opacity: 1;
+      transform: translateX(1px);
+    }
+    30% {
+      opacity: 0.9;
+      transform: translateX(-1px);
+      filter: hue-rotate(90deg);
+    }
+    40% {
+      opacity: 1;
+      transform: translateX(0);
+      filter: none;
+    }
+    50% {
+      opacity: 0.7;
+      transform: translateX(2px);
+    }
+    60% {
+      opacity: 1;
+      transform: translateX(-1px);
+    }
+  }
+
+  /* CRT vignette effect for boot screen */
+  .boot-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      transparent 60%,
+      rgba(0, 0, 0, 0.3) 100%
+    );
+    z-index: 2;
+  }
+
+  /* Scanline overlay for boot screen */
+  .boot-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0%,
+      rgba(0, 255, 0, 0.02) 50%,
+      transparent 100%
+    );
+    background-size: 100% 3px;
+    z-index: 3;
+  }
+
+  /* Progress bar animation for loading */
+  .boot-progress {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--terminal-glow)) 0%,
+      hsl(var(--terminal-glow) / 0.7) 100%
+    );
+    box-shadow: 0 0 8px hsl(var(--terminal-glow) / 0.5);
+  }
+
+  /* Ambient glow pulse for dramatic effect */
+  .ambient-glow {
+    animation: ambientPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes ambientPulse {
+    0%, 100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.05);
+    }
+  }
+
+  /* Text flicker for retro CRT feel - very subtle */
+  .crt-flicker {
+    animation: subtleFlicker 8s linear infinite;
+  }
+
+  @keyframes subtleFlicker {
+    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+      opacity: 1;
+    }
+    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+      opacity: 0.97;
+    }
+  }
 }
