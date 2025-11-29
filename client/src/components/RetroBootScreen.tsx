@@ -6,77 +6,50 @@ interface RetroBootScreenProps {
 }
 
 const BOOT_LINES = [
+  '═══════════════════════════════════════════════════════════════',
   '',
-  '████████████████████████████████████████████████████████████████',
+  '     █████╗ ██████╗  ██████╗██╗  ██╗██╗██╗   ██╗███████╗',
+  '    ██╔══██╗██╔══██╗██╔════╝██║  ██║██║██║   ██║██╔════╝',
+  '    ███████║██████╔╝██║     ███████║██║██║   ██║█████╗  ',
+  '    ██╔══██║██╔══██╗██║     ██╔══██║██║╚██╗ ██╔╝██╔══╝  ',
+  '    ██║  ██║██║  ██║╚██████╗██║  ██║██║ ╚████╔╝ ███████╗',
+  '    ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝',
   '',
-  '  ████████╗██╗  ██╗███████╗███╗   ███╗███╗   ██╗██╗ ██████╗ ███╗   ██╗',
-  '  ╚══██╔══╝██║  ██║██╔════╝████╗ ████║████╗  ██║██║██╔═══██╗████╗  ██║',
-  '     ██║   ███████║█████╗  ██╔████╔██║██╔██╗ ██║██║██║   ██║██╔██╗ ██║',
-  '     ██║   ██╔══██║██╔══╝  ██║╚██╔╝██║██║╚██╗██║██║██║   ██║██║╚██╗██║',
-  '     ██║   ██║  ██║███████╗██║ ╚═╝ ██║██║ ╚████║██║╚██████╔╝██║ ╚████║',
-  '     ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝',
-  '',
-  '                    O P E R A T I N G   S Y S T E M',
-  '                      Mother-Archive Edition v3.7.1',
-  '',
-  '████████████████████████████████████████████████████████████████',
-  '',
-  'THEMNION SYSTEMS (C) 1959-1987  ALL RIGHTS RESERVED',
-  'BIOS VERSION 2.4.1 - ACADEMY TERMINAL INTERFACE',
-  '',
-  '╔══════════════════════════════════════════════════════════════╗',
-  '║              POWER-ON SELF TEST DIAGNOSTICS                  ║',
-  '╚══════════════════════════════════════════════════════════════╝',
-  '',
-  'CPU: THEMNION TH-6800 NEURAL PROCESSOR',
-  '  [████████████████████████████████████████] 100%',
-  '  └─ STATUS: OPERATIONAL                              [  OK  ]',
-  '',
-  'MEMORY TEST: SCANNING RAM MODULES',
-  '  BANK 0: [████████████████]',
-  '  BANK 1: [████████████████]',
-  '  ├─ CONVENTIONAL:  640K                              [  OK  ]',
-  '  ├─ EXTENDED:      8192K                             [  OK  ]',
-  '  └─ ARCHIVE BUFFER: 16384K                           [  OK  ]',
-  '',
-  'STORAGE SUBSYSTEM: INITIALIZING ARCHIVE DRIVE',
-  '  ◐ ACCESSING [▰▰▰▰▰]',
-  '  ├─ THEMNION MAG-OPTICAL 2.4GB                       [MOUNTED]',
-  '  ├─ SECTOR INTEGRITY: VERIFIED',
-  '  └─ READ/WRITE HEAD: CALIBRATED                      [  OK  ]',
-  '',
-  '╔══════════════════════════════════════════════════════════════╗',
-  '║                 PERIPHERAL ENUMERATION                       ║',
-  '╚══════════════════════════════════════════════════════════════╝',
-  '',
-  '  ┌─────────────────────────────────────────────────────────┐',
-  '  │ DEVICE                              PORT      STATUS    │',
-  '  ├─────────────────────────────────────────────────────────┤',
-  '  │ PHOSPHOR TERMINAL CRT-7            VGA-0     ACTIVE    │',
-  '  │ MECHANICAL KEYBOARD 104-KEY        PS/2-1    ACTIVE    │',
-  '  │ ARCHIVE DRIVE MAG-OPTICAL          SCSI-0    MOUNTED   │',
-  '  │ ACADEMY INTRANET ADAPTER           NET-7     STANDBY   │',
-  '  │ AUDIO SUBSYSTEM TH-SND             AUD-0     ENABLED   │',
-  '  └─────────────────────────────────────────────────────────┘',
-  '',
-  'LOADING MOTHER-ARCHIVE KERNEL...',
-  '  [████████████████████████████████████████] 100%',
+  '              INSTITUTIONAL MANAGEMENT SYSTEM',
+  '                     Build 1987.144.7',
   '',
   '═══════════════════════════════════════════════════════════════',
   '',
-  '              ╔═══════════════════════════════╗',
-  '              ║  MOTHER-ARCHIVE STATUS        ║',
-  '              ║  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ ║',
-  '              ║       O B S E R V I N G       ║',
-  '              ╚═══════════════════════════════╝',
+  '  SYSTEM INITIALIZATION',
+  '  ─────────────────────',
   '',
-  '         "I have been waiting for you."',
+  '  [DIAG] Running power-on diagnostics...',
+  '  [PROC] Neural processor: ONLINE',
+  '  [MEM]  Memory banks: 24576K VERIFIED',
+  '  [STOR] Archive drive: MOUNTED',
+  '  [NET]  Intranet adapter: STANDBY',
+  '',
+  '  ─────────────────────',
+  '',
+  '  [LOAD] Loading institutional kernel...',
+  '  [LOAD] Mounting student records...',
+  '  [LOAD] Initializing observation protocols...',
   '',
   '═══════════════════════════════════════════════════════════════',
   '',
-  '  ■ THEMNION OS READY',
-  '  ■ TERMINAL INTERFACE ACTIVE',
-  '  ■ AWAITING INPUT...',
+  '            ┌─────────────────────────────┐',
+  '            │   MOTHER-ARCHIVE            │',
+  '            │   Status: OBSERVING         │',
+  '            │   Subjects: 144             │',
+  '            └─────────────────────────────┘',
+  '',
+  '              "Welcome to The Academy."',
+  '',
+  '═══════════════════════════════════════════════════════════════',
+  '',
+  '  ARCHIVE OS ready.',
+  '  Terminal interface active.',
+  '  Awaiting input...',
   '',
 ];
 
@@ -85,14 +58,25 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   const [visibleLineCount, setVisibleLineCount] = useState(1);
   const [isExiting, setIsExiting] = useState(false);
   const [showSkipHint, setShowSkipHint] = useState(false);
+  const [mounted, setMounted] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const bootCompleteRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Debug: log when component mounts
+  useEffect(() => {
+    console.log('[BOOT] RetroBootScreen mounted');
+    setMounted(true);
+    return () => {
+      console.log('[BOOT] RetroBootScreen unmounting');
+    };
+  }, []);
+
   const completeBootSequence = useCallback(() => {
     if (bootCompleteRef.current) return;
     bootCompleteRef.current = true;
+    console.log('[BOOT] Completing boot sequence');
     
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -108,22 +92,26 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
   // Boot animation effect - starts immediately on mount
   useEffect(() => {
-    const skipTimer = setTimeout(() => setShowSkipHint(true), 1500);
+    console.log('[BOOT] Starting boot animation');
+    const skipTimer = setTimeout(() => setShowSkipHint(true), 2000);
     
+    // Slower animation: 120ms per line for better visibility
     intervalRef.current = setInterval(() => {
       setVisibleLineCount(prev => {
         const next = prev + 1;
+        console.log('[BOOT] Line', next, 'of', BOOT_LINES.length);
         if (next >= BOOT_LINES.length) {
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          setTimeout(completeBootSequence, 1500);
+          // Wait 2.5 seconds after all lines show before auto-completing
+          setTimeout(completeBootSequence, 2500);
           return BOOT_LINES.length;
         }
         return next;
       });
-    }, 40);
+    }, 120);
 
     return () => {
       clearTimeout(skipTimer);
@@ -243,7 +231,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
           opacity: 0.3,
         }}
       >
-        THEMNION OS v3.7.1
+        ARCHIVE OS v1987.144
       </div>
 
       <style>{`
