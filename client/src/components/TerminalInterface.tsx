@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useTransition, startTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, startTransition, useCallback } from 'react';
+import CommandPalette from './CommandPalette';
 
 interface TerminalLine {
   id: string;
@@ -12,6 +13,7 @@ interface TerminalInterfaceProps {
   prompt?: string;
   statusLine?: string;
   enableCrtEffect?: boolean;
+  commandHistory?: string[];
 }
 
 export default function TerminalInterface({ 
@@ -19,16 +21,50 @@ export default function TerminalInterface({
   onCommand, 
   prompt = ">", 
   statusLine = "",
-  enableCrtEffect = true
+  enableCrtEffect = true,
+  commandHistory = []
 }: TerminalInterfaceProps) {
   const [currentCommand, setCurrentCommand] = useState('');
   const [isPending, startTransition] = useTransition();
   const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollAnimationRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
   const isAutoScrollingRef = useRef(false);
+
+  // Jump to bottom of terminal
+  const jumpToBottom = useCallback(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      setUserHasScrolled(false);
+    }
+  }, []);
+
+  // Toggle command palette visibility
+  const toggleCommandPalette = useCallback(() => {
+    setShowCommandPalette(prev => !prev);
+  }, []);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC to close command palette
+      if (e.key === 'Escape' && showCommandPalette) {
+        setShowCommandPalette(false);
+        inputRef.current?.focus();
+      }
+      // Ctrl+K or Cmd+K to toggle command palette
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showCommandPalette, toggleCommandPalette]);
 
   // Check if user is near the bottom of the scroll
   const isNearBottom = (container: HTMLElement): boolean => {
@@ -220,78 +256,97 @@ export default function TerminalInterface({
   };
 
   return (
-    <div 
-      className={`h-screen bg-background text-foreground font-mono text-base flex flex-col terminal-container ${enableCrtEffect ? 'crt-effect' : ''}`}
-      data-testid="terminal-interface"
-      style={{ 
-        background: 'hsl(var(--terminal-bg))',
-        color: 'hsl(var(--terminal-glow))'
-      }}
-    >
-      {/* Status Line */}
-      {statusLine && (
-        <div 
-          className="border-b px-3 py-1 terminal-text"
-          style={{ 
-            borderColor: 'hsl(var(--terminal-glow))',
-            background: 'hsl(var(--terminal-bg))'
-          }}
-        >
-          {statusLine}
-        </div>
-      )}
+    <div className="relative h-screen">
+      {/* Command Palette */}
+      <CommandPalette
+        onCommand={onCommand}
+        commandHistory={commandHistory}
+        onJumpToBottom={jumpToBottom}
+        isVisible={showCommandPalette}
+        onToggleVisibility={toggleCommandPalette}
+      />
 
-      {/* Terminal Output */}
+      {/* Terminal Container */}
       <div 
-        ref={terminalRef}
-        className="flex-1 overflow-y-auto p-3 space-y-0 smooth-scroll"
+        className={`h-full bg-background text-foreground font-mono text-base flex flex-col terminal-container ${enableCrtEffect ? 'crt-effect' : ''} ${showCommandPalette ? 'pr-72' : ''}`}
+        data-testid="terminal-interface"
         style={{ 
-          lineHeight: '1.4',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'hsl(var(--terminal-glow)) transparent'
+          background: 'hsl(var(--terminal-bg))',
+          color: 'hsl(var(--terminal-glow))',
+          transition: 'padding-right 0.2s ease'
         }}
+        role="main"
+        aria-label="Game terminal"
       >
-        {lines.map((line, index) => (
+        {/* Status Line */}
+        {statusLine && (
           <div 
-            key={line.id} 
-            className={`${getLineColor(line.type)} whitespace-pre-wrap break-words terminal-text`}
+            className="border-b px-3 py-1 terminal-text"
             style={{ 
-              ...getLineStyle(line.type),
-              opacity: isPending && index >= lines.length - 1 ? 0.7 : 1,
-              transition: 'opacity 0.1s ease'
+              borderColor: 'hsl(var(--terminal-glow))',
+              background: 'hsl(var(--terminal-bg))'
             }}
           >
-            {line.text}
+            {statusLine}
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* Command Input */}
-      <div 
-        className="border-t px-3 py-2"
-        style={{ borderColor: 'hsl(var(--terminal-glow))' }}
-      >
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
-          <span className="terminal-text" style={{ color: 'hsl(var(--terminal-glow))' }}>
-            {prompt}
-          </span>
-          <input
-            ref={inputRef}
-            data-testid="terminal-input"
-            type="text"
-            value={currentCommand}
-            onChange={(e) => setCurrentCommand(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none font-mono text-base terminal-text"
-            style={{ 
-              color: 'hsl(var(--accent))',
-              caretColor: 'hsl(var(--accent))'
-            }}
-            autoComplete="off"
-            spellCheck={false}
-            disabled={isPending}
-          />
-          <span className="terminal-cursor">█</span>
-        </form>
+        {/* Terminal Output */}
+        <div 
+          ref={terminalRef}
+          className="flex-1 overflow-y-auto p-3 space-y-0 smooth-scroll"
+          style={{ 
+            lineHeight: '1.4',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'hsl(var(--terminal-glow)) transparent'
+          }}
+          role="log"
+          aria-label="Game output"
+          aria-live="polite"
+        >
+          {lines.map((line, index) => (
+            <div 
+              key={line.id} 
+              className={`${getLineColor(line.type)} whitespace-pre-wrap break-words terminal-text`}
+              style={{ 
+                ...getLineStyle(line.type),
+                opacity: isPending && index >= lines.length - 1 ? 0.7 : 1,
+                transition: 'opacity 0.1s ease'
+              }}
+            >
+              {line.text}
+            </div>
+          ))}
+        </div>
+
+        {/* Command Input */}
+        <div 
+          className="border-t px-3 py-2"
+          style={{ borderColor: 'hsl(var(--terminal-glow))' }}
+        >
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <span className="terminal-text" style={{ color: 'hsl(var(--terminal-glow))' }}>
+              {prompt}
+            </span>
+            <input
+              ref={inputRef}
+              data-testid="terminal-input"
+              type="text"
+              value={currentCommand}
+              onChange={(e) => setCurrentCommand(e.target.value)}
+              className="flex-1 bg-transparent border-none outline-none font-mono text-base terminal-text"
+              style={{ 
+                color: 'hsl(var(--accent))',
+                caretColor: 'hsl(var(--accent))'
+              }}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={isPending}
+              aria-label="Enter command"
+            />
+            <span className="terminal-cursor">█</span>
+          </form>
+        </div>
       </div>
     </div>
   );

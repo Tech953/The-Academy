@@ -11,6 +11,7 @@ export default function Home() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
   const [loading, setLoading] = useState(false);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
 
   // Helper functions
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
@@ -440,6 +441,9 @@ export default function Home() {
       addTerminalLine(`> ${command}`, 'command');
       return; // Silently ignore empty commands
     }
+    
+    // Track command in history (limit to last 50 commands)
+    setCommandHistory(prev => [...prev.slice(-49), command.toUpperCase()]);
     
     const { action, target, originalAction, nlpUsed, confidence, reasoning } = await parseCommandWithNLP(command);
     
@@ -1561,6 +1565,7 @@ export default function Home() {
       onCommand={handleCommand}
       prompt=">"
       statusLine={statusLine}
+      commandHistory={commandHistory}
     />
   );
 }
