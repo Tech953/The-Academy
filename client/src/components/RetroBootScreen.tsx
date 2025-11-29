@@ -184,141 +184,116 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
         boxShadow: 'inset 0 0 30px rgba(0, 255, 0, 0.3), inset 0 0 60px rgba(0, 255, 0, 0.1), 0 0 20px rgba(0, 255, 0, 0.5)',
       }}
     >
-      {/* Header with loading text */}
-      <div style={{
-        position: 'absolute',
-        top: '16px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
-        <div style={{
-          color: '#00ff00',
-          fontSize: '28px',
-          fontFamily: 'monospace',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          textShadow: '0 0 10px #00ff00, 0 0 20px #00ff0066',
-          letterSpacing: '4px',
-        }}>
-          ARCHIVE OS
-        </div>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-        }}>
-          <div style={{
-            width: '40px',
-            height: '1px',
-            background: 'linear-gradient(to right, transparent, #00ff00)',
-          }} />
-          <div style={{
-            color: '#00ff00',
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            opacity: 0.7,
-            letterSpacing: '2px',
-          }}>
-            {showIconConstruction ? 'INITIALIZING INTERFACE' : 'LOADING SYSTEMS'}
-          </div>
-          <div style={{
-            width: '40px',
-            height: '1px',
-            background: 'linear-gradient(to left, transparent, #00ff00)',
-          }} />
-        </div>
-      </div>
-
-      {/* Icon Construction Animation - appears after boot text */}
+      {/* Icon Construction Animation - expands from border after boot text */}
       {showIconConstruction && (
         <div style={{
           position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          gap: '16px',
+          justifyContent: 'center',
+          background: iconConstructionPhase >= 4 ? 'rgba(0, 0, 0, 0.9)' : 'transparent',
+          transition: 'background 0.3s ease-out',
+          zIndex: 10,
         }}>
-          {/* Constructing icon container */}
+          {/* Border glow pulse effect */}
           <div style={{
-            width: '120px',
-            height: '120px',
-            position: 'relative',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            border: `3px solid #00ff00`,
+            boxShadow: iconConstructionPhase >= 2 
+              ? `inset 0 0 ${40 + iconConstructionPhase * 20}px rgba(0, 255, 0, ${0.2 + iconConstructionPhase * 0.1}), 0 0 ${20 + iconConstructionPhase * 10}px rgba(0, 255, 0, 0.5)`
+              : 'inset 0 0 30px rgba(0, 255, 0, 0.3)',
+            transition: 'all 0.3s ease-out',
+          }} />
+
+          {/* Constructing icon - grows from center */}
+          <div style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '20px',
+            transform: `scale(${0.5 + iconConstructionPhase * 0.15})`,
+            opacity: iconConstructionPhase >= 1 ? 1 : 0,
+            transition: 'all 0.3s ease-out',
           }}>
-            {/* Phase 1: Outer ring */}
+            {/* Icon container */}
             <div style={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              border: `3px solid ${iconConstructionPhase >= 1 ? '#00ff00' : '#00ff0022'}`,
-              borderRadius: '50%',
-              boxShadow: iconConstructionPhase >= 1 ? '0 0 20px #00ff00, inset 0 0 10px #00ff0044' : 'none',
-              transition: 'all 0.2s ease-out',
-            }} />
-            
-            {/* Phase 2: Inner ring */}
-            <div style={{
-              position: 'absolute',
-              width: '85%',
-              height: '85%',
-              border: `2px solid ${iconConstructionPhase >= 2 ? '#00ff00' : '#00ff0022'}`,
-              borderRadius: '50%',
-              opacity: iconConstructionPhase >= 2 ? 1 : 0.2,
-              transition: 'all 0.2s ease-out',
-            }} />
-            
-            {/* Phase 3: Corner brackets */}
-            <div style={{
-              position: 'absolute',
-              width: '70%',
-              height: '70%',
-              opacity: iconConstructionPhase >= 3 ? 1 : 0,
-              transition: 'all 0.2s ease-out',
+              width: '140px',
+              height: '140px',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '12px', height: '12px', borderTop: '2px solid #00ff00', borderLeft: '2px solid #00ff00' }} />
-              <div style={{ position: 'absolute', top: 0, right: 0, width: '12px', height: '12px', borderTop: '2px solid #00ff00', borderRight: '2px solid #00ff00' }} />
-              <div style={{ position: 'absolute', bottom: 0, left: 0, width: '12px', height: '12px', borderBottom: '2px solid #00ff00', borderLeft: '2px solid #00ff00' }} />
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderBottom: '2px solid #00ff00', borderRight: '2px solid #00ff00' }} />
+              {/* Phase 1-2: Outer ring with scanning effect */}
+              <div style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+                border: `3px solid ${iconConstructionPhase >= 1 ? '#00ff00' : 'transparent'}`,
+                borderRadius: '50%',
+                boxShadow: iconConstructionPhase >= 1 ? '0 0 30px #00ff00, inset 0 0 20px #00ff0044' : 'none',
+                transition: 'all 0.2s ease-out',
+              }} />
+              
+              {/* Phase 2: Inner scanning ring */}
+              <div style={{
+                position: 'absolute',
+                width: '80%',
+                height: '80%',
+                border: `2px solid ${iconConstructionPhase >= 2 ? '#00ff00' : 'transparent'}`,
+                borderRadius: '50%',
+                opacity: iconConstructionPhase >= 2 ? 0.7 : 0,
+                transition: 'all 0.2s ease-out',
+              }} />
+              
+              {/* Phase 3: Crosshair lines */}
+              {iconConstructionPhase >= 3 && (
+                <>
+                  <div style={{ position: 'absolute', width: '2px', height: '100%', background: 'linear-gradient(to bottom, transparent, #00ff00, transparent)', opacity: 0.5 }} />
+                  <div style={{ position: 'absolute', width: '100%', height: '2px', background: 'linear-gradient(to right, transparent, #00ff00, transparent)', opacity: 0.5 }} />
+                </>
+              )}
+              
+              {/* Phase 4-5: Mascot emerges */}
+              <div style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                opacity: iconConstructionPhase >= 4 ? 1 : 0,
+                transform: iconConstructionPhase >= 4 ? 'scale(1)' : 'scale(0.3)',
+                transition: 'all 0.4s ease-out',
+                boxShadow: iconConstructionPhase >= 5 ? '0 0 40px #00ff00, 0 0 80px #00ff0066' : '0 0 20px #00ff0044',
+                border: '2px solid #00ff00',
+              }}>
+                <BearMascot 
+                  animation={iconConstructionPhase >= 5 ? "celebrate" : "idle"}
+                  size="xl"
+                  glowIntensity="high"
+                />
+              </div>
             </div>
             
-            {/* Phase 4: Mascot image fades in */}
+            {/* Status text below icon */}
             <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              overflow: 'hidden',
-              opacity: iconConstructionPhase >= 4 ? 1 : 0,
-              transform: iconConstructionPhase >= 4 ? 'scale(1)' : 'scale(0.5)',
-              transition: 'all 0.3s ease-out',
-              boxShadow: iconConstructionPhase >= 5 ? '0 0 30px #00ff00' : 'none',
+              color: '#00ff00',
+              fontFamily: 'monospace',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              textShadow: '0 0 15px #00ff00',
+              letterSpacing: '4px',
+              textAlign: 'center',
             }}>
-              <BearMascot 
-                animation={iconConstructionPhase >= 5 ? "pulse" : "idle"}
-                size="lg"
-                glowIntensity={iconConstructionPhase >= 5 ? "high" : "low"}
-              />
+              {iconConstructionPhase < 5 ? 'INITIALIZING' : 'WELCOME TO THE ACADEMY'}
             </div>
-          </div>
-          
-          {/* Status text */}
-          <div style={{
-            color: '#00ff00',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            textShadow: '0 0 10px #00ff00',
-            opacity: iconConstructionPhase >= 5 ? 1 : 0.5,
-            transition: 'opacity 0.2s',
-          }}>
-            {iconConstructionPhase < 5 ? `CONSTRUCTING... ${iconConstructionPhase * 20}%` : 'READY'}
           </div>
         </div>
       )}
