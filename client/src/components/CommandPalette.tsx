@@ -210,15 +210,22 @@ export default function CommandPalette({
   };
 
   // Floating toggle button when palette is hidden
+  // Position above command input (bottom-16 = 4rem clearance for input bar + padding)
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      <div 
+        className="fixed z-50 flex flex-col gap-3 pointer-events-none"
+        style={{ 
+          bottom: 'calc(3rem + 16px)', // Command input height + safe spacing
+          right: '1rem'
+        }}
+      >
         {/* Voice button - show with fallback message if not supported */}
         <Button
           size="icon"
           variant="outline"
           onClick={isSupported ? toggleListening : undefined}
-          className={`rounded-full shadow-lg ${isListening ? 'bg-red-500/20 border-red-500' : ''} ${!isSupported ? 'opacity-50' : ''}`}
+          className={`rounded-full shadow-lg pointer-events-auto ${isListening ? 'bg-red-500/20 border-red-500' : ''} ${!isSupported ? 'opacity-50' : ''}`}
           style={{ 
             borderColor: isListening ? 'hsl(0, 100%, 50%)' : 'hsl(var(--terminal-glow))',
             color: 'hsl(var(--terminal-glow))'
@@ -241,7 +248,7 @@ export default function CommandPalette({
           size="icon"
           variant="outline"
           onClick={onToggleVisibility}
-          className="rounded-full shadow-lg"
+          className="rounded-full shadow-lg pointer-events-auto"
           style={{ 
             borderColor: 'hsl(var(--terminal-glow))',
             color: 'hsl(var(--terminal-glow))'
@@ -252,26 +259,34 @@ export default function CommandPalette({
           <Menu className="h-5 w-5" />
         </Button>
 
-        {/* Voice feedback */}
+        {/* Voice feedback - positioned above buttons with proper width constraints */}
         {isListening && interimTranscript && (
           <div 
-            className="fixed bottom-20 right-4 px-3 py-2 rounded-lg text-sm max-w-xs"
+            className="absolute px-3 py-2 rounded-lg text-sm pointer-events-none"
             style={{ 
+              bottom: 'calc(100% + 0.75rem)', // Above buttons
+              right: 0,
+              maxWidth: 'min(280px, calc(100vw - 2rem))', // Constrained width
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
               background: 'hsl(var(--terminal-bg))',
               border: '1px solid hsl(var(--terminal-glow))',
               color: 'hsl(var(--terminal-glow))'
             }}
           >
             <span className="opacity-70">Hearing: </span>
-            {interimTranscript}
+            <span className="line-clamp-3">{interimTranscript}</span>
           </div>
         )}
 
-        {/* Fallback message when voice not supported */}
+        {/* Fallback message when voice not supported - positioned above buttons */}
         {!isSupported && (
           <div 
-            className="fixed bottom-20 right-4 px-3 py-2 rounded-lg text-xs max-w-[200px]"
+            className="absolute px-3 py-2 rounded-lg text-xs pointer-events-none"
             style={{ 
+              bottom: 'calc(100% + 0.75rem)', // Above buttons
+              right: 0,
+              maxWidth: '200px',
               background: 'hsl(var(--terminal-bg))',
               border: '1px solid hsl(var(--terminal-glow))',
               color: 'hsl(var(--terminal-glow))',
