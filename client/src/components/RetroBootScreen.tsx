@@ -98,6 +98,8 @@ const BOOT_LINES = [
 ];
 
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
+  console.log('[RetroBootScreen] Component rendering');
+  
   const [visibleLineCount, setVisibleLineCount] = useState(1);
   const [isMuted, setIsMuted] = useState(getStoredMuteState);
   const [isExiting, setIsExiting] = useState(false);

@@ -9,7 +9,11 @@ import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
 
 export default function Home() {
   // Boot screen shows every page load (no session storage caching)
-  const [bootComplete, setBootComplete] = useState(false);
+  // Force bootComplete to false on every mount to prevent HMR state preservation
+  const [bootComplete, setBootComplete] = useState(() => {
+    console.log('[Home] Initial render, bootComplete = false');
+    return false;
+  });
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -18,7 +22,13 @@ export default function Home() {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
 
+  // Log when bootComplete changes
+  useEffect(() => {
+    console.log('[Home] bootComplete changed to:', bootComplete);
+  }, [bootComplete]);
+
   const handleBootComplete = () => {
+    console.log('[Home] handleBootComplete called');
     setBootComplete(true);
   };
 
