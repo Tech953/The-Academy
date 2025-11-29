@@ -178,61 +178,67 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
   return (
     <div 
-      className={`fixed inset-0 z-[9999] ${isExiting ? 'boot-exit' : ''}`}
-      style={{ 
-        backgroundColor: '#000000',
-        cursor: skipEnabled && showSkipHint && visibleLineCount > 10 ? 'pointer' : 'default',
-      }}
-      role="alert"
-      aria-live="polite"
-      aria-label="System boot sequence in progress"
       data-testid="boot-screen"
       onClick={handleSkip}
       onKeyDown={handleSkip}
       tabIndex={0}
+      role="alert"
+      aria-live="polite"
+      aria-label="System boot sequence in progress"
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        backgroundColor: '#000000',
+        cursor: skipEnabled && showSkipHint && visibleLineCount > 10 ? 'pointer' : 'default',
+        opacity: isExiting ? 0 : 1,
+        transition: isExiting ? 'opacity 0.6s ease-out' : 'none',
+      }}
     >
-      <style>{`
-        .boot-exit {
-          animation: bootFadeOut 0.6s ease-out forwards;
-        }
-        
-        @keyframes bootFadeOut {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        
-        @keyframes blink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
-        }
-        
-        .boot-cursor {
-          animation: blink 1s infinite;
-        }
-      `}</style>
-      
       <button
         onClick={toggleMute}
-        className="absolute top-4 right-4 p-2 opacity-60 hover:opacity-100 transition-opacity z-50"
-        style={{ color: '#00ff00' }}
         aria-label={isMuted ? 'Unmute sounds' : 'Mute sounds'}
         data-testid="button-mute-toggle"
+        style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          padding: '8px',
+          background: 'transparent',
+          border: 'none',
+          color: '#00ff00',
+          opacity: 0.6,
+          cursor: 'pointer',
+          zIndex: 100000,
+        }}
       >
-        {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        {isMuted ? <VolumeX style={{ width: '20px', height: '20px' }} /> : <Volume2 style={{ width: '20px', height: '20px' }} />}
       </button>
 
       <div 
-        className="h-full w-full flex flex-col justify-end items-center p-4 md:p-8 pb-16"
+        style={{
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          padding: '16px',
+          paddingBottom: '64px',
+          boxSizing: 'border-box',
+        }}
       >
         <div 
           ref={containerRef}
-          className="overflow-y-auto"
           style={{ 
             maxWidth: '900px',
             maxHeight: '100%',
             width: '100%',
+            overflowY: 'auto',
             scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
           }}
         >
           <div 
@@ -251,7 +257,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
             ))}
             
             {visibleLineCount < BOOT_LINES.length && (
-              <span className="boot-cursor">█</span>
+              <span style={{ animation: 'blink 1s infinite' }}>█</span>
             )}
           </div>
         </div>
@@ -259,19 +265,39 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
 
       {showSkipHint && skipEnabled && visibleLineCount > 10 && visibleLineCount < BOOT_LINES.length && (
         <div 
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm opacity-50 animate-pulse"
-          style={{ color: '#00ff00' }}
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontSize: '14px',
+            color: '#00ff00',
+            opacity: 0.5,
+          }}
         >
           Press any key to skip...
         </div>
       )}
 
       <div 
-        className="absolute bottom-2 right-4 text-xs opacity-30"
-        style={{ color: '#00ff00' }}
+        style={{
+          position: 'absolute',
+          bottom: '8px',
+          right: '16px',
+          fontSize: '12px',
+          color: '#00ff00',
+          opacity: 0.3,
+        }}
       >
         THEMNION OS v3.7.1
       </div>
+
+      <style>{`
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }
