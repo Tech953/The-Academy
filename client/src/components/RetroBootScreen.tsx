@@ -54,12 +54,82 @@ const BOOT_LINES = [
   '',
 ];
 
+// Pool of randomized loading messages for the initialization phase
+const LOADING_MESSAGES = {
+  // Early stage (0-25%)
+  early: [
+    'Initializing neural pathways...',
+    'Loading core subsystems...',
+    'Mounting archive sectors...',
+    'Calibrating display matrix...',
+    'Establishing memory banks...',
+    'Parsing configuration files...',
+    'Loading kernel modules...',
+    'Initializing I/O handlers...',
+  ],
+  // Mid stage (25-50%)
+  mid: [
+    'Loading student database...',
+    'Indexing academic records...',
+    'Preparing curriculum data...',
+    'Loading faculty profiles...',
+    'Mounting location maps...',
+    'Initializing NPC routines...',
+    'Loading dialogue trees...',
+    'Caching narrative elements...',
+  ],
+  // Late stage (50-75%)
+  late: [
+    'Compiling character systems...',
+    'Loading perk definitions...',
+    'Initializing stat trackers...',
+    'Preparing inventory system...',
+    'Loading item databases...',
+    'Calibrating reputation engine...',
+    'Mounting save handlers...',
+    'Initializing event triggers...',
+  ],
+  // Final stage (75-100%)
+  final: [
+    'Preparing terminal interface...',
+    'Loading command parser...',
+    'Initializing input handlers...',
+    'Finalizing boot sequence...',
+    'Verifying system integrity...',
+    'Establishing session...',
+    'Activating observation mode...',
+    'Ready for input...',
+  ],
+};
+
+// Shuffle array helper
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Generate randomized loading sequence
+function generateLoadingSequence(): string[] {
+  return [
+    ...shuffleArray(LOADING_MESSAGES.early).slice(0, 2),
+    ...shuffleArray(LOADING_MESSAGES.mid).slice(0, 2),
+    ...shuffleArray(LOADING_MESSAGES.late).slice(0, 2),
+    ...shuffleArray(LOADING_MESSAGES.final).slice(0, 2),
+  ];
+}
+
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
   // Boot sequence phases: 'icon' -> 'loading' -> 'finalizing' -> 'complete'
   const [bootPhase, setBootPhase] = useState<'icon' | 'loading' | 'finalizing' | 'complete'>('icon');
   const [iconPhase, setIconPhase] = useState(0); // 0-5 for icon construction
   const [visibleLineCount, setVisibleLineCount] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0); // 0-100 for loading bar
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState('');
+  const [loadingSequence] = useState(() => generateLoadingSequence());
   const [showSkipHint, setShowSkipHint] = useState(false);
   const [mounted, setMounted] = useState(false);
   
@@ -155,25 +225,42 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     
     console.log('[BOOT] Phase 3: Finalizing');
     let progress = 0;
+    let messageIndex = 0;
+    
+    // Set initial message
+    setCurrentLoadingMessage(loadingSequence[0] || 'Initializing...');
     
     const progressInterval = setInterval(() => {
-      progress += Math.random() * 15 + 5; // Random increments for retro feel
+      progress += Math.random() * 12 + 4; // Random increments for retro feel
+      
+      // Update message based on progress thresholds
+      const newMessageIndex = Math.min(
+        Math.floor(progress / (100 / loadingSequence.length)),
+        loadingSequence.length - 1
+      );
+      
+      if (newMessageIndex !== messageIndex && loadingSequence[newMessageIndex]) {
+        messageIndex = newMessageIndex;
+        setCurrentLoadingMessage(loadingSequence[messageIndex]);
+      }
+      
       if (progress >= 100) {
         progress = 100;
         setLoadingProgress(100);
+        setCurrentLoadingMessage('System ready');
         clearInterval(progressInterval);
         // Brief hold at 100%, then instant transition
         setTimeout(() => {
           console.log('[BOOT] Loading complete, transitioning to UI');
           completeBootSequence();
-        }, 400);
+        }, 500);
       } else {
         setLoadingProgress(Math.floor(progress));
       }
-    }, 150);
+    }, 180);
 
     return () => clearInterval(progressInterval);
-  }, [bootPhase, completeBootSequence]);
+  }, [bootPhase, completeBootSequence, loadingSequence]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -476,22 +563,32 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
                 </div>
               </div>
 
-              {/* Percentage and status */}
+              {/* Current loading message */}
+              <div style={{
+                color: '#00ff00',
+                fontFamily: 'Courier New, Courier, monospace',
+                fontSize: '11px',
+                minHeight: '18px',
+                opacity: 0.8,
+                textShadow: '0 0 5px #00ff0066',
+                transition: 'opacity 0.15s ease',
+              }}>
+                {currentLoadingMessage}
+              </div>
+
+              {/* Percentage display */}
               <div style={{
                 display: 'flex',
-                justifyContent: 'space-between',
+                justifyContent: 'flex-end',
                 color: '#00ff00',
                 fontFamily: 'Courier New, Courier, monospace',
                 fontSize: '12px',
               }}>
-                <span style={{ opacity: 0.7 }}>
-                  {loadingProgress < 100 ? 'Loading modules...' : 'Complete'}
-                </span>
                 <span style={{ 
                   fontWeight: 'bold',
                   textShadow: '0 0 8px #00ff00',
                 }}>
-                  {loadingProgress}%
+                  [{loadingProgress}%]
                 </span>
               </div>
             </div>
@@ -504,6 +601,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
                 fontSize: '14px',
                 animation: 'blink 0.5s infinite',
                 textShadow: '0 0 15px #00ff00',
+                letterSpacing: '4px',
               }}>
                 READY
               </div>
