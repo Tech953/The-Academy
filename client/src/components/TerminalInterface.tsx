@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useTransition, startTransition, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import CommandPalette from './CommandPalette';
 
 interface TerminalLine {
@@ -346,31 +347,52 @@ export default function TerminalInterface({
         )}
 
         {/* Terminal Output */}
-        <div 
-          ref={terminalRef}
-          className="flex-1 overflow-y-auto p-3 space-y-0 smooth-scroll"
-          style={{ 
-            lineHeight: '1.4',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'hsl(var(--terminal-glow)) transparent'
-          }}
-          role="log"
-          aria-label="Game output"
-          aria-live="polite"
-        >
-          {lines.map((line, index) => (
-            <div 
-              key={line.id} 
-              className={`${getLineColor(line.type)} whitespace-pre-wrap break-words terminal-text`}
-              style={{ 
-                ...getLineStyle(line.type),
-                opacity: isPending && index >= lines.length - 1 ? 0.7 : 1,
-                transition: 'opacity 0.1s ease'
+        <div className="relative flex-1">
+          <div 
+            ref={terminalRef}
+            className="absolute inset-0 overflow-y-auto p-3 space-y-0 smooth-scroll"
+            style={{ 
+              lineHeight: '1.4',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'hsl(var(--terminal-glow)) transparent'
+            }}
+            role="log"
+            aria-label="Game output"
+            aria-live="polite"
+          >
+            {lines.map((line, index) => (
+              <div 
+                key={line.id} 
+                className={`${getLineColor(line.type)} whitespace-pre-wrap break-words terminal-text`}
+                style={{ 
+                  ...getLineStyle(line.type),
+                  opacity: isPending && index >= lines.length - 1 ? 0.7 : 1,
+                  transition: 'opacity 0.1s ease'
+                }}
+              >
+                {line.text}
+              </div>
+            ))}
+          </div>
+          
+          {/* Scroll to bottom indicator - shown when user has scrolled up */}
+          {userHasScrolled && (
+            <button
+              onClick={jumpToBottom}
+              className="absolute bottom-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full flex items-center gap-1 text-xs font-mono transition-all duration-200 hover:scale-105"
+              style={{
+                background: 'hsl(var(--terminal-bg))',
+                border: '1px solid hsl(var(--terminal-glow))',
+                color: 'hsl(var(--terminal-glow))',
+                boxShadow: '0 2px 8px rgba(0, 255, 0, 0.2)'
               }}
+              data-testid="button-scroll-to-bottom"
+              aria-label="Scroll to latest output"
             >
-              {line.text}
-            </div>
-          ))}
+              <ChevronDown className="h-3 w-3" />
+              <span>New content</span>
+            </button>
+          )}
         </div>
 
         {/* Command Input */}
