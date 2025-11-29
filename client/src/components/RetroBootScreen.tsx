@@ -230,33 +230,38 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       </button>
 
       <div 
-        ref={containerRef}
-        className="h-full w-full overflow-y-auto p-4 md:p-8"
-        style={{ 
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        }}
+        className="h-full w-full flex items-center justify-center p-4 md:p-8"
       >
         <div 
+          ref={containerRef}
+          className="overflow-y-auto"
           style={{ 
             maxWidth: '900px',
-            margin: '0 auto',
-            color: '#00ff00',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            lineHeight: '1.4',
-            whiteSpace: 'pre',
+            maxHeight: '100%',
+            width: '100%',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
           }}
         >
-          {visibleLines.map((line, index) => (
-            <div key={index}>
-              {line || '\u00A0'}
-            </div>
-          ))}
-          
-          {visibleLineCount < BOOT_LINES.length && (
-            <span className="boot-cursor">█</span>
-          )}
+          <div 
+            style={{ 
+              color: '#00ff00',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              lineHeight: '1.4',
+              whiteSpace: 'pre',
+            }}
+          >
+            {visibleLines.map((line, index) => (
+              <div key={index}>
+                {line || '\u00A0'}
+              </div>
+            ))}
+            
+            {visibleLineCount < BOOT_LINES.length && (
+              <span className="boot-cursor">█</span>
+            )}
+          </div>
         </div>
       </div>
 
