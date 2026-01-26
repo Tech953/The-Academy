@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
+import AcademyGameLayout from '@/components/AcademyGameLayout';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
 import Tutorial from '@/components/Tutorial';
 import { Character } from '@/components/CharacterSheet';
@@ -7,7 +8,11 @@ import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation, LegacyGameStats } from '@shared/schema';
 import { mapLegacyStats, FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 
-export default function Home() {
+interface HomeProps {
+  onExit?: () => void;
+}
+
+export default function Home({ onExit }: HomeProps) {
   // Boot screen is now handled at App.tsx level
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
@@ -220,19 +225,73 @@ export default function Home() {
   // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {
     return (
-      <TextCharacterCreation 
-        onComplete={(newCharacter) => {
-          setCharacter(newCharacter);
-          setGameStarted(true);
-        }}
-      />
+      <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+        {onExit && (
+          <button
+            onClick={onExit}
+            data-testid="button-exit-academy"
+            style={{
+              position: 'absolute',
+              top: '10px',
+              left: '10px',
+              zIndex: 100,
+              background: 'transparent',
+              border: '1px solid #00ff0060',
+              color: '#00ff00',
+              padding: '6px 12px',
+              borderRadius: '2px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontFamily: 'monospace'
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>&#8592;</span>
+            <span>Desktop</span>
+          </button>
+        )}
+        <TextCharacterCreation 
+          onComplete={(newCharacter) => {
+            setCharacter(newCharacter);
+            setGameStarted(true);
+          }}
+        />
+      </div>
     );
   }
 
   // Show loading state while initializing
   if (loading || !gameState) {
     return (
-      <div className="h-screen bg-background text-foreground font-mono flex items-center justify-center">
+      <div className="h-screen bg-background text-foreground font-mono flex items-center justify-center" style={{ position: 'relative' }}>
+        {onExit && (
+          <button
+            onClick={onExit}
+            data-testid="button-exit-academy"
+            style={{
+              position: 'absolute',
+              top: '10px',
+              left: '10px',
+              zIndex: 100,
+              background: 'transparent',
+              border: '1px solid #00ff0060',
+              color: '#00ff00',
+              padding: '6px 12px',
+              borderRadius: '2px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontFamily: 'monospace'
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>&#8592;</span>
+            <span>Desktop</span>
+          </button>
+        )}
         <div className="text-center">
           <div className="text-2xl mb-4">THE ACADEMY</div>
           <div>Initializing game world...</div>
@@ -1587,14 +1646,35 @@ export default function Home() {
 
   const statusLine = `${gameState.character.name} | ${gameState.character.race} ${gameState.character.class} | Location: ${gameState.currentLocation.name} | Energy: ${gameState.character.energy}/${gameState.character.maxEnergy}`;
 
+  const gameCharacter: Character = {
+    name: gameState.character.name,
+    background: gameState.character.background || '',
+    race: gameState.character.race,
+    class: gameState.character.class,
+    subClass: gameState.character.subClass || undefined,
+    faction: gameState.character.faction,
+    characterSummary: gameState.character.characterSummary || undefined,
+    physicalTraits: gameState.character.physicalTraits as Record<string, string>,
+    stats: gameState.character.stats as any,
+    reputation: {
+      faculty: (gameState.character.reputation as any)?.faculty || 50,
+      students: (gameState.character.reputation as any)?.students || 50,
+      mysterious: (gameState.character.reputation as any)?.mysterious || 10
+    },
+    energy: gameState.character.energy || 100,
+    maxEnergy: gameState.character.maxEnergy || 100,
+    perks: gameState.character.perks as any
+  };
+
   return (
     <>
-      <TerminalInterface
-        lines={terminalLines}
+      <AcademyGameLayout
+        character={gameCharacter}
+        terminalLines={terminalLines}
         onCommand={handleCommand}
-        prompt=">"
-        statusLine={statusLine}
         commandHistory={commandHistory}
+        statusLine={statusLine}
+        onExit={onExit}
       />
       {showTutorial && (
         <Tutorial 

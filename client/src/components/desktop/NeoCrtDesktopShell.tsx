@@ -247,6 +247,7 @@ export default function NeoCrtDesktopShell() {
   const [nextZIndex, setNextZIndex] = useState(1);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [academyFullscreen, setAcademyFullscreen] = useState(false);
   const { colors, accentColors, modeLabel } = useCrtTheme();
 
   useEffect(() => {
@@ -353,6 +354,11 @@ export default function NeoCrtDesktopShell() {
   };
 
   const openWindow = useCallback((appId: string) => {
+    if (appId === 'academy') {
+      setAcademyFullscreen(true);
+      return;
+    }
+
     const existingWindow = windows.find(w => w.id === appId);
     if (existingWindow) {
       setWindows(prev => prev.map(w => 
@@ -422,6 +428,10 @@ export default function NeoCrtDesktopShell() {
   }, [nextZIndex]);
 
   const handleDesktopClick = () => setSelectedIcon(null);
+
+  if (academyFullscreen) {
+    return <Home onExit={() => setAcademyFullscreen(false)} />;
+  }
 
   return (
     <div
