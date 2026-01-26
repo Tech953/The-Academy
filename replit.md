@@ -32,8 +32,13 @@ Preferred communication style: Simple, everyday language.
     - Multiple windows cascade with proper z-index management
   - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff), Pink (#ff66aa)
   - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, Cub Companion
-  - The Academy game runs as a windowed application
-- **Terminal-First Design**: Inside the game window, authentic classic text adventure aesthetic with black background and green monospace text.
+  - **The Academy Game**: Runs in dedicated full-screen mode (not as a windowed desktop app):
+    - Full-screen layout with header bar and stats sidebar
+    - Stats sidebar shows character name, class, faction, energy, reputation, and all 17 stats
+    - Header bar with "Desktop" exit button, sidebar toggle, and text size controls
+    - Adjustable text size (10-24px) for accessibility
+    - Clean separation between game and desktop OS programs
+- **Terminal-First Design**: Inside the game, authentic classic text adventure aesthetic with black background and green monospace text.
 - **Tailwind CSS**: Utility-first styling with custom CSS variables for terminal theme.
 - **shadcn/ui Components**: UI components adapted for the terminal aesthetic.
 - **Lucide React**: Icon library used for all desktop and window icons (no emojis).
