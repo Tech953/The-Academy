@@ -425,12 +425,40 @@ export default function NeoCrtDesktopShell() {
         
         <div style={{ height: '20px' }} />
         
-        <SidebarIcon
-          icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', color: NEON_COLORS.green }}
-          isSelected={selectedIcon === 'academy'}
-          onClick={() => setSelectedIcon('academy')}
-          onDoubleClick={() => openWindow('academy')}
-        />
+        <div 
+          style={{
+            position: 'relative',
+            padding: '4px',
+            border: `2px solid ${NEON_COLORS.green}`,
+            borderRadius: '8px',
+            background: 'rgba(0, 255, 0, 0.05)',
+            boxShadow: `0 0 20px ${NEON_COLORS.green}40, inset 0 0 10px ${NEON_COLORS.green}10`,
+            animation: 'pulse-glow 2s ease-in-out infinite',
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            top: '-12px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#000',
+            padding: '2px 8px',
+            fontSize: '8px',
+            color: NEON_COLORS.green,
+            fontFamily: '"Courier New", monospace',
+            letterSpacing: '1px',
+            textShadow: `0 0 5px ${NEON_COLORS.green}`,
+            whiteSpace: 'nowrap',
+          }}>
+            START GAME
+          </div>
+          <SidebarIcon
+            icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', color: NEON_COLORS.green }}
+            isSelected={selectedIcon === 'academy'}
+            onClick={() => setSelectedIcon('academy')}
+            onDoubleClick={() => openWindow('academy')}
+          />
+        </div>
       </div>
 
       <div style={{
