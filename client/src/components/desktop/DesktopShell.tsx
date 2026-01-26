@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, ReactNode } from 'react';
 import Window from './Window';
 import DesktopIcon from './DesktopIcon';
 import Taskbar from './Taskbar';
@@ -6,11 +6,12 @@ import Calculator from './apps/Calculator';
 import Notepad from './apps/Notepad';
 import FileExplorer from './apps/FileExplorer';
 import Home from '@/pages/Home';
+import { Gamepad2, FolderOpen, FileText, Calculator as CalcIcon, Trash2, Power } from 'lucide-react';
 
 interface WindowState {
   id: string;
   title: string;
-  icon: string;
+  iconType: 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle';
   component: React.ReactNode;
   x: number;
   y: number;
@@ -21,13 +22,63 @@ interface WindowState {
   zIndex: number;
 }
 
-const DESKTOP_ICONS = [
-  { id: 'academy', icon: '🎮', label: 'The Academy' },
-  { id: 'files', icon: '📁', label: 'My Computer' },
-  { id: 'notepad', icon: '📝', label: 'Notepad' },
-  { id: 'calculator', icon: '🔢', label: 'Calculator' },
-  { id: 'recycle', icon: '🗑️', label: 'Recycle Bin' },
+const DESKTOP_ICONS: Array<{ id: string; iconType: WindowState['iconType']; label: string }> = [
+  { id: 'academy', iconType: 'academy', label: 'The Academy' },
+  { id: 'files', iconType: 'files', label: 'My Computer' },
+  { id: 'notepad', iconType: 'notepad', label: 'Notepad' },
+  { id: 'calculator', iconType: 'calculator', label: 'Calculator' },
+  { id: 'recycle', iconType: 'recycle', label: 'Recycle Bin' },
 ];
+
+export type IconType = 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'power' | 'folder' | 'file' | 'image' | 'music';
+
+export function getIconComponent(iconType: IconType, size: number = 16): ReactNode {
+  const props = { size, strokeWidth: 1.5 };
+  switch (iconType) {
+    case 'academy': return <Gamepad2 {...props} />;
+    case 'files': return <FolderOpen {...props} />;
+    case 'notepad': return <FileText {...props} />;
+    case 'calculator': return <CalcIcon {...props} />;
+    case 'recycle': return <Trash2 {...props} />;
+    case 'power': return <Power {...props} />;
+    case 'folder': return <FolderOpen {...props} />;
+    case 'file': return <FileText {...props} />;
+    case 'image': return <FileText {...props} />;
+    case 'music': return <FileText {...props} />;
+    default: return <FileText {...props} />;
+  }
+}
+
+function StartMenuItem({ iconType, label, onClick }: { iconType: IconType; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        width: '100%',
+        padding: '6px 12px',
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '11px',
+        textAlign: 'left',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = '#000080';
+        e.currentTarget.style.color = '#ffffff';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.color = '#000000';
+      }}
+    >
+      <span style={{ color: 'inherit' }}>{getIconComponent(iconType, 16)}</span>
+      {label}
+    </button>
+  );
+}
 
 export default function DesktopShell() {
   const [windows, setWindows] = useState<WindowState[]>([]);
@@ -90,7 +141,7 @@ export default function DesktopShell() {
     }
 
     const { component, title, width, height } = getAppComponent(appId);
-    const icon = DESKTOP_ICONS.find(i => i.id === appId)?.icon || '📄';
+    const iconType = DESKTOP_ICONS.find(i => i.id === appId)?.iconType || 'notepad';
     
     const offsetX = (windows.length % 5) * 30;
     const offsetY = (windows.length % 5) * 30;
@@ -98,7 +149,7 @@ export default function DesktopShell() {
     const newWindow: WindowState = {
       id: appId,
       title,
-      icon,
+      iconType,
       component,
       x: 50 + offsetX,
       y: 50 + offsetY,
@@ -192,14 +243,14 @@ export default function DesktopShell() {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {DESKTOP_ICONS.map((icon) => (
+        {DESKTOP_ICONS.map((item) => (
           <DesktopIcon
-            key={icon.id}
-            icon={icon.icon}
-            label={icon.label}
-            isSelected={selectedIcon === icon.id}
-            onSelect={() => setSelectedIcon(icon.id)}
-            onDoubleClick={() => openWindow(icon.id)}
+            key={item.id}
+            iconType={item.iconType}
+            label={item.label}
+            isSelected={selectedIcon === item.id}
+            onSelect={() => setSelectedIcon(item.id)}
+            onDoubleClick={() => openWindow(item.id)}
           />
         ))}
       </div>
@@ -210,7 +261,7 @@ export default function DesktopShell() {
           key={win.id}
           id={win.id}
           title={win.title}
-          icon={win.icon}
+          iconType={win.iconType}
           initialX={win.x}
           initialY={win.y}
           initialWidth={win.width}
@@ -270,12 +321,7 @@ export default function DesktopShell() {
 
             {/* Menu Items */}
             <div style={{ flex: 1, padding: '4px 0' }}>
-              {[
-                { icon: '🎮', label: 'The Academy', id: 'academy' },
-                { icon: '📁', label: 'My Computer', id: 'files' },
-                { icon: '📝', label: 'Notepad', id: 'notepad' },
-                { icon: '🔢', label: 'Calculator', id: 'calculator' },
-              ].map((item) => (
+              {DESKTOP_ICONS.filter(item => item.id !== 'recycle').map((item) => (
                 <button
                   key={item.id}
                   onClick={() => { openWindow(item.id); setShowStartMenu(false); }}
@@ -300,7 +346,7 @@ export default function DesktopShell() {
                     e.currentTarget.style.color = '#000000';
                   }}
                 >
-                  <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                  <span style={{ color: 'inherit' }}>{getIconComponent(item.iconType, 16)}</span>
                   {item.label}
                 </button>
               ))}
@@ -311,31 +357,7 @@ export default function DesktopShell() {
                 margin: '4px 8px',
               }} />
 
-              <button
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  width: '100%',
-                  padding: '6px 12px',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#000080';
-                  e.currentTarget.style.color = '#ffffff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#000000';
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>🔒</span>
-                Shut Down...
-              </button>
+              <StartMenuItem iconType="power" label="Shut Down..." onClick={() => {}} />
             </div>
           </div>
         </div>
@@ -346,7 +368,7 @@ export default function DesktopShell() {
         windows={windows.map(w => ({
           id: w.id,
           title: w.title,
-          icon: w.icon,
+          iconType: w.iconType,
           isMinimized: w.isMinimized,
           isFocused: focusedWindowId === w.id,
         }))}

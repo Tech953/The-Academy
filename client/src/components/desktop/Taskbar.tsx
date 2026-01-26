@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { getIconComponent, IconType } from './DesktopShell';
+import { Monitor, Volume2 } from 'lucide-react';
 
 interface TaskbarWindow {
   id: string;
   title: string;
-  icon?: string;
+  iconType?: IconType;
   isMinimized: boolean;
   isFocused: boolean;
 }
@@ -76,7 +78,7 @@ export default function Taskbar({
           fontSize: '11px',
         }}
       >
-        <span style={{ fontSize: '14px' }}>🪟</span>
+        <Monitor size={14} />
         Start
       </button>
 
@@ -118,7 +120,11 @@ export default function Taskbar({
               whiteSpace: 'nowrap',
             }}
           >
-            {win.icon && <span style={{ fontSize: '12px' }}>{win.icon}</span>}
+            {win.iconType && (
+              <span style={{ display: 'flex', alignItems: 'center' }}>
+                {getIconComponent(win.iconType, 12)}
+              </span>
+            )}
             <span style={{ 
               overflow: 'hidden', 
               textOverflow: 'ellipsis',
@@ -141,7 +147,7 @@ export default function Taskbar({
         border: '1px solid',
         borderColor: '#808080 #ffffff #ffffff #808080',
       }}>
-        <span style={{ fontSize: '12px' }}>🔊</span>
+        <Volume2 size={12} />
         <span style={{ fontSize: '11px' }}>{formatTime(time)}</span>
       </div>
     </div>

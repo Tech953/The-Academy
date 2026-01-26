@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { getIconComponent, IconType } from '../DesktopShell';
+import { ArrowUp } from 'lucide-react';
 
 interface FileItem {
   name: string;
   type: 'folder' | 'file' | 'app';
-  icon: string;
+  iconType: IconType;
   children?: FileItem[];
   appId?: string;
 }
@@ -16,38 +18,38 @@ const FILE_SYSTEM: FileItem[] = [
   {
     name: 'My Documents',
     type: 'folder',
-    icon: '📁',
+    iconType: 'folder',
     children: [
-      { name: 'homework.txt', type: 'file', icon: '📄' },
-      { name: 'notes.txt', type: 'file', icon: '📄' },
-      { name: 'schedule.txt', type: 'file', icon: '📄' },
+      { name: 'homework.txt', type: 'file', iconType: 'file' },
+      { name: 'notes.txt', type: 'file', iconType: 'file' },
+      { name: 'schedule.txt', type: 'file', iconType: 'file' },
     ],
   },
   {
     name: 'Programs',
     type: 'folder',
-    icon: '📁',
+    iconType: 'folder',
     children: [
-      { name: 'The Academy', type: 'app', icon: '🎮', appId: 'academy' },
-      { name: 'Calculator', type: 'app', icon: '🔢', appId: 'calculator' },
-      { name: 'Notepad', type: 'app', icon: '📝', appId: 'notepad' },
+      { name: 'The Academy', type: 'app', iconType: 'academy', appId: 'academy' },
+      { name: 'Calculator', type: 'app', iconType: 'calculator', appId: 'calculator' },
+      { name: 'Notepad', type: 'app', iconType: 'notepad', appId: 'notepad' },
     ],
   },
   {
     name: 'Pictures',
     type: 'folder',
-    icon: '📁',
+    iconType: 'folder',
     children: [
-      { name: 'selfie.bmp', type: 'file', icon: '🖼️' },
-      { name: 'campus.bmp', type: 'file', icon: '🖼️' },
+      { name: 'selfie.bmp', type: 'file', iconType: 'image' },
+      { name: 'campus.bmp', type: 'file', iconType: 'image' },
     ],
   },
   {
     name: 'Music',
     type: 'folder',
-    icon: '📁',
+    iconType: 'folder',
     children: [
-      { name: 'playlist.m3u', type: 'file', icon: '🎵' },
+      { name: 'playlist.m3u', type: 'file', iconType: 'music' },
     ],
   },
 ];
@@ -117,10 +119,12 @@ export default function FileExplorer({ onOpenApp }: FileExplorerProps) {
             borderColor: '#ffffff #808080 #808080 #ffffff',
             cursor: currentPath.length > 0 ? 'pointer' : 'default',
             opacity: currentPath.length > 0 ? 1 : 0.5,
-            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          ⬆
+          <ArrowUp size={12} />
         </button>
         <div style={{
           flex: 1,
@@ -165,7 +169,12 @@ export default function FileExplorer({ onOpenApp }: FileExplorerProps) {
                 background: selectedItem === item.name ? '#000080' : 'transparent',
               }}
             >
-              <span style={{ fontSize: '28px' }}>{item.icon}</span>
+              <span style={{ 
+                color: selectedItem === item.name ? '#ffffff' : '#000000',
+                marginBottom: '4px',
+              }}>
+                {getIconComponent(item.iconType, 28)}
+              </span>
               <span style={{
                 fontSize: '11px',
                 color: selectedItem === item.name ? '#ffffff' : '#000000',

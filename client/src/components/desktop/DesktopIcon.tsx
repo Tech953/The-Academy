@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
+import { getIconComponent, IconType } from './DesktopShell';
 
 interface DesktopIconProps {
-  icon: string;
+  iconType: IconType;
   label: string;
   onDoubleClick: () => void;
   isSelected?: boolean;
@@ -9,7 +10,7 @@ interface DesktopIconProps {
 }
 
 export default function DesktopIcon({
-  icon,
+  iconType,
   label,
   onDoubleClick,
   isSelected = false,
@@ -40,13 +41,13 @@ export default function DesktopIcon({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '32px',
+          color: '#ffffff',
           background: isSelected ? 'rgba(0, 0, 128, 0.3)' : 'transparent',
           border: isSelected ? '1px dotted #ffffff' : '1px solid transparent',
           marginBottom: '4px',
         }}
       >
-        {icon}
+        {getIconComponent(iconType, 32)}
       </div>
       <span
         style={{

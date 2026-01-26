@@ -34,10 +34,10 @@ export interface CharacterPerk {
 // Polar cub icon mapping - each image represents different perk themes
 export const POLAR_CUB_ICONS = {
   strong: 'cute_polar_bear_cub__98a707c7.jpg',    // Strong/determined pose for combat perks
-
   smart: 'cute_polar_bear_cub__ec414e02.jpg',     // Curious/thinking pose for academic perks  
   social: 'cute_polar_bear_cub__5ff14998.jpg',    // Friendly/playful pose for social perks
   stealth: 'cute_polar_bear_cub__da0b1b5b.jpg',   // Alert/cautious pose for survival perks
+  survival: 'cute_polar_bear_cub__da0b1b5b.jpg',  // Same as stealth for survival perks
   mystical: 'cute_polar_bear_cub__392eeae5.jpg'   // Magical/serene pose for mystical perks
 } as const;
 
@@ -260,7 +260,7 @@ export interface StarterPerk {
   id: StarterPerkId;
   name: string;
   description: string;
-  icon: string;
+  iconKey: string;
   effects: PerkEffect[];
   drawbacks?: string;
 }
@@ -270,7 +270,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'glasses',
     name: '"I\'m blind without them."',
     description: 'Buffed mental stats from glasses, or debuff without. Glasses are fragile and must be replaced/upgraded at nurse stations.',
-    icon: '👓',
+    iconKey: 'smart',
     effects: [
       { type: 'stat_bonus', target: 'intelligence', value: 2, description: '+2 Intelligence while wearing glasses' },
       { type: 'stat_bonus', target: 'perception', value: 2, description: '+2 Perception while wearing glasses' },
@@ -281,7 +281,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'jocked',
     name: 'Jocked',
     description: 'Physical stats increase faster, though certain factions have an established dislike for your character.',
-    icon: '🏈',
+    iconKey: 'strong',
     effects: [
       { type: 'passive_bonus', description: '+50% Physical stat growth rate' },
     ],
@@ -291,7 +291,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'well_aligned',
     name: 'Well Aligned',
     description: 'When your reputation is symmetrical between factions, you receive bonuses. Otherwise, you suffer an overall penalty.',
-    icon: '⚖️',
+    iconKey: 'mystical',
     effects: [
       { type: 'passive_bonus', description: '+10% all stats when reputations are balanced' },
     ],
@@ -301,7 +301,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'marked_one',
     name: 'The Marked One',
     description: 'You are given a random nickname that affects your interactions with everyone! You also have added speech bonus from others with nicknames.',
-    icon: '🏷️',
+    iconKey: 'social',
     effects: [
       { type: 'special_ability', description: 'Receive a random nickname at game start' },
       { type: 'stat_bonus', target: 'charisma', value: 2, description: '+2 Charisma with other nicknamed characters' },
@@ -311,7 +311,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'mondays',
     name: '"Mondays"',
     description: 'Mondays are literally the worst day ever. Increased bonus on all other days.',
-    icon: '📅',
+    iconKey: 'survival',
     effects: [
       { type: 'passive_bonus', description: '+10% all stats Tuesday through Sunday' },
     ],
@@ -321,7 +321,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'three_of_kind',
     name: 'Three of a Kind',
     description: 'Good, and bad things usually (always) come in threes.',
-    icon: '🎰',
+    iconKey: 'mystical',
     effects: [
       { type: 'special_ability', description: 'Events occur in groups of three' },
       { type: 'special_ability', description: 'Third attempt at anything has 3x effect' },
@@ -331,7 +331,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'nerd_aura',
     name: 'Nerd Aura',
     description: 'There are few people who won\'t immediately assume that all your mannerisms, actions, and appearance is nerdy.',
-    icon: '🤓',
+    iconKey: 'smart',
     effects: [
       { type: 'stat_bonus', target: 'intelligence', value: 1, description: '+1 Intelligence' },
       { type: 'passive_bonus', description: '+15 starting reputation with academic factions' },
@@ -342,7 +342,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'midlife_crisis',
     name: 'Midlife Crisis',
     description: 'Despite being in high school, you randomly have additional actions and conversation choices to reflect a torn psyche.',
-    icon: '🎭',
+    iconKey: 'mystical',
     effects: [
       { type: 'special_ability', description: 'Random existential dialogue options' },
       { type: 'special_ability', description: 'Deep philosophical conversation choices' },
@@ -352,7 +352,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'stereotyped',
     name: 'Stereotyped',
     description: 'The academy takes one characteristic of yours, and either makes it socially positive or negative. You are able to verbally debate judgement, however.',
-    icon: '🎯',
+    iconKey: 'social',
     effects: [
       { type: 'special_ability', description: 'One random trait becomes socially significant' },
       { type: 'special_ability', description: 'Can debate stereotypes in conversations' },
@@ -362,7 +362,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'slow_burn',
     name: 'Slow Burn',
     description: 'Your academic investment yields higher long-term benefits or penalties, additionally reflected by your graduation in college.',
-    icon: '🔥',
+    iconKey: 'smart',
     effects: [
       { type: 'passive_bonus', description: '+75% long-term academic returns' },
     ],
@@ -372,7 +372,7 @@ export const STARTER_PERKS: StarterPerk[] = [
     id: 'burnout_vengeance',
     name: 'Burnout Vengeance',
     description: 'Increased stats when affected by lack of sleep, or general exhaustion.',
-    icon: '😤',
+    iconKey: 'strong',
     effects: [
       { type: 'passive_bonus', description: '+20% all combat stats when exhausted' },
       { type: 'passive_bonus', description: '+15% willpower when sleep deprived' },

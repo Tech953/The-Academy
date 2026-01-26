@@ -1,9 +1,11 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, ReactNode } from 'react';
+import { getIconComponent, IconType } from './DesktopShell';
+import { Minus, Square, X, Maximize2 } from 'lucide-react';
 
 export interface WindowProps {
   id: string;
   title: string;
-  icon?: string;
+  iconType?: IconType;
   children: React.ReactNode;
   initialX?: number;
   initialY?: number;
@@ -27,7 +29,7 @@ export interface WindowProps {
 export default function Window({
   id,
   title,
-  icon,
+  iconType,
   children,
   initialX = 100,
   initialY = 100,
@@ -166,10 +168,8 @@ export default function Window({
           minHeight: '18px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {icon && (
-            <span style={{ fontSize: '12px' }}>{icon}</span>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#ffffff' }}>
+          {iconType && getIconComponent(iconType, 12)}
           <span
             style={{
               color: '#ffffff',
@@ -197,15 +197,13 @@ export default function Window({
                 border: '1px solid',
                 borderColor: '#ffffff #808080 #808080 #ffffff',
                 display: 'flex',
-                alignItems: 'flex-end',
+                alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
                 padding: 0,
-                fontSize: '9px',
-                fontWeight: 'bold',
               }}
             >
-              _
+              <Minus size={8} strokeWidth={2} />
             </button>
           )}
           {onMaximize && (
@@ -222,10 +220,9 @@ export default function Window({
                 justifyContent: 'center',
                 cursor: 'pointer',
                 padding: 0,
-                fontSize: '8px',
               }}
             >
-              {isMaximized ? '❐' : '□'}
+              {isMaximized ? <Maximize2 size={8} strokeWidth={2} /> : <Square size={8} strokeWidth={2} />}
             </button>
           )}
           {onClose && (
@@ -242,11 +239,9 @@ export default function Window({
                 justifyContent: 'center',
                 cursor: 'pointer',
                 padding: 0,
-                fontSize: '10px',
-                fontWeight: 'bold',
               }}
             >
-              ×
+              <X size={10} strokeWidth={2} />
             </button>
           )}
         </div>
