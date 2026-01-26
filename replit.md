@@ -2,7 +2,7 @@
 
 "The Academy" is an interactive text-based RPG, designed as a full-stack application. It aims to recreate the classic terminal adventure experience of early 90s games like Zork, but with modern features. Players create characters and navigate a mysterious private school, making choices that influence their stats, reputation, and story. The game features an immersive world with 144 students and faculty, a comprehensive curriculum, and AI-powered elements for personalized gameplay.
 
-The game runs within a simulated Y2K-era student laptop operating system (inspired by the game "Oneshot"), featuring a Windows 98/2000 style desktop environment with draggable/resizable windows, functional desktop applications, and a retro boot sequence.
+The game runs within a simulated "Academy OS" - a Neo-CRT aesthetic operating system featuring pure black backgrounds, neon green elements, and a modern-retro fusion design inspired by Fallout Pip-Boy, early MacOS, and cyberpunk aesthetics.
 
 # User Preferences
 
@@ -12,12 +12,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Frontend Architecture
 - **React with TypeScript**: Single-page application using functional components and hooks.
-- **Y2K Desktop OS Wrapper**: Simulated Windows 98/2000 desktop environment with:
-  - Retro boot sequence with ARCHIVE OS branding and bear mascot
-  - DesktopShell with teal gradient wallpaper, desktop icons, Start menu
-  - Window component with dragging, resizing, minimize/maximize/close
-  - Taskbar with window buttons and real-time clock
-  - Desktop apps: Calculator, Notepad, File Explorer
+- **Neo-CRT Academy OS Wrapper**: Custom operating system with retro-modern fusion design:
+  - **Boot Sequence**: ARCHIVE OS branding with animated bear mascot, loading bar, and system initialization text
+  - **Desktop Layout**: Pure black background (#000000) with neon elements
+    - Left sidebar: PERSONAL, E-MAIL, MESSAGES, THE ACADEMY icons with neon glow
+    - Center-right: Polar Bear Cub mascot widget in circular neon frame with pulse animation
+    - Bottom: Taskbar with multi-color neon icons (cyan, amber, purple)
+  - **CRT Effects**: Subtle scanlines overlay, vignette effect, neon glow shadows
+  - **Neo-CRT Windows**: Dark themed windows with neon green borders and glowing title bars
+  - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff)
+  - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages
   - The Academy game runs as a windowed application
 - **Terminal-First Design**: Inside the game window, authentic classic text adventure aesthetic with black background and green monospace text.
 - **Tailwind CSS**: Utility-first styling with custom CSS variables for terminal theme.
