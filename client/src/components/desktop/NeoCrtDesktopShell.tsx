@@ -246,7 +246,7 @@ function CubMascot({ mood = 'thinking', primaryColor }: { mood?: 'idle' | 'think
 export default function NeoCrtDesktopShell() {
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
-  const [nextZIndex, setNextZIndex] = useState(1);
+  const [nextZIndex, setNextZIndex] = useState(100);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [academyFullscreen, setAcademyFullscreen] = useState(false);
