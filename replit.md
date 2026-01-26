@@ -15,13 +15,13 @@ Preferred communication style: Simple, everyday language.
 - **Neo-CRT Academy OS Wrapper**: Custom operating system with retro-modern fusion design:
   - **Boot Sequence**: ARCHIVE OS branding with animated bear mascot, loading bar, and system initialization text
   - **Desktop Layout**: Pure black background (#000000) with neon elements
-    - Left sidebar: PERSONAL, E-MAIL, MESSAGES, THE ACADEMY icons with neon glow
+    - Left sidebar: PERSONAL, E-MAIL, MESSAGES, ASSIGNMENTS, PERKS, RESONANCE icons with neon glow
     - Center-right: Polar Bear Cub mascot widget in circular neon frame with pulse animation
-    - Bottom: Taskbar with multi-color neon icons (cyan, amber, purple)
+    - Bottom: Taskbar with Files, Schedule, Cub, Settings icons (cyan, amber, purple, pink)
   - **CRT Effects**: Subtle scanlines overlay, vignette effect, neon glow shadows
   - **Neo-CRT Windows**: Dark themed windows with neon green borders and glowing title bars
-  - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff)
-  - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages
+  - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff), Pink (#ff66aa)
+  - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, Cub Companion
   - The Academy game runs as a windowed application
 - **Terminal-First Design**: Inside the game window, authentic classic text adventure aesthetic with black background and green monospace text.
 - **Tailwind CSS**: Utility-first styling with custom CSS variables for terminal theme.
