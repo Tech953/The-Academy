@@ -3,10 +3,16 @@ import NeoCrtWindow from './NeoCrtWindow';
 import Calculator from './apps/Calculator';
 import Notepad from './apps/Notepad';
 import FileExplorer from './apps/FileExplorer';
+import AssignmentsPortal from './apps/AssignmentsPortal';
+import PerksViewer from './apps/PerksViewer';
+import ResonanceDashboard from './apps/ResonanceDashboard';
+import ClassSchedule from './apps/ClassSchedule';
+import CubCompanion from './apps/CubCompanion';
 import Home from '@/pages/Home';
 import { 
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
-  Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power 
+  Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
+  BookOpen, Star, Activity, Clock, Heart
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
@@ -24,7 +30,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub';
 
 const NEON_COLORS = {
   green: '#00ff00',
@@ -46,13 +52,16 @@ const SIDEBAR_ICONS: DesktopIconConfig[] = [
   { id: 'personal', iconType: 'personal', label: 'PERSONAL', color: NEON_COLORS.green },
   { id: 'email', iconType: 'email', label: 'E-MAIL', color: NEON_COLORS.cyan },
   { id: 'messages', iconType: 'messages', label: 'MESSAGES', color: NEON_COLORS.green },
+  { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', color: NEON_COLORS.amber },
+  { id: 'perks', iconType: 'perks', label: 'PERKS', color: NEON_COLORS.purple },
+  { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', color: NEON_COLORS.purple },
 ];
 
 const TASKBAR_ICONS: DesktopIconConfig[] = [
   { id: 'files', iconType: 'files', label: 'Files', color: NEON_COLORS.cyan },
-  { id: 'search', iconType: 'search', label: 'Search', color: NEON_COLORS.amber },
+  { id: 'schedule', iconType: 'schedule', label: 'Schedule', color: NEON_COLORS.amber },
+  { id: 'cub', iconType: 'cub', label: 'Cub', color: NEON_COLORS.pink },
   { id: 'settings', iconType: 'settings', label: 'Settings', color: NEON_COLORS.amber },
-  { id: 'calendar', iconType: 'calendar', label: 'Calendar', color: NEON_COLORS.purple },
 ];
 
 const HIDDEN_APPS: DesktopIconConfig[] = [
@@ -78,6 +87,11 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'search': return <Search {...props} />;
     case 'calendar': return <Calendar {...props} />;
     case 'power': return <Power {...props} />;
+    case 'assignments': return <BookOpen {...props} />;
+    case 'perks': return <Star {...props} />;
+    case 'resonance': return <Activity {...props} />;
+    case 'schedule': return <Clock {...props} />;
+    case 'cub': return <Heart {...props} />;
     default: return <FileText {...props} />;
   }
 }
@@ -295,6 +309,16 @@ export default function NeoCrtDesktopShell() {
           width: 450, 
           height: 400 
         };
+      case 'assignments':
+        return { component: <AssignmentsPortal />, title: 'Assignments Portal', width: 500, height: 450 };
+      case 'perks':
+        return { component: <PerksViewer />, title: 'Perks Viewer', width: 550, height: 480 };
+      case 'resonance':
+        return { component: <ResonanceDashboard />, title: 'Resonance Dashboard', width: 450, height: 520 };
+      case 'schedule':
+        return { component: <ClassSchedule />, title: 'Class Schedule', width: 480, height: 450 };
+      case 'cub':
+        return { component: <CubCompanion />, title: 'Cub Companion', width: 350, height: 500 };
       default:
         return { component: <div style={{ padding: '20px' }}>Application not found</div>, title: 'Unknown', width: 300, height: 200 };
     }
