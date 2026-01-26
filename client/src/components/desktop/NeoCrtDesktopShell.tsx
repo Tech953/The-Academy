@@ -8,7 +8,9 @@ import PerksViewer from './apps/PerksViewer';
 import ResonanceDashboard from './apps/ResonanceDashboard';
 import ClassSchedule from './apps/ClassSchedule';
 import CubCompanion from './apps/CubCompanion';
+import SettingsApp from './apps/SettingsApp';
 import Home from '@/pages/Home';
+import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { 
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
@@ -32,6 +34,8 @@ interface WindowState {
 
 export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub';
 
+type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
+
 const NEON_COLORS = {
   green: '#00ff00',
   cyan: '#00ffff',
@@ -45,32 +49,34 @@ interface DesktopIconConfig {
   id: string;
   iconType: IconType;
   label: string;
-  color?: string;
+  colorKey: ColorKey;
 }
 
 const SIDEBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'personal', iconType: 'personal', label: 'PERSONAL', color: NEON_COLORS.green },
-  { id: 'email', iconType: 'email', label: 'E-MAIL', color: NEON_COLORS.cyan },
-  { id: 'messages', iconType: 'messages', label: 'MESSAGES', color: NEON_COLORS.green },
-  { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', color: NEON_COLORS.amber },
-  { id: 'perks', iconType: 'perks', label: 'PERKS', color: NEON_COLORS.purple },
-  { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', color: NEON_COLORS.purple },
+  { id: 'personal', iconType: 'personal', label: 'PERSONAL', colorKey: 'green' },
+  { id: 'email', iconType: 'email', label: 'E-MAIL', colorKey: 'cyan' },
+  { id: 'messages', iconType: 'messages', label: 'MESSAGES', colorKey: 'green' },
+  { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', colorKey: 'amber' },
+  { id: 'perks', iconType: 'perks', label: 'PERKS', colorKey: 'purple' },
+  { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', colorKey: 'purple' },
 ];
 
 const TASKBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'files', iconType: 'files', label: 'Files', color: NEON_COLORS.cyan },
-  { id: 'schedule', iconType: 'schedule', label: 'Schedule', color: NEON_COLORS.amber },
-  { id: 'cub', iconType: 'cub', label: 'Cub', color: NEON_COLORS.pink },
-  { id: 'settings', iconType: 'settings', label: 'Settings', color: NEON_COLORS.amber },
+  { id: 'files', iconType: 'files', label: 'Files', colorKey: 'cyan' },
+  { id: 'schedule', iconType: 'schedule', label: 'Schedule', colorKey: 'amber' },
+  { id: 'cub', iconType: 'cub', label: 'Cub', colorKey: 'pink' },
+  { id: 'settings', iconType: 'settings', label: 'Settings', colorKey: 'amber' },
 ];
 
 const HIDDEN_APPS: DesktopIconConfig[] = [
-  { id: 'academy', iconType: 'academy', label: 'The Academy', color: NEON_COLORS.green },
-  { id: 'calculator', iconType: 'calculator', label: 'Calculator', color: NEON_COLORS.green },
-  { id: 'notepad', iconType: 'notepad', label: 'Notepad', color: NEON_COLORS.green },
+  { id: 'academy', iconType: 'academy', label: 'The Academy', colorKey: 'green' },
+  { id: 'calculator', iconType: 'calculator', label: 'Calculator', colorKey: 'green' },
+  { id: 'notepad', iconType: 'notepad', label: 'Notepad', colorKey: 'green' },
 ];
 
-export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: string = NEON_COLORS.green): ReactNode {
+type AccentColors = Record<ColorKey, string>;
+
+export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: string = '#00ff00'): ReactNode {
   const props = { size, strokeWidth: 1.5, color };
   switch (iconType) {
     case 'personal': return <User {...props} />;
@@ -100,13 +106,16 @@ function SidebarIcon({
   icon, 
   isSelected, 
   onClick, 
-  onDoubleClick 
+  onDoubleClick,
+  accentColors,
 }: { 
   icon: DesktopIconConfig;
   isSelected: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
+  accentColors: AccentColors;
 }) {
+  const color = accentColors[icon.colorKey];
   return (
     <button
       onClick={onClick}
@@ -118,24 +127,26 @@ function SidebarIcon({
         alignItems: 'center',
         gap: '8px',
         padding: '16px 20px',
-        background: isSelected ? 'rgba(0, 255, 0, 0.15)' : 'transparent',
+        background: isSelected ? `${color}26` : 'transparent',
         border: 'none',
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        transition: 'all 0.3s ease',
       }}
     >
       <div style={{
-        filter: `drop-shadow(0 0 8px ${icon.color || NEON_COLORS.green})`,
+        filter: `drop-shadow(0 0 8px ${color})`,
+        transition: 'filter 0.3s ease',
       }}>
-        {getNeoCrtIcon(icon.iconType, 32, icon.color || NEON_COLORS.green)}
+        {getNeoCrtIcon(icon.iconType, 32, color)}
       </div>
       <span style={{
-        color: icon.color || NEON_COLORS.green,
+        color: color,
         fontFamily: '"Press Start 2P", "Courier New", monospace',
         fontSize: '10px',
         fontWeight: 'bold',
         letterSpacing: '1px',
-        textShadow: `0 0 10px ${icon.color || NEON_COLORS.green}`,
+        textShadow: `0 0 10px ${color}`,
+        transition: 'color 0.3s ease, text-shadow 0.3s ease',
       }}>
         {icon.label}
       </span>
@@ -145,11 +156,14 @@ function SidebarIcon({
 
 function TaskbarIcon({ 
   icon, 
-  onClick 
+  onClick,
+  accentColors,
 }: { 
   icon: DesktopIconConfig;
   onClick: () => void;
+  accentColors: AccentColors;
 }) {
+  const color = accentColors[icon.colorKey];
   return (
     <button
       onClick={onClick}
@@ -162,19 +176,20 @@ function TaskbarIcon({
         background: 'transparent',
         border: 'none',
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        transition: 'all 0.3s ease',
       }}
     >
       <div style={{
-        filter: `drop-shadow(0 0 6px ${icon.color || NEON_COLORS.green})`,
+        filter: `drop-shadow(0 0 6px ${color})`,
+        transition: 'filter 0.3s ease',
       }}>
-        {getNeoCrtIcon(icon.iconType, 24, icon.color || NEON_COLORS.green)}
+        {getNeoCrtIcon(icon.iconType, 24, color)}
       </div>
     </button>
   );
 }
 
-function CubMascot({ mood = 'thinking' }: { mood?: 'idle' | 'thinking' | 'happy' | 'alert' }) {
+function CubMascot({ mood = 'thinking', primaryColor }: { mood?: 'idle' | 'thinking' | 'happy' | 'alert'; primaryColor: string }) {
   return (
     <div style={{
       position: 'relative',
@@ -188,10 +203,11 @@ function CubMascot({ mood = 'thinking' }: { mood?: 'idle' | 'thinking' | 'happy'
         position: 'absolute',
         width: '100%',
         height: '100%',
-        border: `3px solid ${NEON_COLORS.green}`,
+        border: `3px solid ${primaryColor}`,
         borderRadius: '50%',
-        boxShadow: `0 0 30px ${NEON_COLORS.green}40, inset 0 0 20px ${NEON_COLORS.green}20`,
+        boxShadow: `0 0 30px ${primaryColor}40, inset 0 0 20px ${primaryColor}20`,
         animation: 'pulse-glow 3s ease-in-out infinite',
+        transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
       }} />
       
       <div style={{
@@ -213,9 +229,10 @@ function CubMascot({ mood = 'thinking' }: { mood?: 'idle' | 'thinking' | 'happy'
             filter: `
               brightness(1.1)
               contrast(1.2)
-              drop-shadow(0 0 20px ${NEON_COLORS.green})
-              drop-shadow(0 0 40px ${NEON_COLORS.green}66)
+              drop-shadow(0 0 20px ${primaryColor})
+              drop-shadow(0 0 40px ${primaryColor}66)
             `,
+            transition: 'filter 0.5s ease',
           }}
         />
       </div>
@@ -229,6 +246,7 @@ export default function NeoCrtDesktopShell() {
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
   const [nextZIndex, setNextZIndex] = useState(1);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
+  const { colors, accentColors, modeLabel } = useCrtTheme();
 
   const getAppComponent = (appId: string): { component: React.ReactNode; title: string; width: number; height: number } => {
     switch (appId) {
@@ -236,8 +254,8 @@ export default function NeoCrtDesktopShell() {
         return { component: <Home />, title: 'The Academy', width: 900, height: 650 };
       case 'personal':
         return { 
-          component: <div style={{ padding: '20px', color: NEON_COLORS.green, fontFamily: 'monospace' }}>
-            <h2 style={{ borderBottom: `1px solid ${NEON_COLORS.green}40`, paddingBottom: '10px' }}>STUDENT PROFILE</h2>
+          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px' }}>STUDENT PROFILE</h2>
             <p style={{ opacity: 0.7 }}>Access your personal records and settings.</p>
             <p style={{ marginTop: '20px' }}>Double-click The Academy icon to begin your adventure.</p>
           </div>, 
@@ -247,8 +265,8 @@ export default function NeoCrtDesktopShell() {
         };
       case 'email':
         return { 
-          component: <div style={{ padding: '20px', color: NEON_COLORS.cyan, fontFamily: 'monospace' }}>
-            <h2 style={{ borderBottom: `1px solid ${NEON_COLORS.cyan}40`, paddingBottom: '10px' }}>E-MAIL SYSTEM</h2>
+          component: <div style={{ padding: '20px', color: accentColors.cyan, fontFamily: 'monospace' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.cyan}40`, paddingBottom: '10px' }}>E-MAIL SYSTEM</h2>
             <p style={{ opacity: 0.7 }}>No new messages.</p>
             <p style={{ marginTop: '20px', fontSize: '12px' }}>Academy mail server is operational.</p>
           </div>, 
@@ -258,8 +276,8 @@ export default function NeoCrtDesktopShell() {
         };
       case 'messages':
         return { 
-          component: <div style={{ padding: '20px', color: NEON_COLORS.green, fontFamily: 'monospace' }}>
-            <h2 style={{ borderBottom: `1px solid ${NEON_COLORS.green}40`, paddingBottom: '10px' }}>MESSAGES</h2>
+          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px' }}>MESSAGES</h2>
             <p style={{ opacity: 0.7 }}>Direct messaging system.</p>
             <p style={{ marginTop: '20px', fontSize: '12px' }}>Connect with faculty and students.</p>
           </div>, 
@@ -275,7 +293,7 @@ export default function NeoCrtDesktopShell() {
         return { component: <FileExplorer onOpenApp={openWindow} />, title: 'Files', width: 500, height: 400 };
       case 'search':
         return { 
-          component: <div style={{ padding: '20px', color: NEON_COLORS.amber, fontFamily: 'monospace' }}>
+          component: <div style={{ padding: '20px', color: accentColors.amber, fontFamily: 'monospace' }}>
             <h2>SEARCH</h2>
             <p style={{ opacity: 0.7 }}>Search functionality coming soon.</p>
           </div>, 
@@ -285,17 +303,14 @@ export default function NeoCrtDesktopShell() {
         };
       case 'settings':
         return { 
-          component: <div style={{ padding: '20px', color: NEON_COLORS.amber, fontFamily: 'monospace' }}>
-            <h2>SYSTEM SETTINGS</h2>
-            <p style={{ opacity: 0.7 }}>Configure your Academy OS experience.</p>
-          </div>, 
+          component: <SettingsApp />, 
           title: 'Settings', 
           width: 450, 
-          height: 400 
+          height: 480 
         };
       case 'calendar':
         return { 
-          component: <div style={{ padding: '20px', color: NEON_COLORS.purple, fontFamily: 'monospace' }}>
+          component: <div style={{ padding: '20px', color: accentColors.purple, fontFamily: 'monospace' }}>
             <h2>ACADEMY CALENDAR</h2>
             <p style={{ opacity: 0.7 }}>View your class schedule and events.</p>
           </div>, 
@@ -388,12 +403,13 @@ export default function NeoCrtDesktopShell() {
         left: 0,
         width: '100vw',
         height: '100vh',
-        background: '#000000',
+        background: colors.background,
         overflow: 'hidden',
         fontFamily: '"Courier New", monospace',
+        transition: 'background 0.5s ease',
       }}
     >
-      <div className="crt-scanlines" />
+      <div className="crt-scanlines" style={{ opacity: colors.scanlineOpacity }} />
       <div className="crt-vignette" />
 
       <div style={{
@@ -414,6 +430,7 @@ export default function NeoCrtDesktopShell() {
             isSelected={selectedIcon === icon.id}
             onClick={() => setSelectedIcon(icon.id)}
             onDoubleClick={() => openWindow(icon.id)}
+            accentColors={accentColors}
           />
         ))}
         
@@ -423,11 +440,12 @@ export default function NeoCrtDesktopShell() {
           style={{
             position: 'relative',
             padding: '4px',
-            border: `2px solid ${NEON_COLORS.green}`,
+            border: `2px solid ${colors.primary}`,
             borderRadius: '8px',
-            background: 'rgba(0, 255, 0, 0.05)',
-            boxShadow: `0 0 20px ${NEON_COLORS.green}40, inset 0 0 10px ${NEON_COLORS.green}10`,
+            background: `${colors.primary}08`,
+            boxShadow: `0 0 20px ${colors.primaryGlow}, inset 0 0 10px ${colors.primary}10`,
             animation: 'pulse-glow 2s ease-in-out infinite',
+            transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
           }}
         >
           <div style={{
@@ -435,22 +453,24 @@ export default function NeoCrtDesktopShell() {
             top: '-12px',
             left: '50%',
             transform: 'translateX(-50%)',
-            background: '#000',
+            background: colors.background,
             padding: '2px 8px',
             fontSize: '8px',
-            color: NEON_COLORS.green,
+            color: colors.primary,
             fontFamily: '"Courier New", monospace',
             letterSpacing: '1px',
-            textShadow: `0 0 5px ${NEON_COLORS.green}`,
+            textShadow: `0 0 5px ${colors.primary}`,
             whiteSpace: 'nowrap',
+            transition: 'color 0.5s ease, background 0.5s ease',
           }}>
             START GAME
           </div>
           <SidebarIcon
-            icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', color: NEON_COLORS.green }}
+            icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', colorKey: 'green' }}
             isSelected={selectedIcon === 'academy'}
             onClick={() => setSelectedIcon('academy')}
             onDoubleClick={() => openWindow('academy')}
+            accentColors={accentColors}
           />
         </div>
       </div>
@@ -462,7 +482,7 @@ export default function NeoCrtDesktopShell() {
         transform: 'translateY(-60%)',
         zIndex: 5,
       }}>
-        <CubMascot mood="thinking" />
+        <CubMascot mood="thinking" primaryColor={colors.primary} />
       </div>
 
       <div style={{
@@ -474,17 +494,19 @@ export default function NeoCrtDesktopShell() {
         alignItems: 'center',
         gap: '8px',
         padding: '8px 16px',
-        border: `2px solid ${NEON_COLORS.green}`,
+        border: `2px solid ${colors.primary}`,
         borderRadius: '4px',
-        boxShadow: `0 0 20px ${NEON_COLORS.green}30, inset 0 0 10px ${NEON_COLORS.green}10`,
-        background: 'rgba(0, 0, 0, 0.8)',
+        boxShadow: `0 0 20px ${colors.primaryGlow}, inset 0 0 10px ${colors.primary}10`,
+        background: `${colors.background}cc`,
         zIndex: 10,
+        transition: 'border-color 0.5s ease, box-shadow 0.5s ease, background 0.5s ease',
       }}>
         {TASKBAR_ICONS.map((icon) => (
           <TaskbarIcon
             key={icon.id}
             icon={icon}
             onClick={() => openWindow(icon.id)}
+            accentColors={accentColors}
           />
         ))}
         
@@ -518,14 +540,15 @@ export default function NeoCrtDesktopShell() {
         position: 'absolute',
         bottom: '8px',
         right: '16px',
-        color: NEON_COLORS.green,
+        color: colors.primary,
         fontFamily: 'monospace',
         fontSize: '10px',
         opacity: 0.5,
-        textShadow: `0 0 5px ${NEON_COLORS.green}`,
+        textShadow: `0 0 5px ${colors.primary}`,
         zIndex: 5,
+        transition: 'color 0.5s ease',
       }}>
-        ACADEMY OS v1.0 | [RES: STABLE]
+        ACADEMY OS v1.0 | {modeLabel.toUpperCase()} | [RES: STABLE]
       </div>
 
       <style>{`
@@ -564,7 +587,7 @@ export default function NeoCrtDesktopShell() {
         }
         
         .neo-crt-sidebar-icon:hover {
-          background: rgba(0, 255, 0, 0.1) !important;
+          background: var(--crt-primary-glow, rgba(0, 255, 0, 0.1)) !important;
         }
         
         .neo-crt-sidebar-icon:hover div {
@@ -572,7 +595,7 @@ export default function NeoCrtDesktopShell() {
         }
         
         .neo-crt-taskbar-icon:hover {
-          background: rgba(0, 255, 0, 0.15) !important;
+          background: var(--crt-primary-glow, rgba(0, 255, 0, 0.15)) !important;
         }
         
         .neo-crt-taskbar-icon:hover div {
