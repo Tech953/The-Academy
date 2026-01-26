@@ -1,10 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { User, BookOpen, Users, Zap, Star } from 'lucide-react';
+import { User, BookOpen, Users, Zap, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import PerkIcon from '@/components/ui/perk-icon';
 import { applyPerkEffects, type CharacterPerk } from '@shared/perks';
+import { 
+  PHYSICAL_STATS, 
+  MENTAL_STATS, 
+  SPIRITUAL_STATS,
+  STAT_CATEGORIES,
+  getCategoryTotal,
+  mapLegacyStats,
+  type FullCharacterStats,
+  type StatCategory
+} from '@shared/stats';
+import StatIcon, { StatCategoryHeader, StatRow } from '@/components/ui/stat-icon';
 import BearMascot, { type BearAnimation } from '@/components/BearMascot';
+import { useState } from 'react';
 
 export interface Character {
   name: string;
@@ -15,18 +27,14 @@ export interface Character {
   faction?: string;
   characterSummary?: string;
   physicalTraits?: Record<string, string>;
-  stats: {
+  stats: Partial<FullCharacterStats> & {
+    // Legacy stats for backward compatibility
     perception?: number;
     intelligence?: number;
     charisma?: number;
     dexterity?: number;
-    strength?: number;
     health?: number;
-    endurance?: number;
-    // Legacy stats for backward compatibility
-    intellect?: number;
-    intuition?: number;
-    resilience?: number;
+    // New stats are included via FullCharacterStats
   };
   reputation: {
     faculty: number;
@@ -45,6 +53,8 @@ interface CharacterSheetProps {
 }
 
 export default function CharacterSheet({ character, className = "" }: CharacterSheetProps) {
+  const [expandedCategory, setExpandedCategory] = useState<StatCategory | null>(null);
+  
   const getReputationColor = (value: number) => {
     if (value >= 70) return 'bg-green-500/20 text-green-400 border-green-500/30';
     if (value >= 40) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
@@ -59,18 +69,42 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
     return 'sleep';
   };
 
-  // Apply perk effects to stats
-  const baseStats = {
-    perception: character.stats.perception || character.stats.intellect || 50,
-    intelligence: character.stats.intelligence || character.stats.intellect || 50,
-    charisma: character.stats.charisma || 50,
-    dexterity: character.stats.dexterity || character.stats.intuition || 50,
-    strength: character.stats.strength || character.stats.resilience || 50,
-    health: character.stats.health || 100,
-    endurance: character.stats.endurance || 50
-  };
+  // Convert legacy stats to new system if needed
+  const hasNewStats = 'quickness' in character.stats || 'mathLogic' in character.stats || 'faith' in character.stats;
   
-  const modifiedStats = character.perks ? applyPerkEffects(baseStats, character.perks) : baseStats;
+  const fullStats: FullCharacterStats = hasNewStats 
+    ? {
+        // Physical
+        quickness: character.stats.quickness || 10,
+        endurance: character.stats.endurance || 10,
+        agility: character.stats.agility || 10,
+        speed: character.stats.speed || 10,
+        strength: character.stats.strength || 10,
+        // Mental
+        mathLogic: character.stats.mathLogic || 10,
+        linguistic: character.stats.linguistic || 10,
+        presence: character.stats.presence || 10,
+        fortitude: character.stats.fortitude || 10,
+        musicCreative: character.stats.musicCreative || 10,
+        // Spiritual
+        faith: character.stats.faith || 5,
+        karma: character.stats.karma || 50,
+        resonance: character.stats.resonance || 5,
+        luck: character.stats.luck || 10,
+        chi: character.stats.chi || 10,
+        nagual: character.stats.nagual || 0,
+        ashe: character.stats.ashe || 0
+      }
+    : mapLegacyStats(character.stats) as FullCharacterStats;
+
+  // Calculate category totals
+  const physicalTotal = getCategoryTotal(fullStats, 'physical');
+  const mentalTotal = getCategoryTotal(fullStats, 'mental');
+  const spiritualTotal = getCategoryTotal(fullStats, 'spiritual');
+
+  const toggleCategory = (category: StatCategory) => {
+    setExpandedCategory(expandedCategory === category ? null : category);
+  };
 
   return (
     <Card className={`bg-card/80 border-primary/20 ${className}`} data-testid="character-sheet">
@@ -118,76 +152,104 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="space-y-2">
+        {/* Stats - New 3-tier system with icons */}
+        <div className="space-y-3">
           <div className="text-xs font-mono text-accent">Core Attributes</div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between">
-              <span>Perception:</span>
-              <span className={modifiedStats.perception !== baseStats.perception ? 'text-accent font-bold' : ''}>
-                {modifiedStats.perception}
-                {modifiedStats.perception !== baseStats.perception && (
-                  <span className="text-accent ml-1">
-                    ({modifiedStats.perception > baseStats.perception ? '+' : ''}{modifiedStats.perception - baseStats.perception})
-                  </span>
+          
+          {/* Physical Stats */}
+          <div 
+            className="border border-green-500/20 rounded-md overflow-hidden cursor-pointer"
+            onClick={() => toggleCategory('physical')}
+          >
+            <div className="flex items-center justify-between p-2 bg-green-500/5 hover:bg-green-500/10 transition-colors">
+              <div className="flex items-center gap-2">
+                <StatIcon statKey="physical" size="xs" showTooltip={false} />
+                <span className="text-xs font-mono text-green-400">Physical</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-green-300">{physicalTotal}</span>
+                {expandedCategory === 'physical' ? (
+                  <ChevronUp className="h-3 w-3 text-green-400" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 text-green-400" />
                 )}
-              </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>Intelligence:</span>
-              <span className={modifiedStats.intelligence !== baseStats.intelligence ? 'text-accent font-bold' : ''}>
-                {modifiedStats.intelligence}
-                {modifiedStats.intelligence !== baseStats.intelligence && (
-                  <span className="text-accent ml-1">
-                    ({modifiedStats.intelligence > baseStats.intelligence ? '+' : ''}{modifiedStats.intelligence - baseStats.intelligence})
-                  </span>
+            {expandedCategory === 'physical' && (
+              <div className="p-2 space-y-1 bg-green-500/5">
+                {PHYSICAL_STATS.map(stat => (
+                  <StatRow 
+                    key={stat.id}
+                    stat={stat}
+                    value={fullStats[stat.id as keyof FullCharacterStats] as number}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Mental Stats */}
+          <div 
+            className="border border-blue-500/20 rounded-md overflow-hidden cursor-pointer"
+            onClick={() => toggleCategory('mental')}
+          >
+            <div className="flex items-center justify-between p-2 bg-blue-500/5 hover:bg-blue-500/10 transition-colors">
+              <div className="flex items-center gap-2">
+                <StatIcon statKey="mental" size="xs" showTooltip={false} />
+                <span className="text-xs font-mono text-blue-400">Mental</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-blue-300">{mentalTotal}</span>
+                {expandedCategory === 'mental' ? (
+                  <ChevronUp className="h-3 w-3 text-blue-400" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 text-blue-400" />
                 )}
-              </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>Charisma:</span>
-              <span className={modifiedStats.charisma !== baseStats.charisma ? 'text-accent font-bold' : ''}>
-                {modifiedStats.charisma}
-                {modifiedStats.charisma !== baseStats.charisma && (
-                  <span className="text-accent ml-1">
-                    ({modifiedStats.charisma > baseStats.charisma ? '+' : ''}{modifiedStats.charisma - baseStats.charisma})
-                  </span>
+            {expandedCategory === 'mental' && (
+              <div className="p-2 space-y-1 bg-blue-500/5">
+                {MENTAL_STATS.map(stat => (
+                  <StatRow 
+                    key={stat.id}
+                    stat={stat}
+                    value={fullStats[stat.id as keyof FullCharacterStats] as number}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Spiritual Stats */}
+          <div 
+            className="border border-purple-500/20 rounded-md overflow-hidden cursor-pointer"
+            onClick={() => toggleCategory('spiritual')}
+          >
+            <div className="flex items-center justify-between p-2 bg-purple-500/5 hover:bg-purple-500/10 transition-colors">
+              <div className="flex items-center gap-2">
+                <StatIcon statKey="spiritual" size="xs" showTooltip={false} />
+                <span className="text-xs font-mono text-purple-400">Spiritual</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-purple-300">{spiritualTotal}</span>
+                {expandedCategory === 'spiritual' ? (
+                  <ChevronUp className="h-3 w-3 text-purple-400" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 text-purple-400" />
                 )}
-              </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>Dexterity:</span>
-              <span className={modifiedStats.dexterity !== baseStats.dexterity ? 'text-accent font-bold' : ''}>
-                {modifiedStats.dexterity}
-                {modifiedStats.dexterity !== baseStats.dexterity && (
-                  <span className="text-accent ml-1">
-                    ({modifiedStats.dexterity > baseStats.dexterity ? '+' : ''}{modifiedStats.dexterity - baseStats.dexterity})
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Strength:</span>
-              <span className={modifiedStats.strength !== baseStats.strength ? 'text-accent font-bold' : ''}>
-                {modifiedStats.strength}
-                {modifiedStats.strength !== baseStats.strength && (
-                  <span className="text-accent ml-1">
-                    ({modifiedStats.strength > baseStats.strength ? '+' : ''}{modifiedStats.strength - baseStats.strength})
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Endurance:</span>
-              <span className={modifiedStats.endurance !== baseStats.endurance ? 'text-accent font-bold' : ''}>
-                {modifiedStats.endurance}
-                {modifiedStats.endurance !== baseStats.endurance && (
-                  <span className="text-accent ml-1">
-                    ({modifiedStats.endurance > baseStats.endurance ? '+' : ''}{modifiedStats.endurance - baseStats.endurance})
-                  </span>
-                )}
-              </span>
-            </div>
+            {expandedCategory === 'spiritual' && (
+              <div className="p-2 space-y-1 bg-purple-500/5">
+                {SPIRITUAL_STATS.map(stat => (
+                  <StatRow 
+                    key={stat.id}
+                    stat={stat}
+                    value={fullStats[stat.id as keyof FullCharacterStats] as number}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

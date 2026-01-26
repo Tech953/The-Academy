@@ -4,7 +4,8 @@ import TextCharacterCreation from '@/components/TextCharacterCreation';
 import Tutorial from '@/components/Tutorial';
 import { Character } from '@/components/CharacterSheet';
 import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
-import { Location, NPC, GameStats, GameReputation } from '@shared/schema';
+import { Location, NPC, GameStats, GameReputation, LegacyGameStats } from '@shared/schema';
+import { mapLegacyStats, FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 
 export default function Home() {
   // Boot screen is now handled at App.tsx level
@@ -454,7 +455,7 @@ export default function Home() {
     // Additional safety check in case parsing fails
     if (!action) {
       addTerminalLine(`> ${command}`, 'command');
-      addTerminalLine('', '');
+      addTerminalLine('');
       addTerminalLine('Invalid command. Type HELP for available commands.', 'error');
       return;
     }
@@ -800,8 +801,14 @@ export default function Home() {
   const handleStatus = () => {
     if (!gameState) return;
     
-    const stats = gameState.character.stats as GameStats;
+    const rawStats = gameState.character.stats as Record<string, number>;
     const rep = gameState.character.reputation as GameReputation;
+    
+    // Check if using new stat system or legacy - convert if needed
+    const hasNewStats = 'quickness' in rawStats || 'mathLogic' in rawStats || 'faith' in rawStats;
+    const fullStats: FullCharacterStats = hasNewStats 
+      ? { ...DEFAULT_STATS, ...rawStats } as FullCharacterStats
+      : { ...DEFAULT_STATS, ...mapLegacyStats(rawStats as unknown as LegacyGameStats) };
     
     addTerminalLine('');
     addTerminalLine('CHARACTER STATUS:');
@@ -818,11 +825,14 @@ export default function Home() {
     addTerminalLine(`Mysterious: ${rep.mysterious}`);
     addTerminalLine('');
     addTerminalLine('STATISTICS:');
-    addTerminalLine(`Knowledge: ${stats.knowledge}`);
-    addTerminalLine(`Social: ${stats.social}`);
-    addTerminalLine(`Athletics: ${stats.athletics}`);
-    addTerminalLine(`Creativity: ${stats.creativity}`);
-    addTerminalLine(`Mysticism: ${stats.mysticism}`);
+    addTerminalLine('Physical:');
+    addTerminalLine(`  Quickness: ${fullStats.quickness}, Endurance: ${fullStats.endurance}, Agility: ${fullStats.agility}`);
+    addTerminalLine(`  Speed: ${fullStats.speed}, Strength: ${fullStats.strength}`);
+    addTerminalLine('Mental:');
+    addTerminalLine(`  Math-Logic: ${fullStats.mathLogic}, Linguistic: ${fullStats.linguistic}`);
+    addTerminalLine(`  Presence: ${fullStats.presence}, Fortitude: ${fullStats.fortitude}, Creative: ${fullStats.musicCreative}`);
+    addTerminalLine('Spiritual:');
+    addTerminalLine(`  Faith: ${fullStats.faith}, Karma: ${fullStats.karma}, Luck: ${fullStats.luck}`);
   };
   
   const handleTime = () => {
@@ -853,8 +863,17 @@ export default function Home() {
     const totalRep = rep.faculty + rep.students + rep.mysterious;
     addTerminalLine(`Total Reputation Points: ${totalRep}`);
     
-    // Calculate total stats
-    const totalStats = stats.knowledge + stats.social + stats.athletics + stats.creativity + stats.mysticism;
+    // Calculate total stats using proper conversion
+    const rawStats = gameState.character.stats as Record<string, number>;
+    const hasNewStats = 'quickness' in rawStats || 'mathLogic' in rawStats || 'faith' in rawStats;
+    const fullStats: FullCharacterStats = hasNewStats 
+      ? { ...DEFAULT_STATS, ...rawStats } as FullCharacterStats
+      : { ...DEFAULT_STATS, ...mapLegacyStats(rawStats as unknown as LegacyGameStats) };
+    
+    const physicalTotal = fullStats.quickness + fullStats.endurance + fullStats.agility + fullStats.speed + fullStats.strength;
+    const mentalTotal = fullStats.mathLogic + fullStats.linguistic + fullStats.presence + fullStats.fortitude + fullStats.musicCreative;
+    const spiritualTotal = fullStats.faith + fullStats.karma + fullStats.luck + fullStats.chi + fullStats.resonance + fullStats.nagual + fullStats.ashe;
+    const totalStats = physicalTotal + mentalTotal + spiritualTotal;
     addTerminalLine(`Total Skill Points: ${totalStats}`);
     
     addTerminalLine('');
@@ -1220,7 +1239,7 @@ export default function Home() {
       addTerminalLine('Attendance has been recorded. Keep attending to maintain good standing!');
       
       // Update game state with new energy value from server
-      const updatedState = await gameStateManager.getGameState(gameState.character.id);
+      const updatedState = await gameStateManager.getGameState();
       if (updatedState) {
         setGameState(updatedState);
       }

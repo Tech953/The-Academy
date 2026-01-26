@@ -215,7 +215,8 @@ export type AcademicProgress = typeof academicProgress.$inferSelect;
 export type InsertAcademicProgress = z.infer<typeof insertAcademicProgressSchema>;
 
 // Game state interfaces
-export interface GameStats {
+// Legacy stats interface (for backward compatibility)
+export interface LegacyGameStats {
   perception: number;
   intelligence: number;
   charisma: number;
@@ -223,6 +224,32 @@ export interface GameStats {
   strength: number;
   health: number;
   endurance: number;
+}
+
+// New comprehensive 17-stat system (matches shared/stats.ts)
+export interface GameStats {
+  // Physical (5 stats)
+  quickness: number;
+  endurance: number;
+  agility: number;
+  speed: number;
+  strength: number;
+  
+  // Mental (5 stats)
+  mathLogic: number;
+  linguistic: number;
+  presence: number;
+  fortitude: number;
+  musicCreative: number;
+  
+  // Spiritual (7 stats)
+  faith: number;
+  karma: number;
+  resonance: number;
+  luck: number;
+  chi: number;
+  nagual: number;
+  ashe: number;
 }
 
 export interface GameReputation {

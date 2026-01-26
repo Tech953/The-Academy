@@ -42,6 +42,11 @@ Preferred communication style: Simple, everyday language.
 - **Energy/Health Management**: Character vitality and endurance.
 - **Inventory and Perks**: Item collection and character progression.
 - **Perk System**: Features 11 starter perks (chosen at character creation) and 60+ level-up perks (awarded every other level), including tiered perks with multiple levels.
+- **17-Stat System**: Comprehensive 3-tier stat system with polar bear mascot icons:
+  - Physical (5 stats): Quickness, Endurance, Agility, Speed, Strength
+  - Mental (5 stats): Math-Logic, Linguistic, Presence, Fortitude, Music-Creative
+  - Spiritual (7 stats): Faith, Karma, Resonance, Luck, Chi, Nagual, Ashe
+- **Stat Icons**: Custom polar bear mascot images representing each stat category (shared/stats.ts, stat-icon.tsx).
 - **Comprehensive Curriculum System**: Features 24 courses across 4 GED test areas, with auto-generated textbooks and lectures. Includes commands for Grades, Transcript, Schedule, GPA, Read, and Attend.
 - **Natural Language Processing (NLP)**: AI-powered command interpreter allowing natural language questions instead of exact commands, using GPT-4.1-mini.
 - **Console Accessibility Features**: Includes a voice input system (Web Speech API), a command palette with keyboard/controller navigation, arrow key command history, and comprehensive ARIA support.
