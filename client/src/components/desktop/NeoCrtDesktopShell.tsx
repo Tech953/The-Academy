@@ -220,12 +220,6 @@ function CubMascot({ mood = 'thinking' }: { mood?: 'idle' | 'thinking' | 'happy'
         />
       </div>
       
-      <style>{`
-        @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 30px ${NEON_COLORS.green}40, inset 0 0 20px ${NEON_COLORS.green}20; }
-          50% { box-shadow: 0 0 50px ${NEON_COLORS.green}60, inset 0 0 30px ${NEON_COLORS.green}30; }
-        }
-      `}</style>
     </div>
   );
 }
