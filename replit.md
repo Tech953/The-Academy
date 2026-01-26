@@ -19,7 +19,17 @@ Preferred communication style: Simple, everyday language.
     - Center-right: Polar Bear Cub mascot widget in circular neon frame with pulse animation
     - Bottom: Taskbar with Files, Schedule, Cub, Settings icons (cyan, amber, purple, pink)
   - **CRT Effects**: Subtle scanlines overlay, vignette effect, neon glow shadows
-  - **Neo-CRT Windows**: Dark themed windows with neon green borders and glowing title bars
+  - **Neo-CRT Windows**: Dark themed windows with theme-colored borders and glowing title bars
+  - **Day/Night CRT Shader System**: Three display modes with distinct color palettes:
+    - Dawn (soft mint #88ffcc) - gentle morning colors
+    - School Day (bright green #00ff00) - classic CRT green
+    - Night Study (deep emerald #00cc88) - easier on eyes for evening
+  - **Responsive Desktop Layout**: Viewport-aware positioning and sizing:
+    - Windows center in available space (accounting for sidebar/taskbar)
+    - Window sizing respects viewport bounds (Academy max 900x650 but scales down)
+    - Sidebar icons responsive with smaller gaps on small screens
+    - Mascot only shows on screens > 900x500, scales on medium screens
+    - Multiple windows cascade with proper z-index management
   - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff), Pink (#ff66aa)
   - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, Cub Companion
   - The Academy game runs as a windowed application
