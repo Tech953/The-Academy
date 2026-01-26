@@ -1,4 +1,4 @@
-import { useState, useCallback, ReactNode } from 'react';
+import { useState, useCallback, useEffect, ReactNode } from 'react';
 import NeoCrtWindow from './NeoCrtWindow';
 import Calculator from './apps/Calculator';
 import Notepad from './apps/Notepad';
@@ -246,12 +246,31 @@ export default function NeoCrtDesktopShell() {
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
   const [nextZIndex, setNextZIndex] = useState(1);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
+  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const { colors, accentColors, modeLabel } = useCrtTheme();
 
+  useEffect(() => {
+    const handleResize = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const getAppComponent = (appId: string): { component: React.ReactNode; title: string; width: number; height: number } => {
+    const sidebarWidth = 120;
+    const taskbarHeight = 100;
+    const maxWidth = viewport.width - sidebarWidth - 40;
+    const maxHeight = viewport.height - taskbarHeight - 40;
+    
     switch (appId) {
       case 'academy':
-        return { component: <Home />, title: 'The Academy', width: 900, height: 650 };
+        return { 
+          component: <Home />, 
+          title: 'The Academy', 
+          width: Math.min(900, maxWidth), 
+          height: Math.min(650, maxHeight) 
+        };
       case 'personal':
         return { 
           component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace' }}>
@@ -349,16 +368,27 @@ export default function NeoCrtDesktopShell() {
     const { component, title, width, height } = getAppComponent(appId);
     const iconConfig = [...SIDEBAR_ICONS, ...TASKBAR_ICONS, ...HIDDEN_APPS].find(i => i.id === appId);
     
-    const offsetX = (windows.length % 5) * 30;
-    const offsetY = (windows.length % 5) * 30;
+    const sidebarWidth = 120;
+    const taskbarHeight = 80;
+    const availableWidth = viewport.width - sidebarWidth;
+    const availableHeight = viewport.height - taskbarHeight;
+    
+    const centerX = sidebarWidth + (availableWidth - width) / 2;
+    const centerY = (availableHeight - height) / 2;
+    
+    const offsetX = (windows.length % 5) * 25;
+    const offsetY = (windows.length % 5) * 25;
+    
+    const x = Math.max(sidebarWidth + 10, Math.min(centerX + offsetX, viewport.width - width - 20));
+    const y = Math.max(10, Math.min(centerY + offsetY, viewport.height - height - taskbarHeight - 20));
 
     const newWindow: WindowState = {
       id: appId,
       title,
       iconType: iconConfig?.iconType || 'file',
       component,
-      x: 200 + offsetX,
-      y: 50 + offsetY,
+      x,
+      y,
       width,
       height,
       isMinimized: false,
@@ -369,7 +399,7 @@ export default function NeoCrtDesktopShell() {
     setWindows(prev => [...prev, newWindow]);
     setFocusedWindowId(appId);
     setNextZIndex(prev => prev + 1);
-  }, [windows, nextZIndex]);
+  }, [windows, nextZIndex, viewport]);
 
   const closeWindow = useCallback((id: string) => {
     setWindows(prev => prev.filter(w => w.id !== id));
@@ -414,12 +444,15 @@ export default function NeoCrtDesktopShell() {
 
       <div style={{
         position: 'absolute',
-        top: '30px',
-        left: '30px',
+        top: viewport.height < 600 ? '15px' : '30px',
+        left: viewport.width < 800 ? '15px' : '30px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: viewport.height < 600 ? '12px' : '20px',
         zIndex: 10,
+        maxHeight: 'calc(100vh - 140px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
       }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -475,25 +508,29 @@ export default function NeoCrtDesktopShell() {
         </div>
       </div>
 
-      <div style={{
-        position: 'absolute',
-        right: '80px',
-        top: '50%',
-        transform: 'translateY(-60%)',
-        zIndex: 5,
-      }}>
-        <CubMascot mood="thinking" primaryColor={colors.primary} />
-      </div>
+      {viewport.width > 900 && viewport.height > 500 && (
+        <div style={{
+          position: 'absolute',
+          right: viewport.width < 1200 ? '40px' : '80px',
+          top: '50%',
+          transform: `translateY(-60%) scale(${viewport.width < 1100 ? 0.7 : 1})`,
+          transformOrigin: 'center center',
+          zIndex: 5,
+          transition: 'right 0.3s ease, transform 0.3s ease',
+        }}>
+          <CubMascot mood="thinking" primaryColor={colors.primary} />
+        </div>
+      )}
 
       <div style={{
         position: 'absolute',
-        bottom: '30px',
+        bottom: viewport.height < 600 ? '15px' : '30px',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        padding: '8px 16px',
+        gap: viewport.width < 600 ? '4px' : '8px',
+        padding: viewport.width < 600 ? '6px 10px' : '8px 16px',
         border: `2px solid ${colors.primary}`,
         borderRadius: '4px',
         boxShadow: `0 0 20px ${colors.primaryGlow}, inset 0 0 10px ${colors.primary}10`,

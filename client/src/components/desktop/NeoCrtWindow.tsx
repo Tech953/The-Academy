@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Minus, Square, X, Maximize2 } from 'lucide-react';
 import { getNeoCrtIcon, IconType } from './NeoCrtDesktopShell';
-
-const NEON_GREEN = '#00ff00';
+import { useCrtTheme } from '@/contexts/CrtThemeContext';
 
 export interface NeoCrtWindowProps {
   id: string;
@@ -51,6 +50,10 @@ export default function NeoCrtWindow({
   resizable = true,
   zIndex = 1,
 }: NeoCrtWindowProps) {
+  const { colors } = useCrtTheme();
+  const primaryColor = colors.primary;
+  const dimmedColor = colors.primary.replace('#', '#') + '99';
+  
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [size, setSize] = useState({ width: initialWidth, height: initialHeight });
   const [isDragging, setIsDragging] = useState(false);
@@ -145,10 +148,10 @@ export default function NeoCrtWindow({
         display: 'flex',
         flexDirection: 'column',
         background: '#0a0a0a',
-        border: `2px solid ${isFocused ? NEON_GREEN : '#00aa00'}`,
+        border: `2px solid ${isFocused ? primaryColor : dimmedColor}`,
         boxShadow: isFocused 
-          ? `0 0 20px ${NEON_GREEN}40, 0 0 40px ${NEON_GREEN}20, inset 0 0 20px ${NEON_GREEN}10`
-          : `0 0 10px ${NEON_GREEN}20`,
+          ? `0 0 20px ${primaryColor}40, 0 0 40px ${primaryColor}20, inset 0 0 20px ${primaryColor}10`
+          : `0 0 10px ${primaryColor}20`,
         fontFamily: '"Courier New", monospace',
         fontSize: '12px',
         userSelect: isDragging ? 'none' : 'auto',
@@ -158,30 +161,32 @@ export default function NeoCrtWindow({
       <div
         onMouseDown={handleTitleBarMouseDown}
         style={{
+          position: 'relative',
+          zIndex: 10,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '6px 10px',
           background: isFocused
-            ? `linear-gradient(90deg, ${NEON_GREEN}20 0%, transparent 100%)`
+            ? `linear-gradient(90deg, ${primaryColor}20 0%, transparent 100%)`
             : 'transparent',
-          borderBottom: `1px solid ${isFocused ? NEON_GREEN : '#00aa00'}80`,
+          borderBottom: `1px solid ${isFocused ? primaryColor : dimmedColor}80`,
           cursor: isMaximized ? 'default' : 'move',
           minHeight: '28px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {iconType && (
-            <div style={{ filter: `drop-shadow(0 0 4px ${NEON_GREEN})` }}>
-              {getNeoCrtIcon(iconType, 14, NEON_GREEN)}
+            <div style={{ filter: `drop-shadow(0 0 4px ${primaryColor})` }}>
+              {getNeoCrtIcon(iconType, 14, primaryColor)}
             </div>
           )}
           <span
             style={{
-              color: NEON_GREEN,
+              color: primaryColor,
               fontWeight: 'bold',
               fontSize: '12px',
-              textShadow: `0 0 10px ${NEON_GREEN}`,
+              textShadow: `0 0 10px ${primaryColor}`,
               letterSpacing: '1px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -193,7 +198,7 @@ export default function NeoCrtWindow({
           </span>
         </div>
         
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '6px', position: 'relative', zIndex: 100 }}>
           {onMinimize && (
             <button
               onClick={(e) => { e.stopPropagation(); onMinimize(); }}
@@ -202,13 +207,13 @@ export default function NeoCrtWindow({
                 width: '20px',
                 height: '20px',
                 background: 'transparent',
-                border: `1px solid ${NEON_GREEN}60`,
+                border: `1px solid ${primaryColor}60`,
                 borderRadius: '2px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: NEON_GREEN,
+                color: primaryColor,
                 transition: 'all 0.2s ease',
               }}
             >
@@ -223,13 +228,13 @@ export default function NeoCrtWindow({
                 width: '20px',
                 height: '20px',
                 background: 'transparent',
-                border: `1px solid ${NEON_GREEN}60`,
+                border: `1px solid ${primaryColor}60`,
                 borderRadius: '2px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: NEON_GREEN,
+                color: primaryColor,
                 transition: 'all 0.2s ease',
               }}
             >
@@ -289,16 +294,16 @@ export default function NeoCrtWindow({
             bottom: '4px',
             width: '8px',
             height: '8px',
-            borderRight: `2px solid ${NEON_GREEN}60`,
-            borderBottom: `2px solid ${NEON_GREEN}60`,
+            borderRight: `2px solid ${primaryColor}60`,
+            borderBottom: `2px solid ${primaryColor}60`,
           }} />
         </div>
       )}
 
       <style>{`
         .neo-crt-window-btn:hover {
-          background: ${NEON_GREEN}20 !important;
-          box-shadow: 0 0 10px ${NEON_GREEN}40;
+          background: ${primaryColor}20 !important;
+          box-shadow: 0 0 10px ${primaryColor}40;
         }
         .neo-crt-close-btn:hover {
           background: #ff336620 !important;
