@@ -1,54 +1,6 @@
 import { useState } from 'react';
-import { Clock, BookOpen, User, MapPin } from 'lucide-react';
-
-interface ScheduleEntry {
-  id: string;
-  time: string;
-  subject: string;
-  instructor: string;
-  room: string;
-  type: 'core' | 'elective' | 'study' | 'break';
-}
-
-const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
-
-const SCHEDULE: Record<string, ScheduleEntry[]> = {
-  MONDAY: [
-    { id: 'm1', time: '08:00', subject: 'Mathematical Reasoning', instructor: 'Prof. Chen', room: 'Room 101', type: 'core' },
-    { id: 'm2', time: '09:30', subject: 'Language Arts', instructor: 'Mrs. Thompson', room: 'Room 205', type: 'core' },
-    { id: 'm3', time: '11:00', subject: 'BREAK', instructor: '', room: 'Cafeteria', type: 'break' },
-    { id: 'm4', time: '12:00', subject: 'Social Studies', instructor: 'Mr. Rivera', room: 'Room 303', type: 'core' },
-    { id: 'm5', time: '14:00', subject: 'Study Hall', instructor: '', room: 'Library', type: 'study' },
-  ],
-  TUESDAY: [
-    { id: 't1', time: '08:00', subject: 'Science', instructor: 'Dr. Patel', room: 'Lab A', type: 'core' },
-    { id: 't2', time: '09:30', subject: 'Algebra', instructor: 'Prof. Chen', room: 'Room 101', type: 'core' },
-    { id: 't3', time: '11:00', subject: 'BREAK', instructor: '', room: 'Cafeteria', type: 'break' },
-    { id: 't4', time: '12:00', subject: 'Creative Writing', instructor: 'Mrs. Thompson', room: 'Room 205', type: 'elective' },
-    { id: 't5', time: '14:00', subject: 'Physical Education', instructor: 'Coach Davis', room: 'Gymnasium', type: 'elective' },
-  ],
-  WEDNESDAY: [
-    { id: 'w1', time: '08:00', subject: 'Language Arts', instructor: 'Mrs. Thompson', room: 'Room 205', type: 'core' },
-    { id: 'w2', time: '09:30', subject: 'Mathematical Reasoning', instructor: 'Prof. Chen', room: 'Room 101', type: 'core' },
-    { id: 'w3', time: '11:00', subject: 'BREAK', instructor: '', room: 'Cafeteria', type: 'break' },
-    { id: 'w4', time: '12:00', subject: 'Science Lab', instructor: 'Dr. Patel', room: 'Lab A', type: 'core' },
-    { id: 'w5', time: '14:00', subject: 'Art & Music', instructor: 'Ms. Garcia', room: 'Art Studio', type: 'elective' },
-  ],
-  THURSDAY: [
-    { id: 'th1', time: '08:00', subject: 'Social Studies', instructor: 'Mr. Rivera', room: 'Room 303', type: 'core' },
-    { id: 'th2', time: '09:30', subject: 'Science', instructor: 'Dr. Patel', room: 'Lab A', type: 'core' },
-    { id: 'th3', time: '11:00', subject: 'BREAK', instructor: '', room: 'Cafeteria', type: 'break' },
-    { id: 'th4', time: '12:00', subject: 'Language Arts', instructor: 'Mrs. Thompson', room: 'Room 205', type: 'core' },
-    { id: 'th5', time: '14:00', subject: 'Study Hall', instructor: '', room: 'Library', type: 'study' },
-  ],
-  FRIDAY: [
-    { id: 'f1', time: '08:00', subject: 'Algebra Review', instructor: 'Prof. Chen', room: 'Room 101', type: 'core' },
-    { id: 'f2', time: '09:30', subject: 'Reading Comprehension', instructor: 'Mrs. Thompson', room: 'Room 205', type: 'core' },
-    { id: 'f3', time: '11:00', subject: 'BREAK', instructor: '', room: 'Cafeteria', type: 'break' },
-    { id: 'f4', time: '12:00', subject: 'GED Prep Workshop', instructor: 'Various', room: 'Auditorium', type: 'core' },
-    { id: 'f5', time: '14:00', subject: 'Free Period', instructor: '', room: '', type: 'study' },
-  ],
-};
+import { Clock, User, MapPin } from 'lucide-react';
+import { DAYS, DEFAULT_SCHEDULE, DayOfWeek, ScheduleEntry } from '@shared/curriculum';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
@@ -62,8 +14,12 @@ const TYPE_COLORS: Record<string, string> = {
   break: NEON_AMBER,
 };
 
-export default function ClassSchedule() {
-  const [selectedDay, setSelectedDay] = useState('MONDAY');
+interface ClassScheduleProps {
+  schedule?: Record<DayOfWeek, ScheduleEntry[]>;
+}
+
+export default function ClassSchedule({ schedule = DEFAULT_SCHEDULE }: ClassScheduleProps) {
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>('MONDAY');
 
   const containerStyle: React.CSSProperties = {
     width: '100%',
@@ -110,7 +66,7 @@ export default function ClassSchedule() {
     borderRadius: '2px',
   });
 
-  const schedule = SCHEDULE[selectedDay] || [];
+  const daySchedule = schedule[selectedDay] || [];
 
   return (
     <div style={containerStyle}>
@@ -140,7 +96,7 @@ export default function ClassSchedule() {
         {selectedDay}
       </div>
 
-      {schedule.map(entry => (
+      {daySchedule.map(entry => (
         <div key={entry.id} style={scheduleEntryStyle(entry.type)}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>

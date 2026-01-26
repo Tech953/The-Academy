@@ -1,16 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Activity, Heart, Zap, Moon, Sun, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
-
-interface ResonanceData {
-  overall: number;
-  faith: number;
-  karma: number;
-  chi: number;
-  luck: number;
-  resonance: number;
-  nagual: number;
-  ashe: number;
-}
+import { Activity, Heart, Zap, Moon, Sun, Sparkles, TrendingUp, LucideIcon } from 'lucide-react';
+import { SPIRITUAL_STATS, DEFAULT_STATS, FullCharacterStats } from '@shared/stats';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
@@ -18,20 +8,41 @@ const NEON_AMBER = '#ffaa00';
 const NEON_PURPLE = '#cc66ff';
 const NEON_PINK = '#ff66cc';
 
-const INITIAL_DATA: ResonanceData = {
-  overall: 72,
-  faith: 5,
-  karma: 50,
-  chi: 10,
-  luck: 10,
-  resonance: 5,
-  nagual: 0,
-  ashe: 0,
+const STAT_ICONS: Record<string, LucideIcon> = {
+  faith: Sun,
+  karma: Activity,
+  resonance: Activity,
+  luck: Sparkles,
+  chi: Zap,
+  nagual: Moon,
+  ashe: Heart,
 };
 
-export default function ResonanceDashboard() {
-  const [data, setData] = useState<ResonanceData>(INITIAL_DATA);
+const STAT_COLORS: Record<string, string> = {
+  faith: NEON_AMBER,
+  karma: NEON_GREEN,
+  resonance: NEON_PURPLE,
+  luck: NEON_CYAN,
+  chi: NEON_GREEN,
+  nagual: NEON_PINK,
+  ashe: NEON_AMBER,
+};
+
+interface ResonanceDashboardProps {
+  stats?: Partial<FullCharacterStats>;
+}
+
+export default function ResonanceDashboard({ stats }: ResonanceDashboardProps) {
+  const characterStats: FullCharacterStats = { ...DEFAULT_STATS, ...stats };
   const [pulse, setPulse] = useState(false);
+  
+  const calculateOverallResonance = (s: FullCharacterStats): number => {
+    const spiritualTotal = s.faith + s.karma + s.resonance + s.luck + s.chi + s.nagual + s.ashe;
+    const maxSpiritual = 700;
+    return Math.round((spiritualTotal / maxSpiritual) * 100);
+  };
+  
+  const overallResonance = calculateOverallResonance(characterStats);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -101,7 +112,7 @@ export default function ResonanceDashboard() {
     return { text: 'DARK', color: '#ff3366' };
   };
 
-  const karmaStatus = getKarmaLabel(data.karma);
+  const karmaStatus = getKarmaLabel(characterStats.karma);
 
   return (
     <div style={containerStyle}>
@@ -139,7 +150,7 @@ export default function ResonanceDashboard() {
             color: NEON_PURPLE,
             textShadow: `0 0 15px ${NEON_PURPLE}`,
           }}>
-            {data.overall}%
+            {overallResonance}%
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
             <TrendingUp size={12} color={NEON_GREEN} />
@@ -165,7 +176,7 @@ export default function ResonanceDashboard() {
             {karmaStatus.text}
           </div>
           <div style={{ fontSize: '20px', color: karmaStatus.color, marginTop: '2px' }}>
-            {data.karma}/100
+            {characterStats.karma}/100
           </div>
         </div>
       </div>
@@ -180,12 +191,12 @@ export default function ResonanceDashboard() {
           SPIRITUAL ATTRIBUTES
         </div>
         
-        {renderStatBar('Faith', data.faith, 100, NEON_AMBER, <Sun size={12} />)}
-        {renderStatBar('Chi', data.chi, 100, NEON_GREEN, <Zap size={12} />)}
-        {renderStatBar('Resonance', data.resonance, 100, NEON_PURPLE, <Activity size={12} />)}
-        {renderStatBar('Luck', data.luck, 100, NEON_CYAN, <Sparkles size={12} />)}
-        {renderStatBar('Nagual', data.nagual, 100, NEON_PINK, <Moon size={12} />)}
-        {renderStatBar('Ashe', data.ashe, 100, NEON_AMBER, <Heart size={12} />)}
+        {SPIRITUAL_STATS.map(stat => {
+          const IconComponent = STAT_ICONS[stat.id] || Activity;
+          const color = STAT_COLORS[stat.id] || NEON_GREEN;
+          const value = characterStats[stat.id as keyof FullCharacterStats] as number;
+          return renderStatBar(stat.name, value, 100, color, <IconComponent size={12} />);
+        })}
       </div>
 
       <div style={{ 

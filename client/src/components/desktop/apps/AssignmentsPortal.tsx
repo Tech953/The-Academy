@@ -1,30 +1,17 @@
 import { useState } from 'react';
 import { BookOpen, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-
-interface Assignment {
-  id: string;
-  title: string;
-  subject: string;
-  dueDate: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue';
-  grade?: number;
-}
-
-const SAMPLE_ASSIGNMENTS: Assignment[] = [
-  { id: '1', title: 'Mathematical Reasoning Quiz', subject: 'Mathematics', dueDate: 'Tomorrow', status: 'pending' },
-  { id: '2', title: 'Essay: Personal Narrative', subject: 'Language Arts', dueDate: 'In 3 days', status: 'in_progress' },
-  { id: '3', title: 'Science Lab Report', subject: 'Science', dueDate: 'Next Week', status: 'pending' },
-  { id: '4', title: 'Social Studies Reading', subject: 'Social Studies', dueDate: 'Completed', status: 'completed', grade: 92 },
-  { id: '5', title: 'Algebra Practice Set', subject: 'Mathematics', dueDate: 'Yesterday', status: 'overdue' },
-];
+import { DEFAULT_ASSIGNMENTS, AssignmentData } from '@shared/curriculum';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
 const NEON_AMBER = '#ffaa00';
 const NEON_RED = '#ff3366';
 
-export default function AssignmentsPortal() {
-  const [assignments] = useState<Assignment[]>(SAMPLE_ASSIGNMENTS);
+interface AssignmentsPortalProps {
+  assignments?: AssignmentData[];
+}
+
+export default function AssignmentsPortal({ assignments = DEFAULT_ASSIGNMENTS }: AssignmentsPortalProps) {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
   const filteredAssignments = assignments.filter(a => {
@@ -33,7 +20,7 @@ export default function AssignmentsPortal() {
     return a.status === 'completed';
   });
 
-  const getStatusIcon = (status: Assignment['status']) => {
+  const getStatusIcon = (status: AssignmentData['status']) => {
     switch (status) {
       case 'completed': return <CheckCircle size={16} color={NEON_GREEN} />;
       case 'in_progress': return <Clock size={16} color={NEON_CYAN} />;
@@ -42,7 +29,7 @@ export default function AssignmentsPortal() {
     }
   };
 
-  const getStatusColor = (status: Assignment['status']) => {
+  const getStatusColor = (status: AssignmentData['status']) => {
     switch (status) {
       case 'completed': return NEON_GREEN;
       case 'in_progress': return NEON_CYAN;
