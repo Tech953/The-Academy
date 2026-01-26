@@ -246,3 +246,227 @@ export function applyPerkEffects(baseStats: Record<string, number>, perks: Chara
 }
 
 // Types already exported above
+
+// ============================================
+// STARTER PERKS - Chosen at character creation
+// ============================================
+
+export type StarterPerkId = 
+  | 'glasses' | 'jocked' | 'well_aligned' | 'marked_one' | 'mondays'
+  | 'three_of_kind' | 'nerd_aura' | 'midlife_crisis' | 'stereotyped' 
+  | 'slow_burn' | 'burnout_vengeance';
+
+export interface StarterPerk {
+  id: StarterPerkId;
+  name: string;
+  description: string;
+  icon: string;
+  effects: PerkEffect[];
+  drawbacks?: string;
+}
+
+export const STARTER_PERKS: StarterPerk[] = [
+  {
+    id: 'glasses',
+    name: '"I\'m blind without them."',
+    description: 'Buffed mental stats from glasses, or debuff without. Glasses are fragile and must be replaced/upgraded at nurse stations.',
+    icon: '👓',
+    effects: [
+      { type: 'stat_bonus', target: 'intelligence', value: 2, description: '+2 Intelligence while wearing glasses' },
+      { type: 'stat_bonus', target: 'perception', value: 2, description: '+2 Perception while wearing glasses' },
+    ],
+    drawbacks: '-3 Intelligence and Perception without glasses'
+  },
+  {
+    id: 'jocked',
+    name: 'Jocked',
+    description: 'Physical stats increase faster, though certain factions have an established dislike for your character.',
+    icon: '🏈',
+    effects: [
+      { type: 'passive_bonus', description: '+50% Physical stat growth rate' },
+    ],
+    drawbacks: '-10 starting reputation with academic factions'
+  },
+  {
+    id: 'well_aligned',
+    name: 'Well Aligned',
+    description: 'When your reputation is symmetrical between factions, you receive bonuses. Otherwise, you suffer an overall penalty.',
+    icon: '⚖️',
+    effects: [
+      { type: 'passive_bonus', description: '+10% all stats when reputations are balanced' },
+    ],
+    drawbacks: '-5% all stats when reputations differ significantly'
+  },
+  {
+    id: 'marked_one',
+    name: 'The Marked One',
+    description: 'You are given a random nickname that affects your interactions with everyone! You also have added speech bonus from others with nicknames.',
+    icon: '🏷️',
+    effects: [
+      { type: 'special_ability', description: 'Receive a random nickname at game start' },
+      { type: 'stat_bonus', target: 'charisma', value: 2, description: '+2 Charisma with other nicknamed characters' },
+    ],
+  },
+  {
+    id: 'mondays',
+    name: '"Mondays"',
+    description: 'Mondays are literally the worst day ever. Increased bonus on all other days.',
+    icon: '📅',
+    effects: [
+      { type: 'passive_bonus', description: '+10% all stats Tuesday through Sunday' },
+    ],
+    drawbacks: '-25% all stats on Mondays'
+  },
+  {
+    id: 'three_of_kind',
+    name: 'Three of a Kind',
+    description: 'Good, and bad things usually (always) come in threes.',
+    icon: '🎰',
+    effects: [
+      { type: 'special_ability', description: 'Events occur in groups of three' },
+      { type: 'special_ability', description: 'Third attempt at anything has 3x effect' },
+    ],
+  },
+  {
+    id: 'nerd_aura',
+    name: 'Nerd Aura',
+    description: 'There are few people who won\'t immediately assume that all your mannerisms, actions, and appearance is nerdy.',
+    icon: '🤓',
+    effects: [
+      { type: 'stat_bonus', target: 'intelligence', value: 1, description: '+1 Intelligence' },
+      { type: 'passive_bonus', description: '+15 starting reputation with academic factions' },
+      { type: 'special_ability', description: 'Nerdy dialogue options available' },
+    ],
+  },
+  {
+    id: 'midlife_crisis',
+    name: 'Midlife Crisis',
+    description: 'Despite being in high school, you randomly have additional actions and conversation choices to reflect a torn psyche.',
+    icon: '🎭',
+    effects: [
+      { type: 'special_ability', description: 'Random existential dialogue options' },
+      { type: 'special_ability', description: 'Deep philosophical conversation choices' },
+    ],
+  },
+  {
+    id: 'stereotyped',
+    name: 'Stereotyped',
+    description: 'The academy takes one characteristic of yours, and either makes it socially positive or negative. You are able to verbally debate judgement, however.',
+    icon: '🎯',
+    effects: [
+      { type: 'special_ability', description: 'One random trait becomes socially significant' },
+      { type: 'special_ability', description: 'Can debate stereotypes in conversations' },
+    ],
+  },
+  {
+    id: 'slow_burn',
+    name: 'Slow Burn',
+    description: 'Your academic investment yields higher long-term benefits or penalties, additionally reflected by your graduation in college.',
+    icon: '🔥',
+    effects: [
+      { type: 'passive_bonus', description: '+75% long-term academic returns' },
+    ],
+    drawbacks: '-25% early-game academic gains'
+  },
+  {
+    id: 'burnout_vengeance',
+    name: 'Burnout Vengeance',
+    description: 'Increased stats when affected by lack of sleep, or general exhaustion.',
+    icon: '😤',
+    effects: [
+      { type: 'passive_bonus', description: '+20% all combat stats when exhausted' },
+      { type: 'passive_bonus', description: '+15% willpower when sleep deprived' },
+    ],
+  },
+];
+
+// ============================================
+// LEVEL-UP PERKS - Awarded every other level
+// ============================================
+
+export interface LevelUpPerk extends Perk {
+  tier?: number;
+  maxTier?: number;
+  levelRequired?: number;
+}
+
+export const LEVELUP_PERKS: LevelUpPerk[] = [
+  // Tier-based perks
+  { id: 'ambidextrous', name: 'Ambidextrous', description: 'Dual Hand Proficiency – Stat Bonuses', category: 'combat', iconKey: 'strong', effects: [{ type: 'stat_bonus', target: 'dexterity', value: 2, description: '+2 Dexterity per tier' }], rarity: 'uncommon', tier: 1, maxTier: 3 },
+  { id: 'mr_electric', name: 'Mr. Electric', description: 'Tune into Biological Frequencies', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Sense nearby electronic devices' }], rarity: 'uncommon', tier: 1, maxTier: 3 },
+  { id: 'wizardry', name: 'Wizardry', description: 'Spell based off Stat', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Learn spells based on your highest stat' }], rarity: 'rare', tier: 1, maxTier: 3 },
+  { id: 'high_life', name: 'High-Life', description: 'Levitation Enchantment', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Can levitate briefly' }], rarity: 'legendary', tier: 1, maxTier: 3 },
+  { id: 'netfix', name: 'Netfix', description: 'Additional conversation options for TV show viewership', category: 'social', iconKey: 'social', effects: [{ type: 'special_ability', description: 'TV show dialogue options' }], rarity: 'common', tier: 1, maxTier: 3 },
+  { id: 'familiar_of_void', name: 'Familiar of the Void', description: 'Acquire Void Companion', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Gain a void familiar companion' }], rarity: 'legendary', tier: 1, maxTier: 3 },
+  
+  // Standard perks
+  { id: 'enlightenment', name: 'Enlightenment', description: 'Faction Bonus – Random Information/Neurological Activity', category: 'academic', iconKey: 'smart', effects: [{ type: 'passive_bonus', description: '+5 all faction reputation' }], rarity: 'uncommon' },
+  { id: 'augmentation', name: 'Augmentation', description: 'Opens Market -> Introduces New NPC(s)', category: 'survival', iconKey: 'stealth', effects: [{ type: 'skill_unlock', description: 'Unlocks the Augmentation Market' }], rarity: 'rare' },
+  { id: 'hive_mentality', name: 'Hive Mentality', description: 'Alignment Bonus with Insect Lovers', category: 'social', iconKey: 'social', effects: [{ type: 'passive_bonus', description: '+20 reputation with insect enthusiasts' }], rarity: 'uncommon' },
+  { id: 'so_duh', name: 'So-Duh', description: 'Bonuses from Drinking Soda', category: 'survival', iconKey: 'stealth', effects: [{ type: 'passive_bonus', description: '+3 Energy when drinking soda' }], rarity: 'common' },
+  { id: 'geometry_divination', name: 'Geometry Divination', description: 'Interpretation of Divine Shapes', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'stat_bonus', target: 'perception', value: 2, description: '+2 Spiritual stat' }], rarity: 'uncommon' },
+  { id: 'academic_past', name: '"I was an academic…"', description: 'Choose Bonus from Category', category: 'academic', iconKey: 'smart', effects: [{ type: 'special_ability', description: 'Choose one academic subject for +3 bonus' }], rarity: 'uncommon' },
+  { id: 'wood_walker', name: 'Wood-Walker', description: 'Sensory Interpretation of Living/Dead Wood', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Sense the state of wooden objects and trees' }], rarity: 'uncommon' },
+  { id: 'vegan', name: 'Vegan', description: 'Spiritual Bonus/Meal Restrictions', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'stat_bonus', target: 'endurance', value: 3, description: '+3 Spiritual stat' }], rarity: 'common' },
+  { id: 'vegetarian', name: 'Vegetarian', description: 'Spiritual Bonus/Meal Restrictions', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'stat_bonus', target: 'endurance', value: 2, description: '+2 Spiritual stat' }], rarity: 'common' },
+  { id: 'etherian', name: 'Etherian', description: 'Chosen by Animal Form', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Adopt an animal spirit form' }], rarity: 'rare' },
+  { id: 'hall_monitor', name: 'Hall Monitor', description: 'Role Request – Reputation (+/-)', category: 'social', iconKey: 'social', effects: [{ type: 'passive_bonus', description: '+10 Faculty, -5 Student reputation' }], rarity: 'common' },
+  { id: 'teachers_aide', name: "Teacher's Aide", description: 'Role Request – Reputation (+/-)', category: 'social', iconKey: 'social', effects: [{ type: 'stat_bonus', target: 'intelligence', value: 1, description: '+1 Intelligence from teaching' }], rarity: 'common' },
+  { id: 'premonition', name: 'Premonition', description: 'Receive Specific Information about Future Event', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Occasionally receive hints about upcoming events' }], rarity: 'rare' },
+  { id: 'billybobs_ranch', name: "Billy-Bob's Ranch", description: 'Unlocks Location (Horses/Alpacas/Kangaroos)', category: 'survival', iconKey: 'stealth', effects: [{ type: 'skill_unlock', description: "Unlocks Billy-Bob's Ranch location" }], rarity: 'uncommon' },
+  { id: 'divine_intervention', name: 'Divine Intervention', description: 'Random Associated Entity Changes Circumstance', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Rarely, a divine entity intervenes in your favor' }], rarity: 'legendary' },
+  { id: 'harmonics', name: 'Harmonics', description: 'Resonance Bonus', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'stat_bonus', target: 'charisma', value: 3, description: '+3 Resonance' }], rarity: 'uncommon' },
+  { id: 'chess_mate', name: 'Chess-Mate', description: 'Conversation Options', category: 'academic', iconKey: 'smart', effects: [{ type: 'stat_bonus', target: 'intelligence', value: 2, description: '+2 Strategy' }], rarity: 'common' },
+  { id: 'peaked', name: 'Peaked', description: 'Reputation (+/-) – Dependent on Audience', category: 'social', iconKey: 'social', effects: [{ type: 'special_ability', description: 'Reputation gains/losses amplified based on witnesses' }], rarity: 'uncommon' },
+  { id: 'aura_farmer', name: 'Aura Farmer', description: 'Generate Presence (+/~/-))', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Passively generate positive, neutral, or negative aura' }], rarity: 'uncommon' },
+  { id: 'power_hungry', name: 'Power Hungry', description: 'Exp. (+) for Hunger (-)', category: 'survival', iconKey: 'stealth', effects: [{ type: 'passive_bonus', description: '+25% XP gain when hungry' }], rarity: 'uncommon' },
+  { id: 'weathervane', name: 'Weathervane', description: 'Storm Perception – Attracts Lightning', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Can predict weather changes' }], rarity: 'uncommon' },
+  { id: 'snack_sense', name: 'Snack Sense', description: 'Barter Bonus/Food Bonus', category: 'survival', iconKey: 'stealth', effects: [{ type: 'stat_bonus', target: 'perception', value: 2, description: '+2 Barter for food items' }], rarity: 'common' },
+  { id: 'karma_banker', name: 'Karma Banker', description: 'Higher Stat vs. Lower Impact', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Store karma for later use' }], rarity: 'rare' },
+  { id: 'you_know_what_they_say', name: '"You know what they say…"', description: 'Grants Neutral Conversation Topic', category: 'social', iconKey: 'social', effects: [{ type: 'special_ability', description: 'Can always start a neutral conversation' }], rarity: 'common' },
+  { id: 'build_different', name: 'Build Different', description: 'Alternative Dietary Choices Provide Resonance Bonus', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'passive_bonus', description: '+2 Resonance from unusual foods' }], rarity: 'uncommon' },
+  { id: 'quick_grab', name: 'Quick-Grab', description: '100% Chance in Object Retrieval (Cooldown)', category: 'combat', iconKey: 'strong', effects: [{ type: 'special_ability', description: 'Guaranteed item pickup (5 minute cooldown)' }], rarity: 'uncommon' },
+  { id: 'booked', name: 'Booked', description: 'Bonus Stat Increase from Reading – Time Dilation', category: 'academic', iconKey: 'smart', effects: [{ type: 'stat_bonus', target: 'intelligence', value: 2, description: '+2 to stat gains from reading' }], rarity: 'uncommon' },
+  { id: 'mission_op', name: 'Mission Op', description: 'Alternate Pathways Yield Higher Exp.', category: 'survival', iconKey: 'stealth', effects: [{ type: 'passive_bonus', description: '+50% XP from alternate solutions' }], rarity: 'uncommon' },
+  { id: 'funsies', name: 'Funsies', description: 'When you level up, dollar bills appear in your dorm room', category: 'social', iconKey: 'social', effects: [{ type: 'special_ability', description: 'Gain $10-50 per level up' }], rarity: 'common' },
+  { id: 'tralueses', name: 'Tralueses', description: 'Every time you step down, you break a law of physics', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Random physics anomalies when descending' }], rarity: 'legendary' },
+  { id: 'extreme_math_extender', name: 'Extreme Math Extender', description: 'Every time you find an unopened crate – (+) math/logic', category: 'academic', iconKey: 'smart', effects: [{ type: 'stat_bonus', target: 'intelligence', value: 1, description: '+1 Math/Logic per crate found' }], rarity: 'uncommon' },
+  { id: 'art_of_boredom', name: 'The Art of Boredom', description: 'Idle-Time increases Creativity Stat', category: 'academic', iconKey: 'smart', effects: [{ type: 'passive_bonus', description: '+1 Creativity per minute idle (max 10)' }], rarity: 'common' },
+  { id: 'liar_liar', name: 'Liar Liar', description: 'Lying provides exp bonus (if successful)', category: 'social', iconKey: 'social', effects: [{ type: 'passive_bonus', description: '+200% XP from successful lies' }], rarity: 'uncommon' },
+  { id: 'honor_and_glory', name: 'Honor and Glory', description: 'Accepting penalties and truth provide tiers of rank.', category: 'social', iconKey: 'social', effects: [{ type: 'special_ability', description: 'Gain honor ranks for truthfulness' }], rarity: 'uncommon' },
+  { id: 'attuned_hearing', name: 'Attuned Hearing', description: 'Increased Hearing (Cooldown)', category: 'survival', iconKey: 'stealth', effects: [{ type: 'special_ability', description: 'Enhanced hearing for 30 seconds (3 min cooldown)' }], rarity: 'common' },
+  { id: 'shelf_centered', name: 'Shelf Centered', description: 'Sharp Increase in Mental Stats for each Trophy', category: 'academic', iconKey: 'smart', effects: [{ type: 'stat_bonus', target: 'intelligence', value: 1, description: '+1 Intelligence per trophy' }], rarity: 'uncommon' },
+  { id: 'tile_by_tile', name: 'Tile by Tile', description: 'Measure resonance impact, tile by tile (Cooldown)', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'See resonance values per tile (2 min cooldown)' }], rarity: 'uncommon' },
+  { id: 'natural_consequence', name: 'Natural Consequence', description: 'Nature prioritizes involvement during spiritual stat decline', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Nature intervenes when spiritual stats drop' }], rarity: 'uncommon' },
+  { id: 'cool_coordinated', name: 'Cool Coordinated', description: 'Matching colors yields resonance bonus.', category: 'social', iconKey: 'social', effects: [{ type: 'passive_bonus', description: '+3 Resonance when colors match' }], rarity: 'common' },
+  { id: 'candy_is_good', name: '"Candy is Good?"', description: 'Candy provides higher physical bonuses.', category: 'survival', iconKey: 'stealth', effects: [{ type: 'stat_bonus', target: 'strength', value: 3, description: '+3 to physical stats from candy' }], rarity: 'common' },
+  { id: 'blade_of_arcana', name: 'Blade of Arcana', description: 'Utility bonus with Tools, lower luck stat.', category: 'combat', iconKey: 'strong', effects: [{ type: 'stat_bonus', target: 'dexterity', value: 3, description: '+3 Tool proficiency' }], rarity: 'uncommon' },
+  { id: 'cherry_blossom', name: 'Blessing of the Cherry Blossom', description: 'Faith bonus directly Affects Stamina', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'stat_bonus', target: 'endurance', value: 2, description: '+2 Stamina from faith' }], rarity: 'uncommon' },
+  { id: 'strayed_from_faith', name: 'Strayed from the Faith', description: 'Possessed by a Memetic device (Random)', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Gain a random memetic possession' }], rarity: 'rare' },
+  { id: 'hunters_refuge', name: "Hunter's Refuge", description: 'Your dorm room offers additional healing and study bonus.', category: 'survival', iconKey: 'stealth', effects: [{ type: 'passive_bonus', description: '+50% Energy recovery in dorm' }], rarity: 'uncommon' },
+  { id: 'treasure_hunter', name: 'Treasure Hunter', description: 'Finding equipment yields higher chance of key items', category: 'survival', iconKey: 'stealth', effects: [{ type: 'passive_bonus', description: '+5% cumulative chance for rare items' }], rarity: 'uncommon' },
+  { id: 'pro_gamer', name: '"Pro-Gamer"', description: 'Additional conversation options for playing games', category: 'social', iconKey: 'social', effects: [{ type: 'special_ability', description: 'Gaming dialogue options' }], rarity: 'common' },
+  { id: 'spiritually_inclined', name: 'Spiritually Inclined', description: 'Bonus from Spiritual attributes and Ritual', category: 'mystical', iconKey: 'mystical', effects: [{ type: 'stat_bonus', target: 'endurance', value: 2, description: '+2 Spiritual' }], rarity: 'uncommon' },
+  { id: 'polar_cub_advent', name: 'Polar Cub Advent', description: "Channel the school's animal mascot during key moments.", category: 'mystical', iconKey: 'mystical', effects: [{ type: 'special_ability', description: 'Channel the polar bear mascot for power boosts' }], rarity: 'legendary' },
+  { id: 'puzzle_peer', name: 'Puzzle Peer', description: 'Increased reputation XP when completing puzzles with others.', category: 'academic', iconKey: 'smart', effects: [{ type: 'passive_bonus', description: '+100% reputation XP from group puzzles' }], rarity: 'common' },
+];
+
+// Helper functions for the new perk system
+export function getRandomStarterPerks(count: number = 3): StarterPerk[] {
+  const shuffled = [...STARTER_PERKS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+export function getRandomLevelUpPerks(count: number = 3, excludeIds: string[] = []): LevelUpPerk[] {
+  const available = LEVELUP_PERKS.filter(p => !excludeIds.includes(p.id));
+  const shuffled = available.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+export function getStarterPerkById(id: StarterPerkId): StarterPerk | undefined {
+  return STARTER_PERKS.find(p => p.id === id);
+}
+
+export function getLevelUpPerkById(id: string): LevelUpPerk | undefined {
+  return LEVELUP_PERKS.find(p => p.id === id);
+}
