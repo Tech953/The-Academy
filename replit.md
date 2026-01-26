@@ -34,6 +34,8 @@ Preferred communication style: Simple, everyday language.
     - Drag bottom-right corner to resize any window
     - Internal content adapts automatically to new dimensions
     - Window position and size tracked in state
+    - Minimum size constraints prevent windows from becoming too small to use
+    - Content uses scrollbars when needed to prevent text overlap
   - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff), Pink (#ff66aa)
   - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, Cub Companion
   - **The Academy Game**: Runs in dedicated full-screen mode (not as a windowed desktop app):

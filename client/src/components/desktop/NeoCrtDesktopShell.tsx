@@ -27,6 +27,8 @@ interface WindowState {
   y: number;
   width: number;
   height: number;
+  minWidth: number;
+  minHeight: number;
   isMinimized: boolean;
   isMaximized: boolean;
   zIndex: number;
@@ -258,7 +260,7 @@ export default function NeoCrtDesktopShell() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const getAppComponent = (appId: string): { component: React.ReactNode; title: string; width: number; height: number } => {
+  const getAppComponent = (appId: string): { component: React.ReactNode; title: string; width: number; height: number; minWidth: number; minHeight: number } => {
     const sidebarWidth = 120;
     const taskbarHeight = 100;
     const maxWidth = viewport.width - sidebarWidth - 40;
@@ -270,86 +272,100 @@ export default function NeoCrtDesktopShell() {
           component: <Home />, 
           title: 'The Academy', 
           width: Math.min(900, maxWidth), 
-          height: Math.min(650, maxHeight) 
+          height: Math.min(650, maxHeight),
+          minWidth: 400,
+          minHeight: 300
         };
       case 'personal':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px' }}>STUDENT PROFILE</h2>
+          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px', whiteSpace: 'nowrap' }}>STUDENT PROFILE</h2>
             <p style={{ opacity: 0.7 }}>Access your personal records and settings.</p>
             <p style={{ marginTop: '20px' }}>Double-click The Academy icon to begin your adventure.</p>
           </div>, 
           title: 'Personal', 
           width: 400, 
-          height: 300 
+          height: 300,
+          minWidth: 280,
+          minHeight: 180
         };
       case 'email':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.cyan, fontFamily: 'monospace' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.cyan}40`, paddingBottom: '10px' }}>E-MAIL SYSTEM</h2>
+          component: <div style={{ padding: '20px', color: accentColors.cyan, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.cyan}40`, paddingBottom: '10px', whiteSpace: 'nowrap' }}>E-MAIL SYSTEM</h2>
             <p style={{ opacity: 0.7 }}>No new messages.</p>
             <p style={{ marginTop: '20px', fontSize: '12px' }}>Academy mail server is operational.</p>
           </div>, 
           title: 'E-Mail', 
           width: 450, 
-          height: 350 
+          height: 350,
+          minWidth: 300,
+          minHeight: 200
         };
       case 'messages':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px' }}>MESSAGES</h2>
+          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px', whiteSpace: 'nowrap' }}>MESSAGES</h2>
             <p style={{ opacity: 0.7 }}>Direct messaging system.</p>
             <p style={{ marginTop: '20px', fontSize: '12px' }}>Connect with faculty and students.</p>
           </div>, 
           title: 'Messages', 
           width: 400, 
-          height: 350 
+          height: 350,
+          minWidth: 280,
+          minHeight: 200
         };
       case 'calculator':
-        return { component: <Calculator />, title: 'Calculator', width: 200, height: 280 };
+        return { component: <Calculator />, title: 'Calculator', width: 220, height: 320, minWidth: 180, minHeight: 280 };
       case 'notepad':
-        return { component: <Notepad />, title: 'Notepad', width: 450, height: 350 };
+        return { component: <Notepad />, title: 'Notepad', width: 450, height: 350, minWidth: 300, minHeight: 200 };
       case 'files':
-        return { component: <FileExplorer onOpenApp={openWindow} />, title: 'Files', width: 500, height: 400 };
+        return { component: <FileExplorer onOpenApp={openWindow} />, title: 'Files', width: 500, height: 400, minWidth: 350, minHeight: 280 };
       case 'search':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.amber, fontFamily: 'monospace' }}>
-            <h2>SEARCH</h2>
+          component: <div style={{ padding: '20px', color: accentColors.amber, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ whiteSpace: 'nowrap' }}>SEARCH</h2>
             <p style={{ opacity: 0.7 }}>Search functionality coming soon.</p>
           </div>, 
           title: 'Search', 
           width: 400, 
-          height: 300 
+          height: 300,
+          minWidth: 250,
+          minHeight: 150
         };
       case 'settings':
         return { 
           component: <SettingsApp />, 
           title: 'Settings', 
           width: 450, 
-          height: 480 
+          height: 480,
+          minWidth: 350,
+          minHeight: 350
         };
       case 'calendar':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.purple, fontFamily: 'monospace' }}>
-            <h2>ACADEMY CALENDAR</h2>
+          component: <div style={{ padding: '20px', color: accentColors.purple, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ whiteSpace: 'nowrap' }}>ACADEMY CALENDAR</h2>
             <p style={{ opacity: 0.7 }}>View your class schedule and events.</p>
           </div>, 
           title: 'Calendar', 
           width: 450, 
-          height: 400 
+          height: 400,
+          minWidth: 300,
+          minHeight: 200
         };
       case 'assignments':
-        return { component: <AssignmentsPortal />, title: 'Assignments Portal', width: 500, height: 450 };
+        return { component: <AssignmentsPortal />, title: 'Assignments Portal', width: 500, height: 450, minWidth: 380, minHeight: 300 };
       case 'perks':
-        return { component: <PerksViewer />, title: 'Perks Viewer', width: 550, height: 480 };
+        return { component: <PerksViewer />, title: 'Perks Viewer', width: 550, height: 480, minWidth: 400, minHeight: 350 };
       case 'resonance':
-        return { component: <ResonanceDashboard />, title: 'Resonance Dashboard', width: 450, height: 520 };
+        return { component: <ResonanceDashboard />, title: 'Resonance Dashboard', width: 450, height: 520, minWidth: 350, minHeight: 400 };
       case 'schedule':
-        return { component: <ClassSchedule />, title: 'Class Schedule', width: 480, height: 450 };
+        return { component: <ClassSchedule />, title: 'Class Schedule', width: 480, height: 450, minWidth: 350, minHeight: 300 };
       case 'cub':
-        return { component: <CubCompanion />, title: 'Cub Companion', width: 350, height: 500 };
+        return { component: <CubCompanion />, title: 'Cub Companion', width: 350, height: 500, minWidth: 280, minHeight: 350 };
       default:
-        return { component: <div style={{ padding: '20px' }}>Application not found</div>, title: 'Unknown', width: 300, height: 200 };
+        return { component: <div style={{ padding: '20px' }}>Application not found</div>, title: 'Unknown', width: 300, height: 200, minWidth: 200, minHeight: 150 };
     }
   };
 
@@ -371,7 +387,7 @@ export default function NeoCrtDesktopShell() {
       return;
     }
 
-    const { component, title, width, height } = getAppComponent(appId);
+    const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId);
     const iconConfig = [...SIDEBAR_ICONS, ...TASKBAR_ICONS, ...HIDDEN_APPS].find(i => i.id === appId);
     
     const sidebarWidth = 120;
@@ -397,6 +413,8 @@ export default function NeoCrtDesktopShell() {
       y,
       width,
       height,
+      minWidth,
+      minHeight,
       isMinimized: false,
       isMaximized: false,
       zIndex: nextZIndex,
@@ -578,6 +596,8 @@ export default function NeoCrtDesktopShell() {
           initialY={win.y}
           initialWidth={win.width}
           initialHeight={win.height}
+          minWidth={win.minWidth}
+          minHeight={win.minHeight}
           isMinimized={win.isMinimized}
           isMaximized={win.isMaximized}
           isFocused={focusedWindowId === win.id}
