@@ -427,6 +427,14 @@ export default function NeoCrtDesktopShell() {
     setNextZIndex(prev => prev + 1);
   }, [nextZIndex]);
 
+  const resizeWindow = useCallback((id: string, width: number, height: number) => {
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, width, height } : w));
+  }, []);
+
+  const moveWindow = useCallback((id: string, x: number, y: number) => {
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, x, y } : w));
+  }, []);
+
   const handleDesktopClick = () => setSelectedIcon(null);
 
   if (academyFullscreen) {
@@ -574,10 +582,13 @@ export default function NeoCrtDesktopShell() {
           isMaximized={win.isMaximized}
           isFocused={focusedWindowId === win.id}
           zIndex={win.zIndex}
+          resizable={true}
           onClose={() => closeWindow(win.id)}
           onMinimize={() => minimizeWindow(win.id)}
           onMaximize={() => maximizeWindow(win.id)}
           onFocus={() => focusWindow(win.id)}
+          onResize={(width, height) => resizeWindow(win.id, width, height)}
+          onMove={(x, y) => moveWindow(win.id, x, y)}
         >
           {win.component}
         </NeoCrtWindow>

@@ -30,6 +30,10 @@ Preferred communication style: Simple, everyday language.
     - Sidebar icons responsive with smaller gaps on small screens
     - Mascot only shows on screens > 900x500, scales on medium screens
     - Multiple windows cascade with proper z-index management
+  - **Resizable Windows**: All program windows can be resized by dragging the corner handle:
+    - Drag bottom-right corner to resize any window
+    - Internal content adapts automatically to new dimensions
+    - Window position and size tracked in state
   - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff), Pink (#ff66aa)
   - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, Cub Companion
   - **The Academy Game**: Runs in dedicated full-screen mode (not as a windowed desktop app):
