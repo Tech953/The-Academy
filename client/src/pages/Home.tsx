@@ -4,7 +4,7 @@ import AcademyGameLayout from '@/components/AcademyGameLayout';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
 import Tutorial from '@/components/Tutorial';
 import { Character } from '@/components/CharacterSheet';
-import { gameStateManager, GameState, TerminalLine } from '@/lib/gameState';
+import { gameStateManager, GameState, TerminalLine, IntentEnum } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation, LegacyGameStats } from '@shared/schema';
 import { mapLegacyStats, FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 
@@ -81,6 +81,29 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     addTerminalLine('');
     addTerminalLine(gameStateData.currentLocation.name.toUpperCase(), 'system');
     addTerminalLine(gameStateData.currentLocation.description);
+    
+    // Show corridor mutations/atmosphere if applicable
+    const corridorDescriptions = gameStateManager.getCorridorDescription();
+    if (corridorDescriptions.length > 0) {
+      addTerminalLine('');
+      corridorDescriptions.forEach(desc => {
+        addTerminalLine(desc, 'system');
+      });
+    }
+    
+    // Show active mythic flags affecting the environment
+    const mythicFlags = gameStateManager.getActiveMythicFlags();
+    if (mythicFlags.length > 0) {
+      addTerminalLine('');
+      addTerminalLine('[Something feels different here...]', 'system');
+    }
+    
+    // Show misread count subtly if significant
+    const misreadCount = gameStateManager.getMisreadCount();
+    if (misreadCount >= 5) {
+      addTerminalLine('');
+      addTerminalLine(`[The Academy seems to be watching you more closely... (${misreadCount} misunderstandings)]`, 'system');
+    }
     
     // Show NPCs in location
     try {
@@ -790,6 +813,33 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     const interactables = gameState.currentLocation.interactables as string[];
     if (interactables.includes(target)) {
       addTerminalLine('');
+      
+      // Map target to an object archetype for the resolver
+      const archetypeMapping: Record<string, string> = {
+        'portraits': 'MYSTERIOUS_SYMBOL',
+        'door': 'LOCKED_DOOR',
+        'locked_door': 'LOCKED_DOOR',
+        'artifact': 'SACRED_ARTIFACT',
+        'symbol': 'MYSTERIOUS_SYMBOL',
+        'fireplace': 'MYSTERIOUS_SYMBOL',
+        'chandelier': 'MYSTERIOUS_SYMBOL'
+      };
+      
+      const archetypeId = archetypeMapping[target];
+      
+      // Use the interaction resolver for mapped objects
+      if (archetypeId) {
+        const outcome = gameStateManager.processInteraction('Examine' as IntentEnum, archetypeId);
+        
+        if (outcome) {
+          // Show resolver message if there was a misread
+          if (outcome.wasMisread) {
+            addTerminalLine(outcome.message, 'system');
+            addTerminalLine('');
+          }
+        }
+      }
+      
       // Add specific examine descriptions based on the object
       switch (target) {
         case 'portraits':
@@ -851,9 +901,32 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     
     if (npc) {
       addTerminalLine('');
+      
+      // Determine NPC archetype based on faction/role
+      let archetypeId = 'STUDENT_NPC';
+      if (npc.faction === 'faculty' || npc.title?.toLowerCase().includes('professor') || 
+          npc.title?.toLowerCase().includes('dean') || npc.title?.toLowerCase().includes('instructor')) {
+        archetypeId = 'FACULTY_NPC';
+      }
+      
+      // Use the interaction resolver to process the talk interaction
+      const outcome = gameStateManager.processInteraction('Talk' as IntentEnum, archetypeId);
+      
+      // Show misread effects if the NPC misinterpreted the player's approach
+      if (outcome && outcome.wasMisread) {
+        addTerminalLine(outcome.message, 'system');
+        addTerminalLine('');
+      }
+      
       const dialogue = npc.dialogue as any;
       const greeting = dialogue.greeting || 'Hello there.';
-      addTerminalLine(`${npc.name}: "${greeting}"`);
+      
+      // Modify greeting based on interaction outcome
+      if (outcome && !outcome.success && outcome.wasMisread) {
+        addTerminalLine(`${npc.name}: *eyes you suspiciously* "${greeting}"`);
+      } else {
+        addTerminalLine(`${npc.name}: "${greeting}"`);
+      }
       
       // Show available conversation topics if they exist
       if (dialogue.topics && Object.keys(dialogue.topics).length > 0) {
@@ -875,6 +948,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
           addTerminalLine('');
           addTerminalLine(`${npc.name.split(' ')[0]} seems cautious - different factions often have complex relationships.`, 'system');
         }
+      }
+      
+      // Show mythic flag effects if relevant
+      if (gameStateManager.isMythicFlagActive('WatchersEye') && archetypeId === 'FACULTY_NPC') {
+        addTerminalLine('');
+        addTerminalLine('[You sense this faculty member already knows things about you...]', 'system');
       }
     } else {
       addTerminalLine('');

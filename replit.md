@@ -80,6 +80,15 @@ Preferred communication style: Simple, everyday language.
 - **Natural Language Processing (NLP)**: AI-powered command interpreter allowing natural language questions instead of exact commands, using GPT-4.1-mini.
 - **Console Accessibility Features**: Includes a voice input system (Web Speech API), a command palette with keyboard/controller navigation, arrow key command history, and comprehensive ARIA support.
 - **Memory Optimization**: LRU cache for game content (textbooks, lectures, locations, NPCs).
+- **Object Interaction Resolver System**: Sophisticated emergent gameplay mechanics:
+  - **Bias Profiles**: NPCs and objects can misinterpret player intent based on conditions (e.g., high Presence might be seen as "Manipulation")
+  - **Authority Rules**: Priority-based system determining who decides interaction outcomes (Player, Object, Faction, Mythic, System)
+  - **Outcome Profiles**: Weighted effects for physical, access, perception, narrative, and mythic changes
+  - **Object Archetypes**: Templates like LOCKED_DOOR, FACULTY_NPC, SACRED_ARTIFACT with linked bias/authority/outcome profiles
+  - **Corridor Mutations**: Environmental changes based on world state (lights dim, shadows lengthen, whispers echo)
+  - **Mythic Flags**: Global effects triggered by accumulated misreads (BlackSeal, WatchersEye, ResonanceBloom, KarmicDebt, NagualAwakening)
+  - **World Memory**: Tracks misreads, faction tension, corridor scars, and interaction history
+  - Core files: `client/src/lib/interactionResolver.ts`, `client/src/lib/gameState.ts`
 
 # External Dependencies
 

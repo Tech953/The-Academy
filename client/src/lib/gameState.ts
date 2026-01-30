@@ -1,4 +1,17 @@
 import { Character, Location, NPC, Item, GameStats, GameReputation, GameInventoryItem, SocialConnection } from "@shared/schema";
+import { 
+  WorldMemory, 
+  createInitialWorldMemory, 
+  updateWorldMemory,
+  resolveInteraction,
+  createPlayerSignalFromStats,
+  ObjectArchetype,
+  OBJECT_ARCHETYPES,
+  IntentEnum,
+  Outcome,
+  MYTHIC_FLAGS,
+  CORRIDOR_MUTATION_RULES
+} from "./interactionResolver";
 
 export interface GameState {
   character: Character;
@@ -8,6 +21,7 @@ export interface GameState {
   gameFlags: Record<string, any>;
   temporaryEffects: Record<string, { value: any; expires?: Date }>;
   lastSaveTime?: Date;
+  worldMemory: WorldMemory;
 }
 
 export interface TerminalLine {
@@ -29,6 +43,10 @@ export class GameStateManager {
       const response = await fetch(`/api/game/load/${character.id}`);
       if (response.ok) {
         const savedState = await response.json();
+        // Ensure worldMemory exists (migration for older saves)
+        if (!savedState.worldMemory) {
+          savedState.worldMemory = createInitialWorldMemory();
+        }
         this.gameState = savedState;
         return savedState;
       }
@@ -46,7 +64,8 @@ export class GameStateManager {
       locationHistory: [character.currentLocation || 'main_lobby'],
       gameFlags: {},
       temporaryEffects: {},
-      lastSaveTime: new Date()
+      lastSaveTime: new Date(),
+      worldMemory: createInitialWorldMemory()
     };
 
     return this.gameState;
@@ -322,7 +341,179 @@ export class GameStateManager {
       return [];
     }
   }
+
+  // Get world memory
+  getWorldMemory(): WorldMemory | null {
+    return this.gameState?.worldMemory || null;
+  }
+
+  // Process an object interaction using the resolver
+  processInteraction(
+    intent: IntentEnum,
+    objectArchetypeId: string,
+    additionalContext: Record<string, any> = {}
+  ): Outcome | null {
+    if (!this.gameState) return null;
+    
+    // Ensure worldMemory exists
+    if (!this.gameState.worldMemory) {
+      this.gameState.worldMemory = createInitialWorldMemory();
+    }
+
+    // Find the object archetype
+    const archetype = OBJECT_ARCHETYPES.find(a => a.id === objectArchetypeId);
+    if (!archetype) {
+      console.warn(`Unknown object archetype: ${objectArchetypeId}`);
+      return null;
+    }
+
+    // Build player signal from current character state
+    const stats = this.gameState.character.stats as GameStats;
+    const reputation = this.gameState.character.reputation as GameReputation;
+    
+    const recentActions = this.gameState.worldMemory.interactionHistory
+      .slice(-5)
+      .map(h => `${h.intent} on ${h.objectId}`);
+
+    const playerSignal = createPlayerSignalFromStats(
+      intent,
+      {
+        quickness: stats.quickness,
+        endurance: stats.endurance,
+        agility: stats.agility,
+        speed: stats.speed,
+        strength: stats.strength,
+        mathLogic: stats.mathLogic,
+        linguistic: stats.linguistic,
+        presence: stats.presence,
+        fortitude: stats.fortitude,
+        musicCreative: stats.musicCreative,
+        faith: stats.faith,
+        karma: stats.karma,
+        resonance: stats.resonance,
+        luck: stats.luck,
+        chi: stats.chi,
+        nagual: stats.nagual,
+        ashe: stats.ashe
+      },
+      {
+        faculty: reputation.faculty / 100,
+        students: reputation.students / 100,
+        mysterious: reputation.mysterious / 100
+      },
+      recentActions
+    );
+
+    // Add context like faction permissions
+    const context = {
+      ...additionalContext,
+      factionPermission: Math.max(
+        reputation.faculty / 100,
+        reputation.students / 100,
+        reputation.mysterious / 100
+      ),
+      playerReputation: (reputation.faculty + reputation.students + reputation.mysterious) / 300
+    };
+
+    // Resolve the interaction
+    const outcome = resolveInteraction(
+      playerSignal,
+      archetype,
+      this.gameState.worldMemory,
+      context
+    );
+
+    // Update world memory with the outcome
+    this.gameState = {
+      ...this.gameState,
+      worldMemory: updateWorldMemory(
+        this.gameState.worldMemory,
+        outcome,
+        objectArchetypeId,
+        this.gameState.currentLocation.id
+      )
+    };
+
+    this.scheduleSave();
+    return outcome;
+  }
+
+  // Get active mythic flags
+  getActiveMythicFlags(): { id: string; description: string }[] {
+    if (!this.gameState) return [];
+    
+    const activeFlags: { id: string; description: string }[] = [];
+    
+    for (const flag of MYTHIC_FLAGS) {
+      if (this.gameState.worldMemory.activeMythicFlags[flag.id]) {
+        activeFlags.push({
+          id: flag.id,
+          description: flag.description
+        });
+      }
+    }
+    
+    return activeFlags;
+  }
+
+  // Get current corridor state for a location
+  getCorridorState(locationId?: string): { visualShift?: string; audioShift?: string; accessShift?: string } | null {
+    if (!this.gameState) return null;
+    
+    const locId = locationId || this.gameState.currentLocation.id;
+    return this.gameState.worldMemory.corridorState[locId] || null;
+  }
+
+  // Get misread count
+  getMisreadCount(): number {
+    return this.gameState?.worldMemory.misreads || 0;
+  }
+
+  // Get faction tensions
+  getFactionTensions(): Record<string, number> {
+    return this.gameState?.worldMemory.factionTension || {};
+  }
+
+  // Check if a specific mythic flag is active
+  isMythicFlagActive(flagId: string): boolean {
+    return this.gameState?.worldMemory.activeMythicFlags[flagId] || false;
+  }
+
+  // Get corridor mutation description for current location
+  getCorridorDescription(): string[] {
+    if (!this.gameState) return [];
+    
+    const corridorState = this.getCorridorState();
+    if (!corridorState) return [];
+    
+    const descriptions: string[] = [];
+    
+    if (corridorState.visualShift) {
+      const visualDescriptions: Record<string, string> = {
+        'lights_dim': 'The lights flicker and dim, casting long shadows.',
+        'shadows_lengthen': 'Shadows seem to stretch unnaturally across the walls.',
+        'symbols_glow': 'Strange symbols pulse with a faint, ethereal glow.',
+        'eyes_follow': 'You feel watched. Portraits and windows seem to track your movement.'
+      };
+      descriptions.push(visualDescriptions[corridorState.visualShift] || corridorState.visualShift);
+    }
+    
+    if (corridorState.audioShift) {
+      const audioDescriptions: Record<string, string> = {
+        'silence_deepen': 'An unnatural silence blankets the area. Even your footsteps seem muted.',
+        'whispers_echo': 'Faint whispers echo through the corridors, just beyond comprehension.',
+        'resonance_hum': 'A low, thrumming resonance vibrates through the air.',
+        'murmurs_surround': 'Hushed conversations fall silent as you approach, only to resume behind you.'
+      };
+      descriptions.push(audioDescriptions[corridorState.audioShift] || corridorState.audioShift);
+    }
+    
+    return descriptions;
+  }
 }
 
 // Global game state manager instance
 export const gameStateManager = new GameStateManager();
+
+// Re-export types from interactionResolver for convenience
+export type { WorldMemory, Outcome, IntentEnum, ObjectArchetype };
