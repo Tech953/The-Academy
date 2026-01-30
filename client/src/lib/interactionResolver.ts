@@ -775,79 +775,79 @@ export const FACTION_AMBIENT_PROFILES: FactionAmbientProfile[] = [
   {
     factionId: 'censorium',
     positiveSignals: [
-      { type: 'visual', description: 'Wall charts gain new annotations referencing your work', intensity: 0.6 },
-      { type: 'access', description: 'Restricted archives become accessible through side corridors', intensity: 0.8 },
-      { type: 'spatial', description: 'Workspaces brighten when you enter', intensity: 0.5 }
+      { type: 'spatial', description: 'Workspaces brighten when you enter', intensity: 0.1 },
+      { type: 'visual', description: 'Wall charts gain new annotations referencing your work', intensity: 0.3 },
+      { type: 'access', description: 'Restricted archives become accessible through side corridors', intensity: 0.5 }
     ],
     negativeSignals: [
-      { type: 'visual', description: 'Your prior contributions are reattributed to "system variance"', intensity: 0.7 },
-      { type: 'audio', description: 'Conversations stop mid-sentence, then resume with different terminology', intensity: 0.6 },
-      { type: 'spatial', description: 'Workspaces become colder when you enter', intensity: 0.5 }
+      { type: 'spatial', description: 'Workspaces become colder when you enter', intensity: 0.1 },
+      { type: 'audio', description: 'Conversations stop mid-sentence, then resume with different terminology', intensity: 0.3 },
+      { type: 'visual', description: 'Your prior contributions are reattributed to "system variance"', intensity: 0.5 }
     ]
   },
   {
     factionId: 'convocation_of_seals',
     positiveSignals: [
-      { type: 'visual', description: 'Posters and banners update with symbolic references to you', intensity: 0.7 },
-      { type: 'spatial', description: 'NPCs reposition themselves when you enter formal halls', intensity: 0.6 },
-      { type: 'access', description: 'Doors open without verbal challenge', intensity: 0.8 }
+      { type: 'spatial', description: 'NPCs reposition themselves when you enter formal halls', intensity: 0.1 },
+      { type: 'visual', description: 'Posters and banners update with symbolic references to you', intensity: 0.3 },
+      { type: 'access', description: 'Doors open without verbal challenge', intensity: 0.5 }
     ],
     negativeSignals: [
-      { type: 'visual', description: 'Your name is omitted during public recitations of events', intensity: 0.8 },
-      { type: 'audio', description: 'Footsteps echo longer; ceremonial chimes delay', intensity: 0.5 },
-      { type: 'access', description: 'You are excluded from processions you helped enable', intensity: 0.7 }
+      { type: 'audio', description: 'Footsteps echo longer; ceremonial chimes delay', intensity: 0.1 },
+      { type: 'access', description: 'You are excluded from processions you helped enable', intensity: 0.3 },
+      { type: 'visual', description: 'Your name is omitted during public recitations of events', intensity: 0.5 }
     ]
   },
   {
     factionId: 'resonant_choir',
     positiveSignals: [
-      { type: 'audio', description: 'Background chants harmonize when you approach', intensity: 0.8 },
-      { type: 'visual', description: 'Murals seem to shift expression warmly', intensity: 0.6 },
-      { type: 'spatial', description: 'Incense scents intensify pleasantly', intensity: 0.5 }
+      { type: 'spatial', description: 'Incense scents intensify pleasantly', intensity: 0.1 },
+      { type: 'visual', description: 'Murals seem to shift expression warmly', intensity: 0.3 },
+      { type: 'audio', description: 'Background chants harmonize when you approach', intensity: 0.5 }
     ],
     negativeSignals: [
-      { type: 'audio', description: 'Background chants subtly change key when you approach', intensity: 0.7 },
-      { type: 'visual', description: 'Murals crack along symbolic lines you questioned', intensity: 0.8 },
-      { type: 'spatial', description: 'Rites stall or loop in your presence', intensity: 0.6 }
+      { type: 'spatial', description: 'Rites stall or loop in your presence', intensity: 0.1 },
+      { type: 'audio', description: 'Background chants subtly change key when you approach', intensity: 0.3 },
+      { type: 'visual', description: 'Murals crack along symbolic lines you questioned', intensity: 0.5 }
     ]
   },
   {
     factionId: 'iron_faculty',
     positiveSignals: [
-      { type: 'visual', description: 'Training equipment calibrates to reasonable difficulty', intensity: 0.6 },
-      { type: 'access', description: 'Unspoken latitude to refuse certain trials', intensity: 0.8 },
-      { type: 'spatial', description: 'Physical damage is quietly repaired', intensity: 0.5 }
+      { type: 'spatial', description: 'Physical damage is quietly repaired', intensity: 0.1 },
+      { type: 'visual', description: 'Training equipment calibrates to reasonable difficulty', intensity: 0.3 },
+      { type: 'access', description: 'Unspoken latitude to refuse certain trials', intensity: 0.5 }
     ],
     negativeSignals: [
-      { type: 'visual', description: 'Your victories are no longer commemorated on damage boards', intensity: 0.7 },
-      { type: 'audio', description: 'The clang of tools dulls when you enter', intensity: 0.5 },
-      { type: 'access', description: 'More "tests" are assigned without explanation', intensity: 0.6 }
+      { type: 'audio', description: 'The clang of tools dulls when you enter', intensity: 0.1 },
+      { type: 'access', description: 'More "tests" are assigned without explanation', intensity: 0.3 },
+      { type: 'visual', description: 'Your victories are no longer commemorated on damage boards', intensity: 0.5 }
     ]
   },
   {
     factionId: 'luminous_compact',
     positiveSignals: [
-      { type: 'visual', description: 'Scripture marginal notes appear, questioning absolutes', intensity: 0.7 },
-      { type: 'spatial', description: 'Sacred spaces brighten in your presence', intensity: 0.6 },
-      { type: 'access', description: 'Invited to outcomes, not just sermons', intensity: 0.8 }
+      { type: 'spatial', description: 'Sacred spaces brighten in your presence', intensity: 0.1 },
+      { type: 'visual', description: 'Scripture marginal notes appear, questioning absolutes', intensity: 0.3 },
+      { type: 'access', description: 'Invited to outcomes, not just sermons', intensity: 0.5 }
     ],
     negativeSignals: [
-      { type: 'visual', description: 'Your name becomes synonymous with "delay" in whispered doctrine', intensity: 0.8 },
-      { type: 'spatial', description: 'Sacred spaces dim unpredictably in your presence', intensity: 0.6 },
-      { type: 'access', description: 'Excluded from declarations of prophecy', intensity: 0.7 }
+      { type: 'spatial', description: 'Sacred spaces dim unpredictably in your presence', intensity: 0.1 },
+      { type: 'access', description: 'Excluded from declarations of prophecy', intensity: 0.3 },
+      { type: 'visual', description: 'Your name becomes synonymous with "delay" in whispered doctrine', intensity: 0.5 }
     ]
   },
   {
     factionId: 'peripheral_office',
     positiveSignals: [
-      { type: 'visual', description: 'Forms appear pre-filled with your known preferences', intensity: 0.6 },
-      { type: 'spatial', description: 'Temporary signs reroute traffic around you', intensity: 0.5 },
-      { type: 'access', description: 'Locked doors are unlocked before you arrive', intensity: 0.8 }
+      { type: 'spatial', description: 'Temporary signs reroute traffic around you', intensity: 0.1 },
+      { type: 'visual', description: 'Forms appear pre-filled with your known preferences', intensity: 0.3 },
+      { type: 'access', description: 'Locked doors are unlocked before you arrive', intensity: 0.5 }
     ],
     negativeSignals: [
-      { type: 'visual', description: 'Your file gains a redacted header: "Visibility Risk"', intensity: 0.7 },
-      { type: 'audio', description: 'Administrative whispers increase when you pass', intensity: 0.5 },
-      { type: 'access', description: 'Surveillance blind spots narrow', intensity: 0.6 }
+      { type: 'audio', description: 'Administrative whispers increase when you pass', intensity: 0.1 },
+      { type: 'access', description: 'Surveillance blind spots narrow', intensity: 0.3 },
+      { type: 'visual', description: 'Your file gains a redacted header: "Visibility Risk"', intensity: 0.5 }
     ]
   }
 ];

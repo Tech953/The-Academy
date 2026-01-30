@@ -97,6 +97,31 @@ Preferred communication style: Simple, everyday language.
   - **Terminal Commands**: NOTES, NOTE, NOTEBOOK, STUDY, PROGRESS for in-game access
   - **Priority Ranking**: Smart recommendations ranking unread items first, then tag matches, then recency
   - Core files: `client/src/lib/researchNotebook.ts`, `shared/schema.ts` (ResearchNote, ResearchNotebook types)
+- **Dialogue Modulation System**: Stat-driven NPC reaction system where NPCs respond differently based on player build:
+  - **6 Dialogue Axes**: Cognition (Logic+Linguistic), Presence, Resonance, Fortitude, Expression (Music-Creative), Faith - each mapped from 17-stat system
+  - **Stat Conflict Detection**: 9 conflict patterns triggered when high stat (>=70) paired with low stat (<30), e.g., "Brilliant but Insignificant" (high Cognition + low Presence)
+  - **6 Academy Factions**: Censorium (empiricist), Convocation of Seals (hierarchical), Resonant Choir (mystical), Iron Faculty (survivalist), Luminous Compact (prophetic), Peripheral Office (procedural)
+  - **Faction Bias Profiles**: Each faction systematically misreads certain player builds with 40+ faction-specific NPC dialogue variants
+  - **Misread Mechanics**: NPCs don't admit errors until forced by consequences, creating delayed respect/reversal arcs
+  - **Tone Profiles**: Automatic tone adjustment (formal/informal, aggressive/gentle, mystical/practical) based on dominant axes
+  - Core file: `client/src/lib/dialogueModulator.ts`
+- **Ambient World Change System**: Environmental signals that manifest reputation shifts:
+  - **Signal Types**: Visual (wall annotations), Audio (conversation changes), Access (door/corridor access), Spatial (temperature/lighting shifts)
+  - **Faction Ambient Profiles**: Each faction has positive and negative ambient signals based on reputation (0-1 scale)
+  - **Intensity Thresholds**: Signals activate at different reputation levels (e.g., 0.5-0.8 for mild effects, 0.8+ for strong effects)
+  - **Location Enhancement**: Base location descriptions augmented with ambient signals from dominant faction relationships
+  - Core file: `client/src/lib/interactionResolver.ts` (FACTION_AMBIENT_PROFILES, getAmbientSignals)
+- **Confluence Hall System**: Shared corridor where faction ambiences clash and stat conflicts create interference patterns:
+  - **Interference Patterns**: Stat conflicts trigger visual/audio effects (e.g., "Equations briefly align into symbols on the walls")
+  - **Faction Corridor Layers**: Each faction contributes environmental elements that coexist and overlap
+  - **NPC Behavioral Shifts**: NPCs in the Confluence Hall modify behavior based on accumulated interference
+  - **Dynamic Description**: Location description generated from stat conflicts, faction layers, and NPC reactions
+  - Core file: `client/src/lib/interactionResolver.ts` (generateConfluenceHallState, CONFLUENCE_INTERFERENCE_PATTERNS)
+- **GED Culmination System**: Graduation triggers based on build coherence rather than stat maximization:
+  - **5 Departure Vectors**: The Analyst, The Witness, The Anchor, The Catalyst, The Shadow - each with unique exit conditions
+  - **Resolution Requirements**: 2+ faction misreads collapsed + contradictions embraced (not just high stats)
+  - **Exit Descriptions**: Unique environmental/NPC confirmations for each departure vector
+  - Core file: `client/src/lib/interactionResolver.ts` (determineGedCulmination, DEPARTURE_VECTORS)
 
 # External Dependencies
 
