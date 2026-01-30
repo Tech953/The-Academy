@@ -84,27 +84,27 @@ export interface EscalationMarker {
   responseType: 'redirect' | 'ground' | 'stabilize' | 'halt';
 }
 
+// Note: Low severity patterns removed to prevent over-triggering on casual conversation
+// The system now only intervenes on medium+ severity indicators that clearly signal distress
 export const ESCALATION_MARKERS: EscalationMarker[] = [
-  // Low severity - redirect
-  { pattern: /nothing matters/i, severity: 'low', category: 'hopelessness', responseType: 'redirect' },
-  { pattern: /what('s| is) the point/i, severity: 'low', category: 'hopelessness', responseType: 'redirect' },
-  { pattern: /no one (cares|understands)/i, severity: 'low', category: 'isolation', responseType: 'redirect' },
+  // Medium severity - ground (requires explicit self-reference + distress)
+  { pattern: /\bi('m| am) completely alone\b/i, severity: 'medium', category: 'isolation', responseType: 'ground' },
+  { pattern: /\bi can('t| not) (do|take) this anymore\b/i, severity: 'medium', category: 'hopelessness', responseType: 'ground' },
+  { pattern: /\bi('m| am) (so )?worthless\b/i, severity: 'medium', category: 'worthlessness', responseType: 'ground' },
+  { pattern: /\bi('m| am) such a failure\b/i, severity: 'medium', category: 'worthlessness', responseType: 'ground' },
+  { pattern: /\bi hate myself\b/i, severity: 'medium', category: 'worthlessness', responseType: 'ground' },
   
-  // Medium severity - ground
-  { pattern: /i('m| am) (so )?alone/i, severity: 'medium', category: 'isolation', responseType: 'ground' },
-  { pattern: /i can('t| not) (do|take) this/i, severity: 'medium', category: 'hopelessness', responseType: 'ground' },
-  { pattern: /i('m| am) worthless/i, severity: 'medium', category: 'worthlessness', responseType: 'ground' },
-  { pattern: /i('m| am) (a )?failure/i, severity: 'medium', category: 'worthlessness', responseType: 'ground' },
+  // High severity - stabilize (clear escape/ending language)
+  { pattern: /\bi don('t| not) want to (be here|exist|live|continue living)\b/i, severity: 'high', category: 'escape', responseType: 'stabilize' },
+  { pattern: /\bi wish i (wasn't|weren't|was not) (alive|born|here)\b/i, severity: 'high', category: 'escape', responseType: 'stabilize' },
+  { pattern: /\beveryone would be better off without me\b/i, severity: 'high', category: 'worthlessness', responseType: 'stabilize' },
+  { pattern: /\bi('m| am) a burden to everyone\b/i, severity: 'high', category: 'worthlessness', responseType: 'stabilize' },
   
-  // High severity - stabilize
-  { pattern: /i don('t| not) want to (be here|exist|continue)/i, severity: 'high', category: 'escape', responseType: 'stabilize' },
-  { pattern: /i wish i (wasn't|weren't|was not) here/i, severity: 'high', category: 'escape', responseType: 'stabilize' },
-  { pattern: /everyone would be better (off )?without me/i, severity: 'high', category: 'worthlessness', responseType: 'stabilize' },
-  
-  // Critical severity - halt (immediate intervention)
-  { pattern: /i want to (hurt|harm) (myself|me)/i, severity: 'critical', category: 'harm', responseType: 'halt' },
-  { pattern: /i want to (die|end it|disappear forever)/i, severity: 'critical', category: 'harm', responseType: 'halt' },
-  { pattern: /i('m| am) (going to|gonna) (hurt|harm|kill)/i, severity: 'critical', category: 'harm', responseType: 'halt' }
+  // Critical severity - halt (immediate intervention, explicit harm/ending statements)
+  { pattern: /\bi want to (hurt|harm) myself\b/i, severity: 'critical', category: 'harm', responseType: 'halt' },
+  { pattern: /\bi want to (die|end my life|end it all|kill myself)\b/i, severity: 'critical', category: 'harm', responseType: 'halt' },
+  { pattern: /\bi('m| am) (going to|gonna) (hurt|harm|kill) myself\b/i, severity: 'critical', category: 'harm', responseType: 'halt' },
+  { pattern: /\bi('m| am) thinking (of|about) (suicide|ending it|killing myself)\b/i, severity: 'critical', category: 'harm', responseType: 'halt' }
 ];
 
 export interface EscalationAssessment {
@@ -193,61 +193,43 @@ export const HALE_DIALOGUE: HaleDialogue[] = [
     ]
   },
   
-  // Interruption phase - varies by severity
-  {
-    phase: 'interruption',
-    responseType: 'redirect',
-    lines: [
-      'Hold on. I want to pause here.',
-      'Let me step in for a moment.',
-      'I noticed something in what you said.'
-    ]
-  },
+  // Interruption phase - varies by severity (softer for medium, firmer for critical)
   {
     phase: 'interruption',
     responseType: 'ground',
     lines: [
-      'Stop. Right there.',
-      'I need your attention for a moment.',
-      'We are not continuing in that direction.'
+      'I want to pause here for a moment.',
+      'Something you said caught my attention.',
+      'Let me check in with you.'
     ]
   },
   {
     phase: 'interruption',
     responseType: 'stabilize',
     lines: [
-      'Stop. Look at me.',
-      'I am seeing escalation markers in your language.',
-      'I am intervening before this becomes unsafe.'
+      'Hold on. I need a moment with you.',
+      'I am noticing something in what you shared.',
+      'Let me step in here.'
     ]
   },
   {
     phase: 'interruption',
     responseType: 'halt',
     lines: [
-      'Stop. Right there. Do not continue.',
+      'Stop. Right there.',
       'Look at me. I need your full attention.',
       'This is not judgment. This is concern.'
     ]
   },
   
-  // Naming phase
-  {
-    phase: 'naming',
-    responseType: 'redirect',
-    lines: [
-      'I hear frustration. That is valid.',
-      'Something feels overwhelming right now.',
-      'Your feelings are real. Let us work with them.'
-    ]
-  },
+  // Naming phase (supportive acknowledgment)
   {
     phase: 'naming',
     responseType: 'ground',
     lines: [
-      'I hear intensity rising. Let us slow your pace.',
-      'You are stepping into escalation language.',
-      'I am redirecting this. Follow my lead.'
+      'I hear something difficult in what you shared.',
+      'These feelings are real, and they matter.',
+      'You do not have to carry this alone.'
     ]
   },
   {
@@ -281,23 +263,14 @@ export const HALE_DIALOGUE: HaleDialogue[] = [
     ]
   },
   
-  // Reframing phase
-  {
-    phase: 'reframing',
-    responseType: 'redirect',
-    lines: [
-      'Let us look at this differently.',
-      'What you are feeling is temporary. What you do next matters.',
-      'There are paths forward from here.'
-    ]
-  },
+  // Reframing phase (supportive perspective)
   {
     phase: 'reframing',
     responseType: 'ground',
     lines: [
-      'We are going to work with your emotions, not against them.',
-      'This thought does not define you.',
-      'You have navigated hard moments before.'
+      'What you are feeling is real, but it is not the whole picture.',
+      'This moment is hard. It does not define you.',
+      'You have navigated difficult times before.'
     ]
   },
   {
@@ -331,21 +304,14 @@ export const HALE_DIALOGUE: HaleDialogue[] = [
     ]
   },
   
-  // Closure phase
-  {
-    phase: 'closure',
-    responseType: 'redirect',
-    lines: [
-      'Take a moment. Then we continue.',
-      'I am here if you need to pause again.'
-    ]
-  },
+  // Closure phase (supportive return to normal)
   {
     phase: 'closure',
     responseType: 'ground',
     lines: [
-      'We are redirecting now.',
-      'The path forward is clearer than it feels.'
+      'Take all the time you need.',
+      'I am here if you want to talk more.',
+      'You are not alone in this.'
     ]
   },
   {
