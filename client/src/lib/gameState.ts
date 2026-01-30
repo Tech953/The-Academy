@@ -10,8 +10,29 @@ import {
   IntentEnum,
   Outcome,
   MYTHIC_FLAGS,
-  CORRIDOR_MUTATION_RULES
+  CORRIDOR_MUTATION_RULES,
+  getAmbientSignals,
+  generateConfluenceHallState,
+  determineGedCulmination,
+  AmbientSignal,
+  ConfluenceHallState,
+  DepartureVector,
+  FACTION_AMBIENT_PROFILES
 } from "./interactionResolver";
+import {
+  calculateDialogueAxes,
+  calculateToneProfile,
+  detectStatConflicts,
+  detectFactionMisread,
+  calculateFactionAffinity,
+  modulateDialogue,
+  generateConflictAmbience,
+  DialogueAxes,
+  ToneProfile,
+  StatConflict,
+  ModulatedDialogue,
+  ACADEMY_FACTIONS
+} from "./dialogueModulator";
 import {
   createInitialNotebook,
   ensureNotebookComplete,
@@ -690,10 +711,218 @@ export class GameStateManager {
     }
     return calculateStudentProgress(this.gameState.researchNotebook, [], [], []);
   }
+
+  // -----------------------------
+  // Dialogue Modulation System
+  // -----------------------------
+
+  // Get dialogue axes based on current character stats
+  getDialogueAxes(): DialogueAxes | null {
+    if (!this.gameState) return null;
+    const stats = this.gameState.character.stats as GameStats;
+    return calculateDialogueAxes(stats);
+  }
+
+  // Get current tone profile for NPC interactions
+  getToneProfile(): ToneProfile | null {
+    const axes = this.getDialogueAxes();
+    if (!axes) return null;
+    return calculateToneProfile(axes);
+  }
+
+  // Detect active stat conflicts that will cause NPC misreads
+  getActiveStatConflicts(): StatConflict[] {
+    const axes = this.getDialogueAxes();
+    if (!axes) return [];
+    return detectStatConflicts(axes);
+  }
+
+  // Get faction-specific misread for an NPC
+  getFactionMisread(factionId: string): string | null {
+    const axes = this.getDialogueAxes();
+    if (!axes) return null;
+    return detectFactionMisread(axes, factionId);
+  }
+
+  // Calculate affinity with all Academy factions
+  getFactionAffinities(): Record<string, number> {
+    const axes = this.getDialogueAxes();
+    if (!axes) return {};
+    return calculateFactionAffinity(axes);
+  }
+
+  // Modulate a dialogue line based on current build
+  modulateNpcDialogue(baseLine: string, npcFactionId?: string): ModulatedDialogue {
+    const axes = this.getDialogueAxes();
+    if (!axes) {
+      return {
+        originalLine: baseLine,
+        modulatedLine: baseLine,
+        toneAdjustments: [],
+        activeMisreads: []
+      };
+    }
+    return modulateDialogue(baseLine, axes, npcFactionId);
+  }
+
+  // Generate ambient descriptions based on stat conflicts
+  getConflictAmbience(): string[] {
+    const conflicts = this.getActiveStatConflicts();
+    return generateConflictAmbience(conflicts);
+  }
+
+  // -----------------------------
+  // Faction Reputation System
+  // -----------------------------
+
+  // Get faction reputation from game flags
+  getFactionReputation(factionId: string): number {
+    if (!this.gameState) return 0.5; // Neutral default
+    return this.getGameFlag(`faction_rep_${factionId}`, 0.5);
+  }
+
+  // Update faction reputation
+  updateFactionReputation(factionId: string, delta: number): void {
+    if (!this.gameState) return;
+    const current = this.getFactionReputation(factionId);
+    const newValue = Math.max(0, Math.min(1, current + delta));
+    this.setGameFlag(`faction_rep_${factionId}`, newValue);
+  }
+
+  // Get all faction reputations
+  getAllFactionReputations(): Record<string, number> {
+    const reputations: Record<string, number> = {};
+    for (const faction of ACADEMY_FACTIONS) {
+      reputations[faction.id] = this.getFactionReputation(faction.id);
+    }
+    return reputations;
+  }
+
+  // Track collapsed misreads
+  getMisreadsCollapsed(): number {
+    return this.getGameFlag('misreads_collapsed', 0);
+  }
+
+  incrementMisreadsCollapsed(): void {
+    const current = this.getMisreadsCollapsed();
+    this.setGameFlag('misreads_collapsed', current + 1);
+  }
+
+  // Track if contradictions have been embraced
+  hasEmbracedContradictions(): boolean {
+    return this.getGameFlag('contradictions_embraced', false);
+  }
+
+  setContradictionsEmbraced(value: boolean): void {
+    this.setGameFlag('contradictions_embraced', value);
+  }
+
+  // -----------------------------
+  // Ambient World & Confluence Hall
+  // -----------------------------
+
+  // Get ambient signals for a specific faction based on reputation
+  getAmbientSignalsForFaction(factionId: string): AmbientSignal[] {
+    const reputation = this.getFactionReputation(factionId);
+    return getAmbientSignals(factionId, reputation);
+  }
+
+  // Generate Confluence Hall state based on current build
+  getConfluenceHallState(): ConfluenceHallState | null {
+    if (!this.gameState) return null;
+    
+    const stats = this.gameState.character.stats as GameStats;
+    const factionReps = this.getAllFactionReputations();
+    
+    return generateConfluenceHallState(
+      {
+        mathLogic: stats.mathLogic,
+        linguistic: stats.linguistic,
+        presence: stats.presence,
+        fortitude: stats.fortitude,
+        musicCreative: stats.musicCreative,
+        resonance: stats.resonance,
+        faith: stats.faith
+      },
+      factionReps
+    );
+  }
+
+  // Check for GED Culmination (graduation)
+  checkGedCulmination(): DepartureVector | null {
+    if (!this.gameState) return null;
+    
+    const stats = this.gameState.character.stats as GameStats;
+    const misreadsCollapsed = this.getMisreadsCollapsed();
+    const contradictionsEmbraced = this.hasEmbracedContradictions();
+    
+    return determineGedCulmination(
+      {
+        mathLogic: stats.mathLogic,
+        linguistic: stats.linguistic,
+        presence: stats.presence,
+        fortitude: stats.fortitude,
+        musicCreative: stats.musicCreative,
+        resonance: stats.resonance,
+        faith: stats.faith
+      },
+      misreadsCollapsed,
+      contradictionsEmbraced
+    );
+  }
+
+  // Generate location description with faction ambient signals
+  generateAmbientLocationDescription(baseDescription: string): string {
+    if (!this.gameState) return baseDescription;
+    
+    // Check if in Confluence Hall
+    const currentLocation = this.gameState.currentLocation?.id;
+    if (currentLocation === 'confluence_hall' || currentLocation === 'shared_corridor') {
+      const hallState = this.getConfluenceHallState();
+      if (hallState) {
+        let description = hallState.ambientDescription;
+        if (hallState.interferencePatterns.length > 0) {
+          description += '\n\n' + hallState.interferencePatterns.join('\n');
+        }
+        description += '\n\n' + hallState.npcBehavior;
+        return description;
+      }
+    }
+    
+    // Add ambient signals from dominant factions
+    const factionReps = this.getAllFactionReputations();
+    const dominantFactions = Object.entries(factionReps)
+      .filter(([, rep]) => Math.abs(rep - 0.5) > 0.2)
+      .sort(([, a], [, b]) => Math.abs(b - 0.5) - Math.abs(a - 0.5))
+      .slice(0, 2);
+    
+    let ambientDescription = baseDescription;
+    
+    for (const [factionId] of dominantFactions) {
+      const signals = this.getAmbientSignalsForFaction(factionId);
+      if (signals.length > 0) {
+        ambientDescription += '\n\n' + signals[0].description;
+      }
+    }
+    
+    // Add stat conflict ambience
+    const conflictAmbience = this.getConflictAmbience();
+    if (conflictAmbience.length > 0) {
+      ambientDescription += '\n\n' + conflictAmbience[0];
+    }
+    
+    return ambientDescription;
+  }
 }
 
 // Global game state manager instance
 export const gameStateManager = new GameStateManager();
 
 // Re-export types from interactionResolver for convenience
-export type { WorldMemory, Outcome, IntentEnum, ObjectArchetype };
+export type { WorldMemory, Outcome, IntentEnum, ObjectArchetype, AmbientSignal, ConfluenceHallState, DepartureVector };
+
+// Re-export types from dialogueModulator for convenience
+export type { DialogueAxes, ToneProfile, StatConflict, ModulatedDialogue };
+
+// Re-export faction data for external use
+export { ACADEMY_FACTIONS };
