@@ -3,6 +3,11 @@ import { Minus, Square, X, Maximize2, Expand } from 'lucide-react';
 import { getNeoCrtIcon, IconType } from './NeoCrtDesktopShell';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 
+interface WindowAnimationState {
+  isOpening: boolean;
+  isClosing: boolean;
+}
+
 export interface NeoCrtWindowProps {
   id: string;
   title: string;
@@ -63,6 +68,14 @@ export default function NeoCrtWindow({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
   const windowRef = useRef<HTMLDivElement>(null);
+  const [animState, setAnimState] = useState<WindowAnimationState>({ isOpening: true, isClosing: false });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimState(prev => ({ ...prev, isOpening: false }));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (onFocus) onFocus();
@@ -145,6 +158,7 @@ export default function NeoCrtWindow({
       ref={windowRef}
       data-window-id={id}
       onMouseDown={handleMouseDown}
+      className={animState.isOpening ? 'screen-bloom' : ''}
       style={{
         ...windowStyle,
         display: 'flex',

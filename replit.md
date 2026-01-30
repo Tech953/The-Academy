@@ -31,6 +31,32 @@ The frontend is a React with TypeScript single-page application, encapsulated wi
 
 The game itself runs in a resizable window with an optional fullscreen mode, offering a terminal-first design with a black background and green monospace text, a header bar, a stats sidebar (displaying 17 stats), and adjustable text size. Styling is handled with Tailwind CSS, adapted shadcn/ui components, and Lucide React for icons. React Query manages server state.
 
+### Neo-CRT Enhanced Features
+The desktop implements a comprehensive Neo-CRT aesthetic system:
+
+**Visual Effects** (`client/src/index.css`):
+- Screen bloom animation when windows open
+- Cursor pulse animation for terminal interaction
+- Resonance distortion effects (unstable/critical states)
+- Scanline drift and ambient glow effects
+- Fuzzy bubble notification styling with neon glow
+- Paper terminal aesthetic for assignment files
+
+**Dual-Mode UI System**:
+- Legacy Mode: Terminal-first, command-driven interface
+- Student Mode: Clickable windows with modern navigation
+- Toggle available in taskbar and Settings app
+- Persisted via localStorage (`academy-ui-mode`)
+
+**Interactive Features**:
+- Command autocomplete system (`client/src/components/desktop/CommandAutocomplete.tsx`)
+- Window snap zones for left/right/full organization (`client/src/components/desktop/WindowSnapZones.tsx`)
+- Fuzzy bubble notifications (`client/src/components/desktop/FuzzyBubbleNotification.tsx`)
+- Ambient desktop objects that change with character progress (`client/src/components/desktop/AmbientObjects.tsx`)
+
+**Neon Color Palette**:
+- Green (primary), Cyan (messages), Amber (assignments), Purple (perks/resonance), Pink (personal), Red (warnings/alerts), Gold (achievements)
+
 ## Backend Architecture
 The backend uses Express.js with TypeScript to provide a RESTful API for character management, game state, and data persistence. It employs a session-based architecture and utilizes in-memory storage with PostgreSQL as a fallback for persistence.
 

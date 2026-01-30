@@ -11,10 +11,14 @@ import CubCompanion from './apps/CubCompanion';
 import SettingsApp from './apps/SettingsApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
+import { AmbientObjects } from './AmbientObjects';
+import { WindowSnapZones, useWindowSnap, getSnapDimensions } from './WindowSnapZones';
+import { NotificationContainer, useNotifications } from './FuzzyBubbleNotification';
 import { 
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
-  BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart
+  BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
+  Monitor, Terminal
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
@@ -525,6 +529,8 @@ function CubMascot({ mood = 'thinking', primaryColor }: { mood?: 'idle' | 'think
   );
 }
 
+export type UiMode = 'legacy' | 'student';
+
 export default function NeoCrtDesktopShell() {
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
@@ -535,6 +541,49 @@ export default function NeoCrtDesktopShell() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationCount] = useState(3);
   const { colors, accentColors, modeLabel } = useCrtTheme();
+  
+  const [uiMode, setUiMode] = useState<UiMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('academy-ui-mode');
+      if (saved === 'legacy' || saved === 'student') {
+        return saved as UiMode;
+      }
+    }
+    return 'student';
+  });
+  
+  const { notifications, addNotification, dismissNotification } = useNotifications();
+  const windowSnap = useWindowSnap();
+  const [characterLevel] = useState(3);
+  const [resonanceState, setResonanceState] = useState<'stable' | 'unstable' | 'critical'>('stable');
+  
+  const toggleUiMode = useCallback(() => {
+    const newMode = uiMode === 'legacy' ? 'student' : 'legacy';
+    setUiMode(newMode);
+    localStorage.setItem('academy-ui-mode', newMode);
+    addNotification({
+      type: 'info',
+      title: 'UI Mode Changed',
+      message: `Switched to ${newMode === 'legacy' ? 'Legacy Terminal' : 'Student Desktop'} mode.`,
+    });
+  }, [uiMode, addNotification]);
+  
+  useEffect(() => {
+    const handleUiModeChange = (e: CustomEvent) => {
+      const newMode = e.detail as UiMode;
+      setUiMode(newMode);
+    };
+    window.addEventListener('ui-mode-change', handleUiModeChange as EventListener);
+    return () => window.removeEventListener('ui-mode-change', handleUiModeChange as EventListener);
+  }, []);
+  
+  const getResonanceClass = () => {
+    switch (resonanceState) {
+      case 'unstable': return 'resonance-unstable';
+      case 'critical': return 'resonance-critical';
+      default: return '';
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -827,7 +876,7 @@ export default function NeoCrtDesktopShell() {
   return (
     <div
       onClick={handleDesktopClick}
-      className="neo-crt-desktop"
+      className={`neo-crt-desktop ${getResonanceClass()}`}
       style={{
         position: 'fixed',
         top: 0,
@@ -842,7 +891,20 @@ export default function NeoCrtDesktopShell() {
     >
       <div className="crt-scanlines" style={{ opacity: colors.scanlineOpacity }} />
       <div className="crt-vignette" />
+      
+      <AmbientObjects characterLevel={characterLevel} />
+      
+      <WindowSnapZones 
+        activeZone={windowSnap.activeZone} 
+        visible={windowSnap.showZones} 
+      />
+      
+      <NotificationContainer 
+        notifications={notifications} 
+        onDismiss={dismissNotification} 
+      />
 
+      {uiMode === 'student' && (
       <div style={{
         position: 'absolute',
         top: viewport.height < 600 ? '15px' : '30px',
@@ -910,6 +972,7 @@ export default function NeoCrtDesktopShell() {
           </div>
         </div>
       </div>
+      )}
 
       {viewport.width > 900 && viewport.height > 500 && (
         <div style={{
@@ -949,6 +1012,32 @@ export default function NeoCrtDesktopShell() {
             accentColors={accentColors}
           />
         ))}
+        
+        <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 12px' }} />
+        
+        <button
+          onClick={toggleUiMode}
+          title={uiMode === 'legacy' ? 'Switch to Student Mode' : 'Switch to Legacy Mode'}
+          className="mode-toggle-option"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '8px 12px',
+            background: `${colors.primary}15`,
+            border: `1px solid ${colors.primary}40`,
+            borderRadius: '4px',
+            cursor: 'pointer',
+            color: colors.primary,
+            transition: 'all 0.3s ease',
+          }}
+        >
+          {uiMode === 'legacy' ? <Terminal size={14} /> : <Monitor size={14} />}
+          <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {uiMode === 'legacy' ? 'LEGACY' : 'STUDENT'}
+          </span>
+        </button>
         
         <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 12px' }} />
         
