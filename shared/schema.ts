@@ -451,3 +451,145 @@ export interface ResearchNotebook {
     autoLinkNotes: boolean;
   };
 }
+
+// Engagement Tracking System - Academy OS Analytics
+
+export interface EngagementEvent {
+  id: string;
+  type: 'textbook_open' | 'textbook_read' | 'chapter_complete' | 
+        'note_create' | 'note_edit' | 'note_read' |
+        'assignment_start' | 'assignment_submit' | 
+        'exam_start' | 'exam_submit' |
+        'lecture_attend' | 'session_start' | 'session_end';
+  resourceId: string;
+  timestamp: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface TextbookUsage {
+  textbookId: string;
+  accessCount: number;
+  totalReadTime: number; // milliseconds
+  chaptersCompleted: string[];
+  lastAccessed: string | null;
+}
+
+export interface NotesUsage {
+  noteId: string;
+  createdAt: string | null;
+  editCount: number;
+  readCount: number;
+  lastAccessed: string | null;
+}
+
+export interface AssignmentUsage {
+  assignmentId: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  attempts: number;
+  score: number | undefined;
+  scores: number[]; // History of scores
+  graded: boolean;
+  lastAccessed: string | null;
+}
+
+export interface SessionStats {
+  totalSessions: number;
+  totalStudyTime: number; // milliseconds
+  averageSessionLength: number;
+  lastSessionStart: string | null;
+  currentSessionStart: string | null;
+}
+
+export interface DailyStreak {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string | null;
+}
+
+export interface EngagementAnalytics {
+  characterId: string;
+  events: EngagementEvent[];
+  textbookUsage: Record<string, TextbookUsage>;
+  assignmentUsage: Record<string, AssignmentUsage>;
+  notesUsage: Record<string, NotesUsage>;
+  sessionStats: SessionStats;
+  dailyStreak: DailyStreak;
+}
+
+export interface EngagementSummary {
+  engagementLevel: 'low' | 'medium' | 'high' | 'excellent';
+  engagementScore: number;
+  totalTextbooksAccessed: number;
+  totalChaptersCompleted: number;
+  totalReadTime: number;
+  totalAssignmentsCompleted: number;
+  averageScore: number;
+  totalNotes: number;
+  totalNoteEdits: number;
+  studyStreak: number;
+  totalStudyTime: number;
+  lastActive: string | null;
+}
+
+// Adaptive Recommendations System
+
+export interface AdaptiveRecommendation {
+  type: string;
+  title: string;
+  description: string;
+  priority: number;
+  resourceType: 'textbook' | 'chapter' | 'assignment' | 'lecture' | 'note' | 'course' | 'break';
+  resourceId?: string;
+  actionLabel: string;
+  estimatedTime?: number; // minutes
+}
+
+export interface CourseProgress {
+  courseId: string;
+  courseName: string;
+  subject: string;
+  chaptersRead: number;
+  totalChapters: number;
+  assignmentsCompleted: number;
+  totalAssignments: number;
+  lecturesAttended: number;
+  totalLectures: number;
+  averageScore: number;
+  lastAccessed: string | null;
+}
+
+export interface LearningPath {
+  subject: string;
+  currentLevel: number;
+  targetLevel: number;
+  milestones: Array<{
+    level: number;
+    title: string;
+    requirements: string[];
+    completed: boolean;
+  }>;
+  estimatedWeeks: number;
+  startedAt: string;
+  progress: number; // 0-100
+}
+
+// GED Textbook Content Structure
+
+export interface GEDChapter {
+  number: number;
+  title: string;
+  topics: string[];
+  content: string;
+  practiceQuestions?: Array<{
+    question: string;
+    answer: string;
+  }>;
+}
+
+export interface GEDTextbook {
+  id: string;
+  subject: 'Mathematical Reasoning' | 'Language Arts' | 'Science' | 'Social Studies';
+  title: string;
+  chapters: GEDChapter[];
+}
