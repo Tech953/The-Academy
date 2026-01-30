@@ -14,7 +14,7 @@ import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { 
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
-  BookOpen, Star, Activity, Clock, Heart
+  BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
@@ -34,7 +34,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications';
 
 type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
 
@@ -61,12 +61,14 @@ const SIDEBAR_ICONS: DesktopIconConfig[] = [
   { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', colorKey: 'amber' },
   { id: 'perks', iconType: 'perks', label: 'PERKS', colorKey: 'purple' },
   { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', colorKey: 'purple' },
+  { id: 'schoolfiles', iconType: 'schoolfiles', label: 'SCHOOL FILES', colorKey: 'cyan' },
+  { id: 'personalfiles', iconType: 'personalfiles', label: 'PERSONAL FILES', colorKey: 'pink' },
 ];
 
 const TASKBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'files', iconType: 'files', label: 'Files', colorKey: 'cyan' },
   { id: 'schedule', iconType: 'schedule', label: 'Schedule', colorKey: 'amber' },
   { id: 'cub', iconType: 'cub', label: 'Cub', colorKey: 'pink' },
+  { id: 'memories', iconType: 'memories', label: 'Memories', colorKey: 'pink' },
   { id: 'settings', iconType: 'settings', label: 'Settings', colorKey: 'amber' },
 ];
 
@@ -74,6 +76,8 @@ const HIDDEN_APPS: DesktopIconConfig[] = [
   { id: 'academy', iconType: 'academy', label: 'The Academy', colorKey: 'green' },
   { id: 'calculator', iconType: 'calculator', label: 'Calculator', colorKey: 'green' },
   { id: 'notepad', iconType: 'notepad', label: 'Notepad', colorKey: 'green' },
+  { id: 'files', iconType: 'files', label: 'Files', colorKey: 'cyan' },
+  { id: 'notifications', iconType: 'notifications', label: 'Notifications', colorKey: 'amber' },
 ];
 
 type AccentColors = Record<ColorKey, string>;
@@ -87,6 +91,8 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'academy': return <Gamepad2 {...props} />;
     case 'files': 
     case 'folder': return <FolderOpen {...props} />;
+    case 'schoolfiles': return <FolderArchive {...props} />;
+    case 'personalfiles': return <FolderHeart {...props} />;
     case 'notepad':
     case 'file': return <FileText {...props} />;
     case 'calculator': return <CalcIcon {...props} />;
@@ -100,6 +106,8 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'resonance': return <Activity {...props} />;
     case 'schedule': return <Clock {...props} />;
     case 'cub': return <Heart {...props} />;
+    case 'memories': return <Camera {...props} />;
+    case 'notifications': return <Bell {...props} />;
     default: return <FileText {...props} />;
   }
 }
@@ -191,6 +199,280 @@ function TaskbarIcon({
   );
 }
 
+interface Memory {
+  id: string;
+  title: string;
+  description: string;
+  timestamp: Date;
+  type: 'achievement' | 'relationship' | 'discovery' | 'milestone';
+}
+
+function MemoriesApp({ accentColors }: { accentColors: AccentColors }) {
+  const [memories] = useState<Memory[]>([
+    { id: '1', title: 'First Day at The Academy', description: 'Arrived at the gates, unsure what awaited inside...', timestamp: new Date(), type: 'milestone' },
+    { id: '2', title: 'Met Cub', description: 'The little polar bear mascot became your guide.', timestamp: new Date(), type: 'relationship' },
+    { id: '3', title: 'Library Discovery', description: 'Found a hidden section in the archives.', timestamp: new Date(), type: 'discovery' },
+  ]);
+
+  const getTypeColor = (type: Memory['type']) => {
+    switch (type) {
+      case 'achievement': return accentColors.amber;
+      case 'relationship': return accentColors.pink;
+      case 'discovery': return accentColors.cyan;
+      case 'milestone': return accentColors.green;
+      default: return accentColors.green;
+    }
+  };
+
+  return (
+    <div style={{ 
+      padding: '20px', 
+      color: accentColors.pink, 
+      fontFamily: 'monospace', 
+      height: '100%', 
+      overflow: 'auto',
+      background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)'
+    }}>
+      <h2 style={{ 
+        borderBottom: `1px solid ${accentColors.pink}40`, 
+        paddingBottom: '10px', 
+        whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
+      }}>
+        <Camera size={20} />
+        POLAROID MEMORIES
+      </h2>
+      <p style={{ opacity: 0.6, fontSize: '11px', marginTop: '10px' }}>
+        Snapshots of your journey at The Academy
+      </p>
+      
+      <div style={{ 
+        marginTop: '20px', 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+        gap: '15px' 
+      }}>
+        {memories.map((memory) => (
+          <div 
+            key={memory.id}
+            style={{ 
+              background: '#1a1a1a', 
+              border: `2px solid ${getTypeColor(memory.type)}40`,
+              borderRadius: '4px',
+              padding: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: `0 4px 12px ${getTypeColor(memory.type)}20`,
+            }}
+          >
+            <div style={{
+              width: '100%',
+              height: '80px',
+              background: `linear-gradient(135deg, ${getTypeColor(memory.type)}20, transparent)`,
+              borderRadius: '2px',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: `1px solid ${getTypeColor(memory.type)}30`,
+            }}>
+              <Camera size={24} color={getTypeColor(memory.type)} style={{ opacity: 0.5 }} />
+            </div>
+            <div style={{ 
+              fontSize: '10px', 
+              fontWeight: 'bold', 
+              color: getTypeColor(memory.type),
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: '4px'
+            }}>
+              {memory.title}
+            </div>
+            <div style={{ 
+              fontSize: '9px', 
+              color: '#888',
+              lineHeight: '1.3'
+            }}>
+              {memory.description}
+            </div>
+          </div>
+        ))}
+        
+        <div style={{ 
+          border: `2px dashed ${accentColors.pink}30`,
+          borderRadius: '4px',
+          padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '130px',
+          opacity: 0.5,
+          cursor: 'not-allowed'
+        }}>
+          <Camera size={24} color={accentColors.pink} />
+          <span style={{ fontSize: '9px', marginTop: '8px', textAlign: 'center' }}>
+            More memories await...
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotificationBadge({ count, color }: { count: number; color: string }) {
+  if (count === 0) return null;
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '-4px',
+      right: '-4px',
+      minWidth: '16px',
+      height: '16px',
+      background: color,
+      borderRadius: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '9px',
+      fontWeight: 'bold',
+      color: '#000',
+      padding: '0 4px',
+      boxShadow: `0 0 8px ${color}`,
+    }}>
+      {count > 9 ? '9+' : count}
+    </div>
+  );
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'assignment';
+  timestamp: Date;
+  read: boolean;
+}
+
+function NotificationsApp({ accentColors }: { accentColors: AccentColors }) {
+  const [notifications] = useState<Notification[]>([
+    { id: '1', title: 'Welcome to The Academy', message: 'Your journey begins now. Explore the campus and meet your fellow students.', type: 'info', timestamp: new Date(), read: false },
+    { id: '2', title: 'Assignment Due Soon', message: 'Mathematical Reasoning Chapter 1 quiz is due tomorrow.', type: 'assignment', timestamp: new Date(), read: false },
+    { id: '3', title: 'New Message', message: 'You have received a message from the Censorium faction.', type: 'info', timestamp: new Date(), read: false },
+  ]);
+
+  const getTypeColor = (type: Notification['type']) => {
+    switch (type) {
+      case 'info': return accentColors.cyan;
+      case 'warning': return accentColors.amber;
+      case 'success': return accentColors.green;
+      case 'assignment': return accentColors.purple;
+      default: return accentColors.green;
+    }
+  };
+
+  const getTypeIcon = (type: Notification['type']) => {
+    switch (type) {
+      case 'info': return <MessageCircle size={16} />;
+      case 'warning': return <Bell size={16} />;
+      case 'success': return <Star size={16} />;
+      case 'assignment': return <BookOpen size={16} />;
+      default: return <Bell size={16} />;
+    }
+  };
+
+  return (
+    <div style={{ 
+      padding: '20px', 
+      color: accentColors.amber, 
+      fontFamily: 'monospace', 
+      height: '100%', 
+      overflow: 'auto',
+      background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)'
+    }}>
+      <h2 style={{ 
+        borderBottom: `1px solid ${accentColors.amber}40`, 
+        paddingBottom: '10px', 
+        whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
+      }}>
+        <Bell size={20} />
+        NOTIFICATIONS
+        <span style={{ 
+          fontSize: '11px', 
+          background: accentColors.red, 
+          color: '#000',
+          padding: '2px 8px',
+          borderRadius: '10px',
+          marginLeft: 'auto'
+        }}>
+          {notifications.filter(n => !n.read).length} new
+        </span>
+      </h2>
+      
+      <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {notifications.map((notification) => (
+          <div 
+            key={notification.id}
+            style={{ 
+              padding: '12px',
+              border: `1px solid ${getTypeColor(notification.type)}40`,
+              borderLeft: `3px solid ${getTypeColor(notification.type)}`,
+              borderRadius: '4px',
+              background: notification.read ? 'transparent' : `${getTypeColor(notification.type)}10`,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              marginBottom: '6px'
+            }}>
+              <span style={{ color: getTypeColor(notification.type) }}>
+                {getTypeIcon(notification.type)}
+              </span>
+              <span style={{ 
+                fontSize: '11px', 
+                fontWeight: 'bold', 
+                color: getTypeColor(notification.type),
+                flex: 1
+              }}>
+                {notification.title}
+              </span>
+              {!notification.read && (
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  background: accentColors.red,
+                  borderRadius: '50%',
+                  boxShadow: `0 0 6px ${accentColors.red}`,
+                }} />
+              )}
+            </div>
+            <div style={{ 
+              fontSize: '10px', 
+              color: '#888',
+              lineHeight: '1.4'
+            }}>
+              {notification.message}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <p style={{ marginTop: '20px', fontSize: '10px', opacity: 0.5, textAlign: 'center' }}>
+        Click a notification to dismiss
+      </p>
+    </div>
+  );
+}
+
 function CubMascot({ mood = 'thinking', primaryColor }: { mood?: 'idle' | 'thinking' | 'happy' | 'alert'; primaryColor: string }) {
   return (
     <div style={{
@@ -250,7 +532,14 @@ export default function NeoCrtDesktopShell() {
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [academyFullscreen, setAcademyFullscreen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [notificationCount] = useState(3);
   const { colors, accentColors, modeLabel } = useCrtTheme();
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -367,6 +656,82 @@ export default function NeoCrtDesktopShell() {
         return { component: <ClassSchedule />, title: 'Class Schedule', width: 480, height: 450, minWidth: 350, minHeight: 300 };
       case 'cub':
         return { component: <CubCompanion />, title: 'Cub Companion', width: 350, height: 500, minWidth: 280, minHeight: 350 };
+      case 'schoolfiles':
+        return { 
+          component: <div style={{ padding: '20px', color: accentColors.cyan, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.cyan}40`, paddingBottom: '10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FolderArchive size={20} color={accentColors.cyan} />
+              SCHOOL FILES
+            </h2>
+            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={16} color={accentColors.cyan} /> Textbooks
+              </div>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={16} color={accentColors.cyan} /> Lecture Notes
+              </div>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={16} color={accentColors.cyan} /> Research Papers
+              </div>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={16} color={accentColors.cyan} /> Past Assignments
+              </div>
+            </div>
+            <p style={{ marginTop: '20px', fontSize: '11px', opacity: 0.5 }}>Access your academic materials here.</p>
+          </div>, 
+          title: 'School Files', 
+          width: 400, 
+          height: 380,
+          minWidth: 280,
+          minHeight: 250
+        };
+      case 'personalfiles':
+        return { 
+          component: <div style={{ padding: '20px', color: accentColors.pink, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
+            <h2 style={{ borderBottom: `1px solid ${accentColors.pink}40`, paddingBottom: '10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FolderHeart size={20} color={accentColors.pink} />
+              PERSONAL FILES
+            </h2>
+            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={16} color={accentColors.pink} /> Journal Entries
+              </div>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={16} color={accentColors.pink} /> Private Notes
+              </div>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Mail size={16} color={accentColors.pink} /> Saved Letters
+              </div>
+              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Heart size={16} color={accentColors.pink} /> Keepsakes
+              </div>
+            </div>
+            <p style={{ marginTop: '20px', fontSize: '11px', opacity: 0.5 }}>Your personal memories and files.</p>
+          </div>, 
+          title: 'Personal Files', 
+          width: 400, 
+          height: 380,
+          minWidth: 280,
+          minHeight: 250
+        };
+      case 'memories':
+        return { 
+          component: <MemoriesApp accentColors={accentColors} />, 
+          title: 'Polaroid Memories', 
+          width: 480, 
+          height: 450,
+          minWidth: 350,
+          minHeight: 350
+        };
+      case 'notifications':
+        return { 
+          component: <NotificationsApp accentColors={accentColors} />, 
+          title: 'Notifications', 
+          width: 380, 
+          height: 420,
+          minWidth: 300,
+          minHeight: 300
+        };
       default:
         return { component: <div style={{ padding: '20px' }}>Application not found</div>, title: 'Unknown', width: 300, height: 200, minWidth: 200, minHeight: 150 };
     }
@@ -585,7 +950,47 @@ export default function NeoCrtDesktopShell() {
           />
         ))}
         
-        <div style={{ width: '200px', height: '1px' }} />
+        <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 12px' }} />
+        
+        <button
+          onClick={() => openWindow('notifications')}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '10px 14px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+          title="Notifications"
+        >
+          <div style={{ filter: `drop-shadow(0 0 6px ${accentColors.amber})` }}>
+            <Bell size={20} color={accentColors.amber} />
+          </div>
+          <NotificationBadge count={notificationCount} color={accentColors.red} />
+        </button>
+        
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 16px',
+          marginLeft: '8px',
+          borderLeft: `1px solid ${colors.primary}40`,
+        }}>
+          <Clock size={16} color={colors.primary} style={{ opacity: 0.7 }} />
+          <span style={{
+            color: colors.primary,
+            fontFamily: '"Courier New", monospace',
+            fontSize: '12px',
+            letterSpacing: '1px',
+            textShadow: `0 0 8px ${colors.primary}`,
+          }}>
+            {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+          </span>
+        </div>
       </div>
 
       {windows.map((win) => (

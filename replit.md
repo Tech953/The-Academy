@@ -9,7 +9,27 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-The frontend is a React with TypeScript single-page application, encapsulated within a custom "Neo-CRT Academy OS Wrapper". This OS features a retro-modern design inspired by Fallout Pip-Boy and early MacOS, with pure black backgrounds, neon elements, subtle CRT effects (scanlines, vignette), and a day/night shader system with three distinct color palettes (Dawn, School Day, Night Study). The desktop layout is responsive, includes resizable and multi-window management, and uses a multi-color neon palette. Core desktop apps include Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, and a Cub Companion. The game itself runs in a resizable window with an optional fullscreen mode, offering a terminal-first design with a black background and green monospace text, a header bar, a stats sidebar (displaying 17 stats), and adjustable text size. Styling is handled with Tailwind CSS, adapted shadcn/ui components, and Lucide React for icons. React Query manages server state.
+The frontend is a React with TypeScript single-page application, encapsulated within a custom "Neo-CRT Academy OS Wrapper". This OS features a retro-modern design inspired by Fallout Pip-Boy and early MacOS, with pure black backgrounds, neon elements, subtle CRT effects (scanlines, vignette), and a day/night shader system with three distinct color palettes (Dawn, School Day, Night Study). The desktop layout is responsive, includes resizable and multi-window management, and uses a multi-color neon palette.
+
+### Desktop Icons (Sidebar)
+- Personal Profile
+- Academy E-Mail
+- Messages / Chatlink
+- Assignments Portal
+- Perks Viewer
+- Resonance Dashboard
+- School Files (academic materials, textbooks, lecture notes)
+- Personal Files (journal entries, private notes, keepsakes)
+
+### Taskbar Elements
+- Class Schedule (quick access)
+- Cub Companion Link
+- Polaroid Memories (milestone snapshots)
+- Settings / Accessibility
+- Notifications (with badge counter)
+- Clock (real-time display)
+
+The game itself runs in a resizable window with an optional fullscreen mode, offering a terminal-first design with a black background and green monospace text, a header bar, a stats sidebar (displaying 17 stats), and adjustable text size. Styling is handled with Tailwind CSS, adapted shadcn/ui components, and Lucide React for icons. React Query manages server state.
 
 ## Backend Architecture
 The backend uses Express.js with TypeScript to provide a RESTful API for character management, game state, and data persistence. It employs a session-based architecture and utilizes in-memory storage with PostgreSQL as a fallback for persistence.
