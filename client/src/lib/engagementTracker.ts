@@ -90,11 +90,12 @@ function updateTextbookUsage(
   if (event.type === 'textbook_open') {
     updated.accessCount = (existing.accessCount || 0) + 1;
   } else if (event.type === 'textbook_read') {
-    const readTime = (event.metadata.duration as number) || 0;
+    const rawDuration = event.metadata.duration;
+    const readTime = typeof rawDuration === 'number' && !isNaN(rawDuration) ? rawDuration : 0;
     updated.totalReadTime = (existing.totalReadTime || 0) + readTime;
   } else if (event.type === 'chapter_complete') {
-    const chapterId = event.metadata.chapterId as string;
-    if (chapterId && !updated.chaptersCompleted.includes(chapterId)) {
+    const chapterId = event.metadata.chapterId;
+    if (typeof chapterId === 'string' && chapterId && !updated.chaptersCompleted.includes(chapterId)) {
       updated.chaptersCompleted = [...updated.chaptersCompleted, chapterId];
     }
   }
@@ -154,10 +155,12 @@ function updateAssignmentUsage(
     updated.attempts = (existing.attempts || 0) + 1;
   } else if (event.type === 'assignment_submit' || event.type === 'exam_submit') {
     updated.completedAt = event.timestamp;
-    updated.score = event.metadata.score as number;
+    const rawScore = event.metadata.score;
+    const score = typeof rawScore === 'number' && !isNaN(rawScore) ? rawScore : undefined;
+    updated.score = score;
     updated.graded = true;
-    if (updated.score !== undefined) {
-      updated.scores = [...(existing.scores || []), updated.score];
+    if (score !== undefined) {
+      updated.scores = [...(existing.scores || []), score];
     }
   }
 

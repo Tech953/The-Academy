@@ -356,8 +356,13 @@ export class GameStateManager {
   }
 
   // Save game state to server
-  async saveGame(): Promise<boolean> {
+  async saveGame(endCurrentSession: boolean = false): Promise<boolean> {
     if (!this.gameState) return false;
+
+    // End session before final save if requested
+    if (endCurrentSession && this.gameState.engagementAnalytics.sessionStats.currentSessionStart) {
+      this.endSession();
+    }
 
     try {
       const response = await fetch('/api/game/save', {
@@ -1183,10 +1188,26 @@ export class GameStateManager {
       return `Chapter ${chapterNumber} not found for ${normalizedSubject}.`;
     }
 
-    // Log engagement event
-    this.logEngagement('textbook_read', `${normalizedSubject}-ch${chapterNumber}`);
+    const chapterId = `${normalizedSubject}-ch${chapterNumber}`;
+    const textbookId = `ged-${normalizedSubject.toLowerCase().replace(/\s+/g, '-')}`;
+
+    // Log textbook read event
+    this.logEngagement('textbook_read', textbookId, { 
+      chapterId, 
+      chapterNumber,
+      duration: 300000 // Assume 5 minute read time
+    });
+
+    // Log chapter completion
+    this.logEngagement('chapter_complete', textbookId, { chapterId });
 
     return formatChapterForDisplay(chapter);
+  }
+
+  // End current session (call on save/exit)
+  endSession(): void {
+    if (!this.gameState) return;
+    this.logEngagement('session_end', 'session');
   }
 
   // Helper: normalize subject name
