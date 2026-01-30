@@ -463,7 +463,20 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
 
   // Enhanced command parsing with aliases and synonyms
   const parseCommandWithNLP = async (command: string): Promise<{ action: string; target: string; originalAction: string; parts: string[]; nlpUsed?: boolean; confidence?: number; reasoning?: string }> => {
-    // Try NLP processing first for more natural input
+    // Commands that should skip NLP and use traditional parsing directly
+    const skipNlpCommands = [
+      'help', '?', 'look', 'l', 'inventory', 'i', 'inv', 'status', 'st', 'stat', 'stats',
+      'save', 'load', 'time', 'score', 'clear', 'quit', 'exit', 'q', 'tutorial', 'guide',
+      'grades', 'transcript', 'schedule', 'gpa', 'read', 'attend', 'chapter', 'lecture',
+      'note', 'notes', 'notebook', 'study', 'progress'
+    ];
+    
+    const firstWord = command.toLowerCase().trim().split(/\s+/)[0];
+    if (skipNlpCommands.includes(firstWord)) {
+      return parseCommandTraditional(command);
+    }
+    
+    // Try NLP processing for more natural input
     if (gameState) {
       try {
         const npcs = await gameStateManager.getNPCsInCurrentLocation();
@@ -651,6 +664,15 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         addTerminalLine('READ [textbook] - Read a course textbook');
         addTerminalLine('ATTEND [course] - Mark attendance for a class');
         addTerminalLine('');
+        addTerminalLine('== Research Notebook ==');
+        addTerminalLine('NOTES - List all research notes');
+        addTerminalLine('NOTE [#] - View a specific note');
+        addTerminalLine('NOTE NEW [title] - Create a new note');
+        addTerminalLine('NOTE SEARCH [q] - Search your notes');
+        addTerminalLine('NOTEBOOK - View notebook statistics');
+        addTerminalLine('STUDY - Get study recommendations');
+        addTerminalLine('PROGRESS - View academic progress');
+        addTerminalLine('');
         addTerminalLine('== Game ==');
         addTerminalLine('TUTORIAL - Open the detailed game tutorial');
         addTerminalLine('SAVE - Save your progress');
@@ -787,6 +809,14 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       handleTime();
     } else if (action === 'score') {
       handleScore();
+    } else if (action === 'note' || action === 'notes') {
+      handleNotes(target);
+    } else if (action === 'notebook') {
+      handleNotebook();
+    } else if (action === 'study') {
+      handleStudyRecommendations();
+    } else if (action === 'progress') {
+      handleProgress();
     } else if (action === 'quit' || action === 'exit') {
       handleQuit();
     } else if (action === 'clear') {
@@ -1257,6 +1287,264 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine('');
       addTerminalLine('Error fetching GPA. Please try again.', 'error');
     }
+  };
+
+  // Research Notebook Command Handlers
+  const handleNotes = (target: string) => {
+    addTerminalLine('');
+    
+    if (!target) {
+      // List all notes
+      const notes = gameStateManager.getAllNotes();
+      if (notes.length === 0) {
+        addTerminalLine('RESEARCH NOTEBOOK');
+        addTerminalLine('=================');
+        addTerminalLine('');
+        addTerminalLine('Your research notebook is empty.');
+        addTerminalLine('');
+        addTerminalLine('Commands:');
+        addTerminalLine('  NOTE NEW [title] - Create a new note');
+        addTerminalLine('  NOTE [id]        - View a specific note');
+        addTerminalLine('  NOTE SEARCH [query] - Search notes');
+        return;
+      }
+      
+      addTerminalLine('RESEARCH NOTES');
+      addTerminalLine('==============');
+      addTerminalLine('');
+      
+      // Get bookmarks from the notebook
+      const notebook = gameStateManager.getResearchNotebook();
+      const bookmarkedIds = notebook?.bookmarks || [];
+      
+      notes.forEach((note, index) => {
+        const readStatus = note.isRead ? ' ' : '*';
+        const isBookmarked = bookmarkedIds.includes(note.id);
+        const bookmarkStatus = isBookmarked ? '[B]' : '   ';
+        const tags = note.tags.length > 0 ? ` [${note.tags.join(', ')}]` : '';
+        const shortId = note.id.slice(0, 6);
+        addTerminalLine(`${readStatus} ${bookmarkStatus} ${index + 1}. [${shortId}] ${note.title}${tags}`);
+      });
+      
+      addTerminalLine('');
+      addTerminalLine('* = unread, [B] = bookmarked');
+      addTerminalLine('');
+      addTerminalLine('Type NOTE [number or id] to view a note.');
+      return;
+    }
+    
+    // Parse subcommands
+    const parts = target.split(' ');
+    const subCmd = parts[0].toLowerCase();
+    
+    if (subCmd === 'new' || subCmd === 'create') {
+      const title = parts.slice(1).join(' ') || 'Untitled Note';
+      const note = gameStateManager.createResearchNote(
+        title,
+        'Enter your notes here...',
+        [],
+        []
+      );
+      if (note) {
+        addTerminalLine(`Created new note: "${title}"`);
+        addTerminalLine(`Note ID: ${note.id}`);
+        addTerminalLine('');
+        addTerminalLine('Edit your note in the Research Notebook desktop app.');
+      } else {
+        addTerminalLine('Failed to create note.', 'error');
+      }
+      return;
+    }
+    
+    if (subCmd === 'search') {
+      const query = parts.slice(1).join(' ');
+      if (!query) {
+        addTerminalLine('Usage: NOTE SEARCH [query]', 'error');
+        return;
+      }
+      
+      const results = gameStateManager.searchResearchNotes(query);
+      if (results.length === 0) {
+        addTerminalLine(`No notes found matching "${query}".`);
+        return;
+      }
+      
+      addTerminalLine(`SEARCH RESULTS FOR "${query.toUpperCase()}"`);
+      addTerminalLine('='.repeat(25 + query.length));
+      addTerminalLine('');
+      
+      results.forEach((note, index) => {
+        const preview = note.content.substring(0, 60) + (note.content.length > 60 ? '...' : '');
+        addTerminalLine(`${index + 1}. ${note.title}`);
+        addTerminalLine(`   ${preview}`);
+        addTerminalLine('');
+      });
+      return;
+    }
+    
+    if (subCmd === 'tag') {
+      const tag = parts.slice(1).join(' ');
+      if (!tag) {
+        addTerminalLine('Usage: NOTE TAG [tag name]', 'error');
+        return;
+      }
+      
+      const results = gameStateManager.getNotesByTag(tag);
+      if (results.length === 0) {
+        addTerminalLine(`No notes found with tag "${tag}".`);
+        return;
+      }
+      
+      addTerminalLine(`NOTES TAGGED: ${tag.toUpperCase()}`);
+      addTerminalLine('='.repeat(14 + tag.length));
+      addTerminalLine('');
+      
+      results.forEach((note, index) => {
+        addTerminalLine(`${index + 1}. ${note.title}`);
+      });
+      return;
+    }
+    
+    if (subCmd === 'delete') {
+      const noteNum = parseInt(parts[1]) - 1;
+      const notes = gameStateManager.getAllNotes();
+      
+      if (isNaN(noteNum) || noteNum < 0 || noteNum >= notes.length) {
+        addTerminalLine('Invalid note number.', 'error');
+        return;
+      }
+      
+      const note = notes[noteNum];
+      gameStateManager.deleteResearchNote(note.id);
+      addTerminalLine(`Deleted note: "${note.title}"`);
+      return;
+    }
+    
+    if (subCmd === 'bookmark') {
+      const noteNum = parseInt(parts[1]) - 1;
+      const notes = gameStateManager.getAllNotes();
+      
+      if (isNaN(noteNum) || noteNum < 0 || noteNum >= notes.length) {
+        addTerminalLine('Invalid note number.', 'error');
+        return;
+      }
+      
+      const note = notes[noteNum];
+      // Check current bookmark status from notebook.bookmarks
+      const notebook = gameStateManager.getResearchNotebook();
+      const wasBookmarked = notebook?.bookmarks?.includes(note.id) || false;
+      
+      gameStateManager.toggleNoteBookmark(note.id);
+      const newStatus = wasBookmarked ? 'unbookmarked' : 'bookmarked';
+      addTerminalLine(`Note "${note.title}" ${newStatus}.`);
+      return;
+    }
+    
+    // Try to view a specific note by number or ID
+    const noteNum = parseInt(target) - 1;
+    const notes = gameStateManager.getAllNotes();
+    
+    // Try by index first
+    if (!isNaN(noteNum) && noteNum >= 0 && noteNum < notes.length) {
+      const note = notes[noteNum];
+      gameStateManager.markNoteRead(note.id);
+      
+      const display = gameStateManager.formatNote(note.id);
+      display.split('\n').forEach(line => addTerminalLine(line));
+      return;
+    }
+    
+    // Try to find by ID (partial match)
+    const noteById = notes.find(n => n.id.startsWith(target) || n.id === target);
+    if (noteById) {
+      gameStateManager.markNoteRead(noteById.id);
+      
+      const display = gameStateManager.formatNote(noteById.id);
+      display.split('\n').forEach(line => addTerminalLine(line));
+      return;
+    }
+    
+    addTerminalLine(`Unknown note command: ${target}`, 'error');
+    addTerminalLine('');
+    addTerminalLine('Commands:');
+    addTerminalLine('  NOTES            - List all notes');
+    addTerminalLine('  NOTE [number]    - View a note');
+    addTerminalLine('  NOTE NEW [title] - Create a note');
+    addTerminalLine('  NOTE SEARCH [q]  - Search notes');
+    addTerminalLine('  NOTE TAG [tag]   - Filter by tag');
+    addTerminalLine('  NOTE DELETE [n]  - Delete a note');
+    addTerminalLine('  NOTE BOOKMARK [n] - Toggle bookmark');
+  };
+
+  const handleNotebook = () => {
+    addTerminalLine('');
+    const stats = gameStateManager.getNotebookStats();
+    stats.split('\n').forEach(line => addTerminalLine(line));
+    addTerminalLine('');
+    addTerminalLine('Type NOTES to view all notes, or STUDY for recommendations.');
+  };
+
+  const handleStudyRecommendations = () => {
+    addTerminalLine('');
+    addTerminalLine('STUDY RECOMMENDATIONS');
+    addTerminalLine('=====================');
+    addTerminalLine('');
+    
+    const recommendations = gameStateManager.getStudyRecommendations([]);
+    
+    if (recommendations.length === 0) {
+      addTerminalLine('No specific recommendations at this time.');
+      addTerminalLine('');
+      addTerminalLine('Tips:');
+      addTerminalLine('  - Create notes while reading textbooks');
+      addTerminalLine('  - Tag notes by subject for organization');
+      addTerminalLine('  - Review unread notes regularly');
+      return;
+    }
+    
+    recommendations.slice(0, 5).forEach((rec, index) => {
+      addTerminalLine(`${index + 1}. ${rec.resourceName}`);
+      addTerminalLine(`   ${rec.reason}`);
+      if (rec.unreadNotesCount && rec.unreadNotesCount > 0) {
+        addTerminalLine(`   ${rec.unreadNotesCount} unread notes`);
+      }
+      addTerminalLine('');
+    });
+    
+    addTerminalLine('Type PROGRESS to see your overall academic progress.');
+  };
+
+  const handleProgress = () => {
+    addTerminalLine('');
+    addTerminalLine('ACADEMIC PROGRESS');
+    addTerminalLine('=================');
+    addTerminalLine('');
+    
+    const progress = gameStateManager.getStudentProgress();
+    
+    addTerminalLine(`Notes Created: ${progress.totalNotesCreated}`);
+    addTerminalLine(`Notes Reviewed: ${progress.totalNotesRead}`);
+    addTerminalLine(`Chapters Completed: ${progress.chaptersCompleted}`);
+    addTerminalLine(`Assignments Done: ${progress.assignmentsCompleted}`);
+    addTerminalLine(`Lectures Attended: ${progress.lecturesAttended}`);
+    addTerminalLine('');
+    addTerminalLine(`Overall Progress: ${Math.round(progress.overallProgress * 100)}%`);
+    addTerminalLine(`Study Streak: ${progress.studyStreak} days`);
+    
+    const subjects = Object.keys(progress.subjectProgress);
+    if (subjects.length > 0) {
+      addTerminalLine('');
+      addTerminalLine('SUBJECT PROGRESS');
+      addTerminalLine('----------------');
+      subjects.forEach(subject => {
+        const pct = Math.round(progress.subjectProgress[subject] * 100);
+        const bar = '='.repeat(Math.floor(pct / 5)) + ' '.repeat(20 - Math.floor(pct / 5));
+        addTerminalLine(`${subject}: [${bar}] ${pct}%`);
+      });
+    }
+    
+    addTerminalLine('');
+    addTerminalLine('Type STUDY for personalized study recommendations.');
   };
 
   const handleRead = async (target: string) => {

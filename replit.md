@@ -89,6 +89,14 @@ Preferred communication style: Simple, everyday language.
   - **Mythic Flags**: Global effects triggered by accumulated misreads (BlackSeal, WatchersEye, ResonanceBloom, KarmicDebt, NagualAwakening)
   - **World Memory**: Tracks misreads, faction tension, corridor scars, and interaction history
   - Core files: `client/src/lib/interactionResolver.ts`, `client/src/lib/gameState.ts`
+- **Research Notebook System**: In-game note-taking and study guidance system:
+  - **Note Management**: Create, edit, delete, bookmark, and search notes with tags and citations
+  - **Resource Linking**: Notes can link to chapters, assignments, lectures, and other notes
+  - **Study Recommendations**: AI-powered suggestions based on unread notes, course progress, and study patterns
+  - **Progress Tracking**: Monitors notes created/read, chapters completed, assignments done, lectures attended
+  - **Terminal Commands**: NOTES, NOTE, NOTEBOOK, STUDY, PROGRESS for in-game access
+  - **Priority Ranking**: Smart recommendations ranking unread items first, then tag matches, then recency
+  - Core files: `client/src/lib/researchNotebook.ts`, `shared/schema.ts` (ResearchNote, ResearchNotebook types)
 
 # External Dependencies
 

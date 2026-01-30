@@ -534,13 +534,15 @@ export default function NeoCrtDesktopShell() {
           }}>
             START GAME
           </div>
-          <SidebarIcon
-            icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', colorKey: 'green' }}
-            isSelected={selectedIcon === 'academy'}
-            onClick={() => setSelectedIcon('academy')}
-            onDoubleClick={() => openWindow('academy')}
-            accentColors={accentColors}
-          />
+          <div data-testid="academy-game-launcher">
+            <SidebarIcon
+              icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', colorKey: 'green' }}
+              isSelected={selectedIcon === 'academy'}
+              onClick={() => setSelectedIcon('academy')}
+              onDoubleClick={() => openWindow('academy')}
+              accentColors={accentColors}
+            />
+          </div>
         </div>
       </div>
 

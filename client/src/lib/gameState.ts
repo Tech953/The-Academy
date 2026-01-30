@@ -1,4 +1,4 @@
-import { Character, Location, NPC, Item, GameStats, GameReputation, GameInventoryItem, SocialConnection } from "@shared/schema";
+import { Character, Location, NPC, Item, GameStats, GameReputation, GameInventoryItem, SocialConnection, ResearchNotebook, ResearchNote, StudyRecommendation, StudentProgress } from "@shared/schema";
 import { 
   WorldMemory, 
   createInitialWorldMemory, 
@@ -12,6 +12,23 @@ import {
   MYTHIC_FLAGS,
   CORRIDOR_MUTATION_RULES
 } from "./interactionResolver";
+import {
+  createInitialNotebook,
+  ensureNotebookComplete,
+  createNote,
+  addNote,
+  updateNote,
+  deleteNote,
+  markNoteAsRead,
+  searchNotes,
+  getNotesByTag,
+  getRelatedNotes,
+  toggleBookmark,
+  formatNoteForDisplay,
+  formatNotebookStats,
+  generateStudyRecommendations,
+  calculateStudentProgress
+} from "./researchNotebook";
 
 export interface GameState {
   character: Character;
@@ -22,6 +39,7 @@ export interface GameState {
   temporaryEffects: Record<string, { value: any; expires?: Date }>;
   lastSaveTime?: Date;
   worldMemory: WorldMemory;
+  researchNotebook: ResearchNotebook;
 }
 
 export interface TerminalLine {
@@ -47,6 +65,13 @@ export class GameStateManager {
         if (!savedState.worldMemory) {
           savedState.worldMemory = createInitialWorldMemory();
         }
+        // Ensure researchNotebook exists and is complete (migration for older saves)
+        if (!savedState.researchNotebook) {
+          savedState.researchNotebook = createInitialNotebook(character.id);
+        } else {
+          // Defensive migration: ensure all notebook fields exist
+          savedState.researchNotebook = ensureNotebookComplete(savedState.researchNotebook, character.id);
+        }
         this.gameState = savedState;
         return savedState;
       }
@@ -65,7 +90,8 @@ export class GameStateManager {
       gameFlags: {},
       temporaryEffects: {},
       lastSaveTime: new Date(),
-      worldMemory: createInitialWorldMemory()
+      worldMemory: createInitialWorldMemory(),
+      researchNotebook: createInitialNotebook(character.id)
     };
 
     return this.gameState;
@@ -509,6 +535,160 @@ export class GameStateManager {
     }
     
     return descriptions;
+  }
+
+  // =====================
+  // Research Notebook Methods
+  // =====================
+
+  // Get the research notebook
+  getResearchNotebook(): ResearchNotebook | null {
+    return this.gameState?.researchNotebook || null;
+  }
+
+  // Create a new research note
+  createResearchNote(
+    title: string,
+    content: string,
+    tags: string[] = [],
+    citations: string[] = []
+  ): ResearchNote | null {
+    if (!this.gameState) return null;
+    
+    // Ensure notebook exists
+    if (!this.gameState.researchNotebook) {
+      this.gameState.researchNotebook = createInitialNotebook(this.gameState.character.id);
+    }
+
+    const note = createNote(title, content, tags, citations);
+    this.gameState = {
+      ...this.gameState,
+      researchNotebook: addNote(this.gameState.researchNotebook, note)
+    };
+
+    this.scheduleSave();
+    return note;
+  }
+
+  // Update an existing note
+  updateResearchNote(noteId: string, updates: Partial<ResearchNote>): boolean {
+    if (!this.gameState?.researchNotebook) return false;
+
+    this.gameState = {
+      ...this.gameState,
+      researchNotebook: updateNote(this.gameState.researchNotebook, noteId, updates)
+    };
+
+    this.scheduleSave();
+    return true;
+  }
+
+  // Delete a note
+  deleteResearchNote(noteId: string): boolean {
+    if (!this.gameState?.researchNotebook) return false;
+
+    this.gameState = {
+      ...this.gameState,
+      researchNotebook: deleteNote(this.gameState.researchNotebook, noteId)
+    };
+
+    this.scheduleSave();
+    return true;
+  }
+
+  // Mark note as read
+  markNoteRead(noteId: string): boolean {
+    if (!this.gameState?.researchNotebook) return false;
+
+    this.gameState = {
+      ...this.gameState,
+      researchNotebook: markNoteAsRead(this.gameState.researchNotebook, noteId)
+    };
+
+    this.scheduleSave();
+    return true;
+  }
+
+  // Toggle note bookmark
+  toggleNoteBookmark(noteId: string): boolean {
+    if (!this.gameState?.researchNotebook) return false;
+
+    this.gameState = {
+      ...this.gameState,
+      researchNotebook: toggleBookmark(this.gameState.researchNotebook, noteId)
+    };
+
+    this.scheduleSave();
+    return true;
+  }
+
+  // Search notes
+  searchResearchNotes(query: string): ResearchNote[] {
+    if (!this.gameState?.researchNotebook) return [];
+    return searchNotes(this.gameState.researchNotebook, query);
+  }
+
+  // Get notes by tag
+  getNotesByTag(tag: string): ResearchNote[] {
+    if (!this.gameState?.researchNotebook) return [];
+    return getNotesByTag(this.gameState.researchNotebook, tag);
+  }
+
+  // Get related notes for current subject/location
+  getRelatedNotesForContext(tags: string[]): ResearchNote[] {
+    if (!this.gameState?.researchNotebook) return [];
+    return getRelatedNotes(this.gameState.researchNotebook, tags);
+  }
+
+  // Get all notes
+  getAllNotes(): ResearchNote[] {
+    return this.gameState?.researchNotebook?.notes || [];
+  }
+
+  // Get a specific note
+  getNote(noteId: string): ResearchNote | null {
+    return this.gameState?.researchNotebook?.notes.find(n => n.id === noteId) || null;
+  }
+
+  // Get notebook statistics
+  getNotebookStats(): string {
+    if (!this.gameState?.researchNotebook) return 'No research notebook found.';
+    return formatNotebookStats(this.gameState.researchNotebook);
+  }
+
+  // Format a note for display
+  formatNote(noteId: string): string {
+    const note = this.getNote(noteId);
+    if (!note) return 'Note not found.';
+    return formatNoteForDisplay(note);
+  }
+
+  // Get study recommendations
+  getStudyRecommendations(enrolledCourses: Array<{ id: string; name: string; department: string }> = []): StudyRecommendation[] {
+    if (!this.gameState?.researchNotebook) return [];
+    return generateStudyRecommendations(
+      this.gameState.researchNotebook,
+      enrolledCourses,
+      [],
+      []
+    );
+  }
+
+  // Get student progress
+  getStudentProgress(): StudentProgress {
+    if (!this.gameState?.researchNotebook) {
+      return {
+        totalNotesCreated: 0,
+        totalNotesRead: 0,
+        chaptersCompleted: 0,
+        assignmentsCompleted: 0,
+        lecturesAttended: 0,
+        overallProgress: 0,
+        subjectProgress: {},
+        studyStreak: 0
+      };
+    }
+    return calculateStudentProgress(this.gameState.researchNotebook, [], [], []);
   }
 }
 

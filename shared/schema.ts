@@ -388,3 +388,66 @@ export interface ReadingProgress {
   lastRead?: string;
   notes?: string;
 }
+
+// Research Notebook System - Educational Ecosystem
+
+export interface ResearchNote {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  citations: string[];
+  linkedResources: LinkedResource[];
+  createdAt: string;
+  updatedAt: string;
+  isRead: boolean;
+  priority: number; // For sorting/recommendations
+}
+
+export interface LinkedResource {
+  type: 'chapter' | 'assignment' | 'lecture' | 'course' | 'note';
+  resourceId: string;
+  resourceName: string;
+}
+
+export interface NoteUsageTracking {
+  noteId: string;
+  readCount: number;
+  lastRead?: string;
+  markedComplete: boolean;
+}
+
+export interface StudyRecommendation {
+  type: 'chapter' | 'assignment' | 'note' | 'lecture';
+  resourceId: string;
+  resourceName: string;
+  reason: string;
+  priority: number;
+  unreadNotesCount: number;
+  subject?: string;
+}
+
+export interface StudentProgress {
+  totalNotesCreated: number;
+  totalNotesRead: number;
+  chaptersCompleted: number;
+  assignmentsCompleted: number;
+  lecturesAttended: number;
+  overallProgress: number; // 0-100
+  subjectProgress: Record<string, number>; // Per GED subject
+  lastStudySession?: string;
+  studyStreak: number; // Days in a row
+}
+
+export interface ResearchNotebook {
+  characterId: string;
+  notes: ResearchNote[];
+  usageTracking: Record<string, NoteUsageTracking>;
+  recentSearches: string[];
+  bookmarks: string[]; // Note IDs
+  preferences: {
+    sortBy: 'date' | 'priority' | 'alphabetical';
+    showCompleted: boolean;
+    autoLinkNotes: boolean;
+  };
+}
