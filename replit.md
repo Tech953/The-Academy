@@ -38,7 +38,11 @@ Preferred communication style: Simple, everyday language.
     - Content uses scrollbars when needed to prevent text overlap
   - **Multi-Color Neon Palette**: Green (#00ff00), Cyan (#00ffff), Amber (#ffaa00), Purple (#cc66ff), Pink (#ff66aa)
   - Desktop apps: Calculator, Notepad, File Explorer, Personal, E-Mail, Messages, Assignments Portal, Perks Viewer, Resonance Dashboard, Class Schedule, Cub Companion
-  - **The Academy Game**: Runs in dedicated full-screen mode (not as a windowed desktop app):
+  - **The Academy Game**: Opens as a resizable window with optional fullscreen mode:
+    - Window title bar includes an "expand" button to enter fullscreen
+    - In fullscreen mode, a subtle exit button appears in the top-right corner
+    - Fullscreen mode covers the entire viewport for immersive gameplay
+    - Press Escape or click the exit button to return to windowed mode
     - Full-screen layout with header bar and stats sidebar
     - Stats sidebar shows character name, class, faction, energy, reputation, and all 17 stats
     - Header bar with "Desktop" exit button, sidebar toggle, and text size controls

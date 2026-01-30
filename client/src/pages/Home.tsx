@@ -10,9 +10,11 @@ import { mapLegacyStats, FullCharacterStats, DEFAULT_STATS } from '@shared/stats
 
 interface HomeProps {
   onExit?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-export default function Home({ onExit }: HomeProps) {
+export default function Home({ onExit, isFullscreen = false, onToggleFullscreen }: HomeProps) {
   // Boot screen is now handled at App.tsx level
   const [character, setCharacter] = useState<Character | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
@@ -225,39 +227,61 @@ export default function Home({ onExit }: HomeProps) {
   // If character hasn't been created yet, show character creation
   if (!character || !gameStarted) {
     return (
-      <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
-        {onExit && (
-          <button
-            onClick={onExit}
-            data-testid="button-exit-academy"
-            style={{
-              position: 'absolute',
-              top: '10px',
-              left: '10px',
-              zIndex: 100,
-              background: 'transparent',
-              border: '1px solid #00ff0060',
-              color: '#00ff00',
-              padding: '6px 12px',
-              borderRadius: '2px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontFamily: 'monospace'
-            }}
-          >
-            <span style={{ fontSize: '10px' }}>&#8592;</span>
-            <span>Desktop</span>
-          </button>
-        )}
+      <div style={{ 
+        position: isFullscreen ? 'fixed' : 'relative', 
+        width: isFullscreen ? '100vw' : '100%', 
+        height: isFullscreen ? '100vh' : '100%',
+        top: isFullscreen ? 0 : undefined,
+        left: isFullscreen ? 0 : undefined,
+        zIndex: isFullscreen ? 9999 : undefined,
+        background: '#000'
+      }}>
         <TextCharacterCreation 
           onComplete={(newCharacter) => {
             setCharacter(newCharacter);
             setGameStarted(true);
           }}
         />
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            data-testid="button-fullscreen-toggle"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              zIndex: 9999,
+              background: 'rgba(0, 255, 0, 0.1)',
+              border: '1px solid rgba(0, 255, 0, 0.3)',
+              borderRadius: '4px',
+              padding: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: 0.7,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ff00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {isFullscreen ? (
+                <>
+                  <polyline points="4 14 10 14 10 20" />
+                  <polyline points="20 10 14 10 14 4" />
+                  <line x1="14" y1="10" x2="21" y2="3" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </>
+              ) : (
+                <>
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </>
+              )}
+            </svg>
+          </button>
+        )}
       </div>
     );
   }
@@ -265,37 +289,61 @@ export default function Home({ onExit }: HomeProps) {
   // Show loading state while initializing
   if (loading || !gameState) {
     return (
-      <div className="h-screen bg-background text-foreground font-mono flex items-center justify-center" style={{ position: 'relative' }}>
-        {onExit && (
-          <button
-            onClick={onExit}
-            data-testid="button-exit-academy"
-            style={{
-              position: 'absolute',
-              top: '10px',
-              left: '10px',
-              zIndex: 100,
-              background: 'transparent',
-              border: '1px solid #00ff0060',
-              color: '#00ff00',
-              padding: '6px 12px',
-              borderRadius: '2px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontFamily: 'monospace'
-            }}
-          >
-            <span style={{ fontSize: '10px' }}>&#8592;</span>
-            <span>Desktop</span>
-          </button>
-        )}
+      <div 
+        className="bg-background text-foreground font-mono flex items-center justify-center" 
+        style={{ 
+          position: isFullscreen ? 'fixed' : 'relative',
+          width: isFullscreen ? '100vw' : '100%',
+          height: isFullscreen ? '100vh' : '100%',
+          top: isFullscreen ? 0 : undefined,
+          left: isFullscreen ? 0 : undefined,
+          zIndex: isFullscreen ? 9999 : undefined,
+        }}
+      >
         <div className="text-center">
           <div className="text-2xl mb-4">THE ACADEMY</div>
           <div>Initializing game world...</div>
         </div>
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            data-testid="button-fullscreen-toggle"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              zIndex: 9999,
+              background: 'rgba(0, 255, 0, 0.1)',
+              border: '1px solid rgba(0, 255, 0, 0.3)',
+              borderRadius: '4px',
+              padding: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: 0.7,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ff00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {isFullscreen ? (
+                <>
+                  <polyline points="4 14 10 14 10 20" />
+                  <polyline points="20 10 14 10 14 4" />
+                  <line x1="14" y1="10" x2="21" y2="3" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </>
+              ) : (
+                <>
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </>
+              )}
+            </svg>
+          </button>
+        )}
       </div>
     );
   }
@@ -1675,6 +1723,8 @@ export default function Home({ onExit }: HomeProps) {
         commandHistory={commandHistory}
         statusLine={statusLine}
         onExit={onExit}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={onToggleFullscreen}
       />
       {showTutorial && (
         <Tutorial 

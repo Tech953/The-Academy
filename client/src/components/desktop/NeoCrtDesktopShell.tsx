@@ -269,7 +269,10 @@ export default function NeoCrtDesktopShell() {
     switch (appId) {
       case 'academy':
         return { 
-          component: <Home />, 
+          component: <Home 
+            isFullscreen={academyFullscreen}
+            onToggleFullscreen={() => setAcademyFullscreen(prev => !prev)}
+          />, 
           title: 'The Academy', 
           width: Math.min(900, maxWidth), 
           height: Math.min(650, maxHeight),
@@ -455,9 +458,6 @@ export default function NeoCrtDesktopShell() {
 
   const handleDesktopClick = () => setSelectedIcon(null);
 
-  if (academyFullscreen) {
-    return <Home onExit={() => setAcademyFullscreen(false)} />;
-  }
 
   return (
     <div
@@ -598,7 +598,7 @@ export default function NeoCrtDesktopShell() {
           initialHeight={win.height}
           minWidth={win.minWidth}
           minHeight={win.minHeight}
-          isMinimized={win.isMinimized}
+          isMinimized={win.isMinimized || (win.id === 'academy' && academyFullscreen)}
           isMaximized={win.isMaximized}
           isFocused={focusedWindowId === win.id}
           zIndex={win.zIndex}
@@ -609,10 +609,60 @@ export default function NeoCrtDesktopShell() {
           onFocus={() => focusWindow(win.id)}
           onResize={(width, height) => resizeWindow(win.id, width, height)}
           onMove={(x, y) => moveWindow(win.id, x, y)}
+          onFullscreen={win.id === 'academy' ? () => setAcademyFullscreen(true) : undefined}
         >
-          {win.component}
+          {win.id === 'academy' ? (
+            <Home 
+              isFullscreen={false}
+              onToggleFullscreen={() => setAcademyFullscreen(true)}
+            />
+          ) : win.component}
         </NeoCrtWindow>
       ))}
+
+      {academyFullscreen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 9999,
+          background: '#000',
+        }}>
+          <button
+            onClick={() => setAcademyFullscreen(false)}
+            data-testid="button-exit-fullscreen"
+            title="Exit Fullscreen"
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              zIndex: 10000,
+              background: 'rgba(0, 255, 0, 0.1)',
+              border: `1px solid ${colors.primary}60`,
+              borderRadius: '4px',
+              padding: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: colors.primary,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 14 10 14 10 20" />
+              <polyline points="20 10 14 10 14 4" />
+              <line x1="14" y1="10" x2="21" y2="3" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          </button>
+          <Home 
+            isFullscreen={true}
+            onToggleFullscreen={() => setAcademyFullscreen(false)}
+          />
+        </div>
+      )}
 
       <div style={{
         position: 'absolute',

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Minus, Square, X, Maximize2 } from 'lucide-react';
+import { Minus, Square, X, Maximize2, Expand } from 'lucide-react';
 import { getNeoCrtIcon, IconType } from './NeoCrtDesktopShell';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 
@@ -25,6 +25,7 @@ export interface NeoCrtWindowProps {
   onResize?: (width: number, height: number) => void;
   resizable?: boolean;
   zIndex?: number;
+  onFullscreen?: () => void;
 }
 
 export default function NeoCrtWindow({
@@ -49,6 +50,7 @@ export default function NeoCrtWindow({
   onResize,
   resizable = true,
   zIndex = 1,
+  onFullscreen,
 }: NeoCrtWindowProps) {
   const { colors } = useCrtTheme();
   const primaryColor = colors.primary;
@@ -199,6 +201,29 @@ export default function NeoCrtWindow({
         </div>
         
         <div style={{ display: 'flex', gap: '6px', position: 'relative', zIndex: 100 }}>
+          {onFullscreen && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onFullscreen(); }}
+              data-testid="button-fullscreen-toggle"
+              className="neo-crt-window-btn"
+              title="Enter Fullscreen"
+              style={{
+                width: '20px',
+                height: '20px',
+                background: 'transparent',
+                border: `1px solid ${primaryColor}60`,
+                borderRadius: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: primaryColor,
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Expand size={10} strokeWidth={2} />
+            </button>
+          )}
           {onMinimize && (
             <button
               onClick={(e) => { e.stopPropagation(); onMinimize(); }}

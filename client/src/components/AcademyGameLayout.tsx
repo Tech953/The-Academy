@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Minus, Plus, PanelLeftClose, PanelLeft, ArrowLeft } from 'lucide-react';
+import { Minus, Plus, PanelLeftClose, PanelLeft, Maximize2, Minimize2, ArrowLeft } from 'lucide-react';
 import TerminalInterface from './TerminalInterface';
 import { Character } from './CharacterSheet';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
@@ -26,6 +26,8 @@ interface AcademyGameLayoutProps {
   commandHistory: string[];
   statusLine?: string;
   onExit?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export default function AcademyGameLayout({
@@ -34,7 +36,9 @@ export default function AcademyGameLayout({
   onCommand,
   commandHistory,
   statusLine,
-  onExit
+  onExit,
+  isFullscreen = false,
+  onToggleFullscreen
 }: AcademyGameLayoutProps) {
   const { colors } = useCrtTheme();
   const primaryColor = colors.primary;
@@ -117,12 +121,54 @@ export default function AcademyGameLayout({
     <div 
       style={{ 
         display: 'flex', 
-        height: '100vh', 
-        width: '100vw',
+        flexDirection: 'column',
+        height: isFullscreen ? '100vh' : '100%', 
+        width: isFullscreen ? '100vw' : '100%',
         background: '#000',
-        fontFamily: 'monospace'
+        fontFamily: 'monospace',
+        position: isFullscreen ? 'fixed' : 'relative',
+        top: isFullscreen ? 0 : undefined,
+        left: isFullscreen ? 0 : undefined,
+        zIndex: isFullscreen ? 9999 : undefined,
       }}
     >
+      {onToggleFullscreen && (
+        <button
+          onClick={onToggleFullscreen}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            zIndex: 10,
+            background: `${primaryColor}15`,
+            border: `1px solid ${primaryColor}40`,
+            borderRadius: '4px',
+            padding: '6px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.6,
+            transition: 'opacity 0.2s ease, background 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            e.currentTarget.style.background = `${primaryColor}30`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.6';
+            e.currentTarget.style.background = `${primaryColor}15`;
+          }}
+        >
+          {isFullscreen ? (
+            <Minimize2 size={14} color={primaryColor} />
+          ) : (
+            <Maximize2 size={14} color={primaryColor} />
+          )}
+        </button>
+      )}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       {showSidebar && character && (
         <div
           style={{
@@ -406,6 +452,7 @@ export default function AcademyGameLayout({
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
