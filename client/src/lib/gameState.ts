@@ -64,6 +64,28 @@ import {
   generateStudyRecommendations,
   calculateStudentProgress
 } from "./researchNotebook";
+import {
+  createInitialAnalytics,
+  logEngagementEvent,
+  createEngagementEvent,
+  calculateEngagementSummary,
+  formatEngagementStats
+} from "./engagementTracker";
+import {
+  generateAdaptiveRecommendations,
+  formatRecommendations,
+  generateQuickRecommendation
+} from "./adaptiveRecommendations";
+import {
+  GED_TEXTBOOKS,
+  getTextbookBySubject,
+  getChapterContent,
+  formatChapterForDisplay,
+  formatTextbookIndex,
+  getAllTextbooksList,
+  type GEDSubject
+} from "./gedContent";
+import type { EngagementAnalytics, AdaptiveRecommendation, CourseProgress } from "@shared/schema";
 
 export interface GameState {
   character: Character;
@@ -76,6 +98,7 @@ export interface GameState {
   worldMemory: WorldMemory;
   researchNotebook: ResearchNotebook;
   crisisMode: CrisisModeState;
+  engagementAnalytics: EngagementAnalytics;
 }
 
 export interface TerminalLine {
@@ -112,6 +135,10 @@ export class GameStateManager {
         if (!savedState.crisisMode) {
           savedState.crisisMode = createCrisisModeState();
         }
+        // Ensure engagementAnalytics exists (migration for older saves)
+        if (!savedState.engagementAnalytics) {
+          savedState.engagementAnalytics = createInitialAnalytics(character.id);
+        }
         this.gameState = savedState;
         return savedState;
       }
@@ -132,8 +159,12 @@ export class GameStateManager {
       lastSaveTime: new Date(),
       worldMemory: createInitialWorldMemory(),
       researchNotebook: createInitialNotebook(character.id),
-      crisisMode: createCrisisModeState()
+      crisisMode: createCrisisModeState(),
+      engagementAnalytics: createInitialAnalytics(character.id)
     };
+
+    // Log session start for engagement tracking
+    this.logEngagement('session_start', 'session');
 
     return this.gameState;
   }
@@ -1067,6 +1098,173 @@ export class GameStateManager {
       ''
     ];
   }
+
+  // ============================================================
+  // ENGAGEMENT TRACKING & ADAPTIVE RECOMMENDATIONS
+  // ============================================================
+
+  // Log an engagement event
+  logEngagement(
+    type: 'textbook_open' | 'textbook_read' | 'chapter_complete' | 
+          'note_create' | 'note_edit' | 'note_read' |
+          'assignment_start' | 'assignment_submit' | 
+          'exam_start' | 'exam_submit' |
+          'lecture_attend' | 'session_start' | 'session_end',
+    resourceId: string,
+    metadata: Record<string, unknown> = {}
+  ): void {
+    if (!this.gameState) return;
+
+    const event = createEngagementEvent(type, resourceId, metadata);
+    this.gameState = {
+      ...this.gameState,
+      engagementAnalytics: logEngagementEvent(this.gameState.engagementAnalytics, event)
+    };
+    this.scheduleSave();
+  }
+
+  // Get engagement analytics summary
+  getEngagementSummary(): string {
+    if (!this.gameState) return 'No game state available.';
+    const summary = calculateEngagementSummary(this.gameState.engagementAnalytics);
+    return formatEngagementStats(summary);
+  }
+
+  // Get adaptive study recommendations
+  getAdaptiveRecommendations(): string {
+    if (!this.gameState) return 'No game state available.';
+
+    const context = {
+      analytics: this.gameState.engagementAnalytics,
+      courseProgress: this.getCourseProgressMap(),
+      recentScores: this.getRecentScores(),
+      unreadChapters: this.getUnreadChapters(),
+      pendingAssignments: this.getPendingAssignments(),
+      missedLectures: this.getMissedLectures(),
+      currentStreak: this.gameState.engagementAnalytics.dailyStreak.currentStreak,
+      studyTimeToday: this.getStudyTimeToday()
+    };
+
+    const recommendations = generateAdaptiveRecommendations(context);
+    return formatRecommendations(recommendations);
+  }
+
+  // Get quick recommendation based on last score
+  getQuickRecommendation(score: number): string {
+    return generateQuickRecommendation(score);
+  }
+
+  // Get all GED textbooks list
+  getTextbooksList(): string {
+    return getAllTextbooksList();
+  }
+
+  // Get specific textbook index
+  getTextbookIndex(subject: string): string {
+    const normalizedSubject = this.normalizeSubject(subject);
+    if (!normalizedSubject) {
+      return 'Unknown subject. Available subjects: Math, Language Arts, Science, Social Studies';
+    }
+    const textbook = getTextbookBySubject(normalizedSubject);
+    if (!textbook) {
+      return 'Textbook not found for this subject.';
+    }
+    return formatTextbookIndex(textbook);
+  }
+
+  // Read a specific chapter
+  readChapter(subject: string, chapterNumber: number): string {
+    const normalizedSubject = this.normalizeSubject(subject);
+    if (!normalizedSubject) {
+      return 'Unknown subject. Available subjects: Math, Language Arts, Science, Social Studies';
+    }
+    const chapter = getChapterContent(normalizedSubject, chapterNumber);
+    if (!chapter) {
+      return `Chapter ${chapterNumber} not found for ${normalizedSubject}.`;
+    }
+
+    // Log engagement event
+    this.logEngagement('textbook_read', `${normalizedSubject}-ch${chapterNumber}`);
+
+    return formatChapterForDisplay(chapter);
+  }
+
+  // Helper: normalize subject name
+  private normalizeSubject(subject: string): GEDSubject | null {
+    const lower = subject.toLowerCase();
+    if (lower.includes('math')) return 'Mathematical Reasoning';
+    if (lower.includes('language') || lower.includes('english') || lower.includes('writing') || lower.includes('reading')) return 'Language Arts';
+    if (lower.includes('science')) return 'Science';
+    if (lower.includes('social') || lower.includes('history') || lower.includes('civics')) return 'Social Studies';
+    return null;
+  }
+
+  // Helper: get course progress map
+  private getCourseProgressMap(): Record<string, CourseProgress> {
+    const defaultProgress: CourseProgress = {
+      courseId: '',
+      courseName: '',
+      subject: '',
+      chaptersRead: 0,
+      totalChapters: 3,
+      assignmentsCompleted: 0,
+      totalAssignments: 7,
+      lecturesAttended: 0,
+      totalLectures: 12,
+      averageScore: 0,
+      lastAccessed: null
+    };
+
+    return {
+      'Mathematical Reasoning': { ...defaultProgress, courseId: 'math', courseName: 'GED Math', subject: 'Mathematical Reasoning' },
+      'Language Arts': { ...defaultProgress, courseId: 'lang', courseName: 'GED Language Arts', subject: 'Language Arts' },
+      'Science': { ...defaultProgress, courseId: 'sci', courseName: 'GED Science', subject: 'Science' },
+      'Social Studies': { ...defaultProgress, courseId: 'soc', courseName: 'GED Social Studies', subject: 'Social Studies' }
+    };
+  }
+
+  // Helper: get recent assignment scores
+  private getRecentScores(): number[] {
+    if (!this.gameState) return [];
+    const assignments = Object.values(this.gameState.engagementAnalytics.assignmentUsage);
+    return assignments
+      .filter(a => a.graded && a.score !== undefined)
+      .slice(-5)
+      .map(a => a.score as number);
+  }
+
+  // Helper: get unread chapters
+  private getUnreadChapters(): string[] {
+    if (!this.gameState) return [];
+    const readChapters = new Set<string>();
+    Object.values(this.gameState.engagementAnalytics.textbookUsage).forEach(usage => {
+      usage.chaptersCompleted.forEach(ch => readChapters.add(ch));
+    });
+
+    const allChapters = GED_TEXTBOOKS.flatMap(tb =>
+      tb.chapters.map(ch => `${tb.subject}-ch${ch.number}`)
+    );
+
+    return allChapters.filter(ch => !readChapters.has(ch));
+  }
+
+  // Helper: get pending assignments
+  private getPendingAssignments(): string[] {
+    return [];
+  }
+
+  // Helper: get missed lectures
+  private getMissedLectures(): string[] {
+    return [];
+  }
+
+  // Helper: get study time today
+  private getStudyTimeToday(): number {
+    if (!this.gameState) return 0;
+    const sessionStart = this.gameState.engagementAnalytics.sessionStats.currentSessionStart;
+    if (!sessionStart) return 0;
+    return Date.now() - new Date(sessionStart).getTime();
+  }
 }
 
 // Global game state manager instance
@@ -1086,3 +1284,10 @@ export { ACADEMY_FACTIONS };
 
 // Re-export Watchwarden Hale data for external use
 export { HALE_NPC, WATCHWARDEN_HALE, GROUNDING_EXERCISES };
+
+// Re-export engagement and recommendations functions for external use
+export { createEngagementEvent, calculateEngagementSummary, formatEngagementStats } from "./engagementTracker";
+export { generateAdaptiveRecommendations, formatRecommendations, generateQuickRecommendation } from "./adaptiveRecommendations";
+export { GED_TEXTBOOKS, getTextbookBySubject, getChapterContent, formatChapterForDisplay, getAllTextbooksList } from "./gedContent";
+export type { GEDSubject } from "./gedContent";
+export type { EngagementAnalytics, EngagementEvent, EngagementSummary, AdaptiveRecommendation, CourseProgress, LearningPath } from "@shared/schema";
