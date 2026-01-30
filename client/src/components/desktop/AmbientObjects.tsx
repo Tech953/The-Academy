@@ -40,35 +40,35 @@ export function AmbientObjects({
       { 
         id: 'photo-corner', 
         type: 'photo', 
-        position: { x: 10, y: 10 }, 
+        position: { x: 82, y: 8 }, 
         rotation: -5, 
         visible: true 
       },
       { 
         id: 'sticker-star', 
         type: 'sticker', 
-        position: { x: 85, y: 15 }, 
+        position: { x: 75, y: 18 }, 
         rotation: 15, 
         visible: characterLevel >= 2 
       },
       { 
         id: 'calendar', 
         type: 'calendar', 
-        position: { x: 5, y: 70 }, 
+        position: { x: 88, y: 45 }, 
         rotation: 0, 
         visible: true 
       },
       { 
         id: 'book-stack', 
         type: 'book', 
-        position: { x: 90, y: 75 }, 
+        position: { x: 92, y: 60 }, 
         rotation: -3, 
         visible: characterLevel >= 3 
       },
       { 
         id: 'faction-badge', 
         type: 'badge', 
-        position: { x: 50, y: 5 }, 
+        position: { x: 78, y: 30 }, 
         rotation: 0, 
         visible: hasFactionBadge 
       },
