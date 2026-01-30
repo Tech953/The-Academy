@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useCrtTheme, CrtMode, CRT_MODE_LABELS } from '@/contexts/CrtThemeContext';
-import { Sun, Sunrise, Moon, Monitor, Check } from 'lucide-react';
+import { Sun, Sunrise, Moon, Monitor, Check, Eye, Languages, Accessibility } from 'lucide-react';
+import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
+import { i18nManager } from '@/lib/i18n';
 
 const MODE_ICONS: Record<CrtMode, typeof Sun> = {
   dawn: Sunrise,
@@ -15,8 +18,12 @@ const MODE_DESCRIPTIONS: Record<CrtMode, string> = {
 
 export default function SettingsApp() {
   const { mode, setMode, colors, accentColors } = useCrtTheme();
+  const [currentProfile, setCurrentProfile] = useState(accessibilityManager.getCurrentProfile().id);
+  const [currentLang, setCurrentLang] = useState(i18nManager.getCurrentLanguage().code);
 
   const modes: CrtMode[] = ['dawn', 'day', 'night'];
+  const profiles = Object.values(ACCESSIBILITY_PROFILES);
+  const languages = i18nManager.getAvailableLanguages();
 
   return (
     <div
@@ -199,6 +206,141 @@ export default function SettingsApp() {
               </span>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderBottom: `1px solid ${colors.primary}40`,
+          paddingBottom: '15px',
+          marginBottom: '25px',
+          marginTop: '30px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}
+      >
+        <Accessibility size={24} color={colors.primary} />
+        <h2
+          style={{
+            margin: 0,
+            fontSize: '18px',
+            fontWeight: 'bold',
+            textTransform: 'uppercase',
+            letterSpacing: '2px',
+            textShadow: `0 0 10px ${colors.primaryGlow}`,
+          }}
+        >
+          Accessibility
+        </h2>
+      </div>
+
+      <div style={{ marginBottom: '30px' }}>
+        <h3
+          style={{
+            fontSize: '14px',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '15px',
+            opacity: 0.8,
+          }}
+        >
+          Accessibility Profile
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {profiles.map((profile) => {
+            const isSelected = currentProfile === profile.id;
+
+            return (
+              <button
+                key={profile.id}
+                onClick={() => {
+                  accessibilityManager.applyProfile(profile.id);
+                  setCurrentProfile(profile.id);
+                }}
+                className="hover-elevate"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 15px',
+                  backgroundColor: isSelected ? `${colors.primary}15` : 'transparent',
+                  border: `1px solid ${isSelected ? colors.primary : colors.primary + '40'}`,
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  color: colors.primary,
+                  fontFamily: 'inherit',
+                  fontSize: '13px',
+                }}
+              >
+                <span>{profile.name}</span>
+                {isSelected && <Check size={16} color={colors.primary} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderBottom: `1px solid ${colors.primary}40`,
+          paddingBottom: '15px',
+          marginBottom: '25px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}
+      >
+        <Languages size={24} color={colors.primary} />
+        <h2
+          style={{
+            margin: 0,
+            fontSize: '18px',
+            fontWeight: 'bold',
+            textTransform: 'uppercase',
+            letterSpacing: '2px',
+            textShadow: `0 0 10px ${colors.primaryGlow}`,
+          }}
+        >
+          Language
+        </h2>
+      </div>
+
+      <div style={{ marginBottom: '30px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {languages.map((lang) => {
+            const isSelected = currentLang === lang.code;
+
+            return (
+              <button
+                key={lang.code}
+                onClick={() => {
+                  i18nManager.setLanguage(lang.code);
+                  setCurrentLang(lang.code);
+                }}
+                className="hover-elevate"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 15px',
+                  backgroundColor: isSelected ? `${colors.primary}15` : 'transparent',
+                  border: `1px solid ${isSelected ? colors.primary : colors.primary + '40'}`,
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  color: colors.primary,
+                  fontFamily: 'inherit',
+                  fontSize: '13px',
+                }}
+              >
+                <span>{lang.nativeName} ({lang.name})</span>
+                {isSelected && <Check size={16} color={colors.primary} />}
+              </button>
+            );
+          })}
         </div>
       </div>
 

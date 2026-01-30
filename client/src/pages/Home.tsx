@@ -7,6 +7,9 @@ import { Character } from '@/components/CharacterSheet';
 import { gameStateManager, GameState, TerminalLine, IntentEnum } from '@/lib/gameState';
 import { Location, NPC, GameStats, GameReputation, LegacyGameStats } from '@shared/schema';
 import { mapLegacyStats, FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
+import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
+import { i18nManager } from '@/lib/i18n';
+import { glossaryManager } from '@/lib/glossary';
 
 interface HomeProps {
   onExit?: () => void;
@@ -826,6 +829,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine('');
       addTerminalLine('Opening tutorial...', 'system');
       setShowTutorial(true);
+    } else if (action === 'accessibility' || action === 'a11y') {
+      handleAccessibility(target);
+    } else if (action === 'lang' || action === 'language') {
+      handleLanguage(target);
+    } else if (action === 'glossary' || action === 'define') {
+      handleGlossary(target);
     } else {
       addTerminalLine('');
       const suggestions = getCommandSuggestions(originalAction);
@@ -2057,6 +2066,115 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     addTerminalLine('');
     addTerminalLine('Thank you for playing! Type any command to continue.');
     addTerminalLine('Or refresh the page to start fresh.');
+  };
+
+  const handleAccessibility = (target: string) => {
+    addTerminalLine('');
+    
+    if (!target || target === 'list') {
+      accessibilityManager.formatForTerminal().forEach(line => addTerminalLine(line));
+      return;
+    }
+    
+    const parts = target.toLowerCase().split(' ');
+    
+    if (parts[0] === 'set' && parts.length >= 3) {
+      const key = parts[1];
+      const value = parts.slice(2).join(' ');
+      
+      if (key === 'fontsize') {
+        const size = parseInt(value, 10);
+        if (!isNaN(size) && size >= 10 && size <= 32) {
+          accessibilityManager.setCustomSetting('fontSize', size);
+          addTerminalLine(`Font size set to ${size}px`, 'system');
+        } else {
+          addTerminalLine('Invalid font size. Use a value between 10 and 32.', 'error');
+        }
+      } else if (key === 'highcontrast') {
+        accessibilityManager.setCustomSetting('highContrast', value === 'on' || value === 'true');
+        addTerminalLine(`High contrast ${value === 'on' || value === 'true' ? 'enabled' : 'disabled'}`, 'system');
+      } else if (key === 'reducedmotion') {
+        accessibilityManager.setCustomSetting('reducedMotion', value === 'on' || value === 'true');
+        addTerminalLine(`Reduced motion ${value === 'on' || value === 'true' ? 'enabled' : 'disabled'}`, 'system');
+      } else if (key === 'dyslexiafont') {
+        accessibilityManager.setCustomSetting('dyslexiaFont', value === 'on' || value === 'true');
+        addTerminalLine(`Dyslexia font ${value === 'on' || value === 'true' ? 'enabled' : 'disabled'}`, 'system');
+      } else {
+        addTerminalLine(`Unknown setting: ${key}`, 'error');
+      }
+      return;
+    }
+    
+    const profileId = parts[0];
+    if (ACCESSIBILITY_PROFILES[profileId]) {
+      accessibilityManager.applyProfile(profileId);
+      addTerminalLine(`Accessibility profile applied: ${ACCESSIBILITY_PROFILES[profileId].name}`, 'system');
+    } else {
+      addTerminalLine(`Unknown profile: ${profileId}. Type ACCESSIBILITY LIST to see available profiles.`, 'error');
+    }
+  };
+
+  const handleLanguage = (target: string) => {
+    addTerminalLine('');
+    
+    if (!target || target === 'list') {
+      i18nManager.formatForTerminal().forEach(line => addTerminalLine(line));
+      return;
+    }
+    
+    const code = target.toLowerCase();
+    if (i18nManager.setLanguage(code)) {
+      glossaryManager.setLanguage(code);
+      addTerminalLine(`Language changed to: ${i18nManager.getCurrentLanguage().nativeName}`, 'system');
+    } else {
+      addTerminalLine(`Language not available: ${code}. Type LANG LIST to see available languages.`, 'error');
+    }
+  };
+
+  const handleGlossary = (target: string) => {
+    addTerminalLine('');
+    
+    if (!target) {
+      glossaryManager.formatForTerminal().forEach(line => addTerminalLine(line));
+      return;
+    }
+    
+    const parts = target.toLowerCase().split(' ');
+    
+    if (parts[0] === 'search' && parts.length > 1) {
+      const query = parts.slice(1).join(' ');
+      const results = glossaryManager.searchTerms(query);
+      if (results.length === 0) {
+        addTerminalLine(`No terms found matching "${query}"`, 'error');
+      } else {
+        addTerminalLine(`Found ${results.length} term(s):`);
+        results.forEach(entry => {
+          addTerminalLine(`  ${entry.term} (${entry.subject})`);
+        });
+      }
+      return;
+    }
+    
+    const subjects = ['math', 'science', 'language', 'social'];
+    if (subjects.includes(parts[0])) {
+      const entries = glossaryManager.getSubjectGlossary(parts[0]);
+      if (entries.length === 0) {
+        addTerminalLine(`No glossary entries for subject: ${parts[0]}`, 'error');
+      } else {
+        addTerminalLine(`Glossary terms for ${parts[0].toUpperCase()}:`);
+        entries.forEach(entry => {
+          addTerminalLine(`  ${entry.term}: ${entry.definition.substring(0, 60)}...`);
+        });
+      }
+      return;
+    }
+    
+    const entry = glossaryManager.getEntry(parts[0]);
+    if (entry) {
+      glossaryManager.formatEntryForTerminal(entry).forEach(line => addTerminalLine(line));
+    } else {
+      addTerminalLine(`Term not found: "${parts[0]}". Try GLOSSARY SEARCH <query>`, 'error');
+    }
   };
 
   const statusLine = `${gameState.character.name} | ${gameState.character.race} ${gameState.character.class} | Location: ${gameState.currentLocation.name} | Energy: ${gameState.character.energy}/${gameState.character.maxEnergy}`;

@@ -176,6 +176,63 @@
     will-change: transform;
     transform: translate3d(0, 0, 0);
   }
+
+  /* Accessibility: High Contrast Mode */
+  body.high-contrast {
+    --background: 0 0% 0%;
+    --foreground: 120 100% 50%;
+    filter: contrast(1.2);
+  }
+
+  /* Accessibility: Reduced Motion */
+  body.reduced-motion,
+  body.reduced-motion * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Accessibility: Dyslexia-Friendly Font */
+  body.dyslexia-font {
+    font-family: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
+    letter-spacing: 0.05em;
+    word-spacing: 0.1em;
+  }
+
+  /* Accessibility: Screen Reader Mode */
+  body.screen-reader-mode {
+    /* Ensure focus states are highly visible */
+  }
+  body.screen-reader-mode *:focus {
+    outline: 3px solid hsl(120, 100%, 50%);
+    outline-offset: 2px;
+  }
+
+  /* Accessibility: Large Cursor */
+  body.cursor-large {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M0 0 L0 24 L6 18 L12 28 L16 26 L10 16 L18 16 Z' fill='white' stroke='black' stroke-width='1'/%3E%3C/svg%3E"), auto;
+  }
+  body.cursor-xlarge {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cpath d='M0 0 L0 36 L9 27 L18 42 L24 39 L15 24 L27 24 Z' fill='white' stroke='black' stroke-width='2'/%3E%3C/svg%3E"), auto;
+  }
+
+  /* Accessibility: Color Blind Modes */
+  body.colorblind-protanopia {
+    filter: url('#protanopia-filter');
+  }
+  body.colorblind-deuteranopia {
+    filter: url('#deuteranopia-filter');
+  }
+  body.colorblind-tritanopia {
+    filter: url('#tritanopia-filter');
+  }
+
+  /* Accessibility: CSS custom properties */
+  :root {
+    --a11y-font-size: 16px;
+    --a11y-line-spacing: 1.5;
+  }
 }
 
 /**
