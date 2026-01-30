@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
-import { BookOpen, Heart, Star, Award, Calendar } from 'lucide-react';
+import { Heart, Star, Award, Calendar } from 'lucide-react';
 
 interface AmbientObject {
   id: string;
@@ -17,15 +17,25 @@ interface AmbientObjectsProps {
   achievements?: string[];
 }
 
+const emptyFactionRep: { [key: string]: number } = {};
+const emptyAchievements: string[] = [];
+
 export function AmbientObjects({ 
   characterLevel = 1, 
-  factionRep = {}, 
-  achievements = [] 
+  factionRep, 
+  achievements 
 }: AmbientObjectsProps) {
   const { accentColors } = useCrtTheme();
-  const [objects, setObjects] = useState<AmbientObject[]>([]);
+  
+  const stableFactionRep = factionRep ?? emptyFactionRep;
+  const stableAchievements = achievements ?? emptyAchievements;
+  
+  const hasFactionBadge = useMemo(() => 
+    Object.values(stableFactionRep).some(rep => rep >= 25),
+    [stableFactionRep]
+  );
 
-  useEffect(() => {
+  const objects = useMemo(() => {
     const baseObjects: AmbientObject[] = [
       { 
         id: 'photo-corner', 
@@ -60,12 +70,12 @@ export function AmbientObjects({
         type: 'badge', 
         position: { x: 50, y: 5 }, 
         rotation: 0, 
-        visible: Object.values(factionRep).some(rep => rep >= 25) 
+        visible: hasFactionBadge 
       },
     ];
 
-    setObjects(baseObjects.filter(obj => obj.visible));
-  }, [characterLevel, factionRep, achievements]);
+    return baseObjects.filter(obj => obj.visible);
+  }, [characterLevel, hasFactionBadge]);
 
   const renderObject = (obj: AmbientObject) => {
     const baseStyle: React.CSSProperties = {
