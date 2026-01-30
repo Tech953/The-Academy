@@ -122,6 +122,16 @@ Preferred communication style: Simple, everyday language.
   - **Resolution Requirements**: 2+ faction misreads collapsed + contradictions embraced (not just high stats)
   - **Exit Descriptions**: Unique environmental/NPC confirmations for each departure vector
   - Core file: `client/src/lib/interactionResolver.ts` (determineGedCulmination, DEPARTURE_VECTORS)
+- **Crisis Intervention System (Watchwarden Hale)**: Trauma-informed, language-driven safety system:
+  - **Watchwarden Elias Hale**: Director of Student Safety & Crisis Oversight, hyper-intuitive protector figure
+  - **Escalation Detection**: Pattern matching for hopelessness, worthlessness, isolation, harm, escape, spiral categories
+  - **Severity Levels**: Low (redirect), Medium (ground), High (stabilize), Critical (halt)
+  - **Intervention Phases**: Appearance, Interruption, Naming, Grounding, Reframing, Connection, Closure
+  - **SCM/Ukeru Principles**: Safe Crisis Management verbal techniques, trauma-informed approach, non-retaliatory posture
+  - **Grounding Exercises**: Box breathing, 5-4-3-2-1 sensory grounding, physical anchor techniques
+  - **Resource Connection**: Real-world crisis resources (988 Lifeline, Crisis Text Line, IASP)
+  - **Character Profile**: 13 years crisis intervention experience, verbal-only authority, protective presence
+  - Core file: `client/src/lib/crisisIntervention.ts`
 
 # External Dependencies
 

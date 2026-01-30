@@ -34,6 +34,20 @@ import {
   ACADEMY_FACTIONS
 } from "./dialogueModulator";
 import {
+  assessEscalation,
+  generateInterventionSequence,
+  createCrisisModeState,
+  activateCrisisMode,
+  resolveCrisisMode,
+  getDialogueForPhase,
+  HALE_NPC,
+  WATCHWARDEN_HALE,
+  GROUNDING_EXERCISES,
+  CrisisModeState,
+  EscalationAssessment,
+  InterventionSequence
+} from "./crisisIntervention";
+import {
   createInitialNotebook,
   ensureNotebookComplete,
   createNote,
@@ -61,6 +75,7 @@ export interface GameState {
   lastSaveTime?: Date;
   worldMemory: WorldMemory;
   researchNotebook: ResearchNotebook;
+  crisisMode: CrisisModeState;
 }
 
 export interface TerminalLine {
@@ -93,6 +108,10 @@ export class GameStateManager {
           // Defensive migration: ensure all notebook fields exist
           savedState.researchNotebook = ensureNotebookComplete(savedState.researchNotebook, character.id);
         }
+        // Ensure crisisMode exists (migration for older saves)
+        if (!savedState.crisisMode) {
+          savedState.crisisMode = createCrisisModeState();
+        }
         this.gameState = savedState;
         return savedState;
       }
@@ -112,7 +131,8 @@ export class GameStateManager {
       temporaryEffects: {},
       lastSaveTime: new Date(),
       worldMemory: createInitialWorldMemory(),
-      researchNotebook: createInitialNotebook(character.id)
+      researchNotebook: createInitialNotebook(character.id),
+      crisisMode: createCrisisModeState()
     };
 
     return this.gameState;
@@ -913,6 +933,140 @@ export class GameStateManager {
     
     return ambientDescription;
   }
+
+  // -----------------------------
+  // Crisis Intervention System (Watchwarden Hale)
+  // -----------------------------
+
+  // Check if crisis mode is currently active
+  isCrisisModeActive(): boolean {
+    return this.gameState?.crisisMode?.active || false;
+  }
+
+  // Get current crisis mode state
+  getCrisisModeState(): CrisisModeState | null {
+    return this.gameState?.crisisMode || null;
+  }
+
+  // Assess player input for escalation markers
+  assessPlayerInput(input: string): EscalationAssessment {
+    return assessEscalation(input);
+  }
+
+  // Trigger crisis intervention if needed
+  triggerCrisisIntervention(input: string): InterventionSequence | null {
+    if (!this.gameState) return null;
+    
+    const assessment = assessEscalation(input);
+    
+    if (assessment.detected && assessment.responseType !== 'none') {
+      this.gameState = {
+        ...this.gameState,
+        crisisMode: activateCrisisMode(this.gameState.crisisMode, assessment)
+      };
+      
+      return this.gameState.crisisMode.interventionSequence || null;
+    }
+    
+    return null;
+  }
+
+  // Get Watchwarden Hale's dialogue for a specific intervention phase
+  getHaleDialogue(phase: string): string[] {
+    const responseType = this.gameState?.crisisMode?.assessment?.responseType;
+    return getDialogueForPhase(phase, responseType as any);
+  }
+
+  // Advance to next intervention phase
+  advanceInterventionPhase(): string | null {
+    if (!this.gameState?.crisisMode?.interventionSequence) return null;
+    
+    const sequence = this.gameState.crisisMode.interventionSequence;
+    const currentPhaseId = this.gameState.crisisMode.currentPhase;
+    const phases = sequence.phases;
+    
+    const currentIndex = phases.findIndex(p => p.phase.id === currentPhaseId);
+    if (currentIndex < 0 || currentIndex >= phases.length - 1) {
+      // No more phases, resolve crisis mode
+      this.resolveCrisis();
+      return null;
+    }
+    
+    const nextPhase = phases[currentIndex + 1].phase.id;
+    
+    this.gameState = {
+      ...this.gameState,
+      crisisMode: {
+        ...this.gameState.crisisMode,
+        currentPhase: nextPhase
+      }
+    };
+    
+    return nextPhase;
+  }
+
+  // Resolve crisis mode and return to normal gameplay
+  resolveCrisis(): void {
+    if (!this.gameState) return;
+    
+    this.gameState = {
+      ...this.gameState,
+      crisisMode: resolveCrisisMode(this.gameState.crisisMode)
+    };
+    
+    this.scheduleSave();
+  }
+
+  // Get Watchwarden Hale NPC data
+  getWatchwardenHale(): typeof HALE_NPC {
+    return HALE_NPC;
+  }
+
+  // Get Watchwarden Hale's profile
+  getWatchwardenProfile(): typeof WATCHWARDEN_HALE {
+    return WATCHWARDEN_HALE;
+  }
+
+  // Get available grounding exercises
+  getGroundingExercises(): typeof GROUNDING_EXERCISES {
+    return GROUNDING_EXERCISES;
+  }
+
+  // Generate Hale's entrance description
+  generateHaleEntrance(): string[] {
+    return [
+      '',
+      '═══════════════════════════════════════════════════════════════',
+      '',
+      'The terminal freezes. The ambient noise fades to silence.',
+      'A low-frequency chime hums through the interface.',
+      'The UI locks. A new window forces open.',
+      '',
+      'WATCHWARDEN AUTH ACCESS: LEVEL OMEGA',
+      'DIRECTOR: ELIAS HALE — CRISIS OVERSIGHT',
+      '',
+      'A tall figure in dark, structured attire steps into frame.',
+      'Sharp gaze, never wavering. Everything about him is purposeful.',
+      '',
+      '═══════════════════════════════════════════════════════════════',
+      ''
+    ];
+  }
+
+  // Generate Hale's exit description
+  generateHaleExit(): string[] {
+    return [
+      '',
+      'Watchwarden Hale steps back.',
+      '"Take what you need from this moment. Then we continue."',
+      '',
+      'The terminal unlocks. Normal operations resume.',
+      'But you know: he is watching. He is protecting.',
+      '',
+      '═══════════════════════════════════════════════════════════════',
+      ''
+    ];
+  }
 }
 
 // Global game state manager instance
@@ -924,5 +1078,11 @@ export type { WorldMemory, Outcome, IntentEnum, ObjectArchetype, AmbientSignal, 
 // Re-export types from dialogueModulator for convenience
 export type { DialogueAxes, ToneProfile, StatConflict, ModulatedDialogue };
 
+// Re-export types from crisisIntervention for convenience
+export type { CrisisModeState, EscalationAssessment, InterventionSequence };
+
 // Re-export faction data for external use
 export { ACADEMY_FACTIONS };
+
+// Re-export Watchwarden Hale data for external use
+export { HALE_NPC, WATCHWARDEN_HALE, GROUNDING_EXERCISES };
