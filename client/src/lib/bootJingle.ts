@@ -1,0 +1,368 @@
+type OscillatorType = 'sine' | 'square' | 'sawtooth' | 'triangle';
+
+interface JingleNote {
+  frequency: number;
+  duration: number;
+  delay: number;
+  type: OscillatorType;
+  gain: number;
+  attack?: number;
+  decay?: number;
+  detune?: number;
+}
+
+const noteFrequencies: { [key: string]: number } = {
+  'B1': 61.74,
+  'E4': 329.63,
+  'F#4': 369.99,
+  'E5': 659.25,
+  'G5': 783.99,
+  'C6': 1046.50,
+};
+
+let audioContext: AudioContext | null = null;
+let isPlaying = false;
+let audioInitialized = false;
+
+function getAudioContext(): AudioContext {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  return audioContext;
+}
+
+export function initializeAudio(): void {
+  if (audioInitialized) return;
+  
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    audioInitialized = true;
+  } catch (error) {
+    console.warn('Audio initialization failed:', error);
+  }
+}
+
+function setupAutoplayHandler(): void {
+  const handler = () => {
+    initializeAudio();
+    document.removeEventListener('click', handler);
+    document.removeEventListener('keydown', handler);
+    document.removeEventListener('touchstart', handler);
+  };
+  
+  document.addEventListener('click', handler, { once: true });
+  document.addEventListener('keydown', handler, { once: true });
+  document.addEventListener('touchstart', handler, { once: true });
+}
+
+if (typeof window !== 'undefined') {
+  setupAutoplayHandler();
+}
+
+function createNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
+  const sampleRate = ctx.sampleRate;
+  const bufferSize = sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+  const data = buffer.getChannelData(0);
+  
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.3;
+  }
+  
+  return buffer;
+}
+
+function playCRTStatic(ctx: AudioContext, startTime: number): void {
+  const noiseBuffer = createNoiseBuffer(ctx, 0.25);
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = noiseBuffer;
+  
+  const noiseGain = ctx.createGain();
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 2000;
+  noiseFilter.Q.value = 1;
+  
+  noiseGain.gain.setValueAtTime(0, startTime);
+  noiseGain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+  noiseGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+  noiseGain.gain.linearRampToValueAtTime(0, startTime + 0.25);
+  
+  noiseSource.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  
+  noiseSource.start(startTime);
+  noiseSource.stop(startTime + 0.25);
+}
+
+function playSystemChime(ctx: AudioContext, startTime: number): void {
+  const notes: JingleNote[] = [
+    { frequency: noteFrequencies['E4'], duration: 0.08, delay: 0, type: 'sine', gain: 0.25, attack: 0.01 },
+    { frequency: noteFrequencies['F#4'], duration: 0.08, delay: 0.08, type: 'sine', gain: 0.22, attack: 0.01 },
+    { frequency: noteFrequencies['E5'], duration: 0.12, delay: 0.16, type: 'sine', gain: 0.3, attack: 0.01, decay: 0.08 },
+  ];
+  
+  notes.forEach(note => {
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const distortion = ctx.createWaveShaper();
+    
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i / 128) - 1;
+      curve[i] = Math.tanh(x * 1.5);
+    }
+    distortion.curve = curve;
+    
+    osc.type = note.type;
+    osc.frequency.value = note.frequency;
+    
+    const noteStart = startTime + note.delay;
+    gainNode.gain.setValueAtTime(0, noteStart);
+    gainNode.gain.linearRampToValueAtTime(note.gain, noteStart + (note.attack || 0.01));
+    gainNode.gain.exponentialRampToValueAtTime(0.01, noteStart + note.duration);
+    
+    osc.connect(distortion);
+    distortion.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.start(noteStart);
+    osc.stop(noteStart + note.duration + 0.05);
+  });
+}
+
+function playCyberDrone(ctx: AudioContext, startTime: number): void {
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  const distortion = ctx.createWaveShaper();
+  
+  const curve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const x = (i / 128) - 1;
+    curve[i] = Math.tanh(x * 0.5);
+  }
+  distortion.curve = curve;
+  
+  osc.type = 'sawtooth';
+  osc.frequency.value = noteFrequencies['B1'];
+  
+  lfo.type = 'sine';
+  lfo.frequency.value = 5;
+  lfoGain.gain.value = 0.05;
+  
+  lfo.connect(lfoGain);
+  lfoGain.connect(gainNode.gain);
+  
+  const droneDuration = 0.75;
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(0.12, startTime + 0.08);
+  gainNode.gain.setValueAtTime(0.12, startTime + droneDuration * 0.6);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + droneDuration);
+  
+  osc.connect(distortion);
+  distortion.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  osc.start(startTime);
+  osc.stop(startTime + droneDuration);
+  lfo.start(startTime);
+  lfo.stop(startTime + droneDuration);
+}
+
+function playResonancePulse(ctx: AudioContext, startTime: number): void {
+  const pulseDuration = 0.2;
+  
+  const carrier = ctx.createOscillator();
+  const modulator = ctx.createOscillator();
+  const modulatorGain = ctx.createGain();
+  const carrierGain = ctx.createGain();
+  const delay = ctx.createDelay();
+  const delayGain = ctx.createGain();
+  
+  carrier.type = 'sine';
+  carrier.frequency.value = noteFrequencies['C6'];
+  
+  modulator.type = 'sine';
+  modulator.frequency.value = noteFrequencies['G5'] * 2;
+  modulatorGain.gain.value = 200;
+  
+  modulator.connect(modulatorGain);
+  modulatorGain.connect(carrier.frequency);
+  
+  delay.delayTime.value = 0.06;
+  delayGain.gain.value = 0.25;
+  
+  carrierGain.gain.setValueAtTime(0, startTime);
+  carrierGain.gain.linearRampToValueAtTime(0.12, startTime + 0.02);
+  carrierGain.gain.setValueAtTime(0.12, startTime + 0.08);
+  carrierGain.gain.exponentialRampToValueAtTime(0.01, startTime + pulseDuration);
+  
+  carrier.connect(carrierGain);
+  carrierGain.connect(ctx.destination);
+  carrierGain.connect(delay);
+  delay.connect(delayGain);
+  delayGain.connect(ctx.destination);
+  
+  carrier.start(startTime);
+  carrier.stop(startTime + pulseDuration);
+  modulator.start(startTime);
+  modulator.stop(startTime + pulseDuration);
+}
+
+function playCubChirp(ctx: AudioContext, startTime: number): void {
+  const osc1 = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  const gainNode1 = ctx.createGain();
+  const gainNode2 = ctx.createGain();
+  
+  osc1.type = 'square';
+  osc1.frequency.value = 1200;
+  osc1.frequency.setValueAtTime(1200, startTime);
+  osc1.frequency.linearRampToValueAtTime(1400, startTime + 0.03);
+  
+  osc2.type = 'square';
+  osc2.frequency.value = 1600;
+  osc2.frequency.setValueAtTime(1600, startTime + 0.08);
+  osc2.frequency.linearRampToValueAtTime(1800, startTime + 0.12);
+  
+  gainNode1.gain.setValueAtTime(0, startTime);
+  gainNode1.gain.linearRampToValueAtTime(0.08, startTime + 0.01);
+  gainNode1.gain.exponentialRampToValueAtTime(0.01, startTime + 0.06);
+  
+  gainNode2.gain.setValueAtTime(0, startTime + 0.08);
+  gainNode2.gain.linearRampToValueAtTime(0.06, startTime + 0.09);
+  gainNode2.gain.exponentialRampToValueAtTime(0.01, startTime + 0.14);
+  
+  osc1.connect(gainNode1);
+  gainNode1.connect(ctx.destination);
+  osc2.connect(gainNode2);
+  gainNode2.connect(ctx.destination);
+  
+  osc1.start(startTime);
+  osc1.stop(startTime + 0.06);
+  osc2.start(startTime + 0.08);
+  osc2.stop(startTime + 0.14);
+}
+
+export async function playBootJingle(): Promise<void> {
+  if (isPlaying) return;
+  
+  try {
+    const ctx = getAudioContext();
+    
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    isPlaying = true;
+    const now = ctx.currentTime;
+    
+    playCRTStatic(ctx, now);
+    playSystemChime(ctx, now + 0.25);
+    playCyberDrone(ctx, now + 0.45);
+    playResonancePulse(ctx, now + 1.2);
+    playCubChirp(ctx, now + 1.4);
+    
+    setTimeout(() => {
+      isPlaying = false;
+    }, 1800);
+    
+  } catch (error) {
+    console.warn('Boot jingle failed to play:', error);
+    isPlaying = false;
+  }
+}
+
+export function stopBootJingle(): void {
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+  isPlaying = false;
+}
+
+export function playIconAppearSound(): void {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.value = 440 + Math.random() * 200;
+    
+    const now = ctx.currentTime;
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.05, now + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.start(now);
+    osc.stop(now + 0.1);
+  } catch (error) {
+    console.warn('Icon sound failed:', error);
+  }
+}
+
+export function playLoadingTick(): void {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'square';
+    osc.frequency.value = 800 + Math.random() * 400;
+    
+    const now = ctx.currentTime;
+    gainNode.gain.setValueAtTime(0.02, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.start(now);
+    osc.stop(now + 0.03);
+  } catch (error) {
+  }
+}
+
+export function playSystemReady(): void {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') return;
+    
+    const now = ctx.currentTime;
+    
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      
+      const noteStart = now + i * 0.08;
+      gainNode.gain.setValueAtTime(0, noteStart);
+      gainNode.gain.linearRampToValueAtTime(0.1, noteStart + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, noteStart + 0.15);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.start(noteStart);
+      osc.stop(noteStart + 0.15);
+    });
+  } catch (error) {
+    console.warn('System ready sound failed:', error);
+  }
+}

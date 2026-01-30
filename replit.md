@@ -34,6 +34,14 @@ The game itself runs in a resizable window with an optional fullscreen mode, off
 ### Neo-CRT Enhanced Features
 The desktop implements a comprehensive Neo-CRT aesthetic system:
 
+**Boot Sequence Audio** (`client/src/lib/bootJingle.ts`):
+"Awakening Sequence v0.91" - A 1.8-second synthesized boot jingle using Web Audio API:
+- CRT Flicker Noise (0:00-0:25s): Static burst with coil whine
+- Retro System Chime (0:25-0:45s): E4→F#4→E5 stinger (Sega/Windows 95 hybrid)
+- Cyberpunk Drone (0:45-1:20s): Low B1 sawtooth with tremolo (Death Drive inspired)
+- Resonance Pulse (1:20-1:40s): C6→G5 FM bell shimmer
+- Cub Chirp (1:40-1:80s): Digital beep-bip confirmation
+
 **Visual Effects** (`client/src/index.css`):
 - Screen bloom animation when windows open
 - Cursor pulse animation for terminal interaction

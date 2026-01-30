@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import bearImage from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
+import { playBootJingle, playIconAppearSound, playSystemReady, stopBootJingle } from '@/lib/bootJingle';
 
 interface RetroBootScreenProps {
   onBootComplete: () => void;
@@ -143,6 +144,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     setMounted(true);
     return () => {
       console.log('[BOOT] RetroBootScreen unmounting');
+      stopBootJingle();
     };
   }, []);
 
@@ -156,6 +158,9 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       intervalRef.current = null;
     }
     
+    // Play system ready sound
+    playSystemReady();
+    
     // Instant transition - no fade, like a real computer
     onBootComplete();
   }, [onBootComplete]);
@@ -167,10 +172,18 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     console.log('[BOOT] Phase 1: Icon construction');
     let phase = 0;
     
+    // Play the boot jingle when icon phase starts
+    playBootJingle();
+    
     const iconInterval = setInterval(() => {
       phase++;
       setIconPhase(phase);
       console.log('[BOOT] Icon phase', phase);
+      
+      // Play subtle sound for each icon construction phase
+      if (phase <= 5) {
+        playIconAppearSound();
+      }
       
       if (phase >= 5) {
         clearInterval(iconInterval);
