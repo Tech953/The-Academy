@@ -10,6 +10,7 @@ import { mapLegacyStats, FullCharacterStats, DEFAULT_STATS } from '@shared/stats
 import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
 import { i18nManager } from '@/lib/i18n';
 import { glossaryManager } from '@/lib/glossary';
+import { localizedContentManager } from '@/lib/localizedContent';
 
 interface HomeProps {
   onExit?: () => void;
@@ -1601,32 +1602,34 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       
       const textbook = await textbookResponse.json();
       
+      const labels = localizedContentManager.getTextbookLabels();
+      
       addTerminalLine('');
-      addTerminalLine(`📚 ${textbook.courseName} Textbook`);
-      addTerminalLine('='.repeat(textbook.courseName.length + 4));
+      addTerminalLine(`${textbook.courseName} Textbook`);
+      addTerminalLine('='.repeat(textbook.courseName.length + 10));
       addTerminalLine('');
-      addTerminalLine(`Authors: ${textbook.authors.join(', ')}`);
-      addTerminalLine(`Edition: ${textbook.edition}`);
-      addTerminalLine(`Department: ${textbook.department}`);
+      addTerminalLine(`${labels.authors}: ${textbook.authors.join(', ')}`);
+      addTerminalLine(`${labels.edition}: ${textbook.edition}`);
+      addTerminalLine(`${labels.department}: ${localizedContentManager.getSubjectName(textbook.department)}`);
       addTerminalLine('');
-      addTerminalLine('TABLE OF CONTENTS:');
+      addTerminalLine(`${labels.toc}:`);
       addTerminalLine('');
       textbook.chapters.forEach((chapter: any) => {
-        addTerminalLine(`Chapter ${chapter.number}: ${chapter.title}`);
+        addTerminalLine(`${labels.chapter} ${chapter.number}: ${chapter.title}`);
         addTerminalLine(`  ${chapter.summary}`);
       });
       addTerminalLine('');
-      addTerminalLine('COMMANDS:');
-      addTerminalLine(`  CHAPTER "${textbook.courseName}" <number>  - Read a specific chapter`);
-      addTerminalLine(`  LECTURE "${textbook.courseName}" <week>    - View lecture notes`);
+      addTerminalLine(`${labels.commands}:`);
+      addTerminalLine(`  CHAPTER "${textbook.courseName}" <number>  - ${labels.readChapter}`);
+      addTerminalLine(`  LECTURE "${textbook.courseName}" <week>    - ${labels.viewLecture}`);
       addTerminalLine('');
       if (textbook.glossary && textbook.glossary.length > 0) {
-        addTerminalLine('KEY TERMS:');
+        addTerminalLine(`${labels.keyTerms}:`);
         textbook.glossary.slice(0, 5).forEach((term: any) => {
           addTerminalLine(`  ${term.term}: ${term.definition}`);
         });
         if (textbook.glossary.length > 5) {
-          addTerminalLine(`  ... and ${textbook.glossary.length - 5} more terms`);
+          addTerminalLine(`  ... ${textbook.glossary.length - 5} ${labels.moreTerms}`);
         }
         addTerminalLine('');
       }
@@ -1786,25 +1789,27 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         return;
       }
       
+      const lbls = localizedContentManager.getChapterLabels();
+      
       // Display chapter content
       addTerminalLine('');
-      addTerminalLine(`📖 ${textbook.courseName}`);
-      addTerminalLine(`Chapter ${chapter.number}: ${chapter.title}`);
+      addTerminalLine(`${textbook.courseName}`);
+      addTerminalLine(`${lbls.chapter} ${chapter.number}: ${chapter.title}`);
       addTerminalLine('='.repeat(chapter.title.length + 12));
       addTerminalLine('');
-      addTerminalLine('CHAPTER SUMMARY:');
+      addTerminalLine(`${lbls.summary}:`);
       addTerminalLine(chapter.summary);
       addTerminalLine('');
       
       // Display sections
       chapter.sections.forEach((section: any, idx: number) => {
-        addTerminalLine(`SECTION ${idx + 1}: ${section.title}`);
+        addTerminalLine(`${lbls.section} ${idx + 1}: ${section.title}`);
         addTerminalLine('');
         addTerminalLine(section.content);
         addTerminalLine('');
         
         if (section.keyPoints && section.keyPoints.length > 0) {
-          addTerminalLine('Key Points:');
+          addTerminalLine(`${lbls.keyPoints}:`);
           section.keyPoints.forEach((point: string) => {
             addTerminalLine(`  • ${point}`);
           });
@@ -1812,7 +1817,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         }
         
         if (section.examples && section.examples.length > 0) {
-          addTerminalLine('Examples:');
+          addTerminalLine(`${lbls.examples}:`);
           section.examples.forEach((example: string) => {
             addTerminalLine(`  ${example}`);
           });
@@ -1900,24 +1905,25 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       }
       
       const lecture = await lectureResponse.json();
+      const lLabels = localizedContentManager.getLectureLabels();
       
       // Display lecture content
       addTerminalLine('');
-      addTerminalLine(`🎓 ${matchingCourse.name}`);
+      addTerminalLine(`${matchingCourse.name}`);
       addTerminalLine(lecture.title);
       addTerminalLine('='.repeat(lecture.title.length));
       addTerminalLine('');
-      addTerminalLine(`Duration: ${lecture.duration}`);
-      addTerminalLine(`Topic: ${lecture.topic}`);
+      addTerminalLine(`${lLabels.duration}: ${lecture.duration}`);
+      addTerminalLine(`${lLabels.topic}: ${lecture.topic}`);
       addTerminalLine('');
       
-      addTerminalLine('LEARNING OBJECTIVES:');
+      addTerminalLine(`${lLabels.objectives}:`);
       lecture.objectives.forEach((obj: string) => {
         addTerminalLine(`  • ${obj}`);
       });
       addTerminalLine('');
       
-      addTerminalLine('LECTURE CONTENT:');
+      addTerminalLine(`${lLabels.content}:`);
       addTerminalLine('');
       const contentLines = lecture.content.split('\n\n');
       contentLines.forEach((line: string) => {
@@ -1926,7 +1932,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       });
       
       if (lecture.keyTerms && lecture.keyTerms.length > 0) {
-        addTerminalLine('KEY TERMS:');
+        addTerminalLine(`${lLabels.keyTerms}:`);
         lecture.keyTerms.forEach((term: any) => {
           addTerminalLine(`  ${term.term}: ${term.definition}`);
         });
@@ -1934,7 +1940,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       }
       
       if (lecture.examples && lecture.examples.length > 0) {
-        addTerminalLine('EXAMPLES:');
+        addTerminalLine(`${lLabels.examples}:`);
         lecture.examples.forEach((example: string) => {
           addTerminalLine(`  ${example}`);
         });
