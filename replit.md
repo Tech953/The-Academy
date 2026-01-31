@@ -1,6 +1,6 @@
 # Overview
 
-"The Academy" is an interactive text-based RPG designed to recreate the classic terminal adventure experience with modern features. Players navigate a mysterious private school, making choices that influence their character's stats, reputation, and story within an immersive world of 144 students and faculty. The game aims to provide personalized gameplay through AI-powered elements, all presented within a simulated "Academy OS" featuring a Neo-CRT aesthetic. The project combines nostalgic gameplay with advanced interactive storytelling and educational content.
+"The Academy" is an interactive text-based RPG that aims to combine nostalgic gameplay with advanced interactive storytelling and educational content. Players navigate a mysterious private school, making choices that influence their character's stats, reputation, and story. The game provides personalized gameplay through AI-powered elements within a simulated "Academy OS" featuring a Neo-CRT aesthetic. The project's vision is to offer an immersive, educational, and engaging experience in a text-based RPG format, with a potential market in both gaming and educational technology.
 
 # User Preferences
 
@@ -9,158 +9,55 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-The frontend is a React with TypeScript single-page application, encapsulated within a custom "Neo-CRT Academy OS Wrapper". This OS features a retro-modern design inspired by Fallout Pip-Boy and early MacOS, with pure black backgrounds, neon elements, subtle CRT effects (scanlines, vignette), and a day/night shader system with three distinct color palettes (Dawn, School Day, Night Study). The desktop layout is responsive, includes resizable and multi-window management, and uses a multi-color neon palette.
+The frontend is a React with TypeScript single-page application, wrapped in a "Neo-CRT Academy OS Wrapper." This OS features a retro-modern design with pure black backgrounds, neon elements, subtle CRT effects, and a day/night shader system. The desktop includes responsive layout, resizable multi-window management, and a multi-color neon palette. Core desktop elements include a customizable sidebar with apps like Personal Profile, E-Mail, and Assignments Portal, and a taskbar with quick access to Class Schedule, Notifications, and Settings.
 
-### Desktop Icons (Sidebar)
-- Personal Profile
-- Academy E-Mail
-- Messages / Chatlink
-- Assignments Portal
-- Perks Viewer
-- Resonance Dashboard
-- School Files (academic materials, textbooks, lecture notes)
-- Personal Files (journal entries, private notes, keepsakes)
-
-### Taskbar Elements
-- Class Schedule (quick access)
-- Cub Companion Link
-- Polaroid Memories (milestone snapshots)
-- Settings / Accessibility
-- Notifications (with badge counter)
-- Clock (real-time display)
-
-The game itself runs in a resizable window with an optional fullscreen mode, offering a terminal-first design with a black background and green monospace text, a header bar, a stats sidebar (displaying 17 stats), and adjustable text size. Styling is handled with Tailwind CSS, adapted shadcn/ui components, and Lucide React for icons. React Query manages server state.
+The game itself runs within a resizable window, offering a terminal-first design with a black background, green monospace text, a header, and a 17-stat sidebar. Styling uses Tailwind CSS, adapted shadcn/ui components, and Lucide React. React Query manages server state.
 
 ### Neo-CRT Enhanced Features
-The desktop implements a comprehensive Neo-CRT aesthetic system:
+The desktop implements a comprehensive Neo-CRT aesthetic system, including a 3.5-second synthesized boot jingle using Web Audio API with mechanical and digital sounds, and visual effects like screen bloom, cursor pulse, resonance distortion, scanline drift, and fuzzy bubble notifications.
 
-**Boot Sequence Audio** (`client/src/lib/bootJingle.ts`):
-"Awakening Sequence v0.93" - A 3.5-second synthesized boot jingle using Web Audio API, inspired by the Nostromo's "Mother" computer and classic rotating storage from the Alien series:
-- Mother Reactor Hum (0:00-2.8s): Deep mechanical drone with layered sawtooth, sine, and triangle waves at 45/90/135Hz
-- Rotating Data Scroll (0:10-2.5s): Classic magnetic drum/disk storage sound with rhythmic churning, head clicks at 24Hz, and periodic seek sounds - the signature "data loading" noise from old rotating computers
-- Relay Clicks (0:15-2.0s): Randomized mechanical switching sounds with high-pass filtered noise bursts
-- Tape Drive Spinup (0:25-1.05s): Pitch-rising sawtooth simulating magnetic media initialization with mechanical whir
-- Data Bleeps (0:50-2.1s): Deliberate square wave transmission tones (1000-1600Hz) in recognizable patterns
-- Mother Voice Processing (1:20-1.8s): FM-modulated triangle wave simulating vocal synthesis
-- CRT Static (1:80-2.05s): Bandpass-filtered noise burst
-- Distress Beacon (2:00-3.2s): Descending sine wave pulses (880→660Hz) in triplet pattern
-- System Chime (2:50-2.8s): E4→F#4→E5 stinger with soft distortion
-- Cub Chirp (2:90-3.05s): Digital beep-bip confirmation
-
-**Visual Effects** (`client/src/index.css`):
-- Screen bloom animation when windows open
-- Cursor pulse animation for terminal interaction
-- Resonance distortion effects (unstable/critical states)
-- Scanline drift and ambient glow effects
-- Fuzzy bubble notification styling with neon glow
-- Paper terminal aesthetic for assignment files
-
-**Dual-Mode UI System**:
-- Legacy Mode: Terminal-first, command-driven interface
-- Student Mode: Clickable windows with modern navigation
-- Toggle available in taskbar and Settings app
-- Persisted via localStorage (`academy-ui-mode`)
-
-**Interactive Features**:
-- Command autocomplete system (`client/src/components/desktop/CommandAutocomplete.tsx`)
-- Window snap zones for left/right/full organization (`client/src/components/desktop/WindowSnapZones.tsx`)
-- Fuzzy bubble notifications (`client/src/components/desktop/FuzzyBubbleNotification.tsx`)
-- Ambient desktop objects that change with character progress (`client/src/components/desktop/AmbientObjects.tsx`)
-
-**Neon Color Palette**:
-- Green (primary), Cyan (messages), Amber (assignments), Purple (perks/resonance), Pink (personal), Red (warnings/alerts), Gold (achievements)
+A Dual-Mode UI System allows toggling between a Legacy Mode (terminal-first, command-driven) and a Student Mode (clickable windows). Interactive features include a command autocomplete system, window snap zones, and ambient desktop objects.
 
 ### Academy OS Core Systems
+A Linux-style Virtual Filesystem manages paths and permissions, supporting commands like `ls`, `cd`, and `cat`. An App Manifest System provides a modular application registry, defining app properties and categories. A Performance Tier System auto-detects hardware capabilities and adjusts visual effects and animations accordingly, with manual override options.
 
-**Virtual Filesystem** (`client/src/lib/virtualFilesystem.ts`):
-Linux-style virtual filesystem with paths and permissions:
-- `/home/student/` - User home directory with documents, messages, downloads
-- `/system/` - Read-only system files, policies, NPC profiles
-- `/apps/` - Executable applications
-- `/logs/` - System logs
-- Commands: ls, cd, pwd, cat, mkdir, rm, touch
+### State Management Contexts
+Centralized state management is handled by `GameStateContext` (for character data, emails, messages, Cub Affection), `NotificationsContext`, `I18nContext` (for internationalization), and `CrtThemeContext` (for theme management). All game state is persisted via `localStorage`.
 
-**App Manifest System** (`client/src/lib/appManifest.ts`):
-Modular application registry with formal manifests:
-- Each app defines: id, command, permissions, uiMode (cli/window/both)
-- Low-spec compatibility flags
-- Window configuration (size, resizable)
-- Categories: system, productivity, communication, education, utility
+### Desktop Apps
+Key desktop applications include:
+- `AcademyEmailApp`: Full email client with categories and unread counts.
+- `MessagesApp`: Direct messaging interface for NPC/student communication.
+- `PersonalProfileApp`: Character profile display.
+- `CubCompanion`: Interactive companion app with mood and affection tracking.
+- `ResonanceDashboard`: Spiritual stats visualization.
+- `PerksViewer`: Perk browser.
 
-**Performance Tier System** (`client/src/lib/performanceTier.ts`):
-Auto-detecting hardware capability tiers with fallback:
-- Low: CLI-only, no animations, no effects
-- Mid: Windows + icons, limited animations
-- High: Full CRT effects, glow, particles, audio
-- Auto-adjustment based on FPS monitoring
-- Manual override via settings
+### Academy Engine - Cognitive Infrastructure
+A four-phase learning system with ethics enforcement:
+- **Phase 1 - Core Cognition**: Manages a skill graph (40 GED-aligned skill nodes), student journals for research and reflections, a procedural homework engine, and detailed student profiles.
+- **Phase 2 - Assessment Layer**: Extracts mastery signals from behavior, estimates student confidence, and procedurally generates GED-class exams.
+- **Phase 3 - Governance**: Provides curriculum versioning and a teacher authority layer for curriculum changes.
+- **Phase 4 - Lore/Narrative**: Offers narrative modes to wrap prompts without affecting learning logic.
+- **Options**: Includes an `ethicsLockfile` to enforce ethical AI practices, a `portfolioGenerator` for GED alignment, and `versionFreeze` for reproducibility.
 
-**File Manager App** (`client/src/components/desktop/apps/FileManagerApp.tsx`):
-Visual file browser for the virtual filesystem with navigation, permissions display, and hidden file toggle.
-
-### Academy Engine - Cognitive Infrastructure (`client/src/lib/academy-engine/`)
-A comprehensive four-phase learning system with ethics enforcement:
-
-**Phase 1 - Core Cognition** (`phase1/`):
-- `skillGraph.ts`: 40 GED-aligned skill nodes across 5 domains (Math, Language, Science, Social, Reasoning) with prerequisites, cognitive load ratings, and representation types (numeric, verbal, applied, abstract, graphical, written)
-- `studentJournal.ts`: Persistent research journals with auto-capture of attempts and manual entries (reflections, hypotheses, confusions, milestones) with searchable indexing
-- `homeworkEngine.ts`: Procedural homework generation with representation shifting (changes format instead of punishing) and difficulty smoothing based on struggle history
-- `studentProfile.ts`: Learner identity tracking attempts, preferences, cognitive traits, and representation bias
-
-**Phase 2 - Assessment Layer** (`phase2/`):
-- `masterySignalExtractor.ts`: Infers mastery from behavior patterns (fragile/emerging/stable states) without grading
-- `confidenceEstimator.ts`: Student-visible confidence bands (unknown/emerging/stabilizing/reliable) with encouraging messages
-- `proceduralExamEngine.ts`: Deterministic GED-class exam generation from seeds - no static question banks
-- `examSession.ts`: Session management with fatigue detection and break suggestions
-
-**Phase 3 - Governance** (`phase3/`):
-- `curriculumVersioning.ts`: Git-like version control for curriculum with immutable hashes
-- `teacherAuthority.ts`: Teacher identity, signatures, approval layer for curriculum changes, and annotation engine
-
-**Phase 4 - Lore/Narrative** (`phase4/`):
-- `loreSkin.ts`: Three narrative modes (neutral/real_world/academy_lore) that wrap prompts without touching learning logic
-- Lore registry, canon event logging for milestones, zero logic contamination
-
-**Options** (`options/`):
-- `ethicsLockfile.ts`: Enforces 16+ forbidden fields (race, religion, biometrics, behavioral prediction, etc.) at code level with violation logging
-- `portfolioGenerator.ts`: Generates portfolios, transcripts, and accreditation records for GED alignment
-- `versionFreeze.ts`: Locks stable releases with checksums for reproducibility
-
-**Desktop Apps**:
-- `SkillGraphApp.tsx`: Visual skill tree with domain filtering and mastery status display
-- `ResearchNotebookApp.tsx`: Journal interface with search, filtering, and manual entry creation
-- `ProgressDashboardApp.tsx`: Stats overview, GED readiness tracking, strengths/focus areas
-
-**Design Principles**:
-- Non-punitive: Representation shifting instead of difficulty punishment
-- Student-owned: All data persists locally under student control
-- Transparent: Confidence bands show honest learning progress
-- Ethical: Explicit lockfile prevents forbidden inferences
-- GED-aligned: All 40 skills map to four GED test areas
+Desktop apps supporting the Academy Engine include `SkillGraphApp`, `ResearchNotebookApp`, and `ProgressDashboardApp`. The design emphasizes non-punitive, student-owned, transparent, ethical, and GED-aligned learning.
 
 ## Backend Architecture
-The backend uses Express.js with TypeScript to provide a RESTful API for character management, game state, and data persistence. It employs a session-based architecture and utilizes in-memory storage with PostgreSQL as a fallback for persistence.
+The backend uses Express.js with TypeScript, providing a RESTful API for character management, game state, and data persistence. It uses session-based architecture with in-memory storage and PostgreSQL as a fallback.
 
 ## Database Design
-PostgreSQL is used with Drizzle ORM for type-safe database interactions. Core tables include Users, Characters, Locations, NPCs, Items, and Game Sessions.
+PostgreSQL with Drizzle ORM is used for type-safe database interactions, including tables for Users, Characters, Locations, NPCs, Items, and Game Sessions.
 
 ## Game State Management
-The game features a multi-step character creation system with AI-driven personalized questions, location-based navigation, a three-tier reputation system, energy/health management, and an inventory system with 11 starter perks and 60+ level-up perks. A comprehensive 17-stat system is implemented, categorized into Physical, Mental, and Spiritual, each with custom polar bear mascot icons.
-A comprehensive curriculum system includes 24 courses across 4 GED test areas, with auto-generated textbooks and lectures, and commands for grades, transcripts, and schedules. Natural Language Processing (NLP) powered by GPT-4.1-mini allows for natural language command interpretation. Console accessibility features include voice input, a command palette, arrow key command history, and ARIA support. Memory optimization is achieved via an LRU cache for game content.
+Features include a multi-step character creation system with AI-driven questions, location-based navigation, a three-tier reputation system, energy/health management, and an inventory system. A 17-stat system (Physical, Mental, Spiritual) is implemented. A curriculum system offers 24 courses across 4 GED areas, with auto-generated textbooks and NLP for natural language command interpretation. Accessibility features include voice input, a command palette, and ARIA support.
 
 ### Terminal Commands for Accessibility & i18n
-- **ACCESSIBILITY [LIST|<profile>|SET <setting> <value>]**: Manage accessibility profiles (default, lowVision, screenReader, neurodivergent, dyslexia, protanopia, deuteranopia). Settings include fontSize, highContrast, reducedMotion, dyslexiaFont.
-- **LANG [LIST|<code>]**: Switch interface language (en, es, fr, de, zh). Automatically updates glossary language and textbook UI strings.
-- **GLOSSARY [<term>|SEARCH <query>|<subject>]**: Look up educational terms. Subjects: math, science, language, social. Returns definitions, examples, and related terms.
+- `ACCESSIBILITY`: Manages accessibility profiles and settings (e.g., `fontSize`, `highContrast`).
+- `LANG`: Switches interface language (en, es, fr, de, zh), updating glossary and textbook UI strings.
+- `GLOSSARY`: Looks up educational terms.
 
-### Localized Content System
-The LocalizedContentManager (`client/src/lib/localizedContent.ts`) provides language-aware educational content:
-- Textbook navigation UI strings localized in 5 languages
-- Subject names translated per language
-- Chapter headers and practice question labels localized
-- Core educational content remains in English (international academic standard) with localized UI/navigation
-Advanced systems include an Object Interaction Resolver for emergent gameplay with bias profiles, authority rules, and outcome profiles; a Research Notebook System for in-game note-taking, resource linking, and AI-powered study recommendations; and an Academy OS Engagement Tracking System for analytics and adaptive learning recommendations based on activity and progress.
-A Dialogue Modulation System ensures NPCs react differently based on player stats and faction biases, detecting stat conflicts and adapting tone. An Ambient World Change System provides environmental signals (visual, audio, access, spatial) reflecting faction reputation shifts. The Confluence Hall System describes a shared corridor where faction ambiences clash and stat conflicts create interference patterns. A GED Culmination System defines five unique "Departure Vectors" for graduation based on build coherence rather than just stat maximization. Finally, a Crisis Intervention System, personified by Watchwarden Elias Hale, provides trauma-informed, language-driven safety interventions with escalation detection, severity levels, and grounding exercises, connecting to real-world crisis resources.
+A Localized Content System provides language-aware educational content for UI strings, subject names, and chapter headers, while core educational content remains in English. Advanced systems include an Object Interaction Resolver, Research Notebook System, Academy OS Engagement Tracking System, Dialogue Modulation System, Ambient World Change System, Confluence Hall System, GED Culmination System, and a Crisis Intervention System for trauma-informed support.
 
 # External Dependencies
 
