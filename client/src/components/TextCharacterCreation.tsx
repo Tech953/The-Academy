@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TerminalInterface from './TerminalInterface';
+import { useI18n } from '../contexts/I18nContext';
 
 interface TextCharacterCreationProps {
   onComplete: (character: any) => void;
@@ -18,18 +19,39 @@ interface PhysicalQuestion {
 }
 
 export default function TextCharacterCreation({ onComplete }: TextCharacterCreationProps) {
-  const [lines, setLines] = useState<TerminalLine[]>([
-    { id: '1', text: 'THE ACADEMY - CHARACTER CREATION', type: 'system' },
-    { id: '2', text: '', type: 'output' },
-    { id: '3', text: 'Welcome to The Academy, an esteemed private school in the far reaches of', type: 'output' },
-    { id: '4', text: 'Toronto, Canada. You are about to create your character for this mysterious', type: 'output' },
-    { id: '5', text: 'adventure where 144 students call this dark institution home.', type: 'output' },
-    { id: '6', text: '', type: 'output' },
-    { id: '7', text: 'Please enter your character name:', type: 'output' },
-  ]);
+  const { t, language } = useI18n();
+  
+  const [lines, setLines] = useState<TerminalLine[]>([]);
 
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [step, setStep] = useState('name');
+
+  // Race/class/subclass/faction keys for internal storage and translation lookup
+  const raceKeys = ['human', 'elf', 'spirit', 'merperson', 'orc', 'furret', 'cartoon'];
+  const classKeys = ['bard', 'samurai', 'warlock', 'ranger', 'alchemist', 'executioner'];
+  const subClassKeys = ['berserker', 'assassin', 'paladin', 'demon', 'angel', 'beasthunter', 'lich', 'lunarguardian', 'lightworker'];
+  const factionKeys = ['archivist', 'raider', 'outcast', 'ai', 'magi'];
+
+  // Translation helper for game options
+  const getRaceLabel = (key: string) => t(`game.race.${key}`);
+  const getClassLabel = (key: string) => t(`game.class.${key}`);
+  const getSubClassLabel = (key: string) => t(`game.subclass.${key}`);
+
+  // Initialize lines on mount and when language changes (but only at name step)
+  useEffect(() => {
+    if (step === 'name' && lines.length === 0) {
+      setLines([
+        { id: '1', text: t('game.charCreate.title'), type: 'system' },
+        { id: '2', text: '', type: 'output' },
+        { id: '3', text: t('game.charCreate.welcome1'), type: 'output' },
+        { id: '4', text: t('game.charCreate.welcome2'), type: 'output' },
+        { id: '5', text: t('game.charCreate.welcome3'), type: 'output' },
+        { id: '6', text: '', type: 'output' },
+        { id: '7', text: t('game.charCreate.enterName'), type: 'output' },
+      ]);
+    }
+  }, [t, language, step, lines.length]);
+
   const [character, setCharacter] = useState({
     name: '',
     race: '',
@@ -53,6 +75,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
     setLines(prev => [...prev, newLine]);
   };
 
+  // Internal IDs (English) for storage
   const races = ['Human', 'Elf', 'Spirit', 'Mer-Person', 'Orc', 'Furret', 'Cartoon'];
   const classes = ['Bard', 'Samurai', 'Warlock', 'Ranger', 'Alchemist', 'Executioner'];
   const subClasses = ['Berserker', 'Assassin', 'Paladin', 'Demon', 'Angel', 'Beast Hunter', 'Lich', 'Lunar Guardian', 'Light Worker'];
@@ -61,7 +84,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
   const generatePhysicalQuestions = async (summary: string) => {
     setIsGeneratingQuestions(true);
     addLine('');
-    addLine('Generating personalized questions based on your character...', 'system');
+    addLine(t('game.charCreate.generatingQuestions'), 'system');
     
     try {
       const response = await fetch('/api/character-creation/generate-questions', {
@@ -79,7 +102,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
       setCurrentQuestionIndex(0);
       
       addLine('');
-      addLine('Now let\'s define your character\'s physical traits...', 'system');
+      addLine(t('game.charCreate.definingTraits'), 'system');
       addLine('');
       
       // Show first question
@@ -91,18 +114,18 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
         });
       }
       addLine('');
-      addLine('(You can type a number or write your own answer)');
+      addLine(t('game.charCreate.typeNumber'));
       
       setStep('physical-traits');
     } catch (error) {
       console.error('Error generating questions:', error);
       addLine('');
-      addLine('Could not generate custom questions. Continuing with basic setup...', 'error');
+      addLine(t('game.charCreate.couldNotGenerate'), 'error');
       // Skip to race selection
       addLine('');
-      addLine('Choose your race by typing the number:');
-      races.forEach((race, index) => {
-        addLine(`${index + 1}. ${race}`);
+      addLine(t('game.charCreate.chooseRace'));
+      raceKeys.forEach((key, index) => {
+        addLine(`${index + 1}. ${getRaceLabel(key)}`);
       });
       setStep('race');
     } finally {
@@ -124,15 +147,15 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
         if (command.trim()) {
           setCharacter(prev => ({ ...prev, name: command.trim() }));
           addLine('');
-          addLine(`Welcome, ${command.trim()}.`);
+          addLine(t('game.charCreate.welcomePlayer').replace('{name}', command.trim()));
           addLine('');
-          addLine('Before we continue, tell us about your character in your own words.');
-          addLine('Who are they? What\'s their background? What brought them to The Academy?');
+          addLine(t('game.charCreate.tellAbout'));
+          addLine(t('game.charCreate.whoAreThey'));
           addLine('');
-          addLine('Write a brief summary (at least 20 characters):');
+          addLine(t('game.charCreate.writeSummary'));
           setStep('summary');
         } else {
-          addLine('Please enter a valid name.', 'error');
+          addLine(t('game.charCreate.pleaseEnterName'), 'error');
         }
         break;
 
@@ -140,18 +163,18 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
         if (command.trim().length >= 20) {
           setCharacter(prev => ({ ...prev, characterSummary: command.trim() }));
           addLine('');
-          addLine('Excellent! Your character summary has been recorded.');
+          addLine(t('game.charCreate.summaryRecorded'));
           
           // Generate AI questions based on the summary
           await generatePhysicalQuestions(command.trim());
         } else {
-          addLine('Please write at least 20 characters to describe your character.', 'error');
+          addLine(t('game.charCreate.pleaseWrite20'), 'error');
         }
         break;
 
       case 'physical-traits':
         if (isGeneratingQuestions) {
-          addLine('Please wait while questions are being generated...', 'system');
+          addLine(t('game.charCreate.pleaseWait'), 'system');
           break;
         }
 
@@ -177,7 +200,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
           }));
           
           addLine('');
-          addLine(`Recorded: ${answer}`);
+          addLine(t('game.charCreate.recorded').replace('{answer}', answer));
           
           // Move to next question or continue to race selection
           if (currentQuestionIndex < physicalQuestions.length - 1) {
@@ -192,83 +215,85 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
               });
             }
             addLine('');
-            addLine('(You can type a number or write your own answer)');
+            addLine(t('game.charCreate.typeNumber'));
           } else {
             // All questions answered, move to race selection
             addLine('');
-            addLine('Great! Your physical characteristics have been recorded.');
+            addLine(t('game.charCreate.traitsRecorded'));
             addLine('');
-            addLine('Now choose your race by typing the number:');
-            races.forEach((race, index) => {
-              addLine(`${index + 1}. ${race}`);
+            addLine(t('game.charCreate.nowChooseRace'));
+            raceKeys.forEach((key, index) => {
+              addLine(`${index + 1}. ${getRaceLabel(key)}`);
             });
             setStep('race');
           }
         } else {
-          addLine('Please provide an answer.', 'error');
+          addLine(t('game.charCreate.provideAnswer'), 'error');
         }
         break;
 
       case 'race':
         const raceIndex = parseInt(command) - 1;
-        if (raceIndex >= 0 && raceIndex < races.length) {
-          const selectedRace = races[raceIndex];
+        if (raceIndex >= 0 && raceIndex < raceKeys.length) {
+          const selectedRaceKey = raceKeys[raceIndex];
+          const selectedRace = races[raceIndex]; // Store English ID
           setCharacter(prev => ({ ...prev, race: selectedRace }));
           addLine('');
-          addLine(`You have chosen: ${selectedRace}`);
+          addLine(t('game.charCreate.youHaveChosen').replace('{choice}', getRaceLabel(selectedRaceKey)));
           addLine('');
-          addLine('Choose your class by typing the number:');
-          classes.forEach((cls, index) => {
-            addLine(`${index + 1}. ${cls}`);
+          addLine(t('game.charCreate.chooseClass'));
+          classKeys.forEach((key, index) => {
+            addLine(`${index + 1}. ${getClassLabel(key)}`);
           });
           setStep('class');
         } else {
-          addLine('Invalid selection. Please choose a number from the list.', 'error');
+          addLine(t('game.charCreate.invalidSelection'), 'error');
         }
         break;
 
       case 'class':
         const classIndex = parseInt(command) - 1;
-        if (classIndex >= 0 && classIndex < classes.length) {
-          const selectedClass = classes[classIndex];
+        if (classIndex >= 0 && classIndex < classKeys.length) {
+          const selectedClassKey = classKeys[classIndex];
+          const selectedClass = classes[classIndex]; // Store English ID
           setCharacter(prev => ({ ...prev, class: selectedClass }));
           addLine('');
-          addLine(`You have chosen: ${selectedClass}`);
+          addLine(t('game.charCreate.youHaveChosen').replace('{choice}', getClassLabel(selectedClassKey)));
           addLine('');
-          addLine('Choose your specialization by typing the number:');
-          subClasses.forEach((subCls, index) => {
-            addLine(`${index + 1}. ${subCls}`);
+          addLine(t('game.charCreate.chooseSpec'));
+          subClassKeys.forEach((key, index) => {
+            addLine(`${index + 1}. ${getSubClassLabel(key)}`);
           });
           setStep('subclass');
         } else {
-          addLine('Invalid selection. Please choose a number from the list.', 'error');
+          addLine(t('game.charCreate.invalidSelection'), 'error');
         }
         break;
 
       case 'subclass':
         const subClassIndex = parseInt(command) - 1;
-        if (subClassIndex >= 0 && subClassIndex < subClasses.length) {
-          const selectedSubClass = subClasses[subClassIndex];
+        if (subClassIndex >= 0 && subClassIndex < subClassKeys.length) {
+          const selectedSubClassKey = subClassKeys[subClassIndex];
+          const selectedSubClass = subClasses[subClassIndex]; // Store English ID
           setCharacter(prev => ({ ...prev, subClass: selectedSubClass }));
           addLine('');
-          addLine(`You have chosen: ${selectedSubClass}`);
+          addLine(t('game.charCreate.youHaveChosen').replace('{choice}', getSubClassLabel(selectedSubClassKey)));
           addLine('');
-          addLine('Choose your faction by typing the number:');
-          addLine('1. Archivist - Keepers of knowledge and ancient secrets');
-          addLine('2. Raider - Bold explorers seeking power and adventure');
-          addLine('3. Outcast - Independent spirits who forge their own path');
-          addLine('4. AI - Technology-minded students embracing digital evolution');
-          addLine('5. Magi - Masters of mystical arts and supernatural forces');
+          addLine(t('game.charCreate.chooseFaction'));
+          factionKeys.forEach((key, index) => {
+            addLine(`${index + 1}. ${t(`game.faction.${key}`)}`);
+          });
           setStep('faction');
         } else {
-          addLine('Invalid selection. Please choose a number from the list.', 'error');
+          addLine(t('game.charCreate.invalidSelection'), 'error');
         }
         break;
 
       case 'faction':
         const factionIndex = parseInt(command) - 1;
-        if (factionIndex >= 0 && factionIndex < factions.length) {
-          const selectedFaction = factions[factionIndex];
+        if (factionIndex >= 0 && factionIndex < factionKeys.length) {
+          const selectedFactionKey = factionKeys[factionIndex];
+          const selectedFaction = factions[factionIndex]; // Store English ID
           const finalCharacter = {
             ...character,
             faction: selectedFaction,
@@ -292,34 +317,44 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
             currentClass: 'Orientation'
           };
           
+          // Get translated labels for display
+          const raceKeyIdx = races.indexOf(character.race);
+          const classKeyIdx = classes.indexOf(character.class);
+          const subClassKeyIdx = subClasses.indexOf(character.subClass);
+          
+          const displayRace = raceKeyIdx >= 0 ? getRaceLabel(raceKeys[raceKeyIdx]) : character.race;
+          const displayClass = classKeyIdx >= 0 ? getClassLabel(classKeys[classKeyIdx]) : character.class;
+          const displaySubClass = subClassKeyIdx >= 0 ? getSubClassLabel(subClassKeys[subClassKeyIdx]) : character.subClass;
+          const displayFaction = t(`game.factionName.${selectedFactionKey}`);
+          
           addLine('');
-          addLine(`You have joined the ${selectedFaction} faction.`);
+          addLine(t('game.charCreate.joinedFaction').replace('{faction}', displayFaction));
           addLine('');
-          addLine('CHARACTER SUMMARY:');
-          addLine(`Name: ${finalCharacter.name}`);
-          addLine(`Background: ${finalCharacter.characterSummary}`);
+          addLine(t('game.charCreate.characterSummary'));
+          addLine(t('game.charCreate.name').replace('{name}', finalCharacter.name));
+          addLine(t('game.charCreate.background').replace('{background}', finalCharacter.characterSummary));
           
           // Show physical traits if any were recorded
           const physicalTraitsEntries = Object.entries(finalCharacter.physicalTraits);
           if (physicalTraitsEntries.length > 0) {
             addLine('');
-            addLine('Physical Traits:');
+            addLine(t('game.charCreate.physicalTraits'));
             physicalTraitsEntries.forEach(([category, value]) => {
               addLine(`  ${category}: ${value}`);
             });
           }
           
           addLine('');
-          addLine(`Race: ${finalCharacter.race}`);
-          addLine(`Class: ${finalCharacter.class}`);
-          addLine(`Specialization: ${finalCharacter.subClass}`);
-          addLine(`Faction: ${finalCharacter.faction}`);
+          addLine(t('game.charCreate.race').replace('{race}', displayRace));
+          addLine(t('game.charCreate.class').replace('{class}', displayClass));
+          addLine(t('game.charCreate.specialization').replace('{spec}', displaySubClass));
+          addLine(t('game.charCreate.faction').replace('{faction}', displayFaction));
           addLine('');
-          addLine('Type START to begin your adventure at The Academy...');
+          addLine(t('game.charCreate.typeStart'));
           setStep('confirm');
           setCharacter(finalCharacter);
         } else {
-          addLine('Invalid selection. Please choose a number from the list.', 'error');
+          addLine(t('game.charCreate.invalidSelection'), 'error');
         }
         break;
 
@@ -327,7 +362,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
         if (command.toLowerCase() === 'start') {
           onComplete(character);
         } else {
-          addLine('Type START to begin your adventure.', 'system');
+          addLine(t('game.charCreate.typeStartShort'), 'system');
         }
         break;
     }
@@ -338,7 +373,7 @@ export default function TextCharacterCreation({ onComplete }: TextCharacterCreat
       lines={lines}
       onCommand={handleCommand}
       prompt=">"
-      statusLine="THE ACADEMY - Character Creation System"
+      statusLine={t('game.charCreate.statusLine')}
       commandHistory={commandHistory}
     />
   );
