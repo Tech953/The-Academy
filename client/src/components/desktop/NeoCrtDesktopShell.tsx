@@ -642,8 +642,8 @@ export default function NeoCrtDesktopShell() {
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [academyFullscreen, setAcademyFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [notificationCount] = useState(3);
   const { colors, accentColors, modeLabel } = useCrtTheme();
+  const { unreadCount: notificationCount } = useNotificationsContext();
   
   const [uiMode, setUiMode] = useState<UiMode>(() => {
     if (typeof window !== 'undefined') {
