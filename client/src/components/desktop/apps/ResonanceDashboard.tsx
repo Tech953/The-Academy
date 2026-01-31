@@ -195,7 +195,11 @@ export default function ResonanceDashboard({ stats }: ResonanceDashboardProps) {
           const IconComponent = STAT_ICONS[stat.id] || Activity;
           const color = STAT_COLORS[stat.id] || NEON_GREEN;
           const value = characterStats[stat.id as keyof FullCharacterStats] as number;
-          return renderStatBar(stat.name, value, 100, color, <IconComponent size={12} />);
+          return (
+            <div key={stat.id}>
+              {renderStatBar(stat.name, value, 100, color, <IconComponent size={12} />)}
+            </div>
+          );
         })}
       </div>
 
