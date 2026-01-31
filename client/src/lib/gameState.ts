@@ -768,6 +768,70 @@ export class GameStateManager {
     return calculateStudentProgress(this.gameState.researchNotebook, [], [], []);
   }
 
+  // Get Academy Engine progress for GED readiness
+  getAcademyProgress(): {
+    skillsMastered: number;
+    skillsEmerging: number;
+    overallConfidence: string;
+    gedReadiness: boolean;
+    stableSkills: string[];
+  } {
+    // Pull progress from game flags where skills are tracked
+    const stableSkills: string[] = this.getGameFlag('stable_skills', []);
+    const emergingSkills: string[] = this.getGameFlag('emerging_skills', []);
+    
+    // Check GED readiness - need 3+ stable skills in each domain
+    const gedDomains = ['MATH', 'LANG', 'SCI', 'SOC'];
+    const gedReady = gedDomains.every(domain => {
+      const domainSkills = stableSkills.filter(s => s.startsWith(domain));
+      return domainSkills.length >= 3;
+    });
+    
+    // Determine overall confidence
+    let overallConfidence = 'emerging';
+    if (stableSkills.length > emergingSkills.length) {
+      overallConfidence = 'reliable';
+    } else if (emergingSkills.length > 0) {
+      overallConfidence = 'stabilizing';
+    }
+    
+    return {
+      skillsMastered: stableSkills.length,
+      skillsEmerging: emergingSkills.length,
+      overallConfidence,
+      gedReadiness: gedReady,
+      stableSkills
+    };
+  }
+
+  // Add a mastered skill to the stable list
+  addStableSkill(skillId: string): void {
+    const stableSkills: string[] = this.getGameFlag('stable_skills', []);
+    if (!stableSkills.includes(skillId)) {
+      stableSkills.push(skillId);
+      this.setGameFlag('stable_skills', stableSkills);
+    }
+    // Remove from emerging if present
+    const emergingSkills: string[] = this.getGameFlag('emerging_skills', []);
+    const idx = emergingSkills.indexOf(skillId);
+    if (idx !== -1) {
+      emergingSkills.splice(idx, 1);
+      this.setGameFlag('emerging_skills', emergingSkills);
+    }
+  }
+
+  // Add an emerging skill
+  addEmergingSkill(skillId: string): void {
+    const stableSkills: string[] = this.getGameFlag('stable_skills', []);
+    if (stableSkills.includes(skillId)) return; // Already stable
+    
+    const emergingSkills: string[] = this.getGameFlag('emerging_skills', []);
+    if (!emergingSkills.includes(skillId)) {
+      emergingSkills.push(skillId);
+      this.setGameFlag('emerging_skills', emergingSkills);
+    }
+  }
+
   // -----------------------------
   // Dialogue Modulation System
   // -----------------------------

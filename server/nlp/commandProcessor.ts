@@ -34,7 +34,7 @@ const GAME_COMMANDS = {
   inventory: ['inventory', 'items', 'possessions'],
   status: ['status', 'stats', 'character', 'self'],
   social: ['list', 'who', 'people', 'characters'],
-  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read', 'chapter', 'lecture', 'attend', 'enroll', 'courses', 'study', 'textbook', 'assignments', 'progress'],
+  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read', 'chapter', 'lecture', 'attend', 'enroll', 'courses', 'study', 'textbook', 'assignments', 'progress', 'graduation', 'graduate', 'ged'],
   meta: ['help', 'save', 'load', 'quit', 'exit', 'time', 'score', 'clear'],
 };
 
@@ -66,6 +66,7 @@ AVAILABLE COMMAND TYPES:
   * textbook (access course textbook)
   * assignments (view pending assignments)
   * progress (view academic progress)
+  * graduation (check GED progress, trigger graduation ceremony)
 - Meta: help, save, load, quit, time, score, clear
 
 CURRENT GAME CONTEXT:

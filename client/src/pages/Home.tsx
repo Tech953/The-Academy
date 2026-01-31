@@ -670,6 +670,9 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         addTerminalLine('GPA - View current GPA and standing');
         addTerminalLine('READ [textbook] - Read a course textbook');
         addTerminalLine('ATTEND [course] - Mark attendance for a class');
+        addTerminalLine('ENROLL - View available courses');
+        addTerminalLine('ENROLL [course] - Enroll in a course');
+        addTerminalLine('GRADUATION - Check GED progress and graduate');
         addTerminalLine('');
         addTerminalLine('== Research Notebook ==');
         addTerminalLine('NOTES - List all research notes');
@@ -832,6 +835,8 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       handleAssignments();
     } else if (action === 'textbook') {
       handleTextbook(target);
+    } else if (action === 'graduation' || action === 'graduate' || action === 'ged') {
+      handleGraduation(target);
     } else if (action === 'quit' || action === 'exit') {
       handleQuit();
     } else if (action === 'clear') {
@@ -1784,6 +1789,90 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     await handleRead(target);
   };
 
+  const handleGraduation = (target?: string) => {
+    if (!gameState) return;
+    
+    addTerminalLine('');
+    addTerminalLine('GED PREPARATION PROGRESS');
+    addTerminalLine('========================');
+    addTerminalLine('');
+    
+    const academyProgress = gameStateManager.getAcademyProgress();
+    const gedDomains = [
+      { id: 'MATH', name: 'Mathematical Reasoning', icon: '=' },
+      { id: 'LANG', name: 'Language Arts', icon: '~' },
+      { id: 'SCI', name: 'Science', icon: '*' },
+      { id: 'SOC', name: 'Social Studies', icon: '#' }
+    ];
+    
+    let totalMastered = 0;
+    let totalRequired = gedDomains.length * 3;
+    
+    gedDomains.forEach(domain => {
+      const domainSkills = academyProgress.stableSkills?.filter((s: string) => s.startsWith(domain.id)) || [];
+      const count = domainSkills.length;
+      totalMastered += Math.min(count, 3);
+      const bar = domain.icon.repeat(count) + '.'.repeat(Math.max(0, 3 - count));
+      const status = count >= 3 ? 'READY' : `${count}/3`;
+      addTerminalLine(`${domain.name}: [${bar}] ${status}`);
+    });
+    
+    addTerminalLine('');
+    addTerminalLine(`Skills Mastered: ${academyProgress.skillsMastered || 0} / 40`);
+    addTerminalLine(`Skills Emerging: ${academyProgress.skillsEmerging || 0}`);
+    addTerminalLine(`Overall Confidence: ${academyProgress.overallConfidence || 'unknown'}`);
+    addTerminalLine('');
+    
+    const culmination = gameStateManager.checkGedCulmination();
+    const gedReady = academyProgress.gedReadiness;
+    
+    if (gedReady && culmination) {
+      addTerminalLine('STATUS: GED READY', 'system');
+      addTerminalLine('');
+      addTerminalLine('You have demonstrated mastery across all GED domains!');
+      addTerminalLine('');
+      
+      if (target?.toLowerCase() === 'ceremony' || target?.toLowerCase() === 'now') {
+        addTerminalLine('');
+        addTerminalLine('============================================');
+        addTerminalLine('        THE ACADEMY - GRADUATION CEREMONY');
+        addTerminalLine('============================================');
+        addTerminalLine('');
+        addTerminalLine(`Departure Vector: ${culmination.name}`);
+        addTerminalLine(`"${culmination.condition}"`);
+        addTerminalLine('');
+        addTerminalLine(culmination.exitDescription);
+        addTerminalLine('');
+        addTerminalLine(`A voice echoes: "${culmination.npcConfirmation}"`);
+        addTerminalLine('');
+        addTerminalLine('============================================');
+        addTerminalLine('  CONGRATULATIONS ON YOUR GED ACHIEVEMENT!');
+        addTerminalLine('============================================');
+        addTerminalLine('');
+        addTerminalLine('You have successfully completed The Academy.');
+        addTerminalLine('Your transcript and portfolio are now available.');
+        addTerminalLine('');
+        addTerminalLine('Type TRANSCRIPT to view your academic record.');
+        addTerminalLine('Type PORTFOLIO to view your learning portfolio.');
+        
+        gameStateManager.setGameFlag('graduated', true);
+        gameStateManager.setGameFlag('departure_vector', culmination.id);
+      } else {
+        addTerminalLine('Type GRADUATION CEREMONY to begin the graduation.');
+      }
+    } else {
+      addTerminalLine('STATUS: NOT YET READY', 'error');
+      addTerminalLine('');
+      addTerminalLine('Requirements for GED:');
+      addTerminalLine('- Master 3+ skills in each domain (MATH, LANG, SCI, SOC)');
+      addTerminalLine('- Embrace contradictions in your learning journey');
+      addTerminalLine('- Resolve at least 2 faction misunderstandings');
+      addTerminalLine('');
+      addTerminalLine('Continue attending classes and completing assignments.');
+      addTerminalLine('Type STUDY for personalized recommendations.');
+    }
+  };
+
   const handleRead = async (target: string) => {
     if (!gameState) return;
     
@@ -1959,6 +2048,32 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       
       // Add XP for attending class
       addExperience(10);
+      
+      // Track skill progress based on GED area
+      const gedAreaToSkillPrefix: Record<string, string> = {
+        'Mathematics': 'MATH',
+        'Language Arts': 'LANG',
+        'Science': 'SCI',
+        'Social Studies': 'SOC'
+      };
+      const skillPrefix = gedAreaToSkillPrefix[course.gedArea];
+      if (skillPrefix) {
+        // Attending class adds an emerging skill (first), then stable (with repetition)
+        const attendanceCount = result.attendanceCount || 1;
+        const skillId = `${skillPrefix}_${course.id.replace(/-/g, '_')}`;
+        
+        if (attendanceCount >= 5) {
+          // After 5 attendances, skill becomes stable
+          gameStateManager.addStableSkill(skillId);
+          addTerminalLine(`Skill Mastered: ${skillId}`, 'system');
+        } else if (attendanceCount >= 2) {
+          // After 2 attendances, skill is emerging
+          gameStateManager.addEmergingSkill(skillId);
+          addTerminalLine(`Skill Progress: ${skillId} (${attendanceCount}/5 to mastery)`, 'system');
+        } else {
+          addTerminalLine(`Starting to learn: ${skillId}`, 'system');
+        }
+      }
       
       // Sometimes the instructor sends a follow-up email after class (25% chance)
       if (Math.random() < 0.25) {
