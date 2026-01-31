@@ -91,8 +91,34 @@ All core systems have been playtested and verified functional:
    - Assignments with quizzes, essays, and lab reports
 5. **Game-Desktop Integration**: NPC messages and class emails trigger correctly
 
+## GED Graduation System (January 2026)
+The Academy now includes a complete GED preparation and graduation system:
+
+### Skill Progress Tracking
+- Skills tracked via game flags (`stable_skills`, `emerging_skills`)
+- Attending classes increments attendance count for each course
+- After 2 attendances: skill becomes "emerging"
+- After 5 attendances: skill becomes "stable/mastered"
+- Skills are prefixed by domain: MATH_, LANG_, SCI_, SOC_
+
+### GED Readiness Requirements
+- Need 3+ stable skills per domain (Mathematical Reasoning, Language Arts, Science, Social Studies)
+- Check progress with GRADUATION command
+- When ready, type GRADUATION CEREMONY to trigger graduation
+
+### Terminal Commands Added
+- ENROLL - View available GED courses
+- ENROLL [course] - Enroll in a specific course
+- COURSES - Browse course catalog
+- ASSIGNMENTS - View pending assignments
+- TEXTBOOK [course] - Read course textbook
+- GRADUATION / GED - Check GED progress
+- GRADUATION CEREMONY - Trigger graduation when ready
+
 ## Bug Fixes Applied
 - Fixed null-safety issues in character energy calculations (routes.ts)
+- Fixed schedule display null-safety for undefined days/time
+- Added missing enrollment command handlers
 - All LSP errors resolved
 
 ## AI Systems Status

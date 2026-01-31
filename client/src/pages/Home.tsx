@@ -1823,10 +1823,10 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     addTerminalLine(`Overall Confidence: ${academyProgress.overallConfidence || 'unknown'}`);
     addTerminalLine('');
     
-    const culmination = gameStateManager.checkGedCulmination();
     const gedReady = academyProgress.gedReadiness;
+    const culmination = gameStateManager.checkGedCulmination();
     
-    if (gedReady && culmination) {
+    if (gedReady) {
       addTerminalLine('STATUS: GED READY', 'system');
       addTerminalLine('');
       addTerminalLine('You have demonstrated mastery across all GED domains!');
@@ -1838,12 +1838,22 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         addTerminalLine('        THE ACADEMY - GRADUATION CEREMONY');
         addTerminalLine('============================================');
         addTerminalLine('');
-        addTerminalLine(`Departure Vector: ${culmination.name}`);
-        addTerminalLine(`"${culmination.condition}"`);
+        
+        if (culmination) {
+          addTerminalLine(`Departure Vector: ${culmination.name}`);
+          addTerminalLine(`"${culmination.condition}"`);
+          addTerminalLine('');
+          addTerminalLine(culmination.exitDescription);
+        } else {
+          addTerminalLine('Departure Vector: The Graduate');
+          addTerminalLine('"Mastery of the four pillars of knowledge"');
+          addTerminalLine('');
+          addTerminalLine('The Academy doors open before you. Light streams through,');
+          addTerminalLine('illuminating the path you have earned through dedication.');
+        }
         addTerminalLine('');
-        addTerminalLine(culmination.exitDescription);
-        addTerminalLine('');
-        addTerminalLine(`A voice echoes: "${culmination.npcConfirmation}"`);
+        const voiceMessage = culmination?.npcConfirmation || 'You have proven yourself worthy.';
+        addTerminalLine(`A voice echoes: "${voiceMessage}"`);
         addTerminalLine('');
         addTerminalLine('============================================');
         addTerminalLine('  CONGRATULATIONS ON YOUR GED ACHIEVEMENT!');
@@ -1856,7 +1866,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         addTerminalLine('Type PORTFOLIO to view your learning portfolio.');
         
         gameStateManager.setGameFlag('graduated', true);
-        gameStateManager.setGameFlag('departure_vector', culmination.id);
+        gameStateManager.setGameFlag('departure_vector', culmination?.id || 'graduate');
       } else {
         addTerminalLine('Type GRADUATION CEREMONY to begin the graduation.');
       }
@@ -1864,12 +1874,13 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine('STATUS: NOT YET READY', 'error');
       addTerminalLine('');
       addTerminalLine('Requirements for GED:');
-      addTerminalLine('- Master 3+ skills in each domain (MATH, LANG, SCI, SOC)');
-      addTerminalLine('- Embrace contradictions in your learning journey');
-      addTerminalLine('- Resolve at least 2 faction misunderstandings');
+      addTerminalLine('- Master 3+ skills in Mathematical Reasoning (MATH)');
+      addTerminalLine('- Master 3+ skills in Language Arts (LANG)');
+      addTerminalLine('- Master 3+ skills in Science (SCI)');
+      addTerminalLine('- Master 3+ skills in Social Studies (SOC)');
       addTerminalLine('');
-      addTerminalLine('Continue attending classes and completing assignments.');
-      addTerminalLine('Type STUDY for personalized recommendations.');
+      addTerminalLine('Attend classes 5 times each to master their skills.');
+      addTerminalLine('Type ENROLL to see available courses.');
     }
   };
 
@@ -2058,18 +2069,21 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       };
       const skillPrefix = gedAreaToSkillPrefix[course.gedArea];
       if (skillPrefix) {
-        // Attending class adds an emerging skill (first), then stable (with repetition)
-        const attendanceCount = result.attendanceCount || 1;
+        // Track attendance counts client-side in game flags
         const skillId = `${skillPrefix}_${course.id.replace(/-/g, '_')}`;
+        const attendanceKey = `attendance_${course.id}`;
+        const currentCount = gameStateManager.getGameFlag(attendanceKey, 0);
+        const newCount = currentCount + 1;
+        gameStateManager.setGameFlag(attendanceKey, newCount);
         
-        if (attendanceCount >= 5) {
-          // After 5 attendances, skill becomes stable
+        if (newCount >= 5) {
+          // After 5 attendances, skill becomes stable/mastered
           gameStateManager.addStableSkill(skillId);
           addTerminalLine(`Skill Mastered: ${skillId}`, 'system');
-        } else if (attendanceCount >= 2) {
+        } else if (newCount >= 2) {
           // After 2 attendances, skill is emerging
           gameStateManager.addEmergingSkill(skillId);
-          addTerminalLine(`Skill Progress: ${skillId} (${attendanceCount}/5 to mastery)`, 'system');
+          addTerminalLine(`Skill Progress: ${skillId} (${newCount}/5 to mastery)`, 'system');
         } else {
           addTerminalLine(`Starting to learn: ${skillId}`, 'system');
         }
