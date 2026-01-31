@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, MailOpen, Inbox, Send, Archive, Trash2, ArrowLeft } from 'lucide-react';
+import { Mail, MailOpen, Inbox, Send, Archive, Trash2, ArrowLeft, Reply, PenLine } from 'lucide-react';
 import { useGameState, Email } from '@/contexts/GameStateContext';
 
 const NEON_GREEN = '#00ff00';
@@ -16,17 +16,49 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function AcademyEmailApp() {
-  const { emails, markEmailRead, unreadEmailCount } = useGameState();
+  const { emails, markEmailRead, unreadEmailCount, addEmail } = useGameState();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [replyMode, setReplyMode] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [replySending, setReplySending] = useState(false);
 
   const filteredEmails = filter === 'unread' ? emails.filter(e => !e.read) : emails;
 
   const handleEmailClick = (email: Email) => {
     setSelectedEmail(email);
+    setReplyMode(false);
+    setReplyContent('');
     if (!email.read) {
       markEmailRead(email.id);
     }
+  };
+  
+  const handleSendReply = () => {
+    if (!selectedEmail || !replyContent.trim()) return;
+    
+    setReplySending(true);
+    
+    setTimeout(() => {
+      const responseTemplates = [
+        `Thank you for your message. I've noted your thoughts and will respond more fully soon.`,
+        `Your reply has been received. I appreciate you taking the time to write back.`,
+        `Thank you for getting in touch. Your message is important to me.`,
+      ];
+      
+      setTimeout(() => {
+        addEmail({
+          from: selectedEmail.from,
+          subject: `Re: ${selectedEmail.subject}`,
+          body: responseTemplates[Math.floor(Math.random() * responseTemplates.length)],
+          category: selectedEmail.category,
+        });
+      }, 2000 + Math.random() * 5000);
+      
+      setReplySending(false);
+      setReplyMode(false);
+      setReplyContent('');
+    }, 1000);
   };
 
   const containerStyle: React.CSSProperties = {
@@ -102,7 +134,7 @@ export default function AcademyEmailApp() {
       <div style={containerStyle}>
         <div style={headerStyle}>
           <button 
-            onClick={() => setSelectedEmail(null)}
+            onClick={() => { setSelectedEmail(null); setReplyMode(false); }}
             style={{ 
               background: 'transparent', 
               border: 'none', 
@@ -116,6 +148,25 @@ export default function AcademyEmailApp() {
           </button>
           <MailOpen size={16} />
           <span>VIEW MESSAGE</span>
+          <button 
+            onClick={() => setReplyMode(!replyMode)}
+            style={{ 
+              background: replyMode ? `${NEON_GREEN}30` : 'transparent', 
+              border: `1px solid ${NEON_GREEN}60`, 
+              color: NEON_GREEN, 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 10px',
+              marginLeft: 'auto',
+              fontSize: '11px',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Reply size={12} />
+            REPLY
+          </button>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
           <div style={{ 
@@ -146,6 +197,79 @@ export default function AcademyEmailApp() {
           }}>
             {selectedEmail.body}
           </div>
+          
+          {replyMode && (
+            <div style={{ 
+              marginTop: '20px', 
+              borderTop: `1px solid ${NEON_GREEN}40`,
+              paddingTop: '16px',
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                color: NEON_GREEN, 
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <PenLine size={12} />
+                Composing reply to {selectedEmail.from}
+              </div>
+              <textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Type your reply..."
+                style={{
+                  width: '100%',
+                  height: '100px',
+                  background: '#0f0f0f',
+                  border: `1px solid ${NEON_GREEN}40`,
+                  color: NEON_GREEN,
+                  padding: '10px',
+                  fontFamily: 'inherit',
+                  fontSize: '12px',
+                  resize: 'none',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                <button
+                  onClick={handleSendReply}
+                  disabled={replySending || !replyContent.trim()}
+                  style={{
+                    background: replySending ? `${NEON_GREEN}20` : `${NEON_GREEN}30`,
+                    border: `1px solid ${NEON_GREEN}`,
+                    color: NEON_GREEN,
+                    padding: '6px 16px',
+                    cursor: replySending || !replyContent.trim() ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: replySending || !replyContent.trim() ? 0.5 : 1,
+                  }}
+                >
+                  <Send size={12} />
+                  {replySending ? 'SENDING...' : 'SEND REPLY'}
+                </button>
+                <button
+                  onClick={() => { setReplyMode(false); setReplyContent(''); }}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${NEON_CYAN}40`,
+                    color: NEON_CYAN,
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    fontSize: '11px',
+                  }}
+                >
+                  CANCEL
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
 import AcademyGameLayout from '@/components/AcademyGameLayout';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
@@ -11,6 +11,7 @@ import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibilit
 import { i18nManager } from '@/lib/i18n';
 import { glossaryManager } from '@/lib/glossary';
 import { localizedContentManager } from '@/lib/localizedContent';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface HomeProps {
   onExit?: () => void;
@@ -27,6 +28,8 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   const [loading, setLoading] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
+  
+  const { addMessage, addEmail, updateCharacter, addExperience } = useGameState();
 
   // Helper functions
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
@@ -995,6 +998,33 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         addTerminalLine('');
         addTerminalLine('[You sense this faculty member already knows things about you...]', 'system');
       }
+      
+      // Sometimes NPCs will follow up with a message after conversation (15% chance)
+      const shouldSendFollowUp = Math.random() < 0.15;
+      if (shouldSendFollowUp) {
+        const followUpMessages: Record<string, string[]> = {
+          'FACULTY_NPC': [
+            `I've been thinking about our conversation. Please review the assigned readings when you get a chance.`,
+            `Good to meet you. Remember, my office hours are always open if you have questions.`,
+            `It was nice talking with you. I see potential in you - don't waste it.`,
+          ],
+          'STUDENT_NPC': [
+            `Hey! Nice talking to you earlier. We should hang out more.`,
+            `Thanks for the chat! This place can be weird but at least we're in it together.`,
+            `Good running into you. Let me know if you want to study together sometime!`,
+          ],
+        };
+        const pool = followUpMessages[archetypeId] || followUpMessages['STUDENT_NPC'];
+        const followUpContent = pool[Math.floor(Math.random() * pool.length)];
+        
+        setTimeout(() => {
+          addMessage({
+            from: npc.name,
+            fromTitle: npc.title || (archetypeId === 'FACULTY_NPC' ? 'Faculty' : 'Student'),
+            content: followUpContent,
+          });
+        }, 5000 + Math.random() * 10000);
+      }
     } else {
       addTerminalLine('');
       addTerminalLine(`You don't see anyone named ${target} here.`, 'error');
@@ -1728,6 +1758,37 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       const updatedState = await gameStateManager.getGameState();
       if (updatedState) {
         setGameState(updatedState);
+      }
+      
+      // Add XP for attending class
+      addExperience(10);
+      
+      // Sometimes the instructor sends a follow-up email after class (25% chance)
+      if (Math.random() < 0.25) {
+        const emailTemplates = [
+          {
+            subject: `${course.name} - Today's Lecture Notes`,
+            body: `Dear Student,\n\nThank you for attending class today. I've posted the lecture notes and additional resources on the course portal.\n\nRemember to review the material before our next session.\n\nBest regards,\nYour Instructor`,
+          },
+          {
+            subject: `Homework Reminder: ${course.name}`,
+            body: `Hello,\n\nI wanted to remind you about the upcoming assignment for ${course.name}. Please check the Assignments Portal for details and deadlines.\n\nKeep up the good work!\n\nYour Instructor`,
+          },
+          {
+            subject: `${course.name} - Great Participation Today`,
+            body: `I noticed your engagement in today's class. Keep asking those thoughtful questions - curiosity is the key to learning.\n\nSee you next class!\n\nYour Instructor`,
+          },
+        ];
+        const template = emailTemplates[Math.floor(Math.random() * emailTemplates.length)];
+        
+        setTimeout(() => {
+          addEmail({
+            from: `${course.name} Instructor`,
+            subject: template.subject,
+            body: template.body,
+            category: 'academic',
+          });
+        }, 3000 + Math.random() * 5000);
       }
     } catch (error) {
       console.error('Error attending class:', error);

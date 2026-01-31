@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
 
@@ -20,6 +20,16 @@ export interface DirectMessage {
   timestamp: Date;
   read: boolean;
   avatar?: string;
+  isFromPlayer?: boolean;
+  conversationId?: string;
+}
+
+export interface Conversation {
+  id: string;
+  participantName: string;
+  participantTitle?: string;
+  messages: DirectMessage[];
+  lastActivity: Date;
 }
 
 export interface GameCharacter {
@@ -41,6 +51,7 @@ interface GameStateContextType {
   character: GameCharacter;
   emails: Email[];
   messages: DirectMessage[];
+  conversations: Conversation[];
   cubAffection: number;
   unreadEmailCount: number;
   unreadMessageCount: number;
@@ -51,6 +62,8 @@ interface GameStateContextType {
   markEmailRead: (id: string) => void;
   addMessage: (message: Omit<DirectMessage, 'id' | 'timestamp' | 'read'>) => void;
   markMessageRead: (id: string) => void;
+  sendMessage: (conversationId: string, content: string) => void;
+  getConversation: (participantName: string) => Conversation | undefined;
   unlockPerk: (perkId: string) => void;
   setResonanceState: (state: 'stable' | 'unstable' | 'critical') => void;
 }
@@ -271,13 +284,115 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const getNpcResponse = (participantName: string, playerMessage: string): string => {
+    const responses: Record<string, string[]> = {
+      'Cub': [
+        "That's a great question! I'll look into it for you.",
+        "I'm here to help! Let me know what else you need.",
+        "Interesting! I'll keep that in mind.",
+        "Thanks for sharing! I'm always learning.",
+        "You're doing great! Keep up the good work.",
+      ],
+      'Professor Chen': [
+        "An insightful question. I recommend reviewing Chapter 3 of your mathematics textbook.",
+        "Excellent curiosity! Mathematical thinking requires practice and patience.",
+        "Please see me during office hours to discuss this further.",
+        "I appreciate your dedication to learning. Keep asking questions.",
+        "Remember, understanding the fundamentals is key to mastery.",
+      ],
+      'Alex Rivera': [
+        "Yeah, I totally get that! This place takes some getting used to.",
+        "Haha, nice! Let me know if you want to study together sometime.",
+        "For real though, the cafeteria food is actually not bad on Thursdays.",
+        "Oh cool! I'm heading to the library later if you want to come.",
+        "That's what I thought too at first! You'll figure it out.",
+      ],
+    };
+    const defaultResponses = [
+      "Thank you for your message. I'll get back to you soon.",
+      "Interesting point! Let me think about that.",
+      "I appreciate you reaching out.",
+      "That's good to know. Talk soon!",
+    ];
+    const pool = responses[participantName] || defaultResponses;
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
+  const sendMessage = useCallback((conversationId: string, content: string) => {
+    if (!content.trim()) return;
+    
+    const existingMsg = state.messages.find(m => m.from === conversationId || m.id.includes(conversationId.toLowerCase()));
+    const participantName = conversationId;
+    const participantTitle = existingMsg?.fromTitle;
+    
+    const playerMessage: DirectMessage = {
+      id: `msg-player-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      from: state.character.name,
+      fromTitle: 'You',
+      content: content.trim(),
+      timestamp: new Date(),
+      read: true,
+      isFromPlayer: true,
+      conversationId: participantName,
+    };
+
+    setState(prev => ({
+      ...prev,
+      messages: [playerMessage, ...prev.messages],
+    }));
+
+    setTimeout(() => {
+      const npcResponse: DirectMessage = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        from: participantName,
+        fromTitle: participantTitle,
+        content: getNpcResponse(participantName, content),
+        timestamp: new Date(),
+        read: false,
+        conversationId: participantName,
+      };
+      setState(prev => ({
+        ...prev,
+        messages: [npcResponse, ...prev.messages],
+      }));
+    }, 1500 + Math.random() * 2000);
+  }, [state.messages, state.character.name]);
+
+  const getConversation = useCallback((participantName: string): Conversation | undefined => {
+    const relatedMessages = state.messages.filter(
+      m => m.from === participantName || m.conversationId === participantName
+    ).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    
+    if (relatedMessages.length === 0) return undefined;
+    
+    const firstMsg = relatedMessages.find(m => m.from === participantName);
+    return {
+      id: participantName,
+      participantName,
+      participantTitle: firstMsg?.fromTitle,
+      messages: relatedMessages,
+      lastActivity: relatedMessages[relatedMessages.length - 1]?.timestamp || new Date(),
+    };
+  }, [state.messages]);
+
+  const conversations: Conversation[] = useMemo(() => {
+    const participantNames = new Set<string>();
+    state.messages.forEach(m => {
+      if (!m.isFromPlayer) {
+        participantNames.add(m.from);
+      }
+    });
+    return Array.from(participantNames).map(name => getConversation(name)!).filter(Boolean);
+  }, [state.messages, getConversation]);
+
   const unreadEmailCount = state.emails.filter(e => !e.read).length;
-  const unreadMessageCount = state.messages.filter(m => !m.read).length;
+  const unreadMessageCount = state.messages.filter(m => !m.read && !m.isFromPlayer).length;
 
   const value: GameStateContextType = {
     character: state.character,
     emails: state.emails,
     messages: state.messages,
+    conversations,
     cubAffection: state.cubAffection,
     unreadEmailCount,
     unreadMessageCount,
@@ -288,6 +403,8 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     markEmailRead,
     addMessage,
     markMessageRead,
+    sendMessage,
+    getConversation,
     unlockPerk,
     setResonanceState,
   };

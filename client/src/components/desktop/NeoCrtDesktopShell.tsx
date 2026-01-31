@@ -1056,7 +1056,7 @@ export default function NeoCrtDesktopShell() {
             key={icon.id}
             icon={icon}
             isSelected={selectedIcon === icon.id}
-            onClick={() => setSelectedIcon(icon.id)}
+            onClick={() => { setSelectedIcon(icon.id); openWindow(icon.id); }}
             onDoubleClick={() => openWindow(icon.id)}
             accentColors={accentColors}
             badgeCount={

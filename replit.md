@@ -26,12 +26,19 @@ Centralized state management is handled by `GameStateContext` (for character dat
 
 ### Desktop Apps
 Key desktop applications include:
-- `AcademyEmailApp`: Full email client with categories and unread counts.
-- `MessagesApp`: Direct messaging interface for NPC/student communication.
+- `AcademyEmailApp`: Full email client with categories, unread counts, and reply functionality.
+- `MessagesApp`: Direct messaging interface for NPC/student communication with conversation threading.
 - `PersonalProfileApp`: Character profile display.
 - `CubCompanion`: Interactive companion app with mood and affection tracking.
 - `ResonanceDashboard`: Spiritual stats visualization.
 - `PerksViewer`: Perk browser.
+
+### Game-Desktop Integration
+Game events trigger desktop app notifications:
+- Talking to NPCs may trigger follow-up messages (15% chance) in the Messages app
+- Attending classes may trigger instructor emails (25% chance) in the Email app
+- Attending classes awards 10 XP to the character
+- Email and Message replies receive automatic NPC responses after a realistic delay
 
 ### Academy Engine - Cognitive Infrastructure
 A four-phase learning system with ethics enforcement:
