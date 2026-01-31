@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Heart, Sparkles, MessageCircle, Star, Coffee, Book, Smile, HelpCircle, Moon, Zap, Brain, LucideIcon } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface CubMood {
   name: string;
@@ -36,10 +37,12 @@ const NEON_AMBER = '#ffaa00';
 const NEON_PURPLE = '#cc66ff';
 
 export default function CubCompanion() {
+  const { cubAffection, setCubAffection } = useGameState();
   const [currentMood, setCurrentMood] = useState<CubMood>(MOODS[0]);
   const [currentTip, setCurrentTip] = useState(TIPS[0]);
-  const [affection, setAffection] = useState(50);
   const [isAnimating, setIsAnimating] = useState(false);
+  const affection = cubAffection;
+  const setAffection = setCubAffection;
 
   useEffect(() => {
     const moodInterval = setInterval(() => {

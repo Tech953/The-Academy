@@ -9,6 +9,9 @@ import ResonanceDashboard from './apps/ResonanceDashboard';
 import ClassSchedule from './apps/ClassSchedule';
 import CubCompanion from './apps/CubCompanion';
 import SettingsApp from './apps/SettingsApp';
+import AcademyEmailApp from './apps/AcademyEmailApp';
+import MessagesApp from './apps/MessagesApp';
+import PersonalProfileApp from './apps/PersonalProfileApp';
 import { FileManagerApp } from './apps/FileManagerApp';
 import { ResearchNotebookApp } from './apps/ResearchNotebookApp';
 import { SkillGraphApp } from './apps/SkillGraphApp';
@@ -16,6 +19,7 @@ import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { useGameState } from '@/contexts/GameStateContext';
 import { AmbientObjects } from './AmbientObjects';
 import { WindowSnapZones, useWindowSnap, getSnapDimensions } from './WindowSnapZones';
 import { NotificationContainer, useNotifications } from './FuzzyBubbleNotification';
@@ -134,12 +138,14 @@ const SidebarIcon = memo(function SidebarIcon({
   onClick, 
   onDoubleClick,
   accentColors,
+  badgeCount = 0,
 }: { 
   icon: DesktopIconConfig;
   isSelected: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
   accentColors: AccentColors;
+  badgeCount?: number;
 }) {
   const color = accentColors[icon.colorKey];
   return (
@@ -157,13 +163,36 @@ const SidebarIcon = memo(function SidebarIcon({
         border: 'none',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
+        position: 'relative',
       }}
     >
       <div style={{
         filter: `drop-shadow(0 0 8px ${color})`,
         transition: 'filter 0.3s ease',
+        position: 'relative',
       }}>
         {getNeoCrtIcon(icon.iconType, 32, color)}
+        {badgeCount > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '-6px',
+            right: '-6px',
+            background: accentColors.red,
+            color: '#000',
+            fontSize: '9px',
+            fontWeight: 'bold',
+            minWidth: '16px',
+            height: '16px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: '"Courier New", monospace',
+            boxShadow: `0 0 8px ${accentColors.red}`,
+          }}>
+            {badgeCount > 9 ? '9+' : badgeCount}
+          </div>
+        )}
       </div>
       <span style={{
         color: color,
@@ -644,6 +673,7 @@ export default function NeoCrtDesktopShell() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { colors, accentColors, modeLabel } = useCrtTheme();
   const { unreadCount: notificationCount } = useNotificationsContext();
+  const { unreadEmailCount, unreadMessageCount } = useGameState();
   
   const [uiMode, setUiMode] = useState<UiMode>(() => {
     if (typeof window !== 'undefined') {
@@ -727,42 +757,30 @@ export default function NeoCrtDesktopShell() {
         };
       case 'personal':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px', whiteSpace: 'nowrap' }}>STUDENT PROFILE</h2>
-            <p style={{ opacity: 0.7 }}>Access your personal records and settings.</p>
-            <p style={{ marginTop: '20px' }}>Double-click The Academy icon to begin your adventure.</p>
-          </div>, 
-          title: 'Personal', 
+          component: <PersonalProfileApp />, 
+          title: 'Personal Profile', 
           width: 400, 
-          height: 300,
-          minWidth: 280,
-          minHeight: 180
+          height: 500,
+          minWidth: 320,
+          minHeight: 400
         };
       case 'email':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.cyan, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.cyan}40`, paddingBottom: '10px', whiteSpace: 'nowrap' }}>E-MAIL SYSTEM</h2>
-            <p style={{ opacity: 0.7 }}>No new messages.</p>
-            <p style={{ marginTop: '20px', fontSize: '12px' }}>Academy mail server is operational.</p>
-          </div>, 
+          component: <AcademyEmailApp />, 
           title: 'E-Mail', 
-          width: 450, 
-          height: 350,
-          minWidth: 300,
-          minHeight: 200
+          width: 500, 
+          height: 400,
+          minWidth: 350,
+          minHeight: 300
         };
       case 'messages':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.green, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.green}40`, paddingBottom: '10px', whiteSpace: 'nowrap' }}>MESSAGES</h2>
-            <p style={{ opacity: 0.7 }}>Direct messaging system.</p>
-            <p style={{ marginTop: '20px', fontSize: '12px' }}>Connect with faculty and students.</p>
-          </div>, 
+          component: <MessagesApp />, 
           title: 'Messages', 
-          width: 400, 
-          height: 350,
-          minWidth: 280,
-          minHeight: 200
+          width: 450, 
+          height: 400,
+          minWidth: 320,
+          minHeight: 300
         };
       case 'calculator':
         return { component: <Calculator />, title: 'Calculator', width: 220, height: 320, minWidth: 180, minHeight: 280 };
@@ -1041,6 +1059,10 @@ export default function NeoCrtDesktopShell() {
             onClick={() => setSelectedIcon(icon.id)}
             onDoubleClick={() => openWindow(icon.id)}
             accentColors={accentColors}
+            badgeCount={
+              icon.id === 'email' ? unreadEmailCount :
+              icon.id === 'messages' ? unreadMessageCount : 0
+            }
           />
         ))}
         

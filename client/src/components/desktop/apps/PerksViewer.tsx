@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Star, Lock, Zap, Shield, Brain, Users, Sparkles } from 'lucide-react';
 import { STARTER_PERKS, LEVELUP_PERKS, StarterPerk, LevelUpPerk } from '@shared/perks';
+import { useGameState } from '@/contexts/GameStateContext';
 
 type TabType = 'starter' | 'unlocked' | 'available';
 
@@ -26,8 +27,11 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function PerksViewer() {
+  const { character } = useGameState();
   const [activeTab, setActiveTab] = useState<TabType>('starter');
   const [selectedPerk, setSelectedPerk] = useState<StarterPerk | LevelUpPerk | null>(null);
+  
+  const unlockedPerkIds = [...character.starterPerks, ...character.unlockedPerks];
 
   const containerStyle: React.CSSProperties = {
     width: '100%',
@@ -78,9 +82,11 @@ export default function PerksViewer() {
     if (activeTab === 'starter') {
       perks = STARTER_PERKS;
     } else if (activeTab === 'available') {
-      perks = LEVELUP_PERKS.slice(0, 15);
-    } else {
-      perks = [];
+      perks = LEVELUP_PERKS.filter(p => !unlockedPerkIds.includes(p.id)).slice(0, 15);
+    } else if (activeTab === 'unlocked') {
+      const unlockedStarter = STARTER_PERKS.filter(p => character.starterPerks.includes(p.id));
+      const unlockedLevelUp = LEVELUP_PERKS.filter(p => character.unlockedPerks.includes(p.id));
+      perks = [...unlockedStarter, ...unlockedLevelUp];
     }
 
     return (

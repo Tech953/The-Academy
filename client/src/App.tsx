@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CrtThemeProvider } from "@/contexts/CrtThemeContext";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
+import { GameStateProvider } from "@/contexts/GameStateContext";
 import RetroBootScreen from "@/components/RetroBootScreen";
 import NeoCrtDesktopShell from "@/components/desktop/NeoCrtDesktopShell";
 
@@ -16,18 +17,20 @@ function App() {
     <CrtThemeProvider>
       <I18nProvider>
         <NotificationsProvider>
-          <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              {!bootComplete ? (
-                <RetroBootScreen onBootComplete={() => setBootComplete(true)} skipEnabled={true} />
-              ) : (
-                <>
-                  <Toaster />
-                  <NeoCrtDesktopShell />
-                </>
-              )}
-            </TooltipProvider>
-          </QueryClientProvider>
+          <GameStateProvider>
+            <QueryClientProvider client={queryClient}>
+              <TooltipProvider>
+                {!bootComplete ? (
+                  <RetroBootScreen onBootComplete={() => setBootComplete(true)} skipEnabled={true} />
+                ) : (
+                  <>
+                    <Toaster />
+                    <NeoCrtDesktopShell />
+                  </>
+                )}
+              </TooltipProvider>
+            </QueryClientProvider>
+          </GameStateProvider>
         </NotificationsProvider>
       </I18nProvider>
     </CrtThemeProvider>

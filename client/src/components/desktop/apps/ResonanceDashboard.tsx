@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, Heart, Zap, Moon, Sun, Sparkles, TrendingUp, LucideIcon } from 'lucide-react';
 import { SPIRITUAL_STATS, DEFAULT_STATS, FullCharacterStats } from '@shared/stats';
+import { useGameState } from '@/contexts/GameStateContext';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
@@ -33,8 +34,10 @@ interface ResonanceDashboardProps {
 }
 
 export default function ResonanceDashboard({ stats }: ResonanceDashboardProps) {
-  const characterStats: FullCharacterStats = { ...DEFAULT_STATS, ...stats };
+  const { character } = useGameState();
+  const characterStats: FullCharacterStats = { ...DEFAULT_STATS, ...character.stats, ...stats };
   const [pulse, setPulse] = useState(false);
+  const resonanceState = character.resonanceState;
   
   const calculateOverallResonance = (s: FullCharacterStats): number => {
     const spiritualTotal = s.faith + s.karma + s.resonance + s.luck + s.chi + s.nagual + s.ashe;
