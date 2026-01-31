@@ -15,6 +15,7 @@ import { SkillGraphApp } from './apps/SkillGraphApp';
 import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
+import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import { AmbientObjects } from './AmbientObjects';
 import { WindowSnapZones, useWindowSnap, getSnapDimensions } from './WindowSnapZones';
 import { NotificationContainer, useNotifications } from './FuzzyBubbleNotification';
@@ -362,40 +363,42 @@ function NotificationBadge({ count, color }: { count: number; color: string }) {
   );
 }
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'info' | 'warning' | 'success' | 'assignment';
-  timestamp: Date;
-  read: boolean;
-}
-
 function NotificationsApp({ accentColors }: { accentColors: AccentColors }) {
-  const [notifications] = useState<Notification[]>([
-    { id: '1', title: 'Welcome to The Academy', message: 'Your journey begins now. Explore the campus and meet your fellow students.', type: 'info', timestamp: new Date(), read: false },
-    { id: '2', title: 'Assignment Due Soon', message: 'Mathematical Reasoning Chapter 1 quiz is due tomorrow.', type: 'assignment', timestamp: new Date(), read: false },
-    { id: '3', title: 'New Message', message: 'You have received a message from the Censorium faction.', type: 'info', timestamp: new Date(), read: false },
-  ]);
+  const { notifications, unreadCount, markAsRead, markAllAsRead, dismissNotification, clearAll } = useNotificationsContext();
 
-  const getTypeColor = (type: Notification['type']) => {
+  const getTypeColor = (type: string) => {
     switch (type) {
       case 'info': return accentColors.cyan;
       case 'warning': return accentColors.amber;
       case 'success': return accentColors.green;
       case 'assignment': return accentColors.purple;
+      case 'message': return accentColors.green;
       default: return accentColors.green;
     }
   };
 
-  const getTypeIcon = (type: Notification['type']) => {
+  const getTypeIcon = (type: string) => {
     switch (type) {
       case 'info': return <MessageCircle size={16} />;
       case 'warning': return <Bell size={16} />;
       case 'success': return <Star size={16} />;
       case 'assignment': return <BookOpen size={16} />;
+      case 'message': return <MessageCircle size={16} />;
       default: return <Bell size={16} />;
     }
+  };
+
+  const formatTimestamp = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
   };
 
   return (
@@ -417,72 +420,161 @@ function NotificationsApp({ accentColors }: { accentColors: AccentColors }) {
       }}>
         <Bell size={20} />
         NOTIFICATIONS
-        <span style={{ 
-          fontSize: '11px', 
-          background: accentColors.red, 
-          color: '#000',
-          padding: '2px 8px',
-          borderRadius: '10px',
-          marginLeft: 'auto'
-        }}>
-          {notifications.filter(n => !n.read).length} new
-        </span>
+        {unreadCount > 0 && (
+          <span style={{ 
+            fontSize: '11px', 
+            background: accentColors.red, 
+            color: '#000',
+            padding: '2px 8px',
+            borderRadius: '10px',
+            marginLeft: 'auto'
+          }}>
+            {unreadCount} new
+          </span>
+        )}
       </h2>
       
-      <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {notifications.map((notification) => (
-          <div 
-            key={notification.id}
-            style={{ 
-              padding: '12px',
-              border: `1px solid ${getTypeColor(notification.type)}40`,
-              borderLeft: `3px solid ${getTypeColor(notification.type)}`,
-              borderRadius: '4px',
-              background: notification.read ? 'transparent' : `${getTypeColor(notification.type)}10`,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              marginBottom: '6px'
-            }}>
-              <span style={{ color: getTypeColor(notification.type) }}>
-                {getTypeIcon(notification.type)}
-              </span>
-              <span style={{ 
-                fontSize: '11px', 
-                fontWeight: 'bold', 
-                color: getTypeColor(notification.type),
-                flex: 1
-              }}>
-                {notification.title}
-              </span>
-              {!notification.read && (
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  background: accentColors.red,
-                  borderRadius: '50%',
-                  boxShadow: `0 0 6px ${accentColors.red}`,
-                }} />
-              )}
-            </div>
-            <div style={{ 
-              fontSize: '10px', 
-              color: '#888',
-              lineHeight: '1.4'
-            }}>
-              {notification.message}
-            </div>
+      <div style={{ 
+        display: 'flex', 
+        gap: '8px', 
+        marginTop: '12px',
+        marginBottom: '15px'
+      }}>
+        <button
+          onClick={markAllAsRead}
+          disabled={unreadCount === 0}
+          style={{
+            padding: '6px 12px',
+            fontSize: '10px',
+            background: unreadCount > 0 ? `${accentColors.cyan}20` : 'transparent',
+            border: `1px solid ${unreadCount > 0 ? accentColors.cyan : accentColors.amber}40`,
+            borderRadius: '4px',
+            color: unreadCount > 0 ? accentColors.cyan : accentColors.amber,
+            cursor: unreadCount > 0 ? 'pointer' : 'default',
+            opacity: unreadCount > 0 ? 1 : 0.5,
+            fontFamily: 'monospace',
+          }}
+        >
+          Mark All Read
+        </button>
+        <button
+          onClick={clearAll}
+          disabled={notifications.length === 0}
+          style={{
+            padding: '6px 12px',
+            fontSize: '10px',
+            background: notifications.length > 0 ? `${accentColors.red}20` : 'transparent',
+            border: `1px solid ${notifications.length > 0 ? accentColors.red : accentColors.amber}40`,
+            borderRadius: '4px',
+            color: notifications.length > 0 ? accentColors.red : accentColors.amber,
+            cursor: notifications.length > 0 ? 'pointer' : 'default',
+            opacity: notifications.length > 0 ? 1 : 0.5,
+            fontFamily: 'monospace',
+          }}
+        >
+          Clear All
+        </button>
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {notifications.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px 20px',
+            opacity: 0.5,
+            fontSize: '12px'
+          }}>
+            No notifications
           </div>
-        ))}
+        ) : (
+          notifications.map((notification) => (
+            <div 
+              key={notification.id}
+              onClick={() => markAsRead(notification.id)}
+              style={{ 
+                padding: '12px',
+                border: `1px solid ${getTypeColor(notification.type)}40`,
+                borderLeft: `3px solid ${getTypeColor(notification.type)}`,
+                borderRadius: '4px',
+                background: notification.read ? 'transparent' : `${getTypeColor(notification.type)}10`,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                position: 'relative',
+              }}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissNotification(notification.id);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: accentColors.amber,
+                  cursor: 'pointer',
+                  opacity: 0.5,
+                  padding: '2px',
+                  fontSize: '14px',
+                  lineHeight: 1,
+                }}
+                title="Dismiss"
+              >
+                ×
+              </button>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                marginBottom: '6px'
+              }}>
+                <span style={{ color: getTypeColor(notification.type) }}>
+                  {getTypeIcon(notification.type)}
+                </span>
+                <span style={{ 
+                  fontSize: '11px', 
+                  fontWeight: 'bold', 
+                  color: getTypeColor(notification.type),
+                  flex: 1
+                }}>
+                  {notification.title}
+                </span>
+                {!notification.read && (
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    background: accentColors.red,
+                    borderRadius: '50%',
+                    boxShadow: `0 0 6px ${accentColors.red}`,
+                  }} />
+                )}
+              </div>
+              <div style={{ 
+                fontSize: '10px', 
+                color: '#888',
+                lineHeight: '1.4',
+                marginBottom: '4px',
+                paddingRight: '20px',
+              }}>
+                {notification.message}
+              </div>
+              <div style={{
+                fontSize: '9px',
+                color: '#555',
+                marginTop: '6px',
+              }}>
+                {formatTimestamp(notification.timestamp)}
+                {notification.from && ` · From: ${notification.from}`}
+              </div>
+            </div>
+          ))
+        )}
       </div>
       
       <p style={{ marginTop: '20px', fontSize: '10px', opacity: 0.5, textAlign: 'center' }}>
-        Click a notification to dismiss
+        Click a notification to mark as read
       </p>
     </div>
   );

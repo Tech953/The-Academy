@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCrtTheme, CrtMode, CRT_MODE_LABELS } from '@/contexts/CrtThemeContext';
-import { Sun, Sunrise, Moon, Monitor, Check, Eye, Languages, Accessibility, Terminal } from 'lucide-react';
+import { useI18n } from '@/contexts/I18nContext';
+import { Sun, Sunrise, Moon, Monitor, Check, Languages, Accessibility, Terminal } from 'lucide-react';
 import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
-import { i18nManager } from '@/lib/i18n';
 
 type UiMode = 'legacy' | 'student';
 
@@ -20,16 +20,24 @@ const MODE_DESCRIPTIONS: Record<CrtMode, string> = {
 
 export default function SettingsApp() {
   const { mode, setMode, colors, accentColors } = useCrtTheme();
+  const { language, setLanguage, availableLanguages, t } = useI18n();
   const [currentProfile, setCurrentProfile] = useState(accessibilityManager.getCurrentProfile().id);
-  const [currentLang, setCurrentLang] = useState(i18nManager.getCurrentLanguage().code);
   const [uiMode, setUiMode] = useState<UiMode>(() => {
     const saved = localStorage.getItem('academy-ui-mode');
     return (saved === 'legacy' || saved === 'student') ? saved as UiMode : 'student';
   });
+  const [languageChanged, setLanguageChanged] = useState(false);
 
   const modes: CrtMode[] = ['dawn', 'day', 'night'];
   const profiles = Object.values(ACCESSIBILITY_PROFILES);
-  const languages = i18nManager.getAvailableLanguages();
+
+  const handleLanguageChange = (code: string) => {
+    const success = setLanguage(code);
+    if (success) {
+      setLanguageChanged(true);
+      setTimeout(() => setLanguageChanged(false), 2000);
+    }
+  };
   
   const handleUiModeChange = (newMode: UiMode) => {
     setUiMode(newMode);
@@ -423,16 +431,13 @@ export default function SettingsApp() {
 
       <div style={{ marginBottom: '30px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {languages.map((lang) => {
-            const isSelected = currentLang === lang.code;
+          {availableLanguages.map((lang) => {
+            const isSelected = language.code === lang.code;
 
             return (
               <button
                 key={lang.code}
-                onClick={() => {
-                  i18nManager.setLanguage(lang.code);
-                  setCurrentLang(lang.code);
-                }}
+                onClick={() => handleLanguageChange(lang.code)}
                 className="hover-elevate"
                 style={{
                   display: 'flex',
@@ -455,6 +460,20 @@ export default function SettingsApp() {
             );
           })}
         </div>
+        {languageChanged && (
+          <div style={{
+            marginTop: '12px',
+            padding: '10px',
+            backgroundColor: `${accentColors.green}15`,
+            border: `1px solid ${accentColors.green}40`,
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: accentColors.green,
+            textAlign: 'center',
+          }}>
+            {t('language.changed')} {language.nativeName}
+          </div>
+        )}
       </div>
 
       <div

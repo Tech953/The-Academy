@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CrtThemeProvider } from "@/contexts/CrtThemeContext";
+import { I18nProvider } from "@/contexts/I18nContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import RetroBootScreen from "@/components/RetroBootScreen";
 import NeoCrtDesktopShell from "@/components/desktop/NeoCrtDesktopShell";
 
@@ -12,18 +14,22 @@ function App() {
 
   return (
     <CrtThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          {!bootComplete ? (
-            <RetroBootScreen onBootComplete={() => setBootComplete(true)} skipEnabled={true} />
-          ) : (
-            <>
-              <Toaster />
-              <NeoCrtDesktopShell />
-            </>
-          )}
-        </TooltipProvider>
-      </QueryClientProvider>
+      <I18nProvider>
+        <NotificationsProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              {!bootComplete ? (
+                <RetroBootScreen onBootComplete={() => setBootComplete(true)} skipEnabled={true} />
+              ) : (
+                <>
+                  <Toaster />
+                  <NeoCrtDesktopShell />
+                </>
+              )}
+            </TooltipProvider>
+          </QueryClientProvider>
+        </NotificationsProvider>
+      </I18nProvider>
     </CrtThemeProvider>
   );
 }
