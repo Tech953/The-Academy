@@ -771,7 +771,7 @@ export default function NeoCrtDesktopShell() {
       case 'email':
         return { 
           component: <AcademyEmailApp />, 
-          title: 'E-Mail', 
+          title: t('desktop.window.email'), 
           width: 500, 
           height: 400,
           minWidth: 350,
@@ -780,7 +780,7 @@ export default function NeoCrtDesktopShell() {
       case 'messages':
         return { 
           component: <MessagesApp />, 
-          title: 'Messages', 
+          title: t('desktop.window.messages'), 
           width: 450, 
           height: 400,
           minWidth: 320,
@@ -807,7 +807,7 @@ export default function NeoCrtDesktopShell() {
       case 'settings':
         return { 
           component: <SettingsApp />, 
-          title: 'Settings', 
+          title: t('desktop.window.settings'), 
           width: 450, 
           height: 480,
           minWidth: 350,

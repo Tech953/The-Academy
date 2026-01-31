@@ -30,6 +30,33 @@ export default function AcademyEmailApp() {
     const key = `desktop.email.category.${category}`;
     return t(key);
   };
+  
+  // Helper to translate default email content based on email ID
+  const getTranslatedEmail = (email: Email) => {
+    const emailKeyMap: Record<string, { subject: string; from: string; body: string }> = {
+      'email-welcome': {
+        subject: t('email.welcome.subject'),
+        from: t('email.welcome.from'),
+        body: t('email.welcome.body'),
+      },
+      'email-schedule': {
+        subject: t('email.schedule.subject'),
+        from: t('email.schedule.from'),
+        body: t('email.schedule.body'),
+      },
+      'email-faction': {
+        subject: t('email.faction.subject'),
+        from: t('email.faction.from'),
+        body: t('email.faction.body'),
+      },
+    };
+    
+    const translation = emailKeyMap[email.id];
+    if (translation) {
+      return { ...email, ...translation };
+    }
+    return email;
+  };
 
   const filteredEmails = filter === 'unread' ? emails.filter(e => !e.read) : emails;
 
@@ -177,34 +204,41 @@ export default function AcademyEmailApp() {
           </button>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-          <div style={{ 
-            borderBottom: `1px solid ${NEON_CYAN}30`, 
-            paddingBottom: '12px', 
-            marginBottom: '16px' 
-          }}>
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 'bold', 
-              marginBottom: '8px',
-              color: CATEGORY_COLORS[selectedEmail.category] || NEON_CYAN,
-            }}>
-              {selectedEmail.subject}
-            </div>
-            <div style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px' }}>
-              {t('desktop.email.from')}: {selectedEmail.from}
-            </div>
-            <div style={{ fontSize: '10px', opacity: 0.5 }}>
-              {formatTime(selectedEmail.timestamp)}
-            </div>
-          </div>
-          <div style={{ 
-            fontSize: '12px', 
-            lineHeight: 1.6, 
-            whiteSpace: 'pre-wrap',
-            opacity: 0.9,
-          }}>
-            {selectedEmail.body}
-          </div>
+          {(() => {
+            const translatedSelected = getTranslatedEmail(selectedEmail);
+            return (
+              <>
+                <div style={{ 
+                  borderBottom: `1px solid ${NEON_CYAN}30`, 
+                  paddingBottom: '12px', 
+                  marginBottom: '16px' 
+                }}>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 'bold', 
+                    marginBottom: '8px',
+                    color: CATEGORY_COLORS[selectedEmail.category] || NEON_CYAN,
+                  }}>
+                    {translatedSelected.subject}
+                  </div>
+                  <div style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px' }}>
+                    {t('desktop.email.from')}: {translatedSelected.from}
+                  </div>
+                  <div style={{ fontSize: '10px', opacity: 0.5 }}>
+                    {formatTime(selectedEmail.timestamp)}
+                  </div>
+                </div>
+                <div style={{ 
+                  fontSize: '12px', 
+                  lineHeight: 1.6, 
+                  whiteSpace: 'pre-wrap',
+                  opacity: 0.9,
+                }}>
+                  {translatedSelected.body}
+                </div>
+              </>
+            );
+          })()}
           
           {replyMode && (
             <div style={{ 
@@ -324,7 +358,9 @@ export default function AcademyEmailApp() {
             {filter === 'unread' ? t('desktop.email.noUnread') : t('desktop.email.noMessages')}
           </div>
         ) : (
-          filteredEmails.map(email => (
+          filteredEmails.map(email => {
+            const translatedEmail = getTranslatedEmail(email);
+            return (
             <div 
               key={email.id} 
               style={emailItemStyle(email)}
@@ -346,7 +382,7 @@ export default function AcademyEmailApp() {
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                 }}>
-                  {email.subject}
+                  {translatedEmail.subject}
                 </div>
                 <div style={{ 
                   fontSize: '10px', 
@@ -355,7 +391,7 @@ export default function AcademyEmailApp() {
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                 }}>
-                  {email.from}
+                  {translatedEmail.from}
                 </div>
               </div>
               <div style={{ 
@@ -375,7 +411,8 @@ export default function AcademyEmailApp() {
                 </div>
               </div>
             </div>
-          ))
+          );
+          })
         )}
       </div>
     </div>
