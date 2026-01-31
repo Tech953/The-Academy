@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mail, MailOpen, Inbox, Send, Archive, Trash2, ArrowLeft, Reply, PenLine } from 'lucide-react';
 import { useGameState, Email } from '@/contexts/GameStateContext';
+import { useI18n } from '@/contexts/I18nContext';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
@@ -17,11 +18,18 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function AcademyEmailApp() {
   const { emails, markEmailRead, unreadEmailCount, addEmail } = useGameState();
+  const { t } = useI18n();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [replyMode, setReplyMode] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [replySending, setReplySending] = useState(false);
+  
+  // Helper to translate category labels
+  const getCategoryLabel = (category: string) => {
+    const key = `desktop.email.category.${category}`;
+    return t(key);
+  };
 
   const filteredEmails = filter === 'unread' ? emails.filter(e => !e.read) : emails;
 
@@ -147,7 +155,7 @@ export default function AcademyEmailApp() {
             <ArrowLeft size={16} />
           </button>
           <MailOpen size={16} />
-          <span>VIEW MESSAGE</span>
+          <span>{t('desktop.email.viewMessage')}</span>
           <button 
             onClick={() => setReplyMode(!replyMode)}
             style={{ 
@@ -165,7 +173,7 @@ export default function AcademyEmailApp() {
             }}
           >
             <Reply size={12} />
-            REPLY
+            {t('desktop.email.reply')}
           </button>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
@@ -183,7 +191,7 @@ export default function AcademyEmailApp() {
               {selectedEmail.subject}
             </div>
             <div style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px' }}>
-              From: {selectedEmail.from}
+              {t('desktop.email.from')}: {selectedEmail.from}
             </div>
             <div style={{ fontSize: '10px', opacity: 0.5 }}>
               {formatTime(selectedEmail.timestamp)}
@@ -213,12 +221,12 @@ export default function AcademyEmailApp() {
                 gap: '6px',
               }}>
                 <PenLine size={12} />
-                Composing reply to {selectedEmail.from}
+                {t('desktop.email.composingTo')} {selectedEmail.from}
               </div>
               <textarea
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="Type your reply..."
+                placeholder={t('desktop.email.placeholder')}
                 style={{
                   width: '100%',
                   height: '100px',
@@ -251,7 +259,7 @@ export default function AcademyEmailApp() {
                   }}
                 >
                   <Send size={12} />
-                  {replySending ? 'SENDING...' : 'SEND REPLY'}
+                  {replySending ? t('desktop.email.sending') : t('desktop.email.sendReply')}
                 </button>
                 <button
                   onClick={() => { setReplyMode(false); setReplyContent(''); }}
@@ -265,7 +273,7 @@ export default function AcademyEmailApp() {
                     fontSize: '11px',
                   }}
                 >
-                  CANCEL
+                  {t('desktop.email.cancel')}
                 </button>
               </div>
             </div>
@@ -279,7 +287,7 @@ export default function AcademyEmailApp() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <Mail size={16} />
-        <span>ACADEMY E-MAIL</span>
+        <span>{t('desktop.email.title')}</span>
         {unreadEmailCount > 0 && (
           <span style={{ 
             background: NEON_CYAN, 
@@ -289,7 +297,7 @@ export default function AcademyEmailApp() {
             fontWeight: 'bold',
             marginLeft: 'auto',
           }}>
-            {unreadEmailCount} NEW
+            {unreadEmailCount} {t('desktop.email.new')}
           </span>
         )}
       </div>
@@ -297,11 +305,11 @@ export default function AcademyEmailApp() {
       <div style={sidebarStyle}>
         <button style={filterBtnStyle(filter === 'all')} onClick={() => setFilter('all')}>
           <Inbox size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-          All ({emails.length})
+          {t('desktop.email.all')} ({emails.length})
         </button>
         <button style={filterBtnStyle(filter === 'unread')} onClick={() => setFilter('unread')}>
           <Mail size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-          Unread ({unreadEmailCount})
+          {t('desktop.email.unread')} ({unreadEmailCount})
         </button>
       </div>
 
@@ -313,7 +321,7 @@ export default function AcademyEmailApp() {
             opacity: 0.5,
             fontSize: '12px',
           }}>
-            {filter === 'unread' ? 'No unread messages' : 'No messages'}
+            {filter === 'unread' ? t('desktop.email.noUnread') : t('desktop.email.noMessages')}
           </div>
         ) : (
           filteredEmails.map(email => (
@@ -363,7 +371,7 @@ export default function AcademyEmailApp() {
                   textTransform: 'uppercase',
                   fontSize: '8px',
                 }}>
-                  {email.category}
+                  {getCategoryLabel(email.category)}
                 </div>
               </div>
             </div>
