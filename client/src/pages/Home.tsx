@@ -12,6 +12,8 @@ import { i18nManager } from '@/lib/i18n';
 import { glossaryManager } from '@/lib/glossary';
 import { localizedContentManager } from '@/lib/localizedContent';
 import { useGameState } from '@/contexts/GameStateContext';
+import { useRadiantAIContext } from '@/contexts/RadiantAIContext';
+import { getEmotionalState } from '@/lib/radiantAI';
 import {
   CONFLUENCE_NODES,
   initializeConfluenceState,
@@ -49,6 +51,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   const [confluenceDepartureVector, setConfluenceDepartureVector] = useState<ConfluenceDepartureVector | null>(null);
   
   const { addMessage, addEmail, updateCharacter, addExperience } = useGameState();
+  const radiantAI = useRadiantAIContext();
 
   // Helper functions
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
@@ -991,8 +994,19 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         archetypeId = 'FACULTY_NPC';
       }
       
+      // Get Radiant AI NPC data for enhanced interactions
+      const radiantNPC = radiantAI.getNPC(npc.id);
+      const npcMood = radiantNPC ? getEmotionalState(radiantNPC.emotions) : 'neutral';
+      const playerRelationship = radiantNPC ? radiantAI.getRelationshipWithPlayer(npc.id) : null;
+      
       // Use the interaction resolver to process the talk interaction
       const outcome = gameStateManager.processInteraction('Talk' as IntentEnum, archetypeId);
+      
+      // Process the interaction in Radiant AI
+      if (radiantNPC) {
+        const interactionOutcome = outcome?.success ? 'positive' : (outcome?.wasMisread ? 'negative' : 'neutral');
+        radiantAI.processInteraction(npc.id, 'talk', interactionOutcome);
+      }
       
       // Show misread effects if the NPC misinterpreted the player's approach
       if (outcome && outcome.wasMisread) {
@@ -1003,11 +1017,38 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       const dialogue = npc.dialogue as any;
       const greeting = dialogue.greeting || 'Hello there.';
       
-      // Modify greeting based on interaction outcome
+      // Mood-based greeting modifiers
+      let moodPrefix = '';
+      if (radiantNPC) {
+        switch (npcMood) {
+          case 'joyful': moodPrefix = '*smiling warmly* '; break;
+          case 'anxious': moodPrefix = '*nervously* '; break;
+          case 'distressed': moodPrefix = '*looking troubled* '; break;
+          case 'confident': moodPrefix = '*with assurance* '; break;
+          case 'insecure': moodPrefix = '*hesitantly* '; break;
+          case 'intrigued': moodPrefix = '*curiously* '; break;
+          case 'suspicious': moodPrefix = '*watching you carefully* '; break;
+          case 'melancholic': moodPrefix = '*sighing softly* '; break;
+        }
+      }
+      
+      // Modify greeting based on interaction outcome and mood
       if (outcome && !outcome.success && outcome.wasMisread) {
         addTerminalLine(`${npc.name}: *eyes you suspiciously* "${greeting}"`);
       } else {
-        addTerminalLine(`${npc.name}: "${greeting}"`);
+        addTerminalLine(`${npc.name}: ${moodPrefix}"${greeting}"`);
+      }
+      
+      // Show relationship status if known
+      if (playerRelationship && playerRelationship.type !== 'stranger') {
+        const relationshipText = playerRelationship.type === 'friendship' 
+          ? `${npc.name.split(' ')[0]} considers you a friend.`
+          : playerRelationship.type === 'rivalry'
+          ? `There's tension between you and ${npc.name.split(' ')[0]}.`
+          : playerRelationship.type === 'mentorship'
+          ? `${npc.name.split(' ')[0]} has taken an interest in guiding you.`
+          : `${npc.name.split(' ')[0]} knows you as an acquaintance.`;
+        addTerminalLine(`[${relationshipText}]`, 'system');
       }
       
       // Show available conversation topics if they exist
