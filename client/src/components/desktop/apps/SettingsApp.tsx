@@ -239,20 +239,20 @@ export default function SettingsApp() {
             opacity: 0.8,
           }}
         >
-          Interface Mode
+          {t('desktop.settings.interfaceMode')}
         </h3>
         <p style={{ fontSize: '11px', opacity: 0.6, marginBottom: '15px' }}>
-          Choose between Legacy (terminal-focused) and Student (clickable UI) modes.
+          {t('desktop.settings.interfaceModeDesc')}
         </p>
         
         <div style={{ display: 'flex', gap: '12px' }}>
           {(['legacy', 'student'] as UiMode[]).map((m) => {
             const isSelected = uiMode === m;
             const Icon = m === 'legacy' ? Terminal : Monitor;
-            const label = m === 'legacy' ? 'Legacy Mode' : 'Student Mode';
+            const label = m === 'legacy' ? t('desktop.settings.legacyMode') : t('desktop.settings.studentMode');
             const description = m === 'legacy' 
-              ? 'Terminal-first, command-driven interface' 
-              : 'Clickable windows, modern navigation';
+              ? t('desktop.settings.legacyDesc')
+              : t('desktop.settings.studentDesc');
 
             return (
               <button

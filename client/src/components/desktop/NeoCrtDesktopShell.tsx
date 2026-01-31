@@ -290,10 +290,10 @@ function MemoriesApp({ accentColors }: { accentColors: AccentColors }) {
         gap: '10px'
       }}>
         <Camera size={20} />
-        POLAROID MEMORIES
+        {t('desktop.taskbar.polaroidMemories')}
       </h2>
       <p style={{ opacity: 0.6, fontSize: '11px', marginTop: '10px' }}>
-        Snapshots of your journey at The Academy
+        {t('desktop.taskbar.memoriesDesc')}
       </p>
       
       <div style={{ 
@@ -1175,14 +1175,14 @@ export default function NeoCrtDesktopShell() {
           }}
         >
           <Camera size={14} />
-          <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>MEMORIES</span>
+          <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('desktop.taskbar.memories')}</span>
         </button>
         
         <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 8px' }} />
         
         <button
           onClick={toggleUiMode}
-          title={uiMode === 'legacy' ? 'Switch to Student Mode' : 'Switch to Legacy Mode'}
+          title={uiMode === 'legacy' ? t('desktop.taskbar.switchToStudent') : t('desktop.taskbar.switchToLegacy')}
           className="mode-toggle-option"
           style={{
             display: 'flex',
@@ -1200,7 +1200,7 @@ export default function NeoCrtDesktopShell() {
         >
           {uiMode === 'legacy' ? <Terminal size={14} /> : <Monitor size={14} />}
           <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {uiMode === 'legacy' ? 'LEGACY' : 'STUDENT'}
+            {uiMode === 'legacy' ? t('desktop.taskbar.legacy') : t('desktop.taskbar.student')}
           </span>
         </button>
         

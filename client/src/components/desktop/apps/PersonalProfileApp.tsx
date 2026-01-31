@@ -1,4 +1,5 @@
 import { useGameState } from '@/contexts/GameStateContext';
+import { useI18n } from '@/contexts/I18nContext';
 import { User, Star, Zap, Heart, Brain, Shield, Sparkles } from 'lucide-react';
 
 const NEON_GREEN = '#00ff00';
@@ -8,6 +9,7 @@ const NEON_PURPLE = '#cc66ff';
 
 export default function PersonalProfileApp() {
   const { character, cubAffection } = useGameState();
+  const { t } = useI18n();
 
   const containerStyle: React.CSSProperties = {
     width: '100%',
@@ -65,7 +67,7 @@ export default function PersonalProfileApp() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <User size={16} />
-        <span>STUDENT PROFILE</span>
+        <span>{t('desktop.profile.title')}</span>
       </div>
 
       <div style={sectionStyle}>
