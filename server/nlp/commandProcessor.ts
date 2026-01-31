@@ -34,7 +34,7 @@ const GAME_COMMANDS = {
   inventory: ['inventory', 'items', 'possessions'],
   status: ['status', 'stats', 'character', 'self'],
   social: ['list', 'who', 'people', 'characters'],
-  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read', 'chapter', 'lecture', 'attend'],
+  academic: ['grades', 'transcript', 'schedule', 'gpa', 'read', 'chapter', 'lecture', 'attend', 'enroll', 'courses', 'study', 'textbook', 'assignments', 'progress'],
   meta: ['help', 'save', 'load', 'quit', 'exit', 'time', 'score', 'clear'],
 };
 
@@ -60,6 +60,12 @@ AVAILABLE COMMAND TYPES:
   * chapter (read a specific chapter - requires course name and chapter number)
   * lecture (view lecture notes - requires course name and week number)
   * attend (attend a class session - requires course name)
+  * enroll (enroll in a course - requires course name or "list" to see available courses)
+  * courses (list all available courses)
+  * study (study a subject)
+  * textbook (access course textbook)
+  * assignments (view pending assignments)
+  * progress (view academic progress)
 - Meta: help, save, load, quit, time, score, clear
 
 CURRENT GAME CONTEXT:
@@ -87,6 +93,10 @@ INSTRUCTIONS:
     - "show chapter 3 of algebra" → action: "chapter", target: "algebra 3"
     - "view week 5 lecture for science" → action: "lecture", target: "science 5"
     - "go to geometry class" → action: "attend", target: "geometry"
+    - "enroll in algebra" → action: "enroll", target: "algebra"
+    - "enroll" or "sign up for classes" → action: "enroll", target: "list"
+    - "what courses are available" → action: "courses"
+    - "show my assignments" → action: "assignments"
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -188,6 +198,51 @@ function fallbackParser(input: string, context: GameContext): ParsedCommand {
       action: 'status',
       confidence: 0.8,
       reasoning: 'Detected status request',
+    };
+  }
+  
+  // Academic commands
+  if (lowered.includes('enroll') || lowered.includes('sign up')) {
+    // Extract course name if present
+    const words = lowered.split(' ').filter(w => !['enroll', 'in', 'for', 'sign', 'up'].includes(w));
+    const target = words.length > 0 ? words.join(' ') : 'list';
+    return {
+      action: 'enroll',
+      target,
+      confidence: 0.8,
+      reasoning: 'Detected enrollment request',
+    };
+  }
+  
+  if (lowered.includes('courses') || lowered.includes('classes available')) {
+    return {
+      action: 'courses',
+      confidence: 0.8,
+      reasoning: 'Detected courses query',
+    };
+  }
+  
+  if (lowered.includes('assignments') || lowered.includes('homework')) {
+    return {
+      action: 'assignments',
+      confidence: 0.8,
+      reasoning: 'Detected assignments query',
+    };
+  }
+  
+  if (lowered.includes('study')) {
+    return {
+      action: 'study',
+      confidence: 0.8,
+      reasoning: 'Detected study request',
+    };
+  }
+  
+  if (lowered.includes('progress')) {
+    return {
+      action: 'progress',
+      confidence: 0.8,
+      reasoning: 'Detected progress request',
     };
   }
   
