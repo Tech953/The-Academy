@@ -12,6 +12,20 @@ import { i18nManager } from '@/lib/i18n';
 import { glossaryManager } from '@/lib/glossary';
 import { localizedContentManager } from '@/lib/localizedContent';
 import { useGameState } from '@/contexts/GameStateContext';
+import {
+  CONFLUENCE_NODES,
+  initializeConfluenceState,
+  advanceNode,
+  calculatePlayerStats,
+  calculateContradictionMap,
+  determineDepartureVector,
+  getDepartureVectorById,
+  generateGraduationNarrative,
+  ConfluenceState,
+  PlayerStats,
+  ContradictionMap,
+  DepartureVector as ConfluenceDepartureVector
+} from '@/lib/confluenceHall';
 
 interface HomeProps {
   onExit?: () => void;
@@ -28,6 +42,11 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   const [loading, setLoading] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [confluenceState, setConfluenceState] = useState<ConfluenceState | null>(null);
+  const [inGraduationCeremony, setInGraduationCeremony] = useState(false);
+  const [confluencePlayerStats, setConfluencePlayerStats] = useState<PlayerStats | null>(null);
+  const [confluenceContradictions, setConfluenceContradictions] = useState<ContradictionMap | null>(null);
+  const [confluenceDepartureVector, setConfluenceDepartureVector] = useState<ConfluenceDepartureVector | null>(null);
   
   const { addMessage, addEmail, updateCharacter, addExperience } = useGameState();
 
@@ -595,6 +614,13 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     if (!command || command.trim().length === 0) {
       addTerminalLine(`> ${command}`, 'command');
       return; // Silently ignore empty commands
+    }
+    
+    // Intercept commands during Confluence Hall graduation ceremony
+    if (inGraduationCeremony && confluenceState) {
+      addTerminalLine(`> ${command}`, 'command');
+      handleConfluenceStep(command);
+      return;
     }
     
     // Track command in history (limit to last 50 commands)
@@ -1833,42 +1859,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine('');
       
       if (target?.toLowerCase() === 'ceremony' || target?.toLowerCase() === 'now') {
-        addTerminalLine('');
-        addTerminalLine('============================================');
-        addTerminalLine('        THE ACADEMY - GRADUATION CEREMONY');
-        addTerminalLine('============================================');
-        addTerminalLine('');
-        
-        if (culmination) {
-          addTerminalLine(`Departure Vector: ${culmination.name}`);
-          addTerminalLine(`"${culmination.condition}"`);
-          addTerminalLine('');
-          addTerminalLine(culmination.exitDescription);
-        } else {
-          addTerminalLine('Departure Vector: The Graduate');
-          addTerminalLine('"Mastery of the four pillars of knowledge"');
-          addTerminalLine('');
-          addTerminalLine('The Academy doors open before you. Light streams through,');
-          addTerminalLine('illuminating the path you have earned through dedication.');
-        }
-        addTerminalLine('');
-        const voiceMessage = culmination?.npcConfirmation || 'You have proven yourself worthy.';
-        addTerminalLine(`A voice echoes: "${voiceMessage}"`);
-        addTerminalLine('');
-        addTerminalLine('============================================');
-        addTerminalLine('  CONGRATULATIONS ON YOUR GED ACHIEVEMENT!');
-        addTerminalLine('============================================');
-        addTerminalLine('');
-        addTerminalLine('You have successfully completed The Academy.');
-        addTerminalLine('Your transcript and portfolio are now available.');
-        addTerminalLine('');
-        addTerminalLine('Type TRANSCRIPT to view your academic record.');
-        addTerminalLine('Type PORTFOLIO to view your learning portfolio.');
-        
-        gameStateManager.setGameFlag('graduated', true);
-        gameStateManager.setGameFlag('departure_vector', culmination?.id || 'graduate');
+        // Begin the Confluence Hall journey
+        beginConfluenceHall();
       } else {
-        addTerminalLine('Type GRADUATION CEREMONY to begin the graduation.');
+        addTerminalLine('Type GRADUATION CEREMONY to begin your journey through Confluence Hall.');
+        addTerminalLine('');
+        addTerminalLine('The Hall awaits. Eight nodes stand between you and departure.');
       }
     } else {
       addTerminalLine('STATUS: NOT YET READY', 'error');
@@ -1882,6 +1878,228 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine('Attend classes 5 times each to master their skills.');
       addTerminalLine('Type ENROLL to see available courses.');
     }
+  };
+
+  // Confluence Hall - Begin the graduation journey
+  const beginConfluenceHall = () => {
+    if (!gameState) return;
+    
+    // Check if already graduated
+    if (gameStateManager.getGameFlag('confluence_completed', false)) {
+      addTerminalLine('');
+      addTerminalLine('You have already completed Confluence Hall.', 'system');
+      addTerminalLine('Your departure vector has been determined.');
+      addTerminalLine('');
+      const existingVectorId = gameStateManager.getGameFlag('departure_vector', null);
+      if (existingVectorId) {
+        const existingVector = getDepartureVectorById(existingVectorId);
+        if (existingVector) {
+          addTerminalLine(`Departure Vector: ${existingVector.name}`);
+          addTerminalLine(`"${existingVector.exitDescription}"`);
+        }
+      }
+      addTerminalLine('');
+      addTerminalLine('Type TRANSCRIPT to view your academic record.');
+      return;
+    }
+    
+    // Calculate player stats for the journey
+    const stats = gameState.character.stats as GameStats;
+    const playerStats = calculatePlayerStats({
+      mathLogic: stats.mathLogic,
+      linguistic: stats.linguistic,
+      presence: stats.presence,
+      faith: stats.faith,
+      fortitude: stats.fortitude
+    });
+    
+    // Calculate contradiction map
+    const misreadsCollapsed = gameStateManager.getMisreadsCollapsed();
+    const contradictionsEmbraced = gameStateManager.hasEmbracedContradictions();
+    const factionAffinities = gameStateManager.getFactionAffinities();
+    const contradictions = calculateContradictionMap(misreadsCollapsed, contradictionsEmbraced, factionAffinities);
+    
+    // Determine departure vector
+    const departureVector = determineDepartureVector(playerStats, contradictions);
+    
+    // Initialize the confluence state
+    const newState = initializeConfluenceState();
+    setConfluenceState(newState);
+    setInGraduationCeremony(true);
+    
+    // Store data in React state for the journey
+    setConfluencePlayerStats(playerStats);
+    setConfluenceContradictions(contradictions);
+    setConfluenceDepartureVector(departureVector);
+    
+    // Display opening
+    addTerminalLine('');
+    addTerminalLine('============================================');
+    addTerminalLine('       ENTERING CONFLUENCE HALL');
+    addTerminalLine('============================================');
+    addTerminalLine('');
+    
+    // Generate and display narrative intro
+    const narrativeLines = generateGraduationNarrative(playerStats, contradictions, departureVector);
+    narrativeLines.forEach(line => addTerminalLine(line));
+    
+    // Display first node
+    displayConfluenceNode(newState, playerStats, contradictions);
+  };
+
+  // Display current Confluence Hall node
+  const displayConfluenceNode = (state: ConfluenceState, playerStats: PlayerStats, contradictions: ContradictionMap) => {
+    const currentNode = CONFLUENCE_NODES.find(n => n.id === state.currentNode);
+    if (!currentNode) return;
+    
+    addTerminalLine('');
+    addTerminalLine(`--- ${currentNode.name.toUpperCase()} ---`);
+    addTerminalLine('');
+    addTerminalLine(currentNode.description);
+    addTerminalLine('');
+    
+    // Show ambient effects
+    if (currentNode.ambientEffects.length > 0) {
+      addTerminalLine(`[${currentNode.ambientEffects.join(' | ')}]`, 'system');
+    }
+    
+    // Show light and harmonic state
+    addTerminalLine(`Light: ${currentNode.lightState} | Harmony: ${currentNode.harmonicState}`, 'system');
+    addTerminalLine('');
+    
+    // Show triggers if any
+    if (currentNode.triggers.length > 0) {
+      addTerminalLine(`Triggers: ${currentNode.triggers.join(', ')}`, 'system');
+    }
+    
+    // Show available branches
+    if (currentNode.optionalBranches.length > 0) {
+      addTerminalLine('');
+      addTerminalLine('Optional paths shimmer before you:');
+      currentNode.optionalBranches.forEach(branch => {
+        addTerminalLine(`  - ${branch.name}: ${branch.description}`);
+      });
+    }
+    
+    addTerminalLine('');
+    
+    // Check if this is the final node
+    if (!currentNode.nextNode) {
+      completeConfluenceHall();
+    } else {
+      addTerminalLine('Type CONTINUE to proceed, or BRANCH [name] to take an optional path.');
+    }
+  };
+
+  // Handle stepping through Confluence Hall
+  const handleConfluenceStep = (command: string) => {
+    if (!confluenceState || !gameState || !confluencePlayerStats || !confluenceContradictions) return;
+    
+    const playerStats = confluencePlayerStats;
+    const contradictions = confluenceContradictions;
+    
+    const cmd = command.toLowerCase().trim();
+    
+    if (cmd === 'continue' || cmd === 'next' || cmd === 'forward' || cmd === 'proceed') {
+      // Advance to next node
+      const { newState, node, branchTaken } = advanceNode(confluenceState, playerStats, contradictions);
+      setConfluenceState(newState);
+      
+      if (branchTaken) {
+        addTerminalLine('');
+        addTerminalLine(`You take the ${branchTaken.name}...`, 'system');
+        addTerminalLine(branchTaken.description);
+      }
+      
+      displayConfluenceNode(newState, playerStats, contradictions);
+    } else if (cmd.startsWith('branch ')) {
+      // Take a specific optional branch
+      const branchName = cmd.replace('branch ', '').trim();
+      const currentNode = CONFLUENCE_NODES.find(n => n.id === confluenceState.currentNode);
+      
+      if (currentNode) {
+        const branch = currentNode.optionalBranches.find(b => 
+          b.name.toLowerCase().includes(branchName) || 
+          b.id.toLowerCase().includes(branchName)
+        );
+        
+        if (branch) {
+          const { newState, node, branchTaken } = advanceNode(confluenceState, playerStats, contradictions, branch.id);
+          setConfluenceState(newState);
+          
+          addTerminalLine('');
+          addTerminalLine(`You take the ${branch.name}...`, 'system');
+          addTerminalLine(branch.description);
+          
+          displayConfluenceNode(newState, playerStats, contradictions);
+        } else {
+          addTerminalLine('That path is not available here.', 'error');
+        }
+      }
+    } else if (cmd === 'look' || cmd === 'status') {
+      // Re-display current node
+      displayConfluenceNode(confluenceState, playerStats, contradictions);
+    } else if (cmd === 'exit' || cmd === 'leave') {
+      addTerminalLine('');
+      addTerminalLine('You cannot leave Confluence Hall once entered.', 'error');
+      addTerminalLine('The only way is forward. Type CONTINUE to proceed.');
+    } else {
+      addTerminalLine('');
+      addTerminalLine('In Confluence Hall, you can:', 'system');
+      addTerminalLine('  CONTINUE - Proceed to the next node');
+      addTerminalLine('  BRANCH [name] - Take an optional path');
+      addTerminalLine('  LOOK - Examine your current surroundings');
+    }
+  };
+
+  // Complete the Confluence Hall journey
+  const completeConfluenceHall = () => {
+    if (!gameState || !confluenceState) return;
+    
+    const departureVector = confluenceDepartureVector;
+    
+    addTerminalLine('');
+    addTerminalLine('============================================');
+    addTerminalLine('       DEPARTURE ARCH - FINAL THRESHOLD');
+    addTerminalLine('============================================');
+    addTerminalLine('');
+    
+    if (departureVector) {
+      addTerminalLine(`Your Departure Vector: ${departureVector.name}`);
+      addTerminalLine(`"${departureVector.condition}"`);
+      addTerminalLine('');
+      addTerminalLine(departureVector.exitDescription);
+      addTerminalLine('');
+      addTerminalLine(`A voice echoes: "${departureVector.npcConfirmation}"`);
+    }
+    
+    addTerminalLine('');
+    addTerminalLine('============================================');
+    addTerminalLine('  CONGRATULATIONS ON YOUR GED ACHIEVEMENT!');
+    addTerminalLine('============================================');
+    addTerminalLine('');
+    
+    // Show journey summary
+    addTerminalLine('--- Journey Summary ---');
+    addTerminalLine(`Nodes traversed: ${confluenceState.visitedNodes.length + 1}`);
+    addTerminalLine(`Branches taken: ${confluenceState.branchesTaken.length || 'None'}`);
+    addTerminalLine(`Trigger Intensity - Harmonic: ${confluenceState.triggerIntensity.harmonic}, Dissonant: ${confluenceState.triggerIntensity.dissonant}, Visual: ${confluenceState.triggerIntensity.visual}`);
+    addTerminalLine('');
+    
+    addTerminalLine('You have successfully completed The Academy.');
+    addTerminalLine('Your transcript and portfolio are now available.');
+    addTerminalLine('');
+    addTerminalLine('Type TRANSCRIPT to view your academic record.');
+    addTerminalLine('Type PORTFOLIO to view your learning portfolio.');
+    
+    // Mark graduation complete
+    gameStateManager.setGameFlag('graduated', true);
+    gameStateManager.setGameFlag('departure_vector', departureVector?.id || 'graduate');
+    gameStateManager.setGameFlag('confluence_completed', true);
+    
+    // Exit graduation mode
+    setInGraduationCeremony(false);
+    setConfluenceState(null);
   };
 
   const handleRead = async (target: string) => {

@@ -113,7 +113,31 @@ The Academy now includes a complete GED preparation and graduation system:
 - ASSIGNMENTS - View pending assignments
 - TEXTBOOK [course] - Read course textbook
 - GRADUATION / GED - Check GED progress
-- GRADUATION CEREMONY - Trigger graduation when ready
+- GRADUATION CEREMONY - Begin Confluence Hall graduation journey
+
+### Confluence Hall - Graduation Journey
+When GED ready, typing GRADUATION CEREMONY initiates the Confluence Hall experience - a multi-node journey from Entry Node to Departure Arch. The system includes:
+
+**8 Nodes:**
+1. Entry Node - Trigger Activation, Radial Convergence
+2. Curved Junction - Dissonant to Harmonic transition
+3. Focal Hub - Central Hub, Harmonic, Emergent Light
+4. Spiral Descent - Fractal Spiral, Intensified Light
+5. Offset Gallery - Narrow Passage, Transcendent Flicker
+6. Transitional Arch - Harmonic to Null transition
+7. Convergence Node - Radial Exit, Stabilized Light
+8. Departure Arch - Final graduation
+
+**Optional Branches:**
+- Fractal Loop (Cognition 6+)
+- Orthogonal Branch (Faith 5+)
+- Dissonant Loop (High Weaponize)
+
+**Player Stats:** Cognition, Presence, Faith, Fortitude (derived from game stats)
+**Contradiction Map:** Resolve, Weaponize, Passive (based on faction interactions)
+**Departure Vectors:** The Analyst, The Witness, The Anchor, The Catalyst, The Shadow, The Bridge
+
+Commands during ceremony: CONTINUE, BRANCH [name], LOOK
 
 ## Bug Fixes Applied
 - Fixed null-safety issues in character energy calculations (routes.ts)
