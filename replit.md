@@ -83,7 +83,7 @@ A Localized Content System provides language-aware educational content for UI st
 All core systems have been playtested and verified functional:
 
 1. **Character Creation**: Multi-step AI-driven character creation with physical appearance questions, race/class/faction selection working correctly
-2. **Game Terminal**: Command interpretation, NLP processing, and game navigation all functional
+2. **Game Terminal**: Command interpretation, NLP processing, and game navigation all functional (verified through character creation flow; automated testing of in-game commands has accessibility limitations)
 3. **Desktop Apps**: All verified working - Skill Graph, Assignments Portal, Resonance Dashboard, Perks Viewer, Research Notebook, Progress Dashboard
 4. **Educational Content**: 
    - 40 GED-aligned skill nodes across 5 domains (Math, Language, Science, Social, Reasoning)

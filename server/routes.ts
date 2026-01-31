@@ -452,7 +452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedEnrollment) {
         // Rollback: restore energy if attendance update failed
         await storage.updateCharacter(characterId, {
-          energy: character.energy, // Restore original energy
+          energy: currentEnergy, // Restore original computed energy
         });
         return res.status(500).json({ error: "Failed to mark attendance" });
       }
