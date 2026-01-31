@@ -256,6 +256,7 @@ interface Memory {
 }
 
 function MemoriesApp({ accentColors }: { accentColors: AccentColors }) {
+  const { t } = useI18n();
   const [memories] = useState<Memory[]>([
     { id: '1', title: 'First Day at The Academy', description: 'Arrived at the gates, unsure what awaited inside...', timestamp: new Date(), type: 'milestone' },
     { id: '2', title: 'Met Cub', description: 'The little polar bear mascot became your guide.', timestamp: new Date(), type: 'relationship' },
