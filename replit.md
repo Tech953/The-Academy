@@ -65,6 +65,34 @@ The desktop implements a comprehensive Neo-CRT aesthetic system:
 **Neon Color Palette**:
 - Green (primary), Cyan (messages), Amber (assignments), Purple (perks/resonance), Pink (personal), Red (warnings/alerts), Gold (achievements)
 
+### Academy OS Core Systems
+
+**Virtual Filesystem** (`client/src/lib/virtualFilesystem.ts`):
+Linux-style virtual filesystem with paths and permissions:
+- `/home/student/` - User home directory with documents, messages, downloads
+- `/system/` - Read-only system files, policies, NPC profiles
+- `/apps/` - Executable applications
+- `/logs/` - System logs
+- Commands: ls, cd, pwd, cat, mkdir, rm, touch
+
+**App Manifest System** (`client/src/lib/appManifest.ts`):
+Modular application registry with formal manifests:
+- Each app defines: id, command, permissions, uiMode (cli/window/both)
+- Low-spec compatibility flags
+- Window configuration (size, resizable)
+- Categories: system, productivity, communication, education, utility
+
+**Performance Tier System** (`client/src/lib/performanceTier.ts`):
+Auto-detecting hardware capability tiers with fallback:
+- Low: CLI-only, no animations, no effects
+- Mid: Windows + icons, limited animations
+- High: Full CRT effects, glow, particles, audio
+- Auto-adjustment based on FPS monitoring
+- Manual override via settings
+
+**File Manager App** (`client/src/components/desktop/apps/FileManagerApp.tsx`):
+Visual file browser for the virtual filesystem with navigation, permissions display, and hidden file toggle.
+
 ## Backend Architecture
 The backend uses Express.js with TypeScript to provide a RESTful API for character management, game state, and data persistence. It employs a session-based architecture and utilizes in-memory storage with PostgreSQL as a fallback for persistence.
 

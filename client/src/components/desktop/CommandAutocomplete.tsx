@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 interface CommandSuggestion {
   command: string;
   description: string;
-  category: 'navigation' | 'action' | 'system' | 'education' | 'accessibility';
+  category: 'navigation' | 'action' | 'system' | 'education' | 'accessibility' | 'filesystem';
 }
 
 const COMMAND_DATABASE: CommandSuggestion[] = [
@@ -32,6 +32,21 @@ const COMMAND_DATABASE: CommandSuggestion[] = [
   { command: 'USE', description: 'Use an item', category: 'action' },
   { command: 'EXAMINE', description: 'Examine an object closely', category: 'navigation' },
   { command: 'RESEARCH', description: 'Open research notebook', category: 'education' },
+  { command: 'LS', description: 'List directory contents', category: 'filesystem' },
+  { command: 'CD', description: 'Change directory', category: 'filesystem' },
+  { command: 'PWD', description: 'Print working directory', category: 'filesystem' },
+  { command: 'CAT', description: 'Read file contents', category: 'filesystem' },
+  { command: 'MKDIR', description: 'Create directory', category: 'filesystem' },
+  { command: 'RM', description: 'Remove file', category: 'filesystem' },
+  { command: 'TOUCH', description: 'Create empty file', category: 'filesystem' },
+  { command: 'OPEN', description: 'Open application', category: 'system' },
+  { command: 'RUN', description: 'Run application', category: 'system' },
+  { command: 'APPS', description: 'List available applications', category: 'system' },
+  { command: 'CALC', description: 'Open calculator', category: 'system' },
+  { command: 'NOTES', description: 'Open notes app', category: 'system' },
+  { command: 'MAIL', description: 'Open email client', category: 'system' },
+  { command: 'CHAT', description: 'Open messaging', category: 'system' },
+  { command: 'FILES', description: 'Open file manager', category: 'filesystem' },
 ];
 
 const CATEGORY_COLORS: Record<CommandSuggestion['category'], string> = {
@@ -40,6 +55,7 @@ const CATEGORY_COLORS: Record<CommandSuggestion['category'], string> = {
   system: '#ffaa00',
   education: '#cc66ff',
   accessibility: '#ff66cc',
+  filesystem: '#66ffaa',
 };
 
 interface CommandAutocompleteProps {

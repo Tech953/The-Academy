@@ -983,3 +983,54 @@
     transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease !important;
   }
 }
+
+/* Performance Tier System - Auto-adjusts visual effects based on hardware */
+.perf-tier-low {
+  /* Disable all animations and effects for low-end hardware */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .crt-scanlines,
+  .crt-vignette,
+  .ambient-float,
+  .ambient-sway,
+  .fuzzy-bubble {
+    display: none !important;
+  }
+  
+  .neo-crt-window {
+    box-shadow: none !important;
+  }
+}
+
+.perf-tier-mid {
+  /* Enable basic animations, disable glow effects */
+  .crt-vignette {
+    opacity: 0.3;
+  }
+  
+  .neo-crt-window {
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.1) !important;
+  }
+  
+  .screen-bloom {
+    animation: none !important;
+  }
+  
+  .cursor-pulse {
+    animation-duration: 2s !important;
+  }
+}
+
+.perf-tier-high {
+  /* Full visual effects enabled */
+  .crt-scanlines {
+    opacity: 1;
+  }
+  
+  .crt-vignette {
+    opacity: 0.6;
+  }
+}

@@ -9,11 +9,13 @@ import ResonanceDashboard from './apps/ResonanceDashboard';
 import ClassSchedule from './apps/ClassSchedule';
 import CubCompanion from './apps/CubCompanion';
 import SettingsApp from './apps/SettingsApp';
+import { FileManagerApp } from './apps/FileManagerApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { AmbientObjects } from './AmbientObjects';
 import { WindowSnapZones, useWindowSnap, getSnapDimensions } from './WindowSnapZones';
 import { NotificationContainer, useNotifications } from './FuzzyBubbleNotification';
+import { performanceManager, getPerformanceClass } from '@/lib/performanceTier';
 import { 
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
@@ -598,6 +600,11 @@ export default function NeoCrtDesktopShell() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    performanceManager.startMonitoring();
+    return () => performanceManager.stopMonitoring();
+  }, []);
+
   const getAppComponent = (appId: string): { component: React.ReactNode; title: string; width: number; height: number; minWidth: number; minHeight: number } => {
     const sidebarWidth = 120;
     const taskbarHeight = 100;
@@ -661,7 +668,7 @@ export default function NeoCrtDesktopShell() {
       case 'notepad':
         return { component: <Notepad />, title: 'Notepad', width: 450, height: 350, minWidth: 300, minHeight: 200 };
       case 'files':
-        return { component: <FileExplorer onOpenApp={openWindow} />, title: 'Files', width: 500, height: 400, minWidth: 350, minHeight: 280 };
+        return { component: <FileManagerApp windowId={iconType} />, title: 'File Manager', width: 550, height: 420, minWidth: 400, minHeight: 320 };
       case 'search':
         return { 
           component: <div style={{ padding: '20px', color: accentColors.amber, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
@@ -876,7 +883,7 @@ export default function NeoCrtDesktopShell() {
   return (
     <div
       onClick={handleDesktopClick}
-      className={`neo-crt-desktop ${getResonanceClass()}`}
+      className={`neo-crt-desktop ${getResonanceClass()} ${getPerformanceClass()}`}
       style={{
         position: 'fixed',
         top: 0,
