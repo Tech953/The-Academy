@@ -40,6 +40,60 @@ Game events trigger desktop app notifications:
 - Attending classes awards 10 XP to the character
 - Email and Message replies receive automatic NPC responses after a realistic delay
 
+### Radiant AI System (January 2026)
+The Academy implements a comprehensive NPC AI system for autonomous behavior:
+
+**NPC Core Entity:**
+- Stats & Skills (intelligence, charisma, athleticism, creativity, discipline)
+- Personality (Big Five: openness, conscientiousness, extraversion, agreeableness, neuroticism)
+- Emotions (happiness, stress, confidence, trust, curiosity)
+- Memory system with importance-based retention and decay
+
+**Goals System:**
+- Long-term, medium-term, and short-term goals
+- Progress tracking and status (active, completed, failed, abandoned)
+- Blockers and conditions for completion
+
+**Relationships:**
+- Types: friendship, rivalry, mentorship, acquaintance, stranger
+- Affinity, trust, and respect metrics (-100 to 100)
+- Relationship history and last interaction tracking
+
+**Schedule System:**
+- Daily routines with hourly activities
+- Dynamic overrides for special events
+- Location-based activity tracking
+
+**Decision Engine:**
+- Processes goals, schedule, relationships, environment, and player actions
+- Outputs: actions, conversations, movement, goal updates
+- Context-aware decision making based on personality
+
+**Dialogue System:**
+- Autonomous conversations driven by personality and context
+- Mood-based dialogue generation
+- Relationship-aware responses
+
+**World Events:**
+- Types: exam, competition, accident, announcement, social, crisis
+- Affects NPC behavior and relationships
+- Triggers schedule overrides and memory formation
+
+**Predefined NPCs:**
+- Headmaster Thorne (mentor archetype)
+- Professor Elena Vasquez (scholar archetype)
+- Marcus Chen (leader archetype, Student Council)
+- Ivy Hart (rebel archetype, Underground)
+- Sam Brooks (nurturer archetype)
+- Alex Reyes (perfectionist archetype)
+- Coach Rivera (leader archetype, Athletics)
+- Librarian Patel (scholar archetype)
+
+**Files:**
+- `client/src/lib/radiantAI.ts` - Core AI system
+- `client/src/hooks/useRadiantAI.ts` - React hook
+- `client/src/contexts/RadiantAIContext.tsx` - React context provider
+
 ### Academy Engine - Cognitive Infrastructure
 A four-phase learning system with ethics enforcement:
 - **Phase 1 - Core Cognition**: Manages a skill graph (40 GED-aligned skill nodes), student journals for research and reflections, a procedural homework engine, and detailed student profiles.

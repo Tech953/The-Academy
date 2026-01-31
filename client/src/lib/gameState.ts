@@ -99,6 +99,7 @@ export interface GameState {
   researchNotebook: ResearchNotebook;
   crisisMode: CrisisModeState;
   engagementAnalytics: EngagementAnalytics;
+  radiantAIState?: string; // Serialized Radiant AI NPC state
 }
 
 export interface TerminalLine {
@@ -172,6 +173,23 @@ export class GameStateManager {
   // Get current game state
   getGameState(): GameState | null {
     return this.gameState;
+  }
+
+  // Alias for getGameState
+  getState(): GameState | null {
+    return this.gameState;
+  }
+
+  // Set Radiant AI state for persistence
+  setRadiantAIState(serializedState: string): void {
+    if (!this.gameState) return;
+    this.gameState.radiantAIState = serializedState;
+    this.scheduleSave();
+  }
+
+  // Get Radiant AI state
+  getRadiantAIState(): string | undefined {
+    return this.gameState?.radiantAIState;
   }
 
   // Move to a new location
