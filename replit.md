@@ -76,3 +76,27 @@ A Localized Content System provides language-aware educational content for UI st
 - **Date-fns**: Date manipulation utilities.
 - **Vite**: Build tool and development server.
 - **ESBuild**: Fast JavaScript bundler.
+
+# Recent Playtesting & Verification (January 2026)
+
+## Verified Systems
+All core systems have been playtested and verified functional:
+
+1. **Character Creation**: Multi-step AI-driven character creation with physical appearance questions, race/class/faction selection working correctly
+2. **Game Terminal**: Command interpretation, NLP processing, and game navigation all functional
+3. **Desktop Apps**: All verified working - Skill Graph, Assignments Portal, Resonance Dashboard, Perks Viewer, Research Notebook, Progress Dashboard
+4. **Educational Content**: 
+   - 40 GED-aligned skill nodes across 5 domains (Math, Language, Science, Social, Reasoning)
+   - 24 courses with procedurally generated textbooks, chapters, and lectures
+   - Assignments with quizzes, essays, and lab reports
+5. **Game-Desktop Integration**: NPC messages and class emails trigger correctly
+
+## Bug Fixes Applied
+- Fixed null-safety issues in character energy calculations (routes.ts)
+- All LSP errors resolved
+
+## AI Systems Status
+- **OpenAI Integration**: Working for character creation questions and NLP command processing
+- **Procedural Content**: Textbooks, homework, and exams generate with deterministic seeding
+- **Mastery Tracking**: Adaptive difficulty with struggle history and representation shifting
+- **Fallback Behavior**: All AI-powered features have robust fallbacks for offline operation
