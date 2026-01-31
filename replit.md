@@ -35,12 +35,16 @@ The game itself runs in a resizable window with an optional fullscreen mode, off
 The desktop implements a comprehensive Neo-CRT aesthetic system:
 
 **Boot Sequence Audio** (`client/src/lib/bootJingle.ts`):
-"Awakening Sequence v0.91" - A 1.8-second synthesized boot jingle using Web Audio API:
-- CRT Flicker Noise (0:00-0:25s): Static burst with coil whine
-- Retro System Chime (0:25-0:45s): E4→F#4→E5 stinger (Sega/Windows 95 hybrid)
-- Cyberpunk Drone (0:45-1:20s): Low B1 sawtooth with tremolo (Death Drive inspired)
-- Resonance Pulse (1:20-1:40s): C6→G5 FM bell shimmer
-- Cub Chirp (1:40-1:80s): Digital beep-bip confirmation
+"Awakening Sequence v0.92" - A 3.2-second synthesized boot jingle using Web Audio API, inspired by the Nostromo's "Mother" computer from the Alien series:
+- Mother Reactor Hum (0:00-2.8s): Deep mechanical drone with layered sawtooth, sine, and triangle waves at 45/90/135Hz
+- Relay Clicks (0:10-1.85s): Randomized mechanical switching sounds with high-pass filtered noise bursts
+- Tape Drive Spinup (0:20-1.0s): Pitch-rising sawtooth simulating magnetic media initialization with mechanical whir
+- Data Bleeps (0:40-2.0s): Deliberate square wave transmission tones (1000-1600Hz) in recognizable patterns
+- Mother Voice Processing (1:00-1.6s): FM-modulated triangle wave simulating vocal synthesis
+- CRT Static (1:60-1.85s): Bandpass-filtered noise burst
+- Distress Beacon (1:80-3.0s): Descending sine wave pulses (880→660Hz) in triplet pattern
+- System Chime (2:20-2.5s): E4→F#4→E5 stinger with soft distortion
+- Cub Chirp (2:60-2.75s): Digital beep-bip confirmation
 
 **Visual Effects** (`client/src/index.css`):
 - Screen bloom animation when windows open

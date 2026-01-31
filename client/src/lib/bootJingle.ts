@@ -75,6 +75,236 @@ function createNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
   return buffer;
 }
 
+function playMotherReactorHum(ctx: AudioContext, startTime: number): void {
+  const duration = 2.8;
+  
+  const osc1 = ctx.createOscillator();
+  const osc2 = ctx.createOscillator();
+  const osc3 = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  
+  osc1.type = 'sawtooth';
+  osc1.frequency.value = 45;
+  
+  osc2.type = 'sine';
+  osc2.frequency.value = 90;
+  osc2.detune.value = -10;
+  
+  osc3.type = 'triangle';
+  osc3.frequency.value = 135;
+  osc3.detune.value = 5;
+  
+  filter.type = 'lowpass';
+  filter.frequency.value = 200;
+  filter.Q.value = 2;
+  
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(0.08, startTime + 0.3);
+  gainNode.gain.setValueAtTime(0.08, startTime + duration - 0.5);
+  gainNode.gain.linearRampToValueAtTime(0.04, startTime + duration - 0.2);
+  gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+  
+  osc1.connect(filter);
+  osc2.connect(filter);
+  osc3.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  osc1.start(startTime);
+  osc2.start(startTime);
+  osc3.start(startTime);
+  osc1.stop(startTime + duration);
+  osc2.stop(startTime + duration);
+  osc3.stop(startTime + duration);
+}
+
+function playRelayClicks(ctx: AudioContext, startTime: number): void {
+  const clickTimes = [0, 0.12, 0.35, 0.42, 0.68, 0.95, 1.15, 1.45, 1.72];
+  
+  clickTimes.forEach(delay => {
+    const noiseBuffer = createNoiseBuffer(ctx, 0.025);
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    
+    const gainNode = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    
+    filter.type = 'highpass';
+    filter.frequency.value = 2500 + Math.random() * 1500;
+    filter.Q.value = 3;
+    
+    const clickStart = startTime + delay;
+    const clickVolume = 0.04 + Math.random() * 0.03;
+    
+    gainNode.gain.setValueAtTime(0, clickStart);
+    gainNode.gain.linearRampToValueAtTime(clickVolume, clickStart + 0.002);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, clickStart + 0.02);
+    
+    noiseSource.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    noiseSource.start(clickStart);
+    noiseSource.stop(clickStart + 0.025);
+  });
+}
+
+function playDataBleeps(ctx: AudioContext, startTime: number): void {
+  const bleepPattern = [
+    { freq: 1200, delay: 0, duration: 0.06 },
+    { freq: 1400, delay: 0.15, duration: 0.04 },
+    { freq: 1200, delay: 0.25, duration: 0.06 },
+    { freq: 1000, delay: 0.38, duration: 0.08 },
+    { freq: 1400, delay: 0.55, duration: 0.04 },
+    { freq: 1200, delay: 0.65, duration: 0.04 },
+    { freq: 1600, delay: 0.78, duration: 0.06 },
+    { freq: 1200, delay: 0.92, duration: 0.08 },
+    { freq: 1400, delay: 1.10, duration: 0.04 },
+    { freq: 1000, delay: 1.22, duration: 0.06 },
+    { freq: 1600, delay: 1.38, duration: 0.04 },
+    { freq: 1200, delay: 1.52, duration: 0.08 },
+  ];
+  
+  bleepPattern.forEach(bleep => {
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'square';
+    osc.frequency.value = bleep.freq;
+    
+    const bleepStart = startTime + bleep.delay;
+    gainNode.gain.setValueAtTime(0, bleepStart);
+    gainNode.gain.linearRampToValueAtTime(0.035, bleepStart + 0.005);
+    gainNode.gain.setValueAtTime(0.035, bleepStart + bleep.duration - 0.01);
+    gainNode.gain.linearRampToValueAtTime(0, bleepStart + bleep.duration);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.start(bleepStart);
+    osc.stop(bleepStart + bleep.duration);
+  });
+}
+
+function playTapeDriveSpinup(ctx: AudioContext, startTime: number): void {
+  const duration = 0.8;
+  
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(80, startTime);
+  osc.frequency.exponentialRampToValueAtTime(320, startTime + 0.4);
+  osc.frequency.setValueAtTime(320, startTime + 0.6);
+  osc.frequency.exponentialRampToValueAtTime(280, startTime + duration);
+  
+  filter.type = 'bandpass';
+  filter.frequency.value = 400;
+  filter.Q.value = 1.5;
+  
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(0.04, startTime + 0.1);
+  gainNode.gain.setValueAtTime(0.04, startTime + 0.6);
+  gainNode.gain.linearRampToValueAtTime(0.02, startTime + duration);
+  
+  osc.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+  
+  const noiseBuffer = createNoiseBuffer(ctx, duration);
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = noiseBuffer;
+  
+  const noiseGain = ctx.createGain();
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 3000;
+  noiseFilter.Q.value = 2;
+  
+  noiseGain.gain.setValueAtTime(0, startTime);
+  noiseGain.gain.linearRampToValueAtTime(0.015, startTime + 0.2);
+  noiseGain.gain.setValueAtTime(0.015, startTime + 0.6);
+  noiseGain.gain.linearRampToValueAtTime(0.008, startTime + duration);
+  
+  noiseSource.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  
+  noiseSource.start(startTime);
+  noiseSource.stop(startTime + duration);
+}
+
+function playMotherVoiceProcessing(ctx: AudioContext, startTime: number): void {
+  const duration = 0.6;
+  
+  const carrier = ctx.createOscillator();
+  const modulator = ctx.createOscillator();
+  const modulatorGain = ctx.createGain();
+  const carrierGain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  
+  carrier.type = 'triangle';
+  carrier.frequency.value = 280;
+  carrier.frequency.setValueAtTime(280, startTime);
+  carrier.frequency.linearRampToValueAtTime(320, startTime + 0.15);
+  carrier.frequency.linearRampToValueAtTime(260, startTime + 0.35);
+  carrier.frequency.linearRampToValueAtTime(300, startTime + duration);
+  
+  modulator.type = 'sine';
+  modulator.frequency.value = 8;
+  modulatorGain.gain.value = 30;
+  
+  modulator.connect(modulatorGain);
+  modulatorGain.connect(carrier.frequency);
+  
+  filter.type = 'bandpass';
+  filter.frequency.value = 800;
+  filter.Q.value = 3;
+  
+  carrierGain.gain.setValueAtTime(0, startTime);
+  carrierGain.gain.linearRampToValueAtTime(0.06, startTime + 0.05);
+  carrierGain.gain.setValueAtTime(0.06, startTime + duration - 0.15);
+  carrierGain.gain.linearRampToValueAtTime(0, startTime + duration);
+  
+  carrier.connect(filter);
+  filter.connect(carrierGain);
+  carrierGain.connect(ctx.destination);
+  
+  carrier.start(startTime);
+  carrier.stop(startTime + duration);
+  modulator.start(startTime);
+  modulator.stop(startTime + duration);
+}
+
+function playDistressBeacon(ctx: AudioContext, startTime: number): void {
+  const beaconPattern = [0, 0.4, 0.8];
+  
+  beaconPattern.forEach(delay => {
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, startTime + delay);
+    osc.frequency.linearRampToValueAtTime(660, startTime + delay + 0.25);
+    
+    gainNode.gain.setValueAtTime(0, startTime + delay);
+    gainNode.gain.linearRampToValueAtTime(0.05, startTime + delay + 0.02);
+    gainNode.gain.setValueAtTime(0.05, startTime + delay + 0.18);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + delay + 0.3);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.start(startTime + delay);
+    osc.stop(startTime + delay + 0.3);
+  });
+}
+
 function playCRTStatic(ctx: AudioContext, startTime: number): void {
   const noiseBuffer = createNoiseBuffer(ctx, 0.25);
   const noiseSource = ctx.createBufferSource();
@@ -263,15 +493,19 @@ export async function playBootJingle(): Promise<void> {
     isPlaying = true;
     const now = ctx.currentTime;
     
-    playCRTStatic(ctx, now);
-    playSystemChime(ctx, now + 0.25);
-    playCyberDrone(ctx, now + 0.45);
-    playResonancePulse(ctx, now + 1.2);
-    playCubChirp(ctx, now + 1.4);
+    playMotherReactorHum(ctx, now);
+    playRelayClicks(ctx, now + 0.1);
+    playTapeDriveSpinup(ctx, now + 0.2);
+    playDataBleeps(ctx, now + 0.4);
+    playMotherVoiceProcessing(ctx, now + 1.0);
+    playCRTStatic(ctx, now + 1.6);
+    playDistressBeacon(ctx, now + 1.8);
+    playSystemChime(ctx, now + 2.2);
+    playCubChirp(ctx, now + 2.6);
     
     setTimeout(() => {
       isPlaying = false;
-    }, 1800);
+    }, 3200);
     
   } catch (error) {
     console.warn('Boot jingle failed to play:', error);
