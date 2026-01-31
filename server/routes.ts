@@ -411,11 +411,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Character not found" });
       }
       
-      if (character.energy < energyCost) {
+      const currentEnergy = character.energy ?? 100; // Default to 100 if null
+      if (currentEnergy < energyCost) {
         return res.status(400).json({ 
           error: "Insufficient energy",
           required: energyCost,
-          available: character.energy
+          available: currentEnergy
         });
       }
       
@@ -434,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Atomic update: deduct energy FIRST, then mark attendance
       // This ensures if anything fails, we haven't marked attendance yet
       const updatedCharacter = await storage.updateCharacter(characterId, {
-        energy: character.energy - energyCost,
+        energy: currentEnergy - energyCost,
       });
       
       if (!updatedCharacter) {
