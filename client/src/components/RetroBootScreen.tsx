@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import bearImage from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 import { playBootJingle, playIconAppearSound, playSystemReady, stopBootJingle } from '@/lib/bootJingle';
+import { useI18n } from '@/contexts/I18nContext';
 
 interface RetroBootScreenProps {
   onBootComplete: () => void;
@@ -124,6 +125,8 @@ function generateLoadingSequence(): string[] {
 }
 
 export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: RetroBootScreenProps) {
+  const { t } = useI18n();
+  
   // Boot sequence phases: 'icon' -> 'loading' -> 'finalizing' -> 'complete'
   const [bootPhase, setBootPhase] = useState<'icon' | 'loading' | 'finalizing' | 'complete'>('icon');
   const [iconPhase, setIconPhase] = useState(0); // 0-5 for icon construction
@@ -137,6 +140,57 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
   const containerRef = useRef<HTMLDivElement>(null);
   const bootCompleteRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Generate translated boot lines
+  const getBootLines = () => [
+    '═══════════════════════════════════════════════════════════════',
+    '',
+    '     █████╗ ██████╗  ██████╗██╗  ██╗██╗██╗   ██╗███████╗',
+    '    ██╔══██╗██╔══██╗██╔════╝██║  ██║██║██║   ██║██╔════╝',
+    '    ███████║██████╔╝██║     ███████║██║██║   ██║█████╗  ',
+    '    ██╔══██║██╔══██╗██║     ██╔══██║██║╚██╗ ██╔╝██╔══╝  ',
+    '    ██║  ██║██║  ██║╚██████╗██║  ██║██║ ╚████╔╝ ███████╗',
+    '    ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝',
+    '',
+    `              ${t('boot.institutionalSystem')}`,
+    '                     Build 1987.144.7',
+    '',
+    '═══════════════════════════════════════════════════════════════',
+    '',
+    `  ${t('boot.systemInit')}`,
+    '  ─────────────────────',
+    '',
+    `  [DIAG] ${t('boot.diag')}`,
+    `  [PROC] ${t('boot.proc')}`,
+    `  [MEM]  ${t('boot.mem')}`,
+    `  [STOR] ${t('boot.stor')}`,
+    `  [NET]  ${t('boot.net')}`,
+    '',
+    '  ─────────────────────',
+    '',
+    `  [LOAD] ${t('boot.loadKernel')}`,
+    `  [LOAD] ${t('boot.loadRecords')}`,
+    `  [LOAD] ${t('boot.loadProtocols')}`,
+    '',
+    '═══════════════════════════════════════════════════════════════',
+    '',
+    '            ┌─────────────────────────────┐',
+    `            │   ${t('boot.motherArchive')}            │`,
+    `            │   ${t('boot.statusObserving')}         │`,
+    `            │   ${t('boot.subjects')}             │`,
+    '            └─────────────────────────────┘',
+    '',
+    `              ${t('boot.welcomeAcademy')}`,
+    '',
+    '═══════════════════════════════════════════════════════════════',
+    '',
+    `  ${t('boot.archiveReady')}`,
+    `  ${t('boot.terminalActive')}`,
+    `  ${t('boot.awaitingInput')}`,
+    '',
+  ];
+  
+  const translatedBootLines = getBootLines();
 
   // Debug: log when component mounts
   useEffect(() => {
@@ -205,10 +259,11 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     console.log('[BOOT] Phase 2: Loading text');
     const skipTimer = setTimeout(() => setShowSkipHint(true), 1500);
     
+    const bootLines = translatedBootLines;
     intervalRef.current = setInterval(() => {
       setVisibleLineCount(prev => {
         const next = prev + 1;
-        if (next >= BOOT_LINES.length) {
+        if (next >= bootLines.length) {
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -218,7 +273,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
             console.log('[BOOT] Text complete, starting finalizing phase');
             setBootPhase('finalizing');
           }, 300);
-          return BOOT_LINES.length;
+          return bootLines.length;
         }
         return next;
       });
@@ -260,7 +315,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
       if (progress >= 100) {
         progress = 100;
         setLoadingProgress(100);
-        setCurrentLoadingMessage('System ready');
+        setCurrentLoadingMessage(t('boot.systemReady'));
         clearInterval(progressInterval);
         // Brief hold at 100%, then instant transition
         setTimeout(() => {
@@ -288,7 +343,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
     }
   }, [skipEnabled, showSkipHint, visibleLineCount, completeBootSequence]);
 
-  const visibleLines = BOOT_LINES.slice(0, visibleLineCount);
+  const visibleLines = translatedBootLines.slice(0, visibleLineCount);
 
   return (
     <div 
@@ -417,7 +472,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
               letterSpacing: '4px',
               textAlign: 'center',
             }}>
-              {iconPhase < 5 ? 'INITIALIZING' : 'THE ACADEMY'}
+              {iconPhase < 5 ? t('boot.initializing') : t('boot.theAcademy')}
             </div>
           </div>
         </div>
@@ -464,7 +519,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
                 </div>
               ))}
               
-              {visibleLineCount < BOOT_LINES.length && (
+              {visibleLineCount < translatedBootLines.length && (
                 <span style={{ animation: 'blink 1s infinite' }}>█</span>
               )}
             </div>
@@ -505,7 +560,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
               letterSpacing: '3px',
               textAlign: 'center',
             }}>
-              INITIALIZING TERMINAL INTERFACE
+              {t('boot.initTerminal')}
             </div>
 
             {/* Loading bar container */}
@@ -616,14 +671,14 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
                 textShadow: '0 0 15px #00ff00',
                 letterSpacing: '4px',
               }}>
-                READY
+                {t('boot.ready')}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {showSkipHint && skipEnabled && bootPhase === 'loading' && visibleLineCount > 10 && visibleLineCount < BOOT_LINES.length && (
+      {showSkipHint && skipEnabled && bootPhase === 'loading' && visibleLineCount > 10 && visibleLineCount < translatedBootLines.length && (
         <div 
           style={{
             position: 'absolute',
@@ -635,7 +690,7 @@ export default function RetroBootScreen({ onBootComplete, skipEnabled = true }: 
             opacity: 0.5,
           }}
         >
-          Press any key to skip...
+          {t('boot.clickToSkip')}
         </div>
       )}
 
