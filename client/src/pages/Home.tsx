@@ -493,11 +493,13 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   // Enhanced command parsing with aliases and synonyms
   const parseCommandWithNLP = async (command: string): Promise<{ action: string; target: string; originalAction: string; parts: string[]; nlpUsed?: boolean; confidence?: number; reasoning?: string }> => {
     // Commands that should skip NLP and use traditional parsing directly
+    // Note: 'talk' is included because we have sophisticated topic parsing that NLP can interfere with
     const skipNlpCommands = [
       'help', '?', 'look', 'l', 'inventory', 'i', 'inv', 'status', 'st', 'stat', 'stats',
       'save', 'load', 'time', 'score', 'clear', 'quit', 'exit', 'q', 'tutorial', 'guide',
       'grades', 'transcript', 'schedule', 'gpa', 'read', 'attend', 'chapter', 'lecture',
-      'note', 'notes', 'notebook', 'study', 'progress'
+      'note', 'notes', 'notebook', 'study', 'progress',
+      'talk', 't', 'say', 'speak'
     ];
     
     const firstWord = command.toLowerCase().trim().split(/\s+/)[0];
@@ -769,18 +771,53 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       let matchLength = 0;
       
       // Try matching 1, 2, 3+ words as potential NPC names
+      // We want the SHORTEST valid match to leave room for topic words
       for (let i = 1; i <= targetParts.length && i <= 3; i++) {
         const candidateName = targetParts.slice(0, i).join(' ');
-        const npc = npcs.find(n => 
-          n.name.toLowerCase().includes(candidateName.toLowerCase()) ||
-          candidateName.toLowerCase().includes(n.name.toLowerCase().split(' ')[0]) ||
-          n.name.toLowerCase() === candidateName.toLowerCase()
-        );
+        const npc = npcs.find(n => {
+          const npcNameLower = n.name.toLowerCase();
+          const candidateLower = candidateName.toLowerCase();
+          const npcFirstName = npcNameLower.split(' ')[0];
+          const npcNameParts = npcNameLower.split(' ');
+          
+          // Match strategies (in order of preference):
+          // 1. Exact full name match
+          if (npcNameLower === candidateLower) return true;
+          
+          // 2. First name exact match (only for single-word candidates)
+          if (i === 1 && npcFirstName === candidateLower) return true;
+          
+          // 3. NPC name starts with candidate (building up full name)
+          if (npcNameLower.startsWith(candidateLower + ' ') || npcNameLower.startsWith(candidateLower)) {
+            // Make sure we're not matching random words
+            // The candidate should be building toward the NPC's actual name
+            const candidateParts = candidateLower.split(' ');
+            return candidateParts.every((part, idx) => 
+              npcNameParts[idx] && npcNameParts[idx].startsWith(part)
+            );
+          }
+          
+          // 4. Partial first name match (for single-word candidates only)
+          if (i === 1 && npcFirstName.startsWith(candidateLower)) return true;
+          
+          return false;
+        });
         
-        if (npc && i > matchLength) {
-          bestMatch = npc;
-          matchLength = i;
-          personName = candidateName;
+        // Only update if we found a match AND this is either our first match
+        // OR we're building a longer match for the SAME NPC (multi-word names)
+        if (npc) {
+          if (!bestMatch) {
+            bestMatch = npc;
+            matchLength = i;
+            personName = candidateName;
+          } else if (npc.id === bestMatch.id) {
+            // Same NPC, longer name match is valid
+            bestMatch = npc;
+            matchLength = i;
+            personName = candidateName;
+          }
+          // If different NPC matches, keep the first (shorter) match
+          // This ensures "TALK Niardir ACADEMY" uses "Niardir" not "Niardir ACADEMY"
         }
       }
       
