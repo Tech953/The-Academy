@@ -16,6 +16,57 @@ The game runs in a resizable window with a terminal-first design, black backgrou
 ### Radiant AI System
 The Academy implements a comprehensive NPC AI system for autonomous behavior with procedural generation and emergent social dynamics. NPCs have detailed stats, personality (Big Five), emotions, memory, club membership, secret society affiliation, and mentorship tracking. A Goals System manages adaptive goals, while a Relationships system tracks affinity and history. A Schedule System defines daily routines, and a Decision Engine processes information to output actions. The Dialogue System enables autonomous, context-aware conversations. World Events and Event Chaining affect NPC behavior and can trigger follow-up events. The system includes Adaptive Goal Evolution, an Emergent Faction System, and Procedural NPC Generation. A Mentorship System assigns faculty mentors to students.
 
+### Resonance System (Physics-Based Narrative Engine)
+The Academy incorporates a sophisticated Resonance System for emergent narrative through energy transference, relational space, and quantum-inspired mechanics. This system operates on the principle that actions emit energy that propagates through a relational graph, affecting NPCs, locations, and concepts.
+
+**Core Principles:**
+- **Energy Transference**: Actions emit energy along multiple axes (Force, Order, Clarity, Connection, Coherence, Stillness, Harmony, Growth, Entropy, Fear, Distortion, Instability, Chaos, Decay, Faith, Karma, Chi, Nagual, Ashe)
+- **Relational Space**: Energy propagates through a graph of nodes (NPCs, locations, concepts) connected by weighted edges
+- **Forms of Force**: Nodes have force types (inertial, amplifying, dampening, reflective, fracturing) that transform energy
+
+**Mathematical Foundations:**
+- Vector operations for energy calculations (add, scale, dot product, magnitude)
+- Complex number operations for quantum mechanics (amplitude, phase, interference)
+- Geometric distance and curvature calculations for spatial effects
+
+**Quantum-Inspired Mechanics:**
+- **Superposition**: Actions can exist in multiple states with probability amplitudes
+- **Observation**: States collapse when observed, producing definite outcomes
+- **Phase Evolution**: Uncollapsed states evolve over time via phase rotation
+- **Coherence**: Field stability affects interference patterns
+
+**Geometric Manifold System:**
+- Nodes positioned in conceptual 3D space
+- Distance affects energy propagation (exponential decay)
+- Curvature modifiers near sacred zones
+- Sacred zones amplify specific energy types
+
+**Skill System (Excellence, Efficacy, Perception):**
+- **Excellence**: Technical mastery (0-100), improved by Clarity and Order
+- **Efficacy**: Practical application (0-100), improved by Force and Growth
+- **Perception**: Field awareness (0-100), improved by Coherence and Stillness
+
+**Infrastructure Balancing:**
+- Development rate (0-100): Growth and improvement
+- Maintenance level (0-100): Upkeep and stability
+- Capacity (0-100): Maximum load
+- Synergy between development and maintenance
+
+**Crystallization Patterns:**
+- Similar high-magnitude fields form persistent patterns
+- Patterns accumulate strength over time
+- Weak patterns naturally dissolve
+
+**Sacred Zones:**
+- Sacred Garden: Amplifies stillness, coherence, harmony, chi
+- Hidden Sanctum: Amplifies nagual, ashe, faith
+
+**Files:**
+- `client/src/lib/resonanceEngine.ts` - Core Resonance Engine with all mechanics
+- `client/src/lib/resonanceRadiantBridge.ts` - Bridge between Radiant AI and Resonance
+- `client/src/hooks/useResonance.ts` - React hook for resonance state
+- `client/src/contexts/ResonanceContext.tsx` - React context provider
+
 ### Academy Engine - Cognitive Infrastructure
 This four-phase learning system includes:
 - **Phase 1 - Core Cognition**: Manages a skill graph (40 GED-aligned skill nodes), student journals, a procedural homework engine, and student profiles.
