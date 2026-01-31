@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, ReactNode } from 'react';
+import { useState, useCallback, useEffect, ReactNode, memo, useMemo } from 'react';
 import NeoCrtWindow from './NeoCrtWindow';
 import Calculator from './apps/Calculator';
 import Notepad from './apps/Notepad';
@@ -61,28 +61,28 @@ interface DesktopIconConfig {
 }
 
 const SIDEBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'personal', iconType: 'personal', label: 'PERSONAL', colorKey: 'green' },
-  { id: 'email', iconType: 'email', label: 'E-MAIL', colorKey: 'cyan' },
-  { id: 'messages', iconType: 'messages', label: 'MESSAGES', colorKey: 'green' },
+  { id: 'email', iconType: 'email', label: 'ACADEMY EMAIL', colorKey: 'cyan' },
+  { id: 'messages', iconType: 'messages', label: 'CHATLINK', colorKey: 'green' },
   { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', colorKey: 'amber' },
-  { id: 'perks', iconType: 'perks', label: 'PERKS', colorKey: 'purple' },
+  { id: 'perks', iconType: 'perks', label: 'PERKS VIEWER', colorKey: 'purple' },
   { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', colorKey: 'purple' },
+  { id: 'schedule', iconType: 'schedule', label: 'SCHEDULE', colorKey: 'amber' },
   { id: 'schoolfiles', iconType: 'schoolfiles', label: 'SCHOOL FILES', colorKey: 'cyan' },
   { id: 'personalfiles', iconType: 'personalfiles', label: 'PERSONAL FILES', colorKey: 'pink' },
+  { id: 'cub', iconType: 'cub', label: 'CUB LINK', colorKey: 'pink' },
+  { id: 'settings', iconType: 'settings', label: 'SETTINGS', colorKey: 'green' },
 ];
 
-const TASKBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'schedule', iconType: 'schedule', label: 'Schedule', colorKey: 'amber' },
-  { id: 'cub', iconType: 'cub', label: 'Cub', colorKey: 'pink' },
-  { id: 'memories', iconType: 'memories', label: 'Memories', colorKey: 'pink' },
-  { id: 'settings', iconType: 'settings', label: 'Settings', colorKey: 'amber' },
+const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
+  { id: 'academy', iconType: 'academy', label: 'Academy', colorKey: 'green' },
+  { id: 'calculator', iconType: 'calculator', label: 'Calc', colorKey: 'green' },
+  { id: 'notepad', iconType: 'notepad', label: 'Notes', colorKey: 'cyan' },
+  { id: 'files', iconType: 'files', label: 'Files', colorKey: 'cyan' },
 ];
 
 const HIDDEN_APPS: DesktopIconConfig[] = [
-  { id: 'academy', iconType: 'academy', label: 'The Academy', colorKey: 'green' },
-  { id: 'calculator', iconType: 'calculator', label: 'Calculator', colorKey: 'green' },
-  { id: 'notepad', iconType: 'notepad', label: 'Notepad', colorKey: 'green' },
-  { id: 'files', iconType: 'files', label: 'Files', colorKey: 'cyan' },
+  { id: 'personal', iconType: 'personal', label: 'Personal Profile', colorKey: 'green' },
+  { id: 'memories', iconType: 'memories', label: 'Polaroid Memories', colorKey: 'pink' },
   { id: 'notifications', iconType: 'notifications', label: 'Notifications', colorKey: 'amber' },
 ];
 
@@ -118,7 +118,7 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
   }
 }
 
-function SidebarIcon({ 
+const SidebarIcon = memo(function SidebarIcon({ 
   icon, 
   isSelected, 
   onClick, 
@@ -168,9 +168,9 @@ function SidebarIcon({
       </span>
     </button>
   );
-}
+});
 
-function TaskbarIcon({ 
+const TaskbarIcon = memo(function TaskbarIcon({ 
   icon, 
   onClick,
   accentColors,
@@ -203,7 +203,7 @@ function TaskbarIcon({
       </div>
     </button>
   );
-}
+});
 
 interface Memory {
   id: string;
@@ -668,7 +668,7 @@ export default function NeoCrtDesktopShell() {
       case 'notepad':
         return { component: <Notepad />, title: 'Notepad', width: 450, height: 350, minWidth: 300, minHeight: 200 };
       case 'files':
-        return { component: <FileManagerApp windowId={iconType} />, title: 'File Manager', width: 550, height: 420, minWidth: 400, minHeight: 320 };
+        return { component: <FileManagerApp windowId={appId} />, title: 'File Manager', width: 550, height: 420, minWidth: 400, minHeight: 320 };
       case 'search':
         return { 
           component: <div style={{ padding: '20px', color: accentColors.amber, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
@@ -812,7 +812,7 @@ export default function NeoCrtDesktopShell() {
     }
 
     const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId);
-    const iconConfig = [...SIDEBAR_ICONS, ...TASKBAR_ICONS, ...HIDDEN_APPS].find(i => i.id === appId);
+    const iconConfig = [...SIDEBAR_ICONS, ...TASKBAR_QUICK_APPS, ...HIDDEN_APPS].find(i => i.id === appId);
     
     const sidebarWidth = 120;
     const taskbarHeight = 80;
@@ -1011,7 +1011,7 @@ export default function NeoCrtDesktopShell() {
         zIndex: 10,
         transition: 'border-color 0.5s ease, box-shadow 0.5s ease, background 0.5s ease',
       }}>
-        {TASKBAR_ICONS.map((icon) => (
+        {TASKBAR_QUICK_APPS.map((icon) => (
           <TaskbarIcon
             key={icon.id}
             icon={icon}
@@ -1020,7 +1020,30 @@ export default function NeoCrtDesktopShell() {
           />
         ))}
         
-        <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 12px' }} />
+        <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 8px' }} />
+        
+        <button
+          onClick={() => openWindow('memories')}
+          title="Polaroid Memories"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            padding: '6px 10px',
+            background: `${accentColors.pink}15`,
+            border: `1px solid ${accentColors.pink}40`,
+            borderRadius: '4px',
+            cursor: 'pointer',
+            color: accentColors.pink,
+            transition: 'all 0.3s ease',
+          }}
+        >
+          <Camera size={14} />
+          <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>MEMORIES</span>
+        </button>
+        
+        <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 8px' }} />
         
         <button
           onClick={toggleUiMode}
