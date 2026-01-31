@@ -284,7 +284,7 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const getNpcResponse = (participantName: string, playerMessage: string): string => {
+  const getFallbackNpcResponse = (participantName: string): string => {
     const responses: Record<string, string[]> = {
       'Cub': [
         "That's a great question! I'll look into it for you.",
@@ -318,6 +318,40 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     return pool[Math.floor(Math.random() * pool.length)];
   };
 
+  const getAiNpcResponse = async (
+    participantName: string,
+    participantTitle: string | undefined,
+    playerMessage: string,
+    conversationHistory: DirectMessage[]
+  ): Promise<string> => {
+    try {
+      const response = await fetch('/api/npc-dialogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          npcName: participantName,
+          npcTitle: participantTitle,
+          playerMessage,
+          conversationHistory: conversationHistory.slice(-10).map(m => ({
+            content: m.content,
+            isFromPlayer: m.isFromPlayer
+          }))
+        })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        return data.fallback || getFallbackNpcResponse(participantName);
+      }
+      
+      const data = await response.json();
+      return data.response || getFallbackNpcResponse(participantName);
+    } catch (error) {
+      console.warn('AI NPC dialogue failed, using fallback:', error);
+      return getFallbackNpcResponse(participantName);
+    }
+  };
+
   const sendMessage = useCallback((conversationId: string, content: string) => {
     if (!content.trim()) return;
     
@@ -341,12 +375,17 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
       messages: [playerMessage, ...prev.messages],
     }));
 
-    setTimeout(() => {
+    const relatedMessages = state.messages.filter(
+      m => m.from === participantName || m.conversationId === participantName
+    );
+    
+    setTimeout(async () => {
+      const aiResponse = await getAiNpcResponse(participantName, participantTitle, content, relatedMessages);
       const npcResponse: DirectMessage = {
         id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         from: participantName,
         fromTitle: participantTitle,
-        content: getNpcResponse(participantName, content),
+        content: aiResponse,
         timestamp: new Date(),
         read: false,
         conversationId: participantName,
@@ -355,7 +394,7 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
         ...prev,
         messages: [npcResponse, ...prev.messages],
       }));
-    }, 1500 + Math.random() * 2000);
+    }, 1000 + Math.random() * 1500);
   }, [state.messages, state.character.name]);
 
   const getConversation = useCallback((participantName: string): Conversation | undefined => {

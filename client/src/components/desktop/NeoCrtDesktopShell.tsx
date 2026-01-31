@@ -20,6 +20,7 @@ import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import { useGameState } from '@/contexts/GameStateContext';
+import { useI18n } from '@/contexts/I18nContext';
 import { AmbientObjects } from './AmbientObjects';
 import { WindowSnapZones, useWindowSnap, getSnapDimensions } from './WindowSnapZones';
 import { NotificationContainer, useNotifications } from './FuzzyBubbleNotification';
@@ -64,37 +65,37 @@ const NEON_COLORS = {
 interface DesktopIconConfig {
   id: string;
   iconType: IconType;
-  label: string;
+  labelKey: string;
   colorKey: ColorKey;
 }
 
 const SIDEBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'email', iconType: 'email', label: 'ACADEMY EMAIL', colorKey: 'cyan' },
-  { id: 'messages', iconType: 'messages', label: 'CHATLINK', colorKey: 'green' },
-  { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', colorKey: 'amber' },
-  { id: 'perks', iconType: 'perks', label: 'PERKS VIEWER', colorKey: 'purple' },
-  { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', colorKey: 'purple' },
-  { id: 'skillgraph', iconType: 'skillgraph', label: 'SKILL GRAPH', colorKey: 'purple' },
-  { id: 'notebook', iconType: 'notebook', label: 'NOTEBOOK', colorKey: 'cyan' },
-  { id: 'progress', iconType: 'progress', label: 'PROGRESS', colorKey: 'green' },
-  { id: 'schedule', iconType: 'schedule', label: 'SCHEDULE', colorKey: 'amber' },
-  { id: 'schoolfiles', iconType: 'schoolfiles', label: 'SCHOOL FILES', colorKey: 'cyan' },
-  { id: 'personalfiles', iconType: 'personalfiles', label: 'PERSONAL FILES', colorKey: 'pink' },
-  { id: 'cub', iconType: 'cub', label: 'CUB LINK', colorKey: 'pink' },
-  { id: 'settings', iconType: 'settings', label: 'SETTINGS', colorKey: 'green' },
+  { id: 'email', iconType: 'email', labelKey: 'desktop.email', colorKey: 'cyan' },
+  { id: 'messages', iconType: 'messages', labelKey: 'desktop.messages', colorKey: 'green' },
+  { id: 'assignments', iconType: 'assignments', labelKey: 'desktop.assignments', colorKey: 'amber' },
+  { id: 'perks', iconType: 'perks', labelKey: 'desktop.perks', colorKey: 'purple' },
+  { id: 'resonance', iconType: 'resonance', labelKey: 'desktop.resonance', colorKey: 'purple' },
+  { id: 'skillgraph', iconType: 'skillgraph', labelKey: 'desktop.skillgraph', colorKey: 'purple' },
+  { id: 'notebook', iconType: 'notebook', labelKey: 'desktop.notebook', colorKey: 'cyan' },
+  { id: 'progress', iconType: 'progress', labelKey: 'desktop.progress', colorKey: 'green' },
+  { id: 'schedule', iconType: 'schedule', labelKey: 'desktop.schedule', colorKey: 'amber' },
+  { id: 'schoolfiles', iconType: 'schoolfiles', labelKey: 'desktop.schoolfiles', colorKey: 'cyan' },
+  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink' },
+  { id: 'cub', iconType: 'cub', labelKey: 'desktop.cub', colorKey: 'pink' },
+  { id: 'settings', iconType: 'settings', labelKey: 'desktop.settings', colorKey: 'green' },
 ];
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
-  { id: 'academy', iconType: 'academy', label: 'Academy', colorKey: 'green' },
-  { id: 'calculator', iconType: 'calculator', label: 'Calc', colorKey: 'green' },
-  { id: 'notepad', iconType: 'notepad', label: 'Notes', colorKey: 'cyan' },
-  { id: 'files', iconType: 'files', label: 'Files', colorKey: 'cyan' },
+  { id: 'academy', iconType: 'academy', labelKey: 'desktop.academy', colorKey: 'green' },
+  { id: 'calculator', iconType: 'calculator', labelKey: 'desktop.calculator', colorKey: 'green' },
+  { id: 'notepad', iconType: 'notepad', labelKey: 'desktop.notepad', colorKey: 'cyan' },
+  { id: 'files', iconType: 'files', labelKey: 'desktop.files', colorKey: 'cyan' },
 ];
 
 const HIDDEN_APPS: DesktopIconConfig[] = [
-  { id: 'personal', iconType: 'personal', label: 'Personal Profile', colorKey: 'green' },
-  { id: 'memories', iconType: 'memories', label: 'Polaroid Memories', colorKey: 'pink' },
-  { id: 'notifications', iconType: 'notifications', label: 'Notifications', colorKey: 'amber' },
+  { id: 'personal', iconType: 'personal', labelKey: 'desktop.personal', colorKey: 'green' },
+  { id: 'memories', iconType: 'memories', labelKey: 'desktop.memories', colorKey: 'pink' },
+  { id: 'notifications', iconType: 'notifications', labelKey: 'desktop.notifications', colorKey: 'amber' },
 ];
 
 type AccentColors = Record<ColorKey, string>;
@@ -139,6 +140,7 @@ const SidebarIcon = memo(function SidebarIcon({
   onDoubleClick,
   accentColors,
   badgeCount = 0,
+  label,
 }: { 
   icon: DesktopIconConfig;
   isSelected: boolean;
@@ -146,6 +148,7 @@ const SidebarIcon = memo(function SidebarIcon({
   onDoubleClick: () => void;
   accentColors: AccentColors;
   badgeCount?: number;
+  label: string;
 }) {
   const color = accentColors[icon.colorKey];
   return (
@@ -203,7 +206,7 @@ const SidebarIcon = memo(function SidebarIcon({
         textShadow: `0 0 10px ${color}`,
         transition: 'color 0.3s ease, text-shadow 0.3s ease',
       }}>
-        {icon.label}
+        {label}
       </span>
     </button>
   );
@@ -674,6 +677,7 @@ export default function NeoCrtDesktopShell() {
   const { colors, accentColors, modeLabel } = useCrtTheme();
   const { unreadCount: notificationCount } = useNotificationsContext();
   const { unreadEmailCount, unreadMessageCount } = useGameState();
+  const { t } = useI18n();
   
   const [uiMode, setUiMode] = useState<UiMode>(() => {
     if (typeof window !== 'undefined') {
@@ -1063,6 +1067,7 @@ export default function NeoCrtDesktopShell() {
               icon.id === 'email' ? unreadEmailCount :
               icon.id === 'messages' ? unreadMessageCount : 0
             }
+            label={t(icon.labelKey)}
           />
         ))}
         
@@ -1099,11 +1104,12 @@ export default function NeoCrtDesktopShell() {
           </div>
           <div data-testid="academy-game-launcher">
             <SidebarIcon
-              icon={{ id: 'academy', iconType: 'academy', label: 'THE ACADEMY', colorKey: 'green' }}
+              icon={{ id: 'academy', iconType: 'academy', labelKey: 'desktop.academy', colorKey: 'green' }}
               isSelected={selectedIcon === 'academy'}
               onClick={() => setSelectedIcon('academy')}
               onDoubleClick={() => openWindow('academy')}
               accentColors={accentColors}
+              label={t('desktop.academy')}
             />
           </div>
         </div>

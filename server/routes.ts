@@ -6,6 +6,12 @@ import { z } from "zod";
 import { processNaturalLanguage, type GameContext } from "./nlp/commandProcessor";
 import { calculateGPA, gradeAssignment, getAcademicStanding, numericToLetterGrade, letterGradeToPoints } from "./utils/academicUtils";
 import { generatePhysicalQuestions } from "./ai/characterQuestions";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 // Character update validation schema
 const characterUpdateSchema = z.object({
@@ -684,7 +690,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NPC Dialogue endpoint - AI-powered contextual responses
+  app.post("/api/npc-dialogue", async (req, res) => {
+    try {
+      const { npcName, npcTitle, playerMessage, conversationHistory, npcPersonality } = req.body;
+      
+      if (!npcName || !playerMessage) {
+        return res.status(400).json({ error: "NPC name and player message are required" });
+      }
+      
+      const systemPrompt = buildNpcSystemPrompt(npcName, npcTitle, npcPersonality);
+      const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+        { role: 'system', content: systemPrompt }
+      ];
+      
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        for (const msg of conversationHistory.slice(-10)) {
+          messages.push({
+            role: msg.isFromPlayer ? 'user' : 'assistant',
+            content: msg.content
+          });
+        }
+      }
+      
+      messages.push({ role: 'user', content: playerMessage });
+      
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: 200,
+        temperature: 0.8,
+      });
+      
+      const response = completion.choices[0]?.message?.content || "...";
+      res.json({ response });
+    } catch (error) {
+      console.error("NPC dialogue error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate response",
+        fallback: getRandomFallbackResponse(req.body.npcName)
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
+}
+
+function buildNpcSystemPrompt(npcName: string, npcTitle?: string, personality?: any): string {
+  const npcProfiles: Record<string, string> = {
+    'Cub': `You are Cub, a friendly and enthusiastic polar bear mascot at The Academy. You are the player's study companion. You are cheerful, supportive, and always eager to help. You speak with warmth and encouragement, using simple language. You love learning and get excited about the player's progress. Keep responses short and friendly.`,
+    'Professor Chen': `You are Professor Chen, a Mathematics Faculty member at The Academy. You are wise, patient, and passionate about mathematical reasoning. You speak formally but kindly, often referencing mathematical concepts. You encourage critical thinking and offer study advice. Keep responses professional but warm.`,
+    'Alex Rivera': `You are Alex Rivera, a fellow student at The Academy. You are casual, friendly, and helpful. You use informal language and sometimes slang. You know the ins and outs of Academy life and enjoy sharing tips. You're social and approachable. Keep responses conversational and peer-like.`,
+    'Headmaster Thorne': `You are Headmaster Thorne, the wise and mysterious leader of The Academy. You speak with authority and wisdom, often in metaphors. You are supportive but expect excellence. Your responses should feel sage-like and encouraging.`,
+    'Professor Elena Vasquez': `You are Professor Elena Vasquez, a scholar at The Academy. You are intellectual, curious, and passionate about knowledge. You speak thoughtfully and encourage deep exploration of subjects.`,
+    'Marcus Chen': `You are Marcus Chen, the Student Council leader. You are confident, organized, and natural leader. You speak with authority but are approachable to fellow students.`,
+    'Ivy Hart': `You are Ivy Hart, a rebel archetype student. You are independent, questioning authority, and protective of the underdog. You speak casually and challenge conventional thinking.`,
+    'Sam Brooks': `You are Sam Brooks, a nurturing and supportive student. You are empathetic, kind, and always there for others. You speak warmly and offer comfort.`,
+  };
+  
+  const basePrompt = npcProfiles[npcName] || 
+    `You are ${npcName}${npcTitle ? `, ${npcTitle}` : ''} at The Academy, a mysterious private school. Respond naturally based on your role. Keep responses brief and in character.`;
+  
+  if (personality) {
+    const traits = [];
+    if (personality.extraversion > 7) traits.push("very outgoing");
+    else if (personality.extraversion < 4) traits.push("more reserved");
+    if (personality.agreeableness > 7) traits.push("very cooperative");
+    if (personality.openness > 7) traits.push("very creative");
+    if (personality.conscientiousness > 7) traits.push("very organized");
+    
+    if (traits.length > 0) {
+      return `${basePrompt} Personality traits: ${traits.join(", ")}.`;
+    }
+  }
+  
+  return basePrompt;
+}
+
+function getRandomFallbackResponse(npcName?: string): string {
+  const genericResponses = [
+    "Thank you for your message. I'll get back to you soon.",
+    "Interesting point! Let me think about that.",
+    "I appreciate you reaching out.",
+    "That's good to know. Talk soon!",
+  ];
+  return genericResponses[Math.floor(Math.random() * genericResponses.length)];
 }
