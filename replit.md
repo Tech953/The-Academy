@@ -35,16 +35,17 @@ The game itself runs in a resizable window with an optional fullscreen mode, off
 The desktop implements a comprehensive Neo-CRT aesthetic system:
 
 **Boot Sequence Audio** (`client/src/lib/bootJingle.ts`):
-"Awakening Sequence v0.92" - A 3.2-second synthesized boot jingle using Web Audio API, inspired by the Nostromo's "Mother" computer from the Alien series:
+"Awakening Sequence v0.93" - A 3.5-second synthesized boot jingle using Web Audio API, inspired by the Nostromo's "Mother" computer and classic rotating storage from the Alien series:
 - Mother Reactor Hum (0:00-2.8s): Deep mechanical drone with layered sawtooth, sine, and triangle waves at 45/90/135Hz
-- Relay Clicks (0:10-1.85s): Randomized mechanical switching sounds with high-pass filtered noise bursts
-- Tape Drive Spinup (0:20-1.0s): Pitch-rising sawtooth simulating magnetic media initialization with mechanical whir
-- Data Bleeps (0:40-2.0s): Deliberate square wave transmission tones (1000-1600Hz) in recognizable patterns
-- Mother Voice Processing (1:00-1.6s): FM-modulated triangle wave simulating vocal synthesis
-- CRT Static (1:60-1.85s): Bandpass-filtered noise burst
-- Distress Beacon (1:80-3.0s): Descending sine wave pulses (880→660Hz) in triplet pattern
-- System Chime (2:20-2.5s): E4→F#4→E5 stinger with soft distortion
-- Cub Chirp (2:60-2.75s): Digital beep-bip confirmation
+- Rotating Data Scroll (0:10-2.5s): Classic magnetic drum/disk storage sound with rhythmic churning, head clicks at 24Hz, and periodic seek sounds - the signature "data loading" noise from old rotating computers
+- Relay Clicks (0:15-2.0s): Randomized mechanical switching sounds with high-pass filtered noise bursts
+- Tape Drive Spinup (0:25-1.05s): Pitch-rising sawtooth simulating magnetic media initialization with mechanical whir
+- Data Bleeps (0:50-2.1s): Deliberate square wave transmission tones (1000-1600Hz) in recognizable patterns
+- Mother Voice Processing (1:20-1.8s): FM-modulated triangle wave simulating vocal synthesis
+- CRT Static (1:80-2.05s): Bandpass-filtered noise burst
+- Distress Beacon (2:00-3.2s): Descending sine wave pulses (880→660Hz) in triplet pattern
+- System Chime (2:50-2.8s): E4→F#4→E5 stinger with soft distortion
+- Cub Chirp (2:90-3.05s): Digital beep-bip confirmation
 
 **Visual Effects** (`client/src/index.css`):
 - Screen bloom animation when windows open

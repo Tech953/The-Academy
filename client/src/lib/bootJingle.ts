@@ -445,6 +445,101 @@ function playResonancePulse(ctx: AudioContext, startTime: number): void {
   modulator.stop(startTime + pulseDuration);
 }
 
+function playRotatingDataScroll(ctx: AudioContext, startTime: number): void {
+  const duration = 2.4;
+  const rotationSpeed = 12;
+  
+  const baseOsc = ctx.createOscillator();
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  const mainGain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  
+  baseOsc.type = 'sawtooth';
+  baseOsc.frequency.value = 120;
+  
+  lfo.type = 'sine';
+  lfo.frequency.value = rotationSpeed;
+  lfoGain.gain.value = 40;
+  
+  lfo.connect(lfoGain);
+  lfoGain.connect(baseOsc.frequency);
+  
+  filter.type = 'bandpass';
+  filter.frequency.value = 300;
+  filter.Q.value = 2;
+  
+  mainGain.gain.setValueAtTime(0, startTime);
+  mainGain.gain.linearRampToValueAtTime(0.06, startTime + 0.15);
+  mainGain.gain.setValueAtTime(0.06, startTime + duration - 0.3);
+  mainGain.gain.linearRampToValueAtTime(0, startTime + duration);
+  
+  baseOsc.connect(filter);
+  filter.connect(mainGain);
+  mainGain.connect(ctx.destination);
+  
+  baseOsc.start(startTime);
+  lfo.start(startTime);
+  baseOsc.stop(startTime + duration);
+  lfo.stop(startTime + duration);
+  
+  const clickRate = 24;
+  const clickCount = Math.floor(duration * clickRate);
+  
+  for (let i = 0; i < clickCount; i++) {
+    const clickTime = startTime + (i / clickRate);
+    const intensity = 0.5 + 0.5 * Math.sin(i * 0.3);
+    
+    const clickOsc = ctx.createOscillator();
+    const clickGain = ctx.createGain();
+    const clickFilter = ctx.createBiquadFilter();
+    
+    clickOsc.type = 'square';
+    clickOsc.frequency.value = 2000 + Math.random() * 1000;
+    
+    clickFilter.type = 'highpass';
+    clickFilter.frequency.value = 3000;
+    
+    const clickVol = 0.008 * intensity;
+    clickGain.gain.setValueAtTime(0, clickTime);
+    clickGain.gain.linearRampToValueAtTime(clickVol, clickTime + 0.001);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, clickTime + 0.015);
+    
+    clickOsc.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    
+    clickOsc.start(clickTime);
+    clickOsc.stop(clickTime + 0.015);
+  }
+  
+  const seekCount = 6;
+  const seekTimes = [0.3, 0.7, 1.1, 1.5, 1.85, 2.1];
+  
+  seekTimes.forEach(delay => {
+    const seekTime = startTime + delay;
+    
+    const seekOsc = ctx.createOscillator();
+    const seekGain = ctx.createGain();
+    
+    seekOsc.type = 'sawtooth';
+    const startFreq = 150 + Math.random() * 100;
+    const endFreq = 80 + Math.random() * 60;
+    seekOsc.frequency.setValueAtTime(startFreq, seekTime);
+    seekOsc.frequency.exponentialRampToValueAtTime(endFreq, seekTime + 0.08);
+    
+    seekGain.gain.setValueAtTime(0, seekTime);
+    seekGain.gain.linearRampToValueAtTime(0.03, seekTime + 0.01);
+    seekGain.gain.exponentialRampToValueAtTime(0.001, seekTime + 0.1);
+    
+    seekOsc.connect(seekGain);
+    seekGain.connect(ctx.destination);
+    
+    seekOsc.start(seekTime);
+    seekOsc.stop(seekTime + 0.1);
+  });
+}
+
 function playCubChirp(ctx: AudioContext, startTime: number): void {
   const osc1 = ctx.createOscillator();
   const osc2 = ctx.createOscillator();
@@ -494,18 +589,19 @@ export async function playBootJingle(): Promise<void> {
     const now = ctx.currentTime;
     
     playMotherReactorHum(ctx, now);
-    playRelayClicks(ctx, now + 0.1);
-    playTapeDriveSpinup(ctx, now + 0.2);
-    playDataBleeps(ctx, now + 0.4);
-    playMotherVoiceProcessing(ctx, now + 1.0);
-    playCRTStatic(ctx, now + 1.6);
-    playDistressBeacon(ctx, now + 1.8);
-    playSystemChime(ctx, now + 2.2);
-    playCubChirp(ctx, now + 2.6);
+    playRotatingDataScroll(ctx, now + 0.1);
+    playRelayClicks(ctx, now + 0.15);
+    playTapeDriveSpinup(ctx, now + 0.25);
+    playDataBleeps(ctx, now + 0.5);
+    playMotherVoiceProcessing(ctx, now + 1.2);
+    playCRTStatic(ctx, now + 1.8);
+    playDistressBeacon(ctx, now + 2.0);
+    playSystemChime(ctx, now + 2.5);
+    playCubChirp(ctx, now + 2.9);
     
     setTimeout(() => {
       isPlaying = false;
-    }, 3200);
+    }, 3500);
     
   } catch (error) {
     console.warn('Boot jingle failed to play:', error);
