@@ -10,6 +10,9 @@ import ClassSchedule from './apps/ClassSchedule';
 import CubCompanion from './apps/CubCompanion';
 import SettingsApp from './apps/SettingsApp';
 import { FileManagerApp } from './apps/FileManagerApp';
+import { ResearchNotebookApp } from './apps/ResearchNotebookApp';
+import { SkillGraphApp } from './apps/SkillGraphApp';
+import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { AmbientObjects } from './AmbientObjects';
@@ -20,7 +23,7 @@ import {
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
   BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
-  Monitor, Terminal
+  Monitor, Terminal, Network, BarChart3, Notebook
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
@@ -40,7 +43,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress';
 
 type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
 
@@ -66,6 +69,9 @@ const SIDEBAR_ICONS: DesktopIconConfig[] = [
   { id: 'assignments', iconType: 'assignments', label: 'ASSIGNMENTS', colorKey: 'amber' },
   { id: 'perks', iconType: 'perks', label: 'PERKS VIEWER', colorKey: 'purple' },
   { id: 'resonance', iconType: 'resonance', label: 'RESONANCE', colorKey: 'purple' },
+  { id: 'skillgraph', iconType: 'skillgraph', label: 'SKILL GRAPH', colorKey: 'purple' },
+  { id: 'notebook', iconType: 'notebook', label: 'NOTEBOOK', colorKey: 'cyan' },
+  { id: 'progress', iconType: 'progress', label: 'PROGRESS', colorKey: 'green' },
   { id: 'schedule', iconType: 'schedule', label: 'SCHEDULE', colorKey: 'amber' },
   { id: 'schoolfiles', iconType: 'schoolfiles', label: 'SCHOOL FILES', colorKey: 'cyan' },
   { id: 'personalfiles', iconType: 'personalfiles', label: 'PERSONAL FILES', colorKey: 'pink' },
@@ -114,6 +120,9 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'cub': return <Heart {...props} />;
     case 'memories': return <Camera {...props} />;
     case 'notifications': return <Bell {...props} />;
+    case 'skillgraph': return <Network {...props} />;
+    case 'notebook': return <Notebook {...props} />;
+    case 'progress': return <BarChart3 {...props} />;
     default: return <FileText {...props} />;
   }
 }
@@ -708,6 +717,12 @@ export default function NeoCrtDesktopShell() {
         return { component: <PerksViewer />, title: 'Perks Viewer', width: 550, height: 480, minWidth: 400, minHeight: 350 };
       case 'resonance':
         return { component: <ResonanceDashboard />, title: 'Resonance Dashboard', width: 450, height: 520, minWidth: 350, minHeight: 400 };
+      case 'skillgraph':
+        return { component: <SkillGraphApp windowId="skillgraph" studentId="default-student" />, title: 'Skill Graph', width: 700, height: 550, minWidth: 500, minHeight: 400 };
+      case 'notebook':
+        return { component: <ResearchNotebookApp windowId="notebook" studentId="default-student" />, title: 'Research Notebook', width: 600, height: 500, minWidth: 450, minHeight: 350 };
+      case 'progress':
+        return { component: <ProgressDashboardApp windowId="progress" studentId="default-student" />, title: 'Progress Dashboard', width: 650, height: 600, minWidth: 500, minHeight: 450 };
       case 'schedule':
         return { component: <ClassSchedule />, title: 'Class Schedule', width: 480, height: 450, minWidth: 350, minHeight: 300 };
       case 'cub':

@@ -98,6 +98,46 @@ Auto-detecting hardware capability tiers with fallback:
 **File Manager App** (`client/src/components/desktop/apps/FileManagerApp.tsx`):
 Visual file browser for the virtual filesystem with navigation, permissions display, and hidden file toggle.
 
+### Academy Engine - Cognitive Infrastructure (`client/src/lib/academy-engine/`)
+A comprehensive four-phase learning system with ethics enforcement:
+
+**Phase 1 - Core Cognition** (`phase1/`):
+- `skillGraph.ts`: 40 GED-aligned skill nodes across 5 domains (Math, Language, Science, Social, Reasoning) with prerequisites, cognitive load ratings, and representation types (numeric, verbal, applied, abstract, graphical, written)
+- `studentJournal.ts`: Persistent research journals with auto-capture of attempts and manual entries (reflections, hypotheses, confusions, milestones) with searchable indexing
+- `homeworkEngine.ts`: Procedural homework generation with representation shifting (changes format instead of punishing) and difficulty smoothing based on struggle history
+- `studentProfile.ts`: Learner identity tracking attempts, preferences, cognitive traits, and representation bias
+
+**Phase 2 - Assessment Layer** (`phase2/`):
+- `masterySignalExtractor.ts`: Infers mastery from behavior patterns (fragile/emerging/stable states) without grading
+- `confidenceEstimator.ts`: Student-visible confidence bands (unknown/emerging/stabilizing/reliable) with encouraging messages
+- `proceduralExamEngine.ts`: Deterministic GED-class exam generation from seeds - no static question banks
+- `examSession.ts`: Session management with fatigue detection and break suggestions
+
+**Phase 3 - Governance** (`phase3/`):
+- `curriculumVersioning.ts`: Git-like version control for curriculum with immutable hashes
+- `teacherAuthority.ts`: Teacher identity, signatures, approval layer for curriculum changes, and annotation engine
+
+**Phase 4 - Lore/Narrative** (`phase4/`):
+- `loreSkin.ts`: Three narrative modes (neutral/real_world/academy_lore) that wrap prompts without touching learning logic
+- Lore registry, canon event logging for milestones, zero logic contamination
+
+**Options** (`options/`):
+- `ethicsLockfile.ts`: Enforces 16+ forbidden fields (race, religion, biometrics, behavioral prediction, etc.) at code level with violation logging
+- `portfolioGenerator.ts`: Generates portfolios, transcripts, and accreditation records for GED alignment
+- `versionFreeze.ts`: Locks stable releases with checksums for reproducibility
+
+**Desktop Apps**:
+- `SkillGraphApp.tsx`: Visual skill tree with domain filtering and mastery status display
+- `ResearchNotebookApp.tsx`: Journal interface with search, filtering, and manual entry creation
+- `ProgressDashboardApp.tsx`: Stats overview, GED readiness tracking, strengths/focus areas
+
+**Design Principles**:
+- Non-punitive: Representation shifting instead of difficulty punishment
+- Student-owned: All data persists locally under student control
+- Transparent: Confidence bands show honest learning progress
+- Ethical: Explicit lockfile prevents forbidden inferences
+- GED-aligned: All 40 skills map to four GED test areas
+
 ## Backend Architecture
 The backend uses Express.js with TypeScript to provide a RESTful API for character management, game state, and data persistence. It employs a session-based architecture and utilizes in-memory storage with PostgreSQL as a fallback for persistence.
 
