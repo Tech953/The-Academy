@@ -9,6 +9,7 @@ import PerksViewer from './apps/PerksViewer';
 import ResonanceDashboard from './apps/ResonanceDashboard';
 import ClassSchedule from './apps/ClassSchedule';
 import CubCompanion from './apps/CubCompanion';
+import SchoolFilesApp from './apps/SchoolFilesApp';
 import SettingsApp from './apps/SettingsApp';
 import AcademyEmailApp from './apps/AcademyEmailApp';
 import MessagesApp from './apps/MessagesApp';
@@ -1153,32 +1154,12 @@ export default function NeoCrtDesktopShell() {
         return { component: <CubCompanion />, title: 'Cub Companion', width: 350, height: 500, minWidth: 280, minHeight: 350 };
       case 'schoolfiles':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.cyan, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.cyan}40`, paddingBottom: '10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FolderArchive size={20} color={accentColors.cyan} />
-              SCHOOL FILES
-            </h2>
-            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderOpen size={16} color={accentColors.cyan} /> Textbooks
-              </div>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderOpen size={16} color={accentColors.cyan} /> Lecture Notes
-              </div>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderOpen size={16} color={accentColors.cyan} /> Research Papers
-              </div>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.cyan}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderOpen size={16} color={accentColors.cyan} /> Past Assignments
-              </div>
-            </div>
-            <p style={{ marginTop: '20px', fontSize: '11px', opacity: 0.5 }}>Access your academic materials here.</p>
-          </div>, 
+          component: <SchoolFilesApp />, 
           title: 'School Files', 
-          width: 400, 
-          height: 380,
-          minWidth: 280,
-          minHeight: 250
+          width: 500, 
+          height: 520,
+          minWidth: 360,
+          minHeight: 380
         };
       case 'personalfiles':
         return { 
