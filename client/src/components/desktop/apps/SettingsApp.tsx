@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCrtTheme, CrtMode, CRT_MODE_LABELS } from '@/contexts/CrtThemeContext';
+import { useCrtTheme, CrtMode } from '@/contexts/CrtThemeContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { Sun, Sunrise, Moon, Monitor, Check, Languages, Accessibility, Terminal } from 'lucide-react';
 import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
@@ -12,10 +12,10 @@ const MODE_ICONS: Record<CrtMode, typeof Sun> = {
   night: Moon,
 };
 
-const MODE_DESCRIPTIONS: Record<CrtMode, string> = {
-  dawn: 'Soft mint tones for early morning sessions',
-  day: 'Classic bright green for standard operation',
-  night: 'Deep emerald for reduced eye strain',
+const CRT_MODE_KEYS: Record<CrtMode, { label: string; desc: string }> = {
+  dawn: { label: 'settings.crtMode.dawn', desc: 'settings.crtMode.dawn.desc' },
+  day:  { label: 'settings.crtMode.day',  desc: 'settings.crtMode.day.desc'  },
+  night:{ label: 'settings.crtMode.night',desc: 'settings.crtMode.night.desc'},
 };
 
 export default function SettingsApp() {
@@ -77,7 +77,7 @@ export default function SettingsApp() {
             textShadow: `0 0 10px ${colors.primaryGlow}`,
           }}
         >
-          Display Settings
+          {t('settings.display')}
         </h2>
       </div>
 
@@ -91,7 +91,7 @@ export default function SettingsApp() {
             opacity: 0.8,
           }}
         >
-          CRT Shader Mode
+          {t('settings.crtShader')}
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -142,7 +142,7 @@ export default function SettingsApp() {
                       letterSpacing: '1px',
                     }}
                   >
-                    {CRT_MODE_LABELS[m]}
+                    {t(CRT_MODE_KEYS[m].label)}
                   </div>
                   <div
                     style={{
@@ -151,7 +151,7 @@ export default function SettingsApp() {
                       opacity: 0.8,
                     }}
                   >
-                    {MODE_DESCRIPTIONS[m]}
+                    {t(CRT_MODE_KEYS[m].desc)}
                   </div>
                 </div>
 
@@ -193,7 +193,7 @@ export default function SettingsApp() {
             opacity: 0.7,
           }}
         >
-          Color Preview
+          {t('settings.colorPreview')}
         </h4>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {Object.entries(accentColors).map(([name, color]) => (
@@ -352,7 +352,7 @@ export default function SettingsApp() {
             textShadow: `0 0 10px ${colors.primaryGlow}`,
           }}
         >
-          Accessibility
+          {t('settings.accessibility')}
         </h2>
       </div>
 
@@ -366,7 +366,7 @@ export default function SettingsApp() {
             opacity: 0.8,
           }}
         >
-          Accessibility Profile
+          {t('settings.accessibilityProfile')}
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -425,7 +425,7 @@ export default function SettingsApp() {
             textShadow: `0 0 10px ${colors.primaryGlow}`,
           }}
         >
-          Language
+          {t('settings.language')}
         </h2>
       </div>
 
@@ -487,7 +487,7 @@ export default function SettingsApp() {
           color: accentColors.amber,
         }}
       >
-        Settings are saved automatically and will persist between sessions.
+        {t('settings.autoSave')}
       </div>
     </div>
   );

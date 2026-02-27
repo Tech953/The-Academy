@@ -206,7 +206,20 @@ const LANGUAGES: Record<string, Language> = {
       'game.subclass.beasthunter': 'Beast Hunter',
       'game.subclass.lich': 'Lich',
       'game.subclass.lunarguardian': 'Lunar Guardian',
-      'game.subclass.lightworker': 'Light Worker'
+      'game.subclass.lightworker': 'Light Worker',
+      'settings.display': 'Display Settings',
+      'settings.crtShader': 'CRT Shader Mode',
+      'settings.crtMode.dawn': 'Dawn',
+      'settings.crtMode.day': 'School Day',
+      'settings.crtMode.night': 'Night Study',
+      'settings.crtMode.dawn.desc': 'Soft mint tones for early morning sessions',
+      'settings.crtMode.day.desc': 'Classic bright green for standard operation',
+      'settings.crtMode.night.desc': 'Deep emerald for reduced eye strain',
+      'settings.colorPreview': 'Color Preview',
+      'settings.accessibility': 'Accessibility',
+      'settings.accessibilityProfile': 'Accessibility Profile',
+      'settings.language': 'Language',
+      'settings.autoSave': 'Settings are saved automatically and will persist between sessions.'
     }
   },
   es: {
@@ -404,7 +417,20 @@ const LANGUAGES: Record<string, Language> = {
       'game.subclass.beasthunter': 'Cazador de Bestias',
       'game.subclass.lich': 'Liche',
       'game.subclass.lunarguardian': 'Guardián Lunar',
-      'game.subclass.lightworker': 'Trabajador de la Luz'
+      'game.subclass.lightworker': 'Trabajador de la Luz',
+      'settings.display': 'Configuración de Pantalla',
+      'settings.crtShader': 'Modo de Sombreado CRT',
+      'settings.crtMode.dawn': 'Amanecer',
+      'settings.crtMode.day': 'Día Escolar',
+      'settings.crtMode.night': 'Estudio Nocturno',
+      'settings.crtMode.dawn.desc': 'Tonos menta suaves para sesiones matutinas',
+      'settings.crtMode.day.desc': 'Verde brillante clásico para operación estándar',
+      'settings.crtMode.night.desc': 'Esmeralda profundo para reducir la fatiga visual',
+      'settings.colorPreview': 'Vista Previa de Colores',
+      'settings.accessibility': 'Accesibilidad',
+      'settings.accessibilityProfile': 'Perfil de Accesibilidad',
+      'settings.language': 'Idioma',
+      'settings.autoSave': 'La configuración se guarda automáticamente y persistirá entre sesiones.'
     }
   },
   fr: {
@@ -602,7 +628,20 @@ const LANGUAGES: Record<string, Language> = {
       'game.subclass.beasthunter': 'Chasseur de Bêtes',
       'game.subclass.lich': 'Liche',
       'game.subclass.lunarguardian': 'Gardien Lunaire',
-      'game.subclass.lightworker': 'Travailleur de Lumière'
+      'game.subclass.lightworker': 'Travailleur de Lumière',
+      'settings.display': "Paramètres d'Affichage",
+      'settings.crtShader': 'Mode de Shader CRT',
+      'settings.crtMode.dawn': 'Aube',
+      'settings.crtMode.day': 'Journée Scolaire',
+      'settings.crtMode.night': 'Étude Nocturne',
+      'settings.crtMode.dawn.desc': 'Tons menthe doux pour les sessions matinales',
+      'settings.crtMode.day.desc': 'Vert vif classique pour une opération standard',
+      'settings.crtMode.night.desc': "Émeraude profond pour réduire la fatigue oculaire",
+      'settings.colorPreview': 'Aperçu des Couleurs',
+      'settings.accessibility': 'Accessibilité',
+      'settings.accessibilityProfile': "Profil d'Accessibilité",
+      'settings.language': 'Langue',
+      'settings.autoSave': 'Les paramètres sont enregistrés automatiquement et persisteront entre les sessions.'
     }
   },
   de: {
@@ -800,7 +839,20 @@ const LANGUAGES: Record<string, Language> = {
       'game.subclass.beasthunter': 'Bestien jäger',
       'game.subclass.lich': 'Lich',
       'game.subclass.lunarguardian': 'Mondwächter',
-      'game.subclass.lightworker': 'Lichtarbeiter'
+      'game.subclass.lightworker': 'Lichtarbeiter',
+      'settings.display': 'Anzeigeeinstellungen',
+      'settings.crtShader': 'CRT-Shader-Modus',
+      'settings.crtMode.dawn': 'Morgendämmerung',
+      'settings.crtMode.day': 'Schultag',
+      'settings.crtMode.night': 'Nachtstudium',
+      'settings.crtMode.dawn.desc': 'Sanfte Minztöne für frühe Morgensitzungen',
+      'settings.crtMode.day.desc': 'Klassisches Hellgrün für den Standardbetrieb',
+      'settings.crtMode.night.desc': 'Tiefes Smaragdgrün zur Reduzierung der Augenbelastung',
+      'settings.colorPreview': 'Farbvorschau',
+      'settings.accessibility': 'Barrierefreiheit',
+      'settings.accessibilityProfile': 'Barrierefreiheitsprofil',
+      'settings.language': 'Sprache',
+      'settings.autoSave': 'Einstellungen werden automatisch gespeichert und bleiben zwischen Sitzungen erhalten.'
     }
   },
   zh: {
@@ -998,7 +1050,20 @@ const LANGUAGES: Record<string, Language> = {
       'game.subclass.beasthunter': '猎兽人',
       'game.subclass.lich': '巫妖',
       'game.subclass.lunarguardian': '月之守护者',
-      'game.subclass.lightworker': '光明使者'
+      'game.subclass.lightworker': '光明使者',
+      'settings.display': '显示设置',
+      'settings.crtShader': 'CRT着色器模式',
+      'settings.crtMode.dawn': '黎明',
+      'settings.crtMode.day': '上课日',
+      'settings.crtMode.night': '夜间学习',
+      'settings.crtMode.dawn.desc': '清晨学习时间的柔和薄荷色调',
+      'settings.crtMode.day.desc': '标准操作的经典亮绿色',
+      'settings.crtMode.night.desc': '深翠绿色，减少眼睛疲劳',
+      'settings.colorPreview': '颜色预览',
+      'settings.accessibility': '无障碍',
+      'settings.accessibilityProfile': '无障碍配置',
+      'settings.language': '语言',
+      'settings.autoSave': '设置已自动保存，将在会话之间保持。'
     }
   }
 };
