@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronLeft, CheckCircle, Zap } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle, Zap, Globe } from 'lucide-react';
 import { useGameState } from '@/contexts/GameStateContext';
 import {
   KAPLAN_GED_CURRICULUM,
@@ -11,10 +11,19 @@ import {
   masteryLabel,
   getNextRecommendedLesson,
   PASSING_QUIZ_SCORE,
-  XP_PER_LESSON_COMPLETE,
-  XP_PER_LESSON_QUIZ_PASS,
 } from '@/lib/gedCurriculum';
-import type { GEDTextbook, GEDLesson, GEDPracticeQuestion, GEDSubjectKey } from '@shared/schema';
+import { generateAllLanguageTextbooks, LANG_META } from '@/lib/languageCourseGenerator';
+import type { GEDTextbook, GEDLesson, GEDPracticeQuestion } from '@shared/schema';
+
+const LANG_COURSES = generateAllLanguageTextbooks();
+const LANG_BOOKS = Object.values(LANG_COURSES);
+
+function getSubjectMeta(subject: string): { color: string; abbr: string; icon: string } {
+  if (subject in SUBJECT_META) return SUBJECT_META[subject as keyof typeof SUBJECT_META];
+  const entry = Object.values(LANG_META).find(m => `Language: ${m.name}` === subject);
+  if (entry) return { color: entry.color, abbr: entry.code.toUpperCase(), icon: '🌐' };
+  return { color: '#00ff00', abbr: '??', icon: '?' };
+}
 
 const G = '#00ff00';
 const C = '#00ffff';
@@ -44,13 +53,17 @@ function ProgressBar({ value, color = G, height = 4 }: { value: number; color?: 
   );
 }
 
-function SubjectCard({ book, progress, onClick }: {
+function SubjectCard({ book, progress, onClick, langMode }: {
   book: GEDTextbook;
-  progress: ReturnType<typeof computeSubjectProgress>;
+  progress?: ReturnType<typeof computeSubjectProgress>;
   onClick: () => void;
+  langMode?: boolean;
 }) {
-  const meta = SUBJECT_META[book.subject];
+  const meta = getSubjectMeta(book.subject);
   const totalLessons = book.chapters.reduce((s, c) => s + (c.lessons?.length ?? 0), 0);
+  const langEntry = langMode ? Object.values(LANG_META).find(m => `Language: ${m.name}` === book.subject) : null;
+  const readiness = progress?.readinessScore ?? 0;
+  const chaptersComplete = progress?.chaptersCompleted ?? 0;
   return (
     <button onClick={onClick} style={{
       background: '#0d0d0d', border: `1px solid ${meta.color}33`,
@@ -61,23 +74,32 @@ function SubjectCard({ book, progress, onClick }: {
       onMouseEnter={e => (e.currentTarget.style.borderColor = meta.color + '88')}
       onMouseLeave={e => (e.currentTarget.style.borderColor = meta.color + '33')}
     >
-      <div style={{ fontSize: 28, color: meta.color, minWidth: 36, textAlign: 'center', lineHeight: 1 }}>
-        {meta.icon}
+      <div style={{ fontSize: 26, color: meta.color, minWidth: 36, textAlign: 'center', lineHeight: 1 }}>
+        {langMode ? (
+          <Globe size={24} color={meta.color} />
+        ) : (
+          meta.icon
+        )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 'bold', color: meta.color, letterSpacing: 1, marginBottom: 2 }}>
-          [{meta.abbr}] {book.subject}
+          {langEntry ? (
+            <>{langEntry.nativeName} — {langEntry.name}</>
+          ) : (
+            <>[{meta.abbr}] {book.subject}</>
+          )}
         </div>
         <div style={{ fontSize: 10, color: `${G}80`, marginBottom: 8 }}>
           {book.chapters.length} chapters · {totalLessons} lessons
+          {langEntry && <span style={{ color: `${meta.color}90`, marginLeft: 8 }}>· {langEntry.speakers} speakers · {langEntry.writingSystem}</span>}
         </div>
-        <ProgressBar value={progress.readinessScore} color={meta.color} height={5} />
+        <ProgressBar value={readiness} color={meta.color} height={5} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
           <span style={{ fontSize: 9, color: `${G}60` }}>
-            {progress.chaptersCompleted}/{book.chapters.length} chapters mastered
+            {chaptersComplete}/{book.chapters.length} chapters complete
           </span>
-          <span style={{ fontSize: 9, color: progress.passReady ? G : A }}>
-            {progress.readinessScore}% {progress.passReady ? '✓ READY' : 'readiness'}
+          <span style={{ fontSize: 9, color: readiness > 0 ? meta.color : `${G}40` }}>
+            {readiness}% {readiness >= 70 ? '✓ PROFICIENT' : 'progress'}
           </span>
         </div>
       </div>
@@ -87,11 +109,11 @@ function SubjectCard({ book, progress, onClick }: {
 
 function ChapterRow({ chapter, subject, progress, onClick }: {
   chapter: GEDTextbook['chapters'][0];
-  subject: GEDSubjectKey;
+  subject: string;
   progress: ReturnType<typeof computeChapterProgress>;
   onClick: () => void;
 }) {
-  const meta = SUBJECT_META[subject];
+  const meta = getSubjectMeta(subject);
   const hasLessons = (chapter.lessons?.length ?? 0) > 0;
   return (
     <button onClick={onClick} disabled={!hasLessons} style={{
@@ -158,11 +180,11 @@ function LessonRow({ lesson, lessonProg, onClick }: {
 
 function LessonView({ lesson, subject, onStartQuiz, onBack }: {
   lesson: GEDLesson;
-  subject: GEDSubjectKey;
+  subject: string;
   onStartQuiz: () => void;
   onBack: () => void;
 }) {
-  const meta = SUBJECT_META[subject];
+  const meta = getSubjectMeta(subject);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '10px 14px', borderBottom: `1px solid ${G}22`, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -205,10 +227,10 @@ function LessonView({ lesson, subject, onStartQuiz, onBack }: {
 
 function QuizView({ lesson, subject, onFinish }: {
   lesson: GEDLesson;
-  subject: GEDSubjectKey;
+  subject: string;
   onFinish: (score: number) => void;
 }) {
-  const meta = SUBJECT_META[subject];
+  const meta = getSubjectMeta(subject);
   const questions = lesson.practiceQuestions;
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -338,11 +360,11 @@ function QuizView({ lesson, subject, onFinish }: {
 }
 
 function QuizResult({ score, lesson, subject, xpEarned, statBonuses, onReview, onContinue }: {
-  score: number; lesson: GEDLesson; subject: GEDSubjectKey;
+  score: number; lesson: GEDLesson; subject: string;
   xpEarned: number; statBonuses: Array<{ stat: string; gain: number }>;
   onReview: () => void; onContinue: () => void;
 }) {
-  const meta = SUBJECT_META[subject];
+  const meta = getSubjectMeta(subject);
   const passed = score >= PASSING_QUIZ_SCORE;
   const borderColor = score >= 80 ? G : score >= 60 ? A : R;
   return (
@@ -402,9 +424,12 @@ function QuizResult({ score, lesson, subject, xpEarned, statBonuses, onReview, o
 
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
 
+type PortalTab = 'ged' | 'lang';
+
 export default function AssignmentsPortal() {
   const { curriculumProgress, recordLessonQuiz } = useGameState();
 
+  const [tab, setTab] = useState<PortalTab>('ged');
   const [screen, setScreen] = useState<Screen>('subjects');
   const [activeBook, setActiveBook] = useState<GEDTextbook | null>(null);
   const [activeChapterIdx, setActiveChapterIdx] = useState<number>(0);
@@ -413,6 +438,21 @@ export default function AssignmentsPortal() {
 
   const allSubjectProgress = useMemo(() =>
     KAPLAN_GED_CURRICULUM.map(b => computeSubjectProgress(curriculumProgress, b)),
+    [curriculumProgress]
+  );
+
+  const allLangProgress = useMemo(() =>
+    LANG_BOOKS.map(b => {
+      const totalLessons = b.chapters.reduce((s, c) => s + (c.lessons?.length ?? 0), 0);
+      const completedLessons = b.chapters.reduce((s, c) => {
+        return s + (c.lessons ?? []).filter(l => curriculumProgress.lessonProgress[l.gedCode]?.completed).length;
+      }, 0);
+      const chaptersCompleted = b.chapters.filter(c =>
+        (c.lessons ?? []).every(l => curriculumProgress.lessonProgress[l.gedCode]?.completed)
+      ).length;
+      const readinessScore = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      return { subject: b.subject, readinessScore, chaptersCompleted, passReady: readinessScore >= 70 };
+    }),
     [curriculumProgress]
   );
 
@@ -445,12 +485,12 @@ export default function AssignmentsPortal() {
 
   function handleQuizFinish(score: number) {
     if (!activeLesson || !activeBook) return;
-    const result = recordLessonQuiz(activeLesson.gedCode, score, activeBook.subject as GEDSubjectKey);
+    const result = recordLessonQuiz(activeLesson.gedCode, score, activeBook.subject);
     setQuizResult({ score, xpEarned: result.xpEarned, statBonuses: result.statBonuses });
     setScreen('quiz_result');
   }
 
-  const meta = activeBook ? SUBJECT_META[activeBook.subject] : null;
+  const meta = activeBook ? getSubjectMeta(activeBook.subject) : null;
 
   const cs: React.CSSProperties = {
     width: '100%', height: '100%', background: '#090909',
@@ -480,11 +520,26 @@ export default function AssignmentsPortal() {
   if (screen === 'subjects') {
     const totalXp = curriculumProgress.totalXpEarned;
     const totalComplete = Object.values(curriculumProgress.lessonProgress).filter(l => l.completed).length;
+    const isLang = tab === 'lang';
     return (
       <div style={cs}>
         <div style={{ padding: '10px 14px', borderBottom: `1px solid ${G}22`, flexShrink: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 'bold', color: G, textShadow: `0 0 8px ${G}`, marginBottom: 4 }}>
-            [ EDUCATION OS — ACADEMY GED ]
+          <div style={{ fontSize: 13, fontWeight: 'bold', color: G, textShadow: `0 0 8px ${G}`, marginBottom: 6 }}>
+            [ EDUCATION OS — ACADEMY ]
+          </div>
+          <div style={{ display: 'flex', gap: 0, marginBottom: 6 }}>
+            {(['ged', 'lang'] as PortalTab[]).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                flex: 1, padding: '5px 0', cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 10, letterSpacing: 1, fontWeight: 'bold',
+                background: tab === t ? `${G}18` : 'transparent',
+                border: `1px solid ${tab === t ? G : G + '33'}`,
+                color: tab === t ? G : `${G}50`,
+                marginRight: t === 'ged' ? 4 : 0,
+              }}>
+                {t === 'ged' ? '◈ GED PREP' : '◉ LANGUAGES'}
+              </button>
+            ))}
           </div>
           <div style={{ display: 'flex', gap: 16, fontSize: 9, color: `${G}70` }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -496,30 +551,50 @@ export default function AssignmentsPortal() {
           </div>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
-          <div style={{ fontSize: 9, color: `${G}50`, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Select a Subject
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {KAPLAN_GED_CURRICULUM.map((book, i) => (
-              <SubjectCard key={book.id} book={book} progress={allSubjectProgress[i]} onClick={() => openBook(book)} />
-            ))}
-          </div>
-          <div style={{ marginTop: 14, padding: '10px 12px', background: '#0c0c0c', border: `1px solid ${G}18`, fontSize: 10, color: `${G}60`, lineHeight: 1.7 }}>
-            <div style={{ color: `${G}80`, marginBottom: 4 }}>GED READINESS OVERVIEW</div>
-            {allSubjectProgress.map(sp => {
-              const m = SUBJECT_META[sp.subject];
-              return (
-                <div key={sp.subject} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                  <span style={{ color: m.color, minWidth: 36, fontSize: 9 }}>{m.abbr}</span>
-                  <div style={{ flex: 1 }}><ProgressBar value={sp.readinessScore} color={m.color} height={3} /></div>
-                  <span style={{ minWidth: 32, textAlign: 'right', fontSize: 9, color: sp.passReady ? G : `${G}60` }}>
-                    {sp.readinessScore}%
-                  </span>
-                  {sp.passReady && <span style={{ fontSize: 9, color: G }}>✓</span>}
-                </div>
-              );
-            })}
-          </div>
+          {isLang ? (
+            <>
+              <div style={{ fontSize: 9, color: `${G}50`, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Select a Language Course
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {LANG_BOOKS.map((book, i) => (
+                  <SubjectCard key={book.id} book={book} progress={allLangProgress[i] as any} onClick={() => openBook(book)} langMode />
+                ))}
+              </div>
+              <div style={{ marginTop: 14, padding: '10px 12px', background: '#0c0c0c', border: `1px solid ${G}18`, fontSize: 10, color: `${G}60`, lineHeight: 1.7 }}>
+                <div style={{ color: `${G}80`, marginBottom: 4 }}>ABOUT LANGUAGE COURSES</div>
+                <div>Procedurally generated from structured vocabulary and grammar data. Each course covers greetings, numbers, colors, food, travel, verbs, and grammar foundations with real MCQ practice quizzes.</div>
+                <div style={{ marginTop: 6 }}>Completing language quizzes awards <span style={{ color: C }}>+linguistic</span> and secondary stat bonuses to your character.</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 9, color: `${G}50`, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Select a GED Subject
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {KAPLAN_GED_CURRICULUM.map((book, i) => (
+                  <SubjectCard key={book.id} book={book} progress={allSubjectProgress[i]} onClick={() => openBook(book)} />
+                ))}
+              </div>
+              <div style={{ marginTop: 14, padding: '10px 12px', background: '#0c0c0c', border: `1px solid ${G}18`, fontSize: 10, color: `${G}60`, lineHeight: 1.7 }}>
+                <div style={{ color: `${G}80`, marginBottom: 4 }}>GED READINESS OVERVIEW</div>
+                {allSubjectProgress.map(sp => {
+                  const m = SUBJECT_META[sp.subject as keyof typeof SUBJECT_META];
+                  return (
+                    <div key={sp.subject} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <span style={{ color: m.color, minWidth: 36, fontSize: 9 }}>{m.abbr}</span>
+                      <div style={{ flex: 1 }}><ProgressBar value={sp.readinessScore} color={m.color} height={3} /></div>
+                      <span style={{ minWidth: 32, textAlign: 'right', fontSize: 9, color: sp.passReady ? G : `${G}60` }}>
+                        {sp.readinessScore}%
+                      </span>
+                      {sp.passReady && <span style={{ fontSize: 9, color: G }}>✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -540,7 +615,7 @@ export default function AssignmentsPortal() {
             const key = `${activeBook.subject.slice(0, 4).toUpperCase()}.Ch${ch.number}`;
             const cp = computeChapterProgress(curriculumProgress, key, ch.lessons ?? []);
             return (
-              <ChapterRow key={ch.number} chapter={ch} subject={activeBook.subject as GEDSubjectKey}
+              <ChapterRow key={ch.number} chapter={ch} subject={activeBook.subject}
                 progress={cp} onClick={() => openChapter(i)} />
             );
           })}
@@ -591,7 +666,7 @@ export default function AssignmentsPortal() {
       <div style={cs}>
         <LessonView
           lesson={activeLesson}
-          subject={activeBook.subject as GEDSubjectKey}
+          subject={activeBook.subject}
           onStartQuiz={startQuiz}
           onBack={() => setScreen('lessons')}
         />
@@ -605,7 +680,7 @@ export default function AssignmentsPortal() {
       <div style={cs}>
         <QuizView
           lesson={activeLesson}
-          subject={activeBook.subject as GEDSubjectKey}
+          subject={activeBook.subject}
           onFinish={handleQuizFinish}
         />
       </div>
@@ -619,7 +694,7 @@ export default function AssignmentsPortal() {
         <QuizResult
           score={quizResult.score}
           lesson={activeLesson}
-          subject={activeBook.subject as GEDSubjectKey}
+          subject={activeBook.subject}
           xpEarned={quizResult.xpEarned}
           statBonuses={quizResult.statBonuses}
           onReview={() => setScreen('lesson')}

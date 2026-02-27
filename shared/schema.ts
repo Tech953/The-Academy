@@ -577,6 +577,8 @@ export interface LearningPath {
 // GED Textbook Content Structure
 
 export type GEDSubjectKey = 'Mathematical Reasoning' | 'Language Arts' | 'Science' | 'Social Studies';
+export type LangSubjectKey = 'Language: Spanish' | 'Language: French' | 'Language: German' | 'Language: Chinese';
+export type AnySubjectKey = GEDSubjectKey | LangSubjectKey;
 export type QuestionDifficulty = 'foundational' | 'standard' | 'extended';
 export type QuestionType = 'mcq' | 'short_answer' | 'extended_response';
 
@@ -612,8 +614,9 @@ export interface GEDChapter {
 
 export interface GEDTextbook {
   id: string;
-  subject: GEDSubjectKey;
+  subject: AnySubjectKey;
   title: string;
+  description?: string;
   chapters: GEDChapter[];
 }
 

@@ -4,6 +4,7 @@ import { FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
 import type { StudentCurriculumProgress, GEDSubjectKey } from '@shared/schema';
 import { emptyProgress, recordQuizAttempt, SUBJECT_STAT_MAP } from '@/lib/gedCurriculum';
+import { LANGUAGE_STAT_MAP } from '@/lib/languageCourseGenerator';
 
 export interface Email {
   id: string;
@@ -76,7 +77,7 @@ interface GameStateContextType {
   addEnrolledCourse: (courseId: string) => void;
   setIsGameActive: (active: boolean) => void;
   curriculumProgress: StudentCurriculumProgress;
-  recordLessonQuiz: (lessonCode: string, scorePercent: number, subject: GEDSubjectKey) => { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> };
+  recordLessonQuiz: (lessonCode: string, scorePercent: number, subject: string) => { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> };
 }
 
 const STORAGE_KEY = 'academy-game-state';
@@ -251,16 +252,45 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const recordLessonQuiz = useCallback((
-    lessonCode: string, scorePercent: number, subject: GEDSubjectKey
+    lessonCode: string, scorePercent: number, subject: string
   ): { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> } => {
     let result = { xpEarned: 0, passed: false, statBonuses: [] as Array<{ stat: string; gain: number }> };
+    const isLangSubject = subject.startsWith('Language: ');
     setState(prev => {
       const progressCopy: StudentCurriculumProgress = {
         ...prev.curriculumProgress,
         lessonProgress: { ...prev.curriculumProgress.lessonProgress },
         chapterProgress: { ...prev.curriculumProgress.chapterProgress },
       };
-      result = recordQuizAttempt(progressCopy, lessonCode, scorePercent, subject);
+
+      if (isLangSubject) {
+        const lp = { ...(progressCopy.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
+        const passed = scorePercent >= 60;
+        const wasComplete = lp.completed;
+        let xp = 0;
+        const bonuses: Array<{ stat: string; gain: number }> = [];
+        lp.attempts += 1;
+        lp.lastAttemptAt = new Date().toISOString();
+        if (!wasComplete) { xp += 25; lp.completed = true; }
+        if (passed && (!lp.quizScore || scorePercent > lp.quizScore)) {
+          if (!lp.quizScore || lp.quizScore < 60) {
+            xp += 50;
+            const rawCode = subject === 'Language: Spanish' ? 'es' : subject === 'Language: French' ? 'fr' : subject === 'Language: German' ? 'de' : subject === 'Language: Chinese' ? 'zh' : null;
+            if (rawCode) {
+              const statMap = LANGUAGE_STAT_MAP[rawCode as keyof typeof LANGUAGE_STAT_MAP] ?? [];
+              statMap.forEach((b) => bonuses.push({ stat: b.stat, gain: Math.ceil(b.bonus * (scorePercent / 100)) }));
+            }
+          }
+          lp.quizScore = Math.max(lp.quizScore ?? 0, scorePercent);
+        }
+        progressCopy.lessonProgress[lessonCode] = lp;
+        progressCopy.totalXpEarned = (progressCopy.totalXpEarned ?? 0) + xp;
+        progressCopy.lastStudiedAt = new Date().toISOString();
+        result = { xpEarned: xp, passed, statBonuses: bonuses };
+      } else {
+        result = recordQuizAttempt(progressCopy, lessonCode, scorePercent, subject as GEDSubjectKey);
+      }
+
       const statUpdates: Partial<FullCharacterStats> = {};
       result.statBonuses.forEach(b => {
         const current = (prev.character.stats as any)[b.stat] ?? 0;
