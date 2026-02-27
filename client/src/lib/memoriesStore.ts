@@ -10,6 +10,7 @@ export interface MemoryCatalogEntry {
   rarity: MemoryRarity;
   category: MemoryCategory;
   visualizationPrompt: string;
+  defaultImage: string;
 }
 
 export interface EarnedMemory {
@@ -30,6 +31,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'bronze',
     category: 'milestone',
     visualizationPrompt: 'A glowing green terminal screen flickering to life in a dark retro-futuristic classroom, CRT monitor aesthetic, neon glow, Academy OS boot sequence visible',
+    defaultImage: '/memory-images/first_boot.png',
   },
   {
     id: 'character_created',
@@ -40,6 +42,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'bronze',
     category: 'milestone',
     visualizationPrompt: 'A student ID card materializing from neon light in a dark Academy corridor, holographic green text with a name being typed, retro-futuristic school aesthetic',
+    defaultImage: '/memory-images/character_created.png',
   },
   {
     id: 'first_enroll',
@@ -50,6 +53,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'bronze',
     category: 'academic',
     visualizationPrompt: 'A glowing enrollment form floating in a dark digital space, neon Academy seal, a student\'s hand signing a holographic document, retro-futuristic classroom',
+    defaultImage: '/memory-images/first_enroll.png',
   },
   {
     id: 'met_cub',
@@ -60,6 +64,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'bronze',
     category: 'social',
     visualizationPrompt: 'A cute glowing polar bear mascot appearing on a retro CRT monitor screen, surrounded by neon green Academy interface elements, warm amber eyes, playful expression',
+    defaultImage: '/memory-images/met_cub.png',
   },
   {
     id: 'first_command',
@@ -70,6 +75,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'bronze',
     category: 'discovery',
     visualizationPrompt: 'Close-up of glowing green terminal text being typed, retro monospace font, neon cursor blinking, dark background with subtle CRT scanlines',
+    defaultImage: '/memory-images/first_command.png',
   },
   {
     id: 'three_courses',
@@ -80,6 +86,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'silver',
     category: 'academic',
     visualizationPrompt: 'Three glowing course books floating in a triangular formation in a dark Academy library, each emitting different colored neon light, retro-futuristic academic setting',
+    defaultImage: '/memory-images/three_courses.png',
   },
   {
     id: 'level_5',
@@ -90,6 +97,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'silver',
     category: 'mastery',
     visualizationPrompt: 'A glowing level-up aura surrounding a student silhouette in a dark Academy hall, neon particles rising, holographic "LEVEL 5" text, retro-futuristic RPG aesthetic',
+    defaultImage: '/memory-images/level_5.png',
   },
   {
     id: 'cub_bond',
@@ -100,6 +108,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'gold',
     category: 'social',
     visualizationPrompt: 'A student and a glowing polar bear mascot sitting together at a neon terminal in a dark Academy room, warm light radiating between them, friendship and trust, retro-futuristic atmosphere',
+    defaultImage: '/memory-images/cub_bond.png',
   },
   {
     id: 'five_courses',
@@ -110,6 +119,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'gold',
     category: 'academic',
     visualizationPrompt: 'Five glowing holographic class schedule blocks filling a dark digital board, each a different neon color, organized and complete, retro Academy OS interface',
+    defaultImage: '/memory-images/five_courses.png',
   },
   {
     id: 'ged_ready',
@@ -120,6 +130,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'gold',
     category: 'mastery',
     visualizationPrompt: 'A glowing graduation portal opening in the Academy\'s Confluence Hall, four colored energy streams converging, a student standing at the threshold, dramatic neon lighting',
+    defaultImage: '/memory-images/ged_ready.png',
   },
   {
     id: 'graduated',
@@ -130,6 +141,7 @@ export const MEMORY_CATALOG: MemoryCatalogEntry[] = [
     rarity: 'platinum',
     category: 'milestone',
     visualizationPrompt: 'A triumphant graduation moment inside a grand retro-futuristic hall, neon Academy seal glowing overhead, a student holding a holographic diploma, confetti of light particles, epic atmosphere',
+    defaultImage: '/memory-images/graduated.png',
   },
 ];
 

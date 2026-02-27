@@ -739,11 +739,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!prompt || typeof prompt !== 'string') {
         return res.status(400).json({ error: "prompt is required" });
       }
-      const fullPrompt = `${prompt}. Style: retro-futuristic Academy RPG, Neo-CRT green terminal aesthetic, dark background, neon accents, cinematic quality, detailed illustration.`;
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
+      const fullPrompt = `${prompt}. Style: retro-futuristic Academy RPG, Neo-CRT green terminal aesthetic, dark background, neon accents, cinematic quality, detailed illustration. No text overlays.`;
+      const imageOpenai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY });
+      const response = await imageOpenai.images.generate({
+        model: "dall-e-3",
         prompt: fullPrompt,
-        size: "1024x1024",
+        size: "1792x1024",
+        response_format: "b64_json",
+        quality: "standard",
       });
       const b64 = response.data?.[0]?.b64_json;
       if (!b64) {
@@ -751,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json({ imageDataUrl: `data:image/png;base64,${b64}`, memoryId });
     } catch (err: any) {
-      console.error("Memory visualization error:", err);
+      console.error("Memory visualization error:", err.message ?? err);
       res.status(500).json({ error: err.message ?? "Visualization failed" });
     }
   });

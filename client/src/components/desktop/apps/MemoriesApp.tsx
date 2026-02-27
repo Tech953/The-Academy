@@ -170,7 +170,9 @@ function MemoryDetailPanel({
   const rarityColor = RARITY_COLORS[entry.rarity];
   const catColor = getCategoryColor(entry.category);
   const earnedMemory = getEarnedMemory(entry.id);
-  const displayImage = imageDataUrl || earnedMemory?.imageDataUrl;
+  const customImage = imageDataUrl || earnedMemory?.imageDataUrl;
+  const displayImage = customImage || entry.defaultImage;
+  const isCustom = Boolean(customImage);
 
   return (
     <div style={{
@@ -196,7 +198,6 @@ function MemoryDetailPanel({
         <div style={{
           width: '100%',
           aspectRatio: '16/9',
-          background: displayImage ? undefined : `linear-gradient(135deg, ${rarityColor}15, #000)`,
           border: `1px solid ${rarityColor}40`,
           borderRadius: 6,
           overflow: 'hidden',
@@ -206,20 +207,27 @@ function MemoryDetailPanel({
           justifyContent: 'center',
           boxShadow: `0 0 30px ${RARITY_GLOW[entry.rarity]}`,
           flexShrink: 0,
+          background: '#000',
         }}>
-          {displayImage ? (
-            <img src={displayImage} alt={entry.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : generating ? (
+          {generating ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: rarityColor }}>
               <Loader size={28} style={{ animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: 11, opacity: 0.7 }}>Generating visualization...</span>
+              <span style={{ fontSize: 11, opacity: 0.7 }}>Generating custom visualization...</span>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: '#ffffff40' }}>
-              <Camera size={36} strokeWidth={1} />
-              <span style={{ fontSize: 11 }}>No visualization yet</span>
-            </div>
-          )}
+          ) : displayImage ? (
+            <>
+              <img src={displayImage} alt={entry.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {!isCustom && (
+                <div style={{
+                  position: 'absolute', bottom: 6, right: 8,
+                  fontSize: 9, color: '#ffffff35', letterSpacing: '0.5px',
+                  fontFamily: '"Courier New", monospace', textTransform: 'uppercase',
+                }}>
+                  Academy Archive
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
 
         <div>
@@ -233,6 +241,11 @@ function MemoryDetailPanel({
             <span style={{ fontSize: 10, color: catColor, background: `${catColor}18`, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {entry.category}
             </span>
+            {isCustom && (
+              <span style={{ fontSize: 10, color: '#00ff8880', background: '#00ff8810', padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                AI Generated
+              </span>
+            )}
           </div>
           <p style={{ fontSize: 13, color: '#ffffffcc', lineHeight: 1.6, margin: 0 }}>
             {entry.description}
@@ -245,47 +258,25 @@ function MemoryDetailPanel({
           </div>
         )}
 
-        {!displayImage && !generating && (
+        {!generating && (
           <button
             onClick={onGenerate}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              background: `${rarityColor}20`,
-              border: `1px solid ${rarityColor}60`,
-              color: rarityColor,
-              padding: '10px 20px',
+              background: isCustom ? 'transparent' : `${rarityColor}20`,
+              border: `1px solid ${isCustom ? '#ffffff25' : rarityColor + '60'}`,
+              color: isCustom ? '#ffffff50' : rarityColor,
+              padding: isCustom ? '8px 16px' : '10px 20px',
               cursor: 'pointer',
-              fontSize: 12,
+              fontSize: isCustom ? 11 : 12,
               fontFamily: '"Courier New", monospace',
               letterSpacing: '0.5px',
               borderRadius: 4,
-              transition: 'all 0.2s',
               flexShrink: 0,
             }}
           >
-            <Sparkles size={14} />
-            Generate AI Visualization
-          </button>
-        )}
-
-        {displayImage && !generating && (
-          <button
-            onClick={onGenerate}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              background: 'transparent',
-              border: `1px solid #ffffff25`,
-              color: '#ffffff50',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontFamily: '"Courier New", monospace',
-              borderRadius: 4,
-              flexShrink: 0,
-            }}
-          >
-            <Sparkles size={12} />
-            Regenerate Visualization
+            <Sparkles size={isCustom ? 12 : 14} />
+            {isCustom ? 'Regenerate Custom Visualization' : 'Generate Custom AI Visualization'}
           </button>
         )}
       </div>
