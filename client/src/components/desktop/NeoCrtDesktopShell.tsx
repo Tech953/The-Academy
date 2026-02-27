@@ -73,13 +73,13 @@ interface DesktopIconConfig {
   colorKey: ColorKey;
 }
 
-const GRID_CELL_W = 96;
-const GRID_CELL_H = 92;
+const GRID_CELL_W = 104;
+const GRID_CELL_H = 102;
 const GRID_MARGIN_X = 16;
 const GRID_MARGIN_Y = 16;
 const TASKBAR_RESERVE = 60;
-const ICON_W = 82;
-const ICON_H = 88;
+const ICON_W = 92;
+const ICON_H = 96;
 const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v3';
 
 function gridToPixel(col: number, row: number): { x: number; y: number } {
@@ -269,8 +269,8 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        gap: '6px',
-        padding: '10px 6px 8px',
+        gap: '5px',
+        padding: '8px 5px 6px',
         background: isSelected ? `${activeColor}18` : 'transparent',
         border: isSelected
           ? `1px solid ${activeColor}50`
@@ -279,7 +279,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
         transition: isDragging ? 'none' : 'left 0.12s ease, top 0.12s ease, background 0.2s ease, opacity 0.2s ease',
-        opacity: locked ? 0.38 : isDragging ? 0.72 : 1,
+        opacity: locked ? 0.5 : isDragging ? 0.72 : 1,
         zIndex: isDragging ? 999 : isSelected ? 20 : 10,
         boxShadow: isDragging ? `0 8px 24px rgba(0,0,0,0.5), 0 0 18px ${color}40` : 'none',
         transform: isDragging ? 'scale(1.06)' : 'scale(1)',
@@ -290,16 +290,16 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         background: locked ? 'transparent' : `${color}12`,
-        borderRadius: '10px',
-        border: locked ? 'none' : `1px solid ${color}${isAcademy ? '50' : '20'}`,
-        boxShadow: locked ? 'none' : `0 0 ${isAcademy ? '16px' : '8px'} ${color}${isAcademy ? '50' : '30'}`,
+        borderRadius: '11px',
+        border: locked ? 'none' : `1px solid ${color}${isAcademy ? '55' : '25'}`,
+        boxShadow: locked ? 'none' : `0 0 ${isAcademy ? '18px' : '10px'} ${color}${isAcademy ? '55' : '30'}`,
         transition: 'box-shadow 0.2s ease',
         animation: isAcademy ? 'academy-icon-pulse 2.5s ease-in-out infinite' : undefined,
       }}>
-        {getNeoCrtIcon(icon.iconType, 22, color)}
+        {getNeoCrtIcon(icon.iconType, 24, color)}
         {!locked && badgeCount > 0 && (
           <div style={{
             position: 'absolute',
@@ -329,17 +329,17 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         )}
       </div>
       <span style={{
-        color: locked ? '#444' : color,
+        color: locked ? '#555' : color,
         fontFamily: '"Courier New", monospace',
-        fontSize: '8px',
-        letterSpacing: '0.5px',
+        fontSize: '10px',
+        letterSpacing: '0.3px',
         textTransform: 'uppercase',
         textAlign: 'center',
-        lineHeight: '1.3',
+        lineHeight: '1.35',
         maxWidth: ICON_W - 8,
         wordBreak: 'break-word',
         transition: 'color 0.2s ease',
-        textShadow: locked ? 'none' : `0 0 6px ${color}60`,
+        textShadow: locked ? 'none' : `0 1px 3px rgba(0,0,0,0.9), 0 0 8px ${color}70`,
       }}>
         {label}
       </span>
@@ -1496,7 +1496,7 @@ export default function NeoCrtDesktopShell() {
           }}
         >
           <Camera size={14} />
-          <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('desktop.taskbar.memories')}</span>
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('desktop.taskbar.memories')}</span>
         </button>
         
         {uiMode === 'student' && (
@@ -1521,7 +1521,7 @@ export default function NeoCrtDesktopShell() {
               }}
             >
               <Search size={12} />
-              <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reset Layout</span>
+              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Reset Layout</span>
             </button>
           </>
         )}
@@ -1547,7 +1547,7 @@ export default function NeoCrtDesktopShell() {
           }}
         >
           {uiMode === 'legacy' ? <Terminal size={14} /> : <Monitor size={14} />}
-          <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
             {uiMode === 'legacy' ? t('desktop.taskbar.legacy') : t('desktop.taskbar.student')}
           </span>
         </button>
