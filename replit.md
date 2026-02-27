@@ -67,6 +67,14 @@ The Academy incorporates a sophisticated Resonance System for emergent narrative
 - `client/src/hooks/useResonance.ts` - React hook for resonance state
 - `client/src/contexts/ResonanceContext.tsx` - React context provider
 
+### NPC Social Network — ADD NPC System
+Both ChatLink and Academy Email apps feature an NPC contact discovery system powered by RadiantAI:
+- **NPCDirectoryPanel** (`client/src/components/desktop/apps/NPCDirectoryPanel.tsx`): Shared overlay panel listing all 100 RadiantAI NPCs with search, role filters (ALL/FACULTY/STUDENT/STAFF), and tier filters (all/connected/available/locked).
+- **Affinity Gates** (reputation-conditional contact): RIVAL (<-20 affinity) = BLOCKED; STRANGER (-20 to 0) = cold introduction (response not guaranteed); ACQUAINTANCE (0-20) = CONNECT; FRIEND (20-50) = priority connect; ALLY (50+) = instant connection.
+- **ChatLink ADD button**: Opens NPCDirectoryPanel in chat mode. Selecting an NPC initiates a conversation with an NPC-authored intro message (delay varies by affinity tier). `processInteraction` is called to update RadiantAI state.
+- **Academy Email COMPOSE button**: Opens NPCDirectoryPanel in email mode. Selecting an NPC pre-fills a compose form (TO/SUBJECT/BODY). Sending triggers a delayed NPC reply email with affinity-appropriate tone.
+- NPC cards display: initials avatar, name, role/faction/club, current location, affinity bar, status badge, and action button. Secret society (shield icon) and mentorship (star icon) are indicated.
+
 ### Academy Engine - Cognitive Infrastructure
 This four-phase learning system includes:
 - **Phase 1 - Core Cognition**: Manages a skill graph (40 GED-aligned skill nodes), student journals, a procedural homework engine, and student profiles.
