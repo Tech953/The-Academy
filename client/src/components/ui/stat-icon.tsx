@@ -76,15 +76,15 @@ function getCategoryColor(statKey: StatKey): string {
   return stat ? (CATEGORY_COLORS[stat.category] ?? '#00ff88') : '#00ff88';
 }
 
-// Display sizes — use multiples of 512÷N where possible for pixel-perfect rendering
+// Display sizes — balanced for legibility without overflow
 const SIZE_PX: Record<string, number> = {
-  xxs: 32,   // inline-badge contexts only
-  xs:  48,
-  sm:  64,
-  md:  88,
-  lg:  112,
-  xl:  144,
-  xxl: 180,
+  xxs: 28,   // compact badges (PerksViewer chips)
+  xs:  36,   // filter tabs / inline small
+  sm:  48,   // header strip mascots
+  md:  60,   // stat list rows
+  lg:  76,   // category section headers
+  xl:  96,   // detail panel
+  xxl: 120,  // hero / standalone display
 };
 
 export interface StatIconProps {
