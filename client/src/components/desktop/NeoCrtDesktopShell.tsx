@@ -950,7 +950,7 @@ export default function NeoCrtDesktopShell() {
   const [panelDragOver, setPanelDragOver] = useState<string | null>(null);
   const panelDragSrc = useRef<string | null>(null);
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
-  const [panelSize, setPanelSize] = useState({ w: 340, h: 480 });
+  const [panelSize, setPanelSize] = useState({ w: 340, h: 360 });
   const panelRef = useRef<HTMLDivElement>(null);
   const panelMoveRef = useRef<{ startMX: number; startMY: number; startX: number; startY: number } | null>(null);
   const panelResizeRef = useRef<{ startMX: number; startMY: number; startW: number; startH: number } | null>(null);
@@ -1887,7 +1887,7 @@ export default function NeoCrtDesktopShell() {
             position: 'fixed',
             ...(panelPos
               ? { left: panelPos.x, top: panelPos.y, transform: 'none' }
-              : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
+              : { top: `max(60px, calc(50% - ${Math.round(panelSize.h / 2)}px))`, left: '50%', transform: 'translateX(-50%)' }),
             zIndex: 99500,
             background: '#080808',
             border: `1px solid ${colors.primary}80`,
