@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, ReactNode, memo, useMemo } fr
 import NeoCrtWindow from './NeoCrtWindow';
 import Calculator from './apps/Calculator';
 import Notepad from './apps/Notepad';
+import RecycleBin from './apps/RecycleBin';
 import FileExplorer from './apps/FileExplorer';
 import AssignmentsPortal from './apps/AssignmentsPortal';
 import PerksViewer from './apps/PerksViewer';
@@ -118,7 +119,8 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   { id: 'schoolfiles',  iconType: 'schoolfiles',  labelKey: 'desktop.schoolfiles',  colorKey: 'cyan',   defaultCol: 0, defaultRow: 5 },
   { id: 'personalfiles',iconType: 'personalfiles',labelKey: 'desktop.personalfiles',colorKey: 'pink',   defaultCol: 1, defaultRow: 5 },
   { id: 'settings',     iconType: 'settings',     labelKey: 'desktop.settings',     colorKey: 'green',  defaultCol: 0, defaultRow: 6 },
-  { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 6 },
+  { id: 'recycle',      iconType: 'recycle',      labelKey: 'desktop.recycle',      colorKey: 'red',    defaultCol: 1, defaultRow: 6 },
+  { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 0, defaultRow: 7 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge';
@@ -1154,7 +1156,7 @@ export default function NeoCrtDesktopShell() {
     return () => performanceManager.stopMonitoring();
   }, []);
 
-  const getAppComponent = (appId: string): { component: React.ReactNode; title: string; width: number; height: number; minWidth: number; minHeight: number } => {
+  const getAppComponent = (appId: string, params?: Record<string, unknown>): { component: React.ReactNode; title: string; width: number; height: number; minWidth: number; minHeight: number } => {
     const sidebarWidth = 120;
     const taskbarHeight = 100;
     const maxWidth = viewport.width - sidebarWidth - 40;
@@ -1203,9 +1205,46 @@ export default function NeoCrtDesktopShell() {
       case 'calculator':
         return { component: <Calculator />, title: 'Calculator', width: 220, height: 320, minWidth: 180, minHeight: 280 };
       case 'notepad':
-        return { component: <Notepad />, title: 'Notepad', width: 450, height: 350, minWidth: 300, minHeight: 200 };
+      case 'recycle': {
+        if (appId === 'recycle') {
+          return {
+            component: <RecycleBin onRestoreFile={(path, content) => {
+              const instanceId = `notepad-restored-${Date.now()}`;
+              openWindowWithParams(instanceId, 'notepad', { filePath: path, initialContent: content ?? '', initialFileName: path.split('/').pop() ?? 'Untitled' });
+            }} />,
+            title: 'Recycle Bin',
+            width: 440,
+            height: 380,
+            minWidth: 320,
+            minHeight: 280,
+          };
+        }
+        return {
+          component: <Notepad
+            initialContent={(params?.initialContent as string) ?? ''}
+            initialFileName={(params?.initialFileName as string) ?? 'Untitled'}
+            filePath={(params?.filePath as string) ?? ''}
+          />,
+          title: params?.initialFileName ? `Notepad — ${params.initialFileName as string}` : 'Notepad',
+          width: 500,
+          height: 380,
+          minWidth: 300,
+          minHeight: 200,
+        };
+      }
       case 'files':
-        return { component: <FileManagerApp windowId={appId} />, title: 'File Manager', width: 550, height: 420, minWidth: 400, minHeight: 320 };
+        return {
+          component: <FileManagerApp windowId={appId} onOpenFile={(filePath, content) => {
+            const instanceId = `notepad-${filePath}`;
+            const fileName = filePath.split('/').pop() ?? 'Untitled';
+            openWindowWithParams(instanceId, 'notepad', { filePath, initialContent: content, initialFileName: fileName });
+          }} />,
+          title: 'File Manager',
+          width: 550,
+          height: 420,
+          minWidth: 400,
+          minHeight: 320,
+        };
       case 'search':
         return { 
           component: <div style={{ padding: '20px', color: accentColors.amber, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
@@ -1335,6 +1374,36 @@ export default function NeoCrtDesktopShell() {
         return { component: <div style={{ padding: '20px' }}>Application not found</div>, title: 'Unknown', width: 300, height: 200, minWidth: 200, minHeight: 150 };
     }
   };
+
+  const openWindowWithParams = useCallback((windowId: string, appId: string, params: Record<string, unknown>) => {
+    const existingWindow = windows.find(w => w.id === windowId);
+    if (existingWindow) {
+      setWindows(prev => prev.map(w =>
+        w.id === windowId ? { ...w, isMinimized: false, zIndex: nextZIndex } : w
+      ));
+      setFocusedWindowId(windowId);
+      setNextZIndex(prev => prev + 1);
+      return;
+    }
+    const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId, params);
+    const iconConfig = [...DESKTOP_ICONS, ...TASKBAR_QUICK_APPS, ...HIDDEN_APPS].find(i => i.id === appId);
+    const sidebarWidth = 120;
+    const taskbarHeight = 80;
+    const availableWidth = viewport.width - sidebarWidth;
+    const availableHeight = viewport.height - taskbarHeight;
+    const centerX = sidebarWidth + (availableWidth - width) / 2;
+    const centerY = (availableHeight - height) / 2;
+    const offsetX = (windows.length % 5) * 25;
+    const offsetY = (windows.length % 5) * 25;
+    const x = Math.max(sidebarWidth + 10, Math.min(centerX + offsetX, viewport.width - width - 20));
+    const y = Math.max(10, Math.min(centerY + offsetY, viewport.height - height - taskbarHeight - 20));
+    setWindows(prev => [...prev, {
+      id: windowId, title, iconType: iconConfig?.iconType || 'file', component,
+      x, y, width, height, minWidth, minHeight, isMinimized: false, isMaximized: false, zIndex: nextZIndex,
+    }]);
+    setFocusedWindowId(windowId);
+    setNextZIndex(prev => prev + 1);
+  }, [windows, nextZIndex, viewport]);
 
   const openWindow = useCallback((appId: string) => {
     if (appId === 'academy') {
