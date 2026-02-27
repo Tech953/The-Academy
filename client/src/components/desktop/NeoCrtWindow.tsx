@@ -257,7 +257,6 @@ export default function NeoCrtWindow({
           gap: '3px',
           flexShrink: 0,
           alignItems: 'center',
-          height: '100%',
           padding: '0 8px',
           borderLeft: `1px solid ${primaryColor}20`,
           marginLeft: 8,
