@@ -851,6 +851,11 @@ export default function NeoCrtDesktopShell() {
   const [iconPositions, setIconPositions] = useState<Record<string, { x: number; y: number }>>(loadIconPositions);
   const [dragGhost, setDragGhost] = useState<{ x: number; y: number } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [hiddenWidgets, setHiddenWidgets] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('academy-hidden-widgets') ?? '[]'); } catch { return []; }
+  });
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [showWidgetPanel, setShowWidgetPanel] = useState(false);
 
   const dragRef = useRef<{
     iconId: string;
@@ -1316,12 +1321,33 @@ export default function NeoCrtDesktopShell() {
     setWindows(prev => prev.map(w => w.id === id ? { ...w, x, y } : w));
   }, []);
 
-  const handleDesktopClick = () => setSelectedIcon(null);
+  const toggleWidgetVisibility = useCallback((widgetId: string) => {
+    setHiddenWidgets(prev => {
+      const next = prev.includes(widgetId) ? prev.filter(id => id !== widgetId) : [...prev, widgetId];
+      localStorage.setItem('academy-hidden-widgets', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const handleDesktopContextMenu = useCallback((e: React.MouseEvent) => {
+    if (uiMode !== 'student') return;
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+    setSelectedIcon(null);
+  }, [uiMode]);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const handleDesktopClick = () => {
+    setSelectedIcon(null);
+    setContextMenu(null);
+  };
 
 
   return (
     <div
       onClick={handleDesktopClick}
+      onContextMenu={handleDesktopContextMenu}
       className={`neo-crt-desktop ${getResonanceClass()} ${getPerformanceClass()}`}
       style={{
         position: 'fixed',
@@ -1398,6 +1424,7 @@ export default function NeoCrtDesktopShell() {
 
       {uiMode === 'student' && viewport.width > 900 && AMBIENT_WIDGETS.map((widget) => {
         if (widget.unlockLevel && widget.unlockLevel > characterLevel) return null;
+        if (hiddenWidgets.includes(widget.id)) return null;
         const pos = iconPositions[widget.id] ?? gridToPixel(widget.defaultCol, widget.defaultRow);
         return (
           <DraggableWidget
@@ -1652,6 +1679,156 @@ export default function NeoCrtDesktopShell() {
       }}>
         ACADEMY OS v1.0 | {modeLabel.toUpperCase()} | [RES: STABLE]
       </div>
+
+      {/* ── DESKTOP CONTEXT MENU ─────────────────────────────────────────── */}
+      {contextMenu && uiMode === 'student' && (
+        <div
+          onContextMenu={e => e.preventDefault()}
+          style={{
+            position: 'fixed',
+            left: Math.min(contextMenu.x, viewport.width - 200),
+            top: Math.min(contextMenu.y, viewport.height - 140),
+            zIndex: 99000,
+            background: '#0a0a0a',
+            border: `1px solid ${colors.primary}60`,
+            boxShadow: `0 4px 24px rgba(0,0,0,0.8), 0 0 12px ${colors.primary}20`,
+            minWidth: 190,
+            fontFamily: '"Courier New", monospace',
+          }}
+        >
+          <div style={{ padding: '4px 10px', fontSize: 9, color: `${colors.primary}60`, letterSpacing: 1, borderBottom: `1px solid ${colors.primary}22` }}>
+            ACADEMY OS — DESKTOP
+          </div>
+          {[
+            { label: '◧  Customize Widgets', action: () => { setShowWidgetPanel(true); closeContextMenu(); } },
+            { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
+            { label: `${uiMode === 'student' ? '◉' : '◎'}  Switch to ${uiMode === 'student' ? 'Legacy' : 'Student'} Mode`, action: () => { toggleUiMode(); closeContextMenu(); } },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={item.action}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'transparent', border: 'none',
+                padding: '8px 14px', cursor: 'pointer',
+                fontFamily: '"Courier New", monospace', fontSize: 11,
+                color: colors.primary, letterSpacing: 0.5,
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${colors.primary}15`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── WIDGET CUSTOMIZATION PANEL ────────────────────────────────────── */}
+      {showWidgetPanel && (
+        <div
+          onClick={e => e.stopPropagation()}
+          onContextMenu={e => e.preventDefault()}
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 99500,
+            background: '#080808',
+            border: `1px solid ${colors.primary}80`,
+            boxShadow: `0 0 40px rgba(0,0,0,0.9), 0 0 20px ${colors.primary}20`,
+            width: 340,
+            fontFamily: '"Courier New", monospace',
+          }}
+        >
+          <div style={{
+            padding: '10px 14px', borderBottom: `1px solid ${colors.primary}30`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 'bold', color: colors.primary, letterSpacing: 1 }}>[ CUSTOMIZE WIDGETS ]</div>
+              <div style={{ fontSize: 9, color: `${colors.primary}60`, marginTop: 2 }}>Toggle desktop decorations on/off</div>
+            </div>
+            <button
+              onClick={() => setShowWidgetPanel(false)}
+              style={{
+                background: 'transparent', border: `1px solid ${colors.primary}40`,
+                color: colors.primary, width: 24, height: 24, cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >×</button>
+          </div>
+          <div style={{ padding: '8px' }}>
+            {AMBIENT_WIDGETS.map(widget => {
+              const isLocked = !!(widget.unlockLevel && widget.unlockLevel > characterLevel);
+              const isHidden = hiddenWidgets.includes(widget.id);
+              const isVisible = !isHidden && !isLocked;
+              const LABELS: Record<string, { name: string; desc: string; icon: string }> = {
+                'w-mascot':   { name: 'Academy Mascot',   desc: 'Your loyal bear mascot companion',        icon: '♡' },
+                'w-photo':    { name: 'Polaroid Frame',   desc: 'Decorative photo frame on your desktop',  icon: '◻' },
+                'w-sticker':  { name: 'Sticker',          desc: 'A decorative sticker for your desktop',   icon: '★' },
+                'w-calendar': { name: 'Day Planner',      desc: "Today's date at a glance",                icon: '▦' },
+                'w-book':     { name: 'Book Stack',       desc: 'Stack of books decoration',               icon: '▤' },
+                'w-badge':    { name: 'Achievement Badge',desc: 'Displays your current rank badge',         icon: '◈' },
+              };
+              const meta = LABELS[widget.id] ?? { name: widget.widgetType, desc: '', icon: '■' };
+              return (
+                <div key={widget.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 8px',
+                  borderBottom: `1px solid ${colors.primary}15`,
+                  opacity: isLocked ? 0.45 : 1,
+                }}>
+                  <div style={{
+                    width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: `1px solid ${colors.primary}30`, fontSize: 16, color: colors.primary,
+                    flexShrink: 0,
+                  }}>
+                    {meta.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: colors.primary, fontWeight: 'bold' }}>
+                      {meta.name}
+                      {isLocked && (
+                        <span style={{ fontSize: 9, color: accentColors.amber, marginLeft: 6 }}>
+                          [LVL {widget.unlockLevel}]
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 9, color: `${colors.primary}60`, marginTop: 1 }}>{meta.desc}</div>
+                  </div>
+                  <button
+                    onClick={() => !isLocked && toggleWidgetVisibility(widget.id)}
+                    disabled={isLocked}
+                    title={isLocked ? `Unlocks at Level ${widget.unlockLevel}` : isHidden ? 'Show widget' : 'Hide widget'}
+                    style={{
+                      background: isVisible ? `${colors.primary}20` : 'transparent',
+                      border: `1px solid ${isVisible ? colors.primary : colors.primary + '40'}`,
+                      color: isVisible ? colors.primary : `${colors.primary}50`,
+                      padding: '4px 10px', cursor: isLocked ? 'not-allowed' : 'pointer',
+                      fontFamily: 'inherit', fontSize: 10, letterSpacing: 0.5, flexShrink: 0,
+                    }}
+                  >
+                    {isLocked ? 'LOCKED' : isHidden ? 'SHOW' : 'HIDE'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ padding: '8px 14px', borderTop: `1px solid ${colors.primary}20` }}>
+            <button
+              onClick={() => { setHiddenWidgets([]); localStorage.removeItem('academy-hidden-widgets'); }}
+              style={{
+                width: '100%', background: 'transparent', border: `1px solid ${colors.primary}40`,
+                color: `${colors.primary}80`, padding: '6px 0', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 10, letterSpacing: 1,
+              }}
+            >
+              SHOW ALL WIDGETS
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .crt-scanlines {
