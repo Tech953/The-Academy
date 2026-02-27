@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, ReactNode, memo, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, ReactNode, memo, useMemo } from 'react';
 import NeoCrtWindow from './NeoCrtWindow';
 import Calculator from './apps/Calculator';
 import Notepad from './apps/Notepad';
@@ -69,54 +69,69 @@ interface DesktopIconConfig {
   colorKey: ColorKey;
 }
 
-const SIDEBAR_GROUPS: { label: string; icons: DesktopIconConfig[] }[] = [
-  {
-    label: 'COMMS',
-    icons: [
-      { id: 'email', iconType: 'email', labelKey: 'desktop.email', colorKey: 'cyan' },
-      { id: 'messages', iconType: 'messages', labelKey: 'desktop.messages', colorKey: 'green' },
-    ],
-  },
-  {
-    label: 'ACADEMIC',
-    icons: [
-      { id: 'assignments', iconType: 'assignments', labelKey: 'desktop.assignments', colorKey: 'amber' },
-      { id: 'schedule', iconType: 'schedule', labelKey: 'desktop.schedule', colorKey: 'amber' },
-      { id: 'notebook', iconType: 'notebook', labelKey: 'desktop.notebook', colorKey: 'cyan' },
-      { id: 'progress', iconType: 'progress', labelKey: 'desktop.progress', colorKey: 'green' },
-    ],
-  },
-  {
-    label: 'CHARACTER',
-    icons: [
-      { id: 'perks', iconType: 'perks', labelKey: 'desktop.perks', colorKey: 'purple' },
-      { id: 'skillgraph', iconType: 'skillgraph', labelKey: 'desktop.skillgraph', colorKey: 'purple' },
-      { id: 'resonance', iconType: 'resonance', labelKey: 'desktop.resonance', colorKey: 'purple' },
-      { id: 'cub', iconType: 'cub', labelKey: 'desktop.cub', colorKey: 'pink' },
-    ],
-  },
-  {
-    label: 'FILES',
-    icons: [
-      { id: 'schoolfiles', iconType: 'schoolfiles', labelKey: 'desktop.schoolfiles', colorKey: 'cyan' },
-      { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink' },
-      { id: 'settings', iconType: 'settings', labelKey: 'desktop.settings', colorKey: 'green' },
-    ],
-  },
+const ICON_W = 80;
+const ICON_H = 92;
+const ICON_COL_GAP = 90;
+const ICON_ROW_GAP = 100;
+const DESKTOP_MARGIN_X = 20;
+const DESKTOP_MARGIN_Y = 20;
+const TASKBAR_RESERVE = 80;
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions';
+
+interface DesktopIconEntry extends DesktopIconConfig {
+  defaultCol: number;
+  defaultRow: number;
+}
+
+const DESKTOP_ICONS: DesktopIconEntry[] = [
+  { id: 'email',        iconType: 'email',        labelKey: 'desktop.email',        colorKey: 'cyan',   defaultCol: 0, defaultRow: 0 },
+  { id: 'messages',     iconType: 'messages',     labelKey: 'desktop.messages',     colorKey: 'green',  defaultCol: 1, defaultRow: 0 },
+  { id: 'assignments',  iconType: 'assignments',  labelKey: 'desktop.assignments',  colorKey: 'amber',  defaultCol: 0, defaultRow: 1 },
+  { id: 'schedule',     iconType: 'schedule',     labelKey: 'desktop.schedule',     colorKey: 'amber',  defaultCol: 1, defaultRow: 1 },
+  { id: 'notebook',     iconType: 'notebook',     labelKey: 'desktop.notebook',     colorKey: 'cyan',   defaultCol: 0, defaultRow: 2 },
+  { id: 'progress',     iconType: 'progress',     labelKey: 'desktop.progress',     colorKey: 'green',  defaultCol: 1, defaultRow: 2 },
+  { id: 'perks',        iconType: 'perks',        labelKey: 'desktop.perks',        colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
+  { id: 'skillgraph',   iconType: 'skillgraph',   labelKey: 'desktop.skillgraph',   colorKey: 'purple', defaultCol: 1, defaultRow: 3 },
+  { id: 'resonance',    iconType: 'resonance',    labelKey: 'desktop.resonance',    colorKey: 'purple', defaultCol: 0, defaultRow: 4 },
+  { id: 'cub',          iconType: 'cub',          labelKey: 'desktop.cub',          colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
+  { id: 'schoolfiles',  iconType: 'schoolfiles',  labelKey: 'desktop.schoolfiles',  colorKey: 'cyan',   defaultCol: 0, defaultRow: 5 },
+  { id: 'personalfiles',iconType: 'personalfiles',labelKey: 'desktop.personalfiles',colorKey: 'pink',   defaultCol: 1, defaultRow: 5 },
+  { id: 'settings',     iconType: 'settings',     labelKey: 'desktop.settings',     colorKey: 'green',  defaultCol: 0, defaultRow: 6 },
+  { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 6 },
 ];
 
-const SIDEBAR_ICONS: DesktopIconConfig[] = SIDEBAR_GROUPS.flatMap(g => g.icons);
+function getDefaultPositions(): Record<string, { x: number; y: number }> {
+  const positions: Record<string, { x: number; y: number }> = {};
+  DESKTOP_ICONS.forEach(icon => {
+    positions[icon.id] = {
+      x: DESKTOP_MARGIN_X + icon.defaultCol * ICON_COL_GAP,
+      y: DESKTOP_MARGIN_Y + icon.defaultRow * ICON_ROW_GAP,
+    };
+  });
+  return positions;
+}
+
+function loadIconPositions(): Record<string, { x: number; y: number }> {
+  try {
+    const stored = localStorage.getItem(DESKTOP_POSITIONS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const defaults = getDefaultPositions();
+      return { ...defaults, ...parsed };
+    }
+  } catch {/* ignore */}
+  return getDefaultPositions();
+}
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
-  { id: 'academy', iconType: 'academy', labelKey: 'desktop.academy', colorKey: 'green' },
   { id: 'calculator', iconType: 'calculator', labelKey: 'desktop.calculator', colorKey: 'green' },
-  { id: 'notepad', iconType: 'notepad', labelKey: 'desktop.notepad', colorKey: 'cyan' },
-  { id: 'files', iconType: 'files', labelKey: 'desktop.files', colorKey: 'cyan' },
+  { id: 'notepad',    iconType: 'notepad',    labelKey: 'desktop.notepad',    colorKey: 'cyan'  },
+  { id: 'files',      iconType: 'files',      labelKey: 'desktop.files',      colorKey: 'cyan'  },
 ];
 
 const HIDDEN_APPS: DesktopIconConfig[] = [
-  { id: 'personal', iconType: 'personal', labelKey: 'desktop.personal', colorKey: 'green' },
-  { id: 'memories', iconType: 'memories', labelKey: 'desktop.memories', colorKey: 'pink' },
+  { id: 'personal',      iconType: 'personal',      labelKey: 'desktop.personal',      colorKey: 'green' },
+  { id: 'memories',      iconType: 'memories',      labelKey: 'desktop.memories',      colorKey: 'pink'  },
   { id: 'notifications', iconType: 'notifications', labelKey: 'desktop.notifications', colorKey: 'amber' },
 ];
 
@@ -155,72 +170,115 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
   }
 }
 
-const SidebarIcon = memo(function SidebarIcon({ 
-  icon, 
-  isSelected, 
-  onClick, 
-  onDoubleClick,
+const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
+  icon,
+  position,
+  isSelected,
+  onMouseDown,
+  onOpen,
   accentColors,
   badgeCount = 0,
   label,
   locked = false,
-}: { 
+  isAcademy = false,
+  primaryColor = '#00ff00',
+}: {
   icon: DesktopIconConfig;
+  position: { x: number; y: number };
   isSelected: boolean;
-  onClick: () => void;
-  onDoubleClick: () => void;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onOpen: () => void;
   accentColors: AccentColors;
   badgeCount?: number;
   label: string;
   locked?: boolean;
+  isAcademy?: boolean;
+  primaryColor?: string;
 }) {
-  const color = locked ? '#333' : accentColors[icon.colorKey];
+  const color = locked ? '#444' : accentColors[icon.colorKey];
   const activeColor = accentColors[icon.colorKey];
+
   return (
-    <button
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className="neo-crt-sidebar-icon"
+    <div
+      onMouseDown={onMouseDown}
+      onDoubleClick={(e) => { e.stopPropagation(); if (!locked) onOpen(); }}
       title={locked ? `${label} — enroll in a class to unlock` : label}
+      data-testid={isAcademy ? 'academy-game-launcher' : undefined}
       style={{
+        position: 'absolute',
+        left: position.x,
+        top: position.y,
+        width: ICON_W,
+        height: ICON_H,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '4px',
-        padding: '7px 10px',
-        background: isSelected ? `${activeColor}20` : 'transparent',
-        border: isSelected ? `1px solid ${activeColor}30` : '1px solid transparent',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        position: 'relative',
-        opacity: locked ? 0.35 : 1,
-        width: '72px',
+        justifyContent: 'flex-start',
+        gap: '6px',
+        padding: '10px 6px 8px',
+        background: isSelected
+          ? `${activeColor}18`
+          : isAcademy
+          ? `${primaryColor}08`
+          : 'transparent',
+        border: isSelected
+          ? `1px solid ${activeColor}50`
+          : isAcademy
+          ? `1px solid ${primaryColor}50`
+          : '1px solid transparent',
+        borderRadius: '8px',
+        cursor: 'grab',
+        userSelect: 'none',
+        transition: 'background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease',
+        opacity: locked ? 0.38 : 1,
+        zIndex: isSelected ? 20 : 10,
+        boxShadow: isAcademy ? `0 0 14px ${primaryColor}30` : 'none',
       }}
     >
       <div style={{
-        filter: locked ? 'none' : `drop-shadow(0 0 6px ${color}80)`,
-        transition: 'filter 0.2s ease',
         position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 40,
+        height: 40,
+        background: locked
+          ? 'transparent'
+          : isAcademy
+          ? `${primaryColor}14`
+          : `${color}12`,
+        borderRadius: '10px',
+        border: isAcademy
+          ? `1px solid ${primaryColor}40`
+          : locked
+          ? 'none'
+          : `1px solid ${color}20`,
+        boxShadow: locked
+          ? 'none'
+          : isAcademy
+          ? `0 0 12px ${primaryColor}40`
+          : `0 0 8px ${color}30`,
+        transition: 'box-shadow 0.2s ease',
       }}>
-        {getNeoCrtIcon(icon.iconType, 20, color)}
+        {getNeoCrtIcon(icon.iconType, 22, color)}
         {!locked && badgeCount > 0 && (
           <div style={{
             position: 'absolute',
             top: '-5px',
-            right: '-7px',
+            right: '-6px',
             background: accentColors.red,
             color: '#000',
             fontSize: '8px',
             fontWeight: 'bold',
-            minWidth: '14px',
-            height: '14px',
-            borderRadius: '7px',
+            minWidth: '15px',
+            height: '15px',
+            borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontFamily: '"Courier New", monospace',
             boxShadow: `0 0 6px ${accentColors.red}`,
+            zIndex: 2,
           }}>
             {badgeCount > 9 ? '9+' : badgeCount}
           </div>
@@ -228,9 +286,9 @@ const SidebarIcon = memo(function SidebarIcon({
         {locked && (
           <div style={{
             position: 'absolute',
-            bottom: '-3px',
-            right: '-5px',
-            fontSize: '9px',
+            bottom: '-4px',
+            right: '-4px',
+            fontSize: '10px',
             lineHeight: 1,
             color: '#555',
           }}>
@@ -239,22 +297,40 @@ const SidebarIcon = memo(function SidebarIcon({
         )}
       </div>
       <span style={{
-        color: color,
+        color: locked ? '#444' : color,
         fontFamily: '"Courier New", monospace',
-        fontSize: '7px',
+        fontSize: '8px',
         letterSpacing: '0.5px',
         textTransform: 'uppercase',
         textAlign: 'center',
-        lineHeight: '1.2',
-        maxWidth: '64px',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+        lineHeight: '1.3',
+        maxWidth: ICON_W - 8,
+        wordBreak: 'break-word',
         transition: 'color 0.2s ease',
+        textShadow: locked ? 'none' : `0 0 6px ${color}60`,
       }}>
         {label}
       </span>
-    </button>
+      {isAcademy && (
+        <div style={{
+          position: 'absolute',
+          top: '-8px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: '6px',
+          color: primaryColor,
+          fontFamily: '"Courier New", monospace',
+          letterSpacing: '1.5px',
+          textShadow: `0 0 4px ${primaryColor}`,
+          whiteSpace: 'nowrap',
+          background: 'rgba(0,0,0,0.8)',
+          padding: '1px 5px',
+          borderRadius: '3px',
+        }}>
+          START
+        </div>
+      )}
+    </div>
   );
 });
 
@@ -740,6 +816,69 @@ export default function NeoCrtDesktopShell() {
   const windowSnap = useWindowSnap();
   const [characterLevel] = useState(3);
   const [resonanceState, setResonanceState] = useState<'stable' | 'unstable' | 'critical'>('stable');
+
+  const [iconPositions, setIconPositions] = useState<Record<string, { x: number; y: number }>>(loadIconPositions);
+  const dragRef = useRef<{
+    iconId: string;
+    startMouseX: number;
+    startMouseY: number;
+    startIconX: number;
+    startIconY: number;
+    hasMoved: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DESKTOP_POSITIONS_KEY, JSON.stringify(iconPositions));
+    } catch {/* ignore */}
+  }, [iconPositions]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = e.clientX - dragRef.current.startMouseX;
+      const dy = e.clientY - dragRef.current.startMouseY;
+      if (!dragRef.current.hasMoved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      dragRef.current.hasMoved = true;
+      const maxX = window.innerWidth - ICON_W - 4;
+      const maxY = window.innerHeight - ICON_H - TASKBAR_RESERVE;
+      const newX = Math.max(4, Math.min(maxX, dragRef.current.startIconX + dx));
+      const newY = Math.max(4, Math.min(maxY, dragRef.current.startIconY + dy));
+      const id = dragRef.current.iconId;
+      setIconPositions(prev => ({ ...prev, [id]: { x: newX, y: newY } }));
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      if (dragRef.current && !dragRef.current.hasMoved) {
+        setSelectedIcon(dragRef.current.iconId);
+      }
+      dragRef.current = null;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleIconMouseDown = useCallback((e: React.MouseEvent, iconId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const pos = iconPositions[iconId] ?? { x: 20, y: 20 };
+    dragRef.current = {
+      iconId,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startIconX: pos.x,
+      startIconY: pos.y,
+      hasMoved: false,
+    };
+  }, [iconPositions]);
+
+  const resetIconLayout = useCallback(() => {
+    const defaults = getDefaultPositions();
+    setIconPositions(defaults);
+  }, []);
   
   const toggleUiMode = useCallback(() => {
     const newMode = uiMode === 'legacy' ? 'student' : 'legacy';
@@ -988,7 +1127,7 @@ export default function NeoCrtDesktopShell() {
     }
 
     const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId);
-    const iconConfig = [...SIDEBAR_ICONS, ...TASKBAR_QUICK_APPS, ...HIDDEN_APPS].find(i => i.id === appId);
+    const iconConfig = [...DESKTOP_ICONS, ...TASKBAR_QUICK_APPS, ...HIDDEN_APPS].find(i => i.id === appId);
     
     const sidebarWidth = 120;
     const taskbarHeight = 80;
@@ -1087,112 +1226,30 @@ export default function NeoCrtDesktopShell() {
         onDismiss={dismissNotification} 
       />
 
-      {uiMode === 'student' && (
-      <div style={{
-        position: 'absolute',
-        top: viewport.height < 600 ? '12px' : '20px',
-        left: viewport.width < 800 ? '10px' : '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        zIndex: 10,
-        maxHeight: 'calc(100vh - 120px)',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        padding: '4px 0',
-      }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {SIDEBAR_GROUPS.map((group, gi) => (
-          <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {gi > 0 && (
-              <div style={{
-                height: '1px',
-                background: `${colors.primary}20`,
-                margin: '4px 8px',
-              }} />
-            )}
-            <div style={{
-              fontSize: '6px',
-              color: `${colors.primary}60`,
-              fontFamily: '"Courier New", monospace',
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              textAlign: 'center',
-              padding: '0 8px 2px',
-            }}>
-              {group.label}
-            </div>
-            {group.icons.map((icon) => {
-              const isLocked = !isEnrolled && (icon.id === 'email' || icon.id === 'messages');
-              return (
-                <SidebarIcon
-                  key={icon.id}
-                  icon={icon}
-                  isSelected={selectedIcon === icon.id}
-                  onClick={() => { setSelectedIcon(icon.id); openWindow(icon.id); }}
-                  onDoubleClick={() => openWindow(icon.id)}
-                  accentColors={accentColors}
-                  badgeCount={
-                    icon.id === 'email' ? unreadEmailCount :
-                    icon.id === 'messages' ? unreadMessageCount : 0
-                  }
-                  label={t(icon.labelKey)}
-                  locked={isLocked}
-                />
-              );
-            })}
-          </div>
-        ))}
-        
-        <div style={{
-          height: '1px',
-          background: `${colors.primary}20`,
-          margin: '4px 8px',
-        }} />
-
-        <div 
-          style={{
-            position: 'relative',
-            padding: '4px',
-            border: `1px solid ${colors.primary}60`,
-            borderRadius: '6px',
-            background: `${colors.primary}06`,
-            boxShadow: `0 0 12px ${colors.primaryGlow}60`,
-            animation: 'pulse-glow 2s ease-in-out infinite',
-            transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
-          }}
-        >
-          <div style={{
-            position: 'absolute',
-            top: '-9px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: colors.background,
-            padding: '1px 6px',
-            fontSize: '6px',
-            color: colors.primary,
-            fontFamily: '"Courier New", monospace',
-            letterSpacing: '1.5px',
-            textShadow: `0 0 5px ${colors.primary}`,
-            whiteSpace: 'nowrap',
-            transition: 'color 0.5s ease, background 0.5s ease',
-          }}>
-            START GAME
-          </div>
-          <div data-testid="academy-game-launcher">
-            <SidebarIcon
-              icon={{ id: 'academy', iconType: 'academy', labelKey: 'desktop.academy', colorKey: 'green' }}
-              isSelected={selectedIcon === 'academy'}
-              onClick={() => setSelectedIcon('academy')}
-              onDoubleClick={() => openWindow('academy')}
-              accentColors={accentColors}
-              label={t('desktop.academy')}
-            />
-          </div>
-        </div>
-      </div>
-      )}
+      {uiMode === 'student' && DESKTOP_ICONS.map((icon) => {
+        const pos = iconPositions[icon.id] ?? { x: 20, y: 20 };
+        const isLocked = !isEnrolled && (icon.id === 'email' || icon.id === 'messages');
+        const isAcademy = icon.id === 'academy';
+        return (
+          <DraggableDesktopIcon
+            key={icon.id}
+            icon={icon}
+            position={pos}
+            isSelected={selectedIcon === icon.id}
+            onMouseDown={(e) => handleIconMouseDown(e, icon.id)}
+            onOpen={() => openWindow(icon.id)}
+            accentColors={accentColors}
+            badgeCount={
+              icon.id === 'email' ? unreadEmailCount :
+              icon.id === 'messages' ? unreadMessageCount : 0
+            }
+            label={t(icon.labelKey)}
+            locked={isLocked}
+            isAcademy={isAcademy}
+            primaryColor={colors.primary}
+          />
+        );
+      })}
 
       {viewport.width > 900 && viewport.height > 500 && (
         <div style={{
@@ -1256,6 +1313,33 @@ export default function NeoCrtDesktopShell() {
           <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('desktop.taskbar.memories')}</span>
         </button>
         
+        {uiMode === 'student' && (
+          <>
+            <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 8px' }} />
+            <button
+              onClick={resetIconLayout}
+              title="Reset icon positions to default layout"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                padding: '6px 10px',
+                background: 'transparent',
+                border: `1px solid ${colors.primary}30`,
+                borderRadius: '4px',
+                cursor: 'pointer',
+                color: `${colors.primary}80`,
+                transition: 'all 0.2s ease',
+                fontFamily: '"Courier New", monospace',
+              }}
+            >
+              <Search size={12} />
+              <span style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reset Layout</span>
+            </button>
+          </>
+        )}
+
         <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 8px' }} />
         
         <button
