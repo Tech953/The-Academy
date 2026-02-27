@@ -1830,6 +1830,9 @@ export default function NeoCrtDesktopShell() {
             border: `1px solid ${colors.primary}80`,
             boxShadow: `0 0 40px rgba(0,0,0,0.9), 0 0 20px ${colors.primary}20`,
             width: 340,
+            maxHeight: 'calc(90vh - 40px)',
+            display: 'flex',
+            flexDirection: 'column',
             fontFamily: '"Courier New", monospace',
           }}
         >
@@ -1852,7 +1855,7 @@ export default function NeoCrtDesktopShell() {
               }}
             >×</button>
           </div>
-          <div style={{ padding: '8px', maxHeight: 420, overflowY: 'auto' }}>
+          <div style={{ padding: '8px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {(() => {
               const LABELS: Record<string, { name: string; desc: string; icon: string }> = {
                 'w-mascot':   { name: 'Academy Mascot',   desc: 'Your loyal bear mascot companion',        icon: '♡' },
