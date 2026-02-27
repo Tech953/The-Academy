@@ -75,6 +75,45 @@ Both ChatLink and Academy Email apps feature an NPC contact discovery system pow
 - **Academy Email COMPOSE button**: Opens NPCDirectoryPanel in email mode. Selecting an NPC pre-fills a compose form (TO/SUBJECT/BODY). Sending triggers a delayed NPC reply email with affinity-appropriate tone.
 - NPC cards display: initials avatar, name, role/faction/club, current location, affinity bar, status badge, and action button. Secret society (shield icon) and mentorship (star icon) are indicated.
 
+### Education OS — GED Curriculum System (Kaplan 2022–2023 Aligned)
+
+The Assignments Portal has been fully rebuilt as a comprehensive Education OS with:
+
+**Curriculum Data (`client/src/lib/gedCurriculumData.ts`)**
+- 4 complete GED textbooks (RLA, Math, Social Studies, Science) — Kaplan 2022–2023 aligned
+- 25 chapters across all subjects with lesson-level granularity
+- 30+ lessons with full educational content, key terms, and real MCQ practice questions
+- 100+ MCQ practice questions with A/B/C/D choices, correct answers, and pedagogical explanations
+- Difficulty tagging: foundational / standard / extended
+- GED assessment code alignment (e.g. RLA.1.1, MATH.6.7, SCI.2.5, SS.3.2)
+- Skill graph node mapping for each lesson
+
+**Curriculum Progression Bridge (`client/src/lib/gedCurriculum.ts`)**
+- `recordQuizAttempt()`: tracks quiz scores, awards XP on first pass/first pass
+- `computeSubjectProgress()`: weighted readiness score (0–100) per subject
+- `computeAllSubjectProgress()`: GED diploma readiness overview
+- Stat bonus system: Math→mathLogic, RLA→linguistic, Science→mathLogic+endurance, Social Studies→fortitude+presence
+- XP rewards: 25 XP for lesson completion, 50 XP for passing quiz (≥60%), 200 XP for chapter mastery
+- `getNextRecommendedLesson()`: recommends the next incomplete/unmastered lesson
+
+**Schema Extensions (`shared/schema.ts`)**
+- `GEDLesson`: lesson-level structure with gedCode, content, keyTerms, practiceQuestions
+- `GEDPracticeQuestion`: MCQ with choices, answer, explanation, difficulty, gedCode, skillNodeId
+- `StudentCurriculumProgress`: tracks lesson/chapter progress, XP, timestamps
+- `LessonProgress`, `ChapterProgress`, `SubjectProgress` tracking types
+
+**GameStateContext integration**
+- `curriculumProgress` persisted to localStorage
+- `recordLessonQuiz(lessonCode, score, subject)`: applies XP, stat bonuses, and progress tracking atomically
+
+**Assignments Portal (`client/src/components/desktop/apps/AssignmentsPortal.tsx`)**
+- Full multi-screen Education OS: subjects → chapters → lessons → lesson view → quiz → results
+- Subject cards showing color-coded progress bars and readiness percentage
+- Chapter list with completion indicators and mastery badges
+- Lesson navigator with mastery labels (MASTERED/PROFICIENT/PASSING/NEEDS WORK)
+- In-portal quiz mode: sequential MCQ with answer reveal and explanation
+- Quiz results screen: score, XP earned, stat bonuses, retry/continue flow
+
 ### Academy Engine - Cognitive Infrastructure
 This four-phase learning system includes:
 - **Phase 1 - Core Cognition**: Manages a skill graph (40 GED-aligned skill nodes), student journals, a procedural homework engine, and student profiles.

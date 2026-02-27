@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, R
 import { earnMemory } from '@/lib/memoriesStore';
 import { FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
+import type { StudentCurriculumProgress, GEDSubjectKey } from '@shared/schema';
+import { emptyProgress, recordQuizAttempt, SUBJECT_STAT_MAP } from '@/lib/gedCurriculum';
 
 export interface Email {
   id: string;
@@ -73,6 +75,8 @@ interface GameStateContextType {
   setResonanceState: (state: 'stable' | 'unstable' | 'critical') => void;
   addEnrolledCourse: (courseId: string) => void;
   setIsGameActive: (active: boolean) => void;
+  curriculumProgress: StudentCurriculumProgress;
+  recordLessonQuiz: (lessonCode: string, scorePercent: number, subject: GEDSubjectKey) => { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> };
 }
 
 const STORAGE_KEY = 'academy-game-state';
@@ -154,7 +158,7 @@ function getDefaultMessages(): DirectMessage[] {
   ];
 }
 
-function loadGameState(): { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[] } {
+function loadGameState(): { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[]; curriculumProgress: StudentCurriculumProgress } {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -165,6 +169,7 @@ function loadGameState(): { character: GameCharacter; emails: Email[]; messages:
         messages: (parsed.messages || getDefaultMessages()).map((m: DirectMessage) => ({ ...m, timestamp: new Date(m.timestamp) })),
         cubAffection: parsed.cubAffection ?? 50,
         enrolledCourses: parsed.enrolledCourses ?? [],
+        curriculumProgress: parsed.curriculumProgress ?? emptyProgress(),
       };
     }
   } catch (e) {
@@ -176,10 +181,11 @@ function loadGameState(): { character: GameCharacter; emails: Email[]; messages:
     messages: getDefaultMessages(),
     cubAffection: 50,
     enrolledCourses: [],
+    curriculumProgress: emptyProgress(),
   };
 }
 
-function saveGameState(state: { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[] }): void {
+function saveGameState(state: { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[]; curriculumProgress: StudentCurriculumProgress }): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -242,6 +248,45 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
         ? prev.enrolledCourses
         : [...prev.enrolledCourses, courseId],
     }));
+  }, []);
+
+  const recordLessonQuiz = useCallback((
+    lessonCode: string, scorePercent: number, subject: GEDSubjectKey
+  ): { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> } => {
+    let result = { xpEarned: 0, passed: false, statBonuses: [] as Array<{ stat: string; gain: number }> };
+    setState(prev => {
+      const progressCopy: StudentCurriculumProgress = {
+        ...prev.curriculumProgress,
+        lessonProgress: { ...prev.curriculumProgress.lessonProgress },
+        chapterProgress: { ...prev.curriculumProgress.chapterProgress },
+      };
+      result = recordQuizAttempt(progressCopy, lessonCode, scorePercent, subject);
+      const statUpdates: Partial<FullCharacterStats> = {};
+      result.statBonuses.forEach(b => {
+        const current = (prev.character.stats as any)[b.stat] ?? 0;
+        (statUpdates as any)[b.stat] = Math.min(100, current + b.gain);
+      });
+      let newExp = prev.character.experience + result.xpEarned;
+      let newLevel = prev.character.level;
+      let expToNext = prev.character.experienceToNextLevel;
+      while (newExp >= expToNext) {
+        newExp -= expToNext;
+        newLevel++;
+        expToNext = Math.floor(expToNext * 1.5);
+      }
+      return {
+        ...prev,
+        curriculumProgress: progressCopy,
+        character: {
+          ...prev.character,
+          experience: newExp,
+          level: newLevel,
+          experienceToNextLevel: expToNext,
+          stats: { ...prev.character.stats, ...statUpdates },
+        },
+      };
+    });
+    return result;
   }, []);
 
   const addEmail = useCallback((email: Omit<Email, 'id' | 'timestamp' | 'read'>) => {
@@ -515,6 +560,8 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     setResonanceState,
     addEnrolledCourse,
     setIsGameActive,
+    curriculumProgress: state.curriculumProgress,
+    recordLessonQuiz,
   };
 
   return (

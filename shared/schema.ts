@@ -576,20 +576,76 @@ export interface LearningPath {
 
 // GED Textbook Content Structure
 
+export type GEDSubjectKey = 'Mathematical Reasoning' | 'Language Arts' | 'Science' | 'Social Studies';
+export type QuestionDifficulty = 'foundational' | 'standard' | 'extended';
+export type QuestionType = 'mcq' | 'short_answer' | 'extended_response';
+
+export interface GEDPracticeQuestion {
+  id: string;
+  question: string;
+  type: QuestionType;
+  choices?: { A: string; B: string; C: string; D: string };
+  answer: string;          // 'A'|'B'|'C'|'D' for MCQ, free text otherwise
+  explanation: string;
+  difficulty: QuestionDifficulty;
+  gedCode?: string;        // e.g. 'Q.1.a', 'RLA.2.1'
+  skillNodeId?: string;    // links to SkillGraph node
+}
+
+export interface GEDLesson {
+  number: number;          // within chapter
+  title: string;
+  gedCode: string;         // e.g. 'RLA.Ch1.L2'
+  content: string;
+  keyTerms?: string[];
+  practiceQuestions: GEDPracticeQuestion[];
+}
+
 export interface GEDChapter {
   number: number;
   title: string;
   topics: string[];
-  content: string;
-  practiceQuestions?: Array<{
-    question: string;
-    answer: string;
-  }>;
+  content: string;         // chapter overview / intro
+  lessons?: GEDLesson[];
+  practiceQuestions?: Array<{ question: string; answer: string }>;
 }
 
 export interface GEDTextbook {
   id: string;
-  subject: 'Mathematical Reasoning' | 'Language Arts' | 'Science' | 'Social Studies';
+  subject: GEDSubjectKey;
   title: string;
   chapters: GEDChapter[];
+}
+
+// ── Curriculum Progress Tracking ─────────────────────────────────────────────
+
+export interface LessonProgress {
+  lessonCode: string;       // e.g. 'RLA.Ch1.L2'
+  completed: boolean;
+  quizScore?: number;       // 0–100
+  attempts: number;
+  lastAttemptAt?: string;
+}
+
+export interface ChapterProgress {
+  chapterKey: string;       // e.g. 'MATH.Ch3'
+  lessonsCompleted: number;
+  totalLessons: number;
+  bestQuizAverage: number;  // 0–100
+  mastered: boolean;        // all lessons ≥60% or all complete
+}
+
+export interface SubjectProgress {
+  subject: GEDSubjectKey;
+  chaptersCompleted: number;
+  totalChapters: number;
+  readinessScore: number;   // 0–100, GED readiness estimate
+  passReady: boolean;       // readinessScore ≥ 70
+}
+
+export interface StudentCurriculumProgress {
+  lessonProgress: Record<string, LessonProgress>;
+  chapterProgress: Record<string, ChapterProgress>;
+  totalXpEarned: number;
+  lastStudiedAt: string;
 }
