@@ -33,7 +33,7 @@ import {
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
   BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
-  Monitor, Terminal, Network, BarChart3, Notebook, Award
+  Monitor, Terminal, Network, BarChart3, Notebook, Award, Lock
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
@@ -271,15 +271,9 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         justifyContent: 'flex-start',
         gap: '6px',
         padding: '10px 6px 8px',
-        background: isSelected
-          ? `${activeColor}18`
-          : isAcademy
-          ? `${primaryColor}08`
-          : 'transparent',
+        background: isSelected ? `${activeColor}18` : 'transparent',
         border: isSelected
           ? `1px solid ${activeColor}50`
-          : isAcademy
-          ? `1px solid ${primaryColor}50`
           : '1px solid transparent',
         borderRadius: '8px',
         cursor: isDragging ? 'grabbing' : 'grab',
@@ -287,11 +281,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         transition: isDragging ? 'none' : 'left 0.12s ease, top 0.12s ease, background 0.2s ease, opacity 0.2s ease',
         opacity: locked ? 0.38 : isDragging ? 0.72 : 1,
         zIndex: isDragging ? 999 : isSelected ? 20 : 10,
-        boxShadow: isDragging
-          ? `0 8px 24px rgba(0,0,0,0.5), 0 0 18px ${color}40`
-          : isAcademy
-          ? `0 0 14px ${primaryColor}30`
-          : 'none',
+        boxShadow: isDragging ? `0 8px 24px rgba(0,0,0,0.5), 0 0 18px ${color}40` : 'none',
         transform: isDragging ? 'scale(1.06)' : 'scale(1)',
       }}
     >
@@ -302,23 +292,12 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         justifyContent: 'center',
         width: 40,
         height: 40,
-        background: locked
-          ? 'transparent'
-          : isAcademy
-          ? `${primaryColor}14`
-          : `${color}12`,
+        background: locked ? 'transparent' : `${color}12`,
         borderRadius: '10px',
-        border: isAcademy
-          ? `1px solid ${primaryColor}40`
-          : locked
-          ? 'none'
-          : `1px solid ${color}20`,
-        boxShadow: locked
-          ? 'none'
-          : isAcademy
-          ? `0 0 12px ${primaryColor}40`
-          : `0 0 8px ${color}30`,
+        border: locked ? 'none' : `1px solid ${color}${isAcademy ? '50' : '20'}`,
+        boxShadow: locked ? 'none' : `0 0 ${isAcademy ? '16px' : '8px'} ${color}${isAcademy ? '50' : '30'}`,
         transition: 'box-shadow 0.2s ease',
+        animation: isAcademy ? 'academy-icon-pulse 2.5s ease-in-out infinite' : undefined,
       }}>
         {getNeoCrtIcon(icon.iconType, 22, color)}
         {!locked && badgeCount > 0 && (
@@ -344,15 +323,8 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
           </div>
         )}
         {locked && (
-          <div style={{
-            position: 'absolute',
-            bottom: '-4px',
-            right: '-4px',
-            fontSize: '10px',
-            lineHeight: 1,
-            color: '#555',
-          }}>
-            ⚿
+          <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', color: '#555' }}>
+            <Lock size={9} strokeWidth={2.5} />
           </div>
         )}
       </div>
@@ -371,25 +343,6 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
       }}>
         {label}
       </span>
-      {isAcademy && (
-        <div style={{
-          position: 'absolute',
-          top: '-8px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontSize: '6px',
-          color: primaryColor,
-          fontFamily: '"Courier New", monospace',
-          letterSpacing: '1.5px',
-          textShadow: `0 0 4px ${primaryColor}`,
-          whiteSpace: 'nowrap',
-          background: 'rgba(0,0,0,0.8)',
-          padding: '1px 5px',
-          borderRadius: '3px',
-        }}>
-          START
-        </div>
-      )}
     </div>
   );
 });

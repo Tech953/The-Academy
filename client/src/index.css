@@ -1034,3 +1034,8 @@
     opacity: 0.6;
   }
 }
+
+@keyframes academy-icon-pulse {
+  0%, 100% { box-shadow: 0 0 14px #00ff0045, 0 0 4px #00ff0030; }
+  50%       { box-shadow: 0 0 26px #00ff0070, 0 0 8px #00ff0050; }
+}
