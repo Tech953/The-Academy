@@ -69,14 +69,35 @@ interface DesktopIconConfig {
   colorKey: ColorKey;
 }
 
-const ICON_W = 80;
-const ICON_H = 92;
-const ICON_COL_GAP = 90;
-const ICON_ROW_GAP = 100;
-const DESKTOP_MARGIN_X = 20;
-const DESKTOP_MARGIN_Y = 20;
-const TASKBAR_RESERVE = 80;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions';
+const GRID_CELL_W = 96;
+const GRID_CELL_H = 100;
+const GRID_MARGIN_X = 16;
+const GRID_MARGIN_Y = 16;
+const TASKBAR_RESERVE = 72;
+const ICON_W = 82;
+const ICON_H = 88;
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v2';
+
+function gridToPixel(col: number, row: number): { x: number; y: number } {
+  return {
+    x: GRID_MARGIN_X + col * GRID_CELL_W,
+    y: GRID_MARGIN_Y + row * GRID_CELL_H,
+  };
+}
+
+function pixelToGrid(x: number, y: number): { col: number; row: number } {
+  return {
+    col: Math.max(0, Math.round((x - GRID_MARGIN_X) / GRID_CELL_W)),
+    row: Math.max(0, Math.round((y - GRID_MARGIN_Y) / GRID_CELL_H)),
+  };
+}
+
+function snapPixelToGrid(x: number, y: number, vw: number, vh: number): { x: number; y: number } {
+  const { col, row } = pixelToGrid(x, y);
+  const maxCol = Math.max(0, Math.floor((vw - GRID_MARGIN_X) / GRID_CELL_W) - 1);
+  const maxRow = Math.max(0, Math.floor((vh - TASKBAR_RESERVE - GRID_MARGIN_Y) / GRID_CELL_H) - 1);
+  return gridToPixel(Math.min(col, maxCol), Math.min(row, maxRow));
+}
 
 interface DesktopIconEntry extends DesktopIconConfig {
   defaultCol: number;
@@ -103,10 +124,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
 function getDefaultPositions(): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
   DESKTOP_ICONS.forEach(icon => {
-    positions[icon.id] = {
-      x: DESKTOP_MARGIN_X + icon.defaultCol * ICON_COL_GAP,
-      y: DESKTOP_MARGIN_Y + icon.defaultRow * ICON_ROW_GAP,
-    };
+    positions[icon.id] = gridToPixel(icon.defaultCol, icon.defaultRow);
   });
   return positions;
 }
@@ -174,6 +192,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
   icon,
   position,
   isSelected,
+  isDragging = false,
   onMouseDown,
   onOpen,
   accentColors,
@@ -186,6 +205,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
   icon: DesktopIconConfig;
   position: { x: number; y: number };
   isSelected: boolean;
+  isDragging?: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
   onOpen: () => void;
   accentColors: AccentColors;
@@ -227,12 +247,17 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
           ? `1px solid ${primaryColor}50`
           : '1px solid transparent',
         borderRadius: '8px',
-        cursor: 'grab',
+        cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
-        transition: 'background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease',
-        opacity: locked ? 0.38 : 1,
-        zIndex: isSelected ? 20 : 10,
-        boxShadow: isAcademy ? `0 0 14px ${primaryColor}30` : 'none',
+        transition: isDragging ? 'none' : 'left 0.12s ease, top 0.12s ease, background 0.2s ease, opacity 0.2s ease',
+        opacity: locked ? 0.38 : isDragging ? 0.72 : 1,
+        zIndex: isDragging ? 999 : isSelected ? 20 : 10,
+        boxShadow: isDragging
+          ? `0 8px 24px rgba(0,0,0,0.5), 0 0 18px ${color}40`
+          : isAcademy
+          ? `0 0 14px ${primaryColor}30`
+          : 'none',
+        transform: isDragging ? 'scale(1.06)' : 'scale(1)',
       }}
     >
       <div style={{
@@ -818,12 +843,17 @@ export default function NeoCrtDesktopShell() {
   const [resonanceState, setResonanceState] = useState<'stable' | 'unstable' | 'critical'>('stable');
 
   const [iconPositions, setIconPositions] = useState<Record<string, { x: number; y: number }>>(loadIconPositions);
+  const [dragGhost, setDragGhost] = useState<{ x: number; y: number } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
   const dragRef = useRef<{
     iconId: string;
     startMouseX: number;
     startMouseY: number;
     startIconX: number;
     startIconY: number;
+    originSnappedX: number;
+    originSnappedY: number;
     hasMoved: boolean;
   } | null>(null);
 
@@ -838,20 +868,53 @@ export default function NeoCrtDesktopShell() {
       if (!dragRef.current) return;
       const dx = e.clientX - dragRef.current.startMouseX;
       const dy = e.clientY - dragRef.current.startMouseY;
-      if (!dragRef.current.hasMoved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      if (!dragRef.current.hasMoved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
       dragRef.current.hasMoved = true;
-      const maxX = window.innerWidth - ICON_W - 4;
-      const maxY = window.innerHeight - ICON_H - TASKBAR_RESERVE;
-      const newX = Math.max(4, Math.min(maxX, dragRef.current.startIconX + dx));
-      const newY = Math.max(4, Math.min(maxY, dragRef.current.startIconY + dy));
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const rawX = dragRef.current.startIconX + dx;
+      const rawY = dragRef.current.startIconY + dy;
+      const maxX = vw - ICON_W - 4;
+      const maxY = vh - ICON_H - TASKBAR_RESERVE;
+      const clampedX = Math.max(4, Math.min(maxX, rawX));
+      const clampedY = Math.max(4, Math.min(maxY, rawY));
       const id = dragRef.current.iconId;
-      setIconPositions(prev => ({ ...prev, [id]: { x: newX, y: newY } }));
+      setIconPositions(prev => ({ ...prev, [id]: { x: clampedX, y: clampedY } }));
+      const snapped = snapPixelToGrid(clampedX, clampedY, vw, vh);
+      setDragGhost(snapped);
     };
-    const handleMouseUp = (e: MouseEvent) => {
-      if (dragRef.current && !dragRef.current.hasMoved) {
+    const handleMouseUp = () => {
+      if (!dragRef.current) return;
+      if (!dragRef.current.hasMoved) {
         setSelectedIcon(dragRef.current.iconId);
+        dragRef.current = null;
+        setDraggingId(null);
+        setDragGhost(null);
+        return;
       }
+      const id = dragRef.current.iconId;
+      const originX = dragRef.current.originSnappedX;
+      const originY = dragRef.current.originSnappedY;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      setIconPositions(prev => {
+        const curPos = prev[id] ?? { x: 20, y: 20 };
+        const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
+        const occupant = Object.entries(prev).find(([otherId, pos]) => {
+          if (otherId === id) return false;
+          const { x: ox, y: oy } = pos;
+          return Math.abs(ox - snapped.x) < GRID_CELL_W / 2 && Math.abs(oy - snapped.y) < GRID_CELL_H / 2;
+        });
+        const next = { ...prev, [id]: snapped };
+        if (occupant) {
+          const [occupantId] = occupant;
+          next[occupantId] = { x: originX, y: originY };
+        }
+        return next;
+      });
       dragRef.current = null;
+      setDraggingId(null);
+      setDragGhost(null);
     };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -865,14 +928,18 @@ export default function NeoCrtDesktopShell() {
     e.stopPropagation();
     e.preventDefault();
     const pos = iconPositions[iconId] ?? { x: 20, y: 20 };
+    const snappedOrigin = snapPixelToGrid(pos.x, pos.y, window.innerWidth, window.innerHeight);
     dragRef.current = {
       iconId,
       startMouseX: e.clientX,
       startMouseY: e.clientY,
       startIconX: pos.x,
       startIconY: pos.y,
+      originSnappedX: snappedOrigin.x,
+      originSnappedY: snappedOrigin.y,
       hasMoved: false,
     };
+    setDraggingId(iconId);
   }, [iconPositions]);
 
   const resetIconLayout = useCallback(() => {
@@ -1226,16 +1293,36 @@ export default function NeoCrtDesktopShell() {
         onDismiss={dismissNotification} 
       />
 
+      {uiMode === 'student' && dragGhost && draggingId && (
+        <div
+          style={{
+            position: 'absolute',
+            left: dragGhost.x,
+            top: dragGhost.y,
+            width: ICON_W,
+            height: ICON_H,
+            border: `1px dashed ${colors.primary}60`,
+            borderRadius: '8px',
+            background: `${colors.primary}08`,
+            pointerEvents: 'none',
+            zIndex: 998,
+            boxSizing: 'border-box',
+          }}
+        />
+      )}
+
       {uiMode === 'student' && DESKTOP_ICONS.map((icon) => {
-        const pos = iconPositions[icon.id] ?? { x: 20, y: 20 };
+        const pos = iconPositions[icon.id] ?? gridToPixel(0, 0);
         const isLocked = !isEnrolled && (icon.id === 'email' || icon.id === 'messages');
         const isAcademy = icon.id === 'academy';
+        const isIconDragging = draggingId === icon.id;
         return (
           <DraggableDesktopIcon
             key={icon.id}
             icon={icon}
             position={pos}
             isSelected={selectedIcon === icon.id}
+            isDragging={isIconDragging}
             onMouseDown={(e) => handleIconMouseDown(e, icon.id)}
             onOpen={() => openWindow(icon.id)}
             accentColors={accentColors}
