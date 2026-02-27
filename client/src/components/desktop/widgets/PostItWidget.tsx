@@ -27,7 +27,6 @@ export function PostItWidget({ primaryColor, widgetId = 'w-note' }: PostItWidget
 
   return (
     <div
-      onMouseDown={e => e.stopPropagation()}
       onClick={e => { e.stopPropagation(); if (!editing) setEditing(true); }}
       style={{
         width: 130,
@@ -74,6 +73,7 @@ export function PostItWidget({ primaryColor, widgetId = 'w-note' }: PostItWidget
           ref={textareaRef}
           value={text}
           onChange={e => setText(e.target.value)}
+          onMouseDown={e => e.stopPropagation()}
           onKeyDown={e => { if (e.key === 'Escape') handleSave(); if (e.key === 'Enter' && e.ctrlKey) handleSave(); }}
           onBlur={handleSave}
           style={{

@@ -76,7 +76,6 @@ export function RssFeedWidget({ primaryColor, accentCyan, accentAmber }: RssFeed
 
   return (
     <div
-      onMouseDown={e => e.stopPropagation()}
       onClick={e => e.stopPropagation()}
       style={{
         width: 210,

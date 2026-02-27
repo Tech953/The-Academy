@@ -71,7 +71,6 @@ export function CalendarEventsWidget({ primaryColor, accentRed, accentCyan }: Ca
 
   return (
     <div
-      onMouseDown={e => e.stopPropagation()}
       onClick={e => e.stopPropagation()}
       style={{
         width: 170,

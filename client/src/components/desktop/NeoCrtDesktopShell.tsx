@@ -945,6 +945,11 @@ export default function NeoCrtDesktopShell() {
   const [showWidgetPanel, setShowWidgetPanel] = useState(false);
   const [panelDragOver, setPanelDragOver] = useState<string | null>(null);
   const panelDragSrc = useRef<string | null>(null);
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const [panelSize, setPanelSize] = useState({ w: 340, h: 480 });
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelMoveRef = useRef<{ startMX: number; startMY: number; startX: number; startY: number } | null>(null);
+  const panelResizeRef = useRef<{ startMX: number; startMY: number; startW: number; startH: number } | null>(null);
 
   const dragRef = useRef<{
     iconId: string;
@@ -1022,6 +1027,36 @@ export default function NeoCrtDesktopShell() {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (panelMoveRef.current) {
+        const dx = e.clientX - panelMoveRef.current.startMX;
+        const dy = e.clientY - panelMoveRef.current.startMY;
+        const nx = Math.max(0, Math.min(window.innerWidth - 280, panelMoveRef.current.startX + dx));
+        const ny = Math.max(0, Math.min(window.innerHeight - 200, panelMoveRef.current.startY + dy));
+        setPanelPos({ x: nx, y: ny });
+      }
+      if (panelResizeRef.current) {
+        const dx = e.clientX - panelResizeRef.current.startMX;
+        const dy = e.clientY - panelResizeRef.current.startMY;
+        setPanelSize({
+          w: Math.max(280, Math.min(600, panelResizeRef.current.startW + dx)),
+          h: Math.max(260, Math.min(window.innerHeight - 80, panelResizeRef.current.startH + dy)),
+        });
+      }
+    };
+    const onUp = () => {
+      panelMoveRef.current = null;
+      panelResizeRef.current = null;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
     };
   }, []);
 
@@ -1818,35 +1853,49 @@ export default function NeoCrtDesktopShell() {
       {/* ── WIDGET CUSTOMIZATION PANEL ────────────────────────────────────── */}
       {showWidgetPanel && (
         <div
+          ref={panelRef}
           onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
           onContextMenu={e => e.preventDefault()}
           style={{
             position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
+            ...(panelPos
+              ? { left: panelPos.x, top: panelPos.y, transform: 'none' }
+              : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }),
             zIndex: 99500,
             background: '#080808',
             border: `1px solid ${colors.primary}80`,
             boxShadow: `0 0 40px rgba(0,0,0,0.9), 0 0 20px ${colors.primary}20`,
-            width: 340,
-            maxHeight: 'calc(90vh - 40px)',
+            width: panelSize.w,
+            height: panelSize.h,
             display: 'flex',
             flexDirection: 'column',
             fontFamily: '"Courier New", monospace',
+            userSelect: 'none',
           }}
         >
-          <div style={{
-            padding: '10px 14px', borderBottom: `1px solid ${colors.primary}30`,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
+          <div
+            onMouseDown={e => {
+              e.stopPropagation();
+              if (!panelRef.current) return;
+              const rect = panelRef.current.getBoundingClientRect();
+              panelMoveRef.current = { startMX: e.clientX, startMY: e.clientY, startX: rect.left, startY: rect.top };
+            }}
+            style={{
+              padding: '10px 14px', borderBottom: `1px solid ${colors.primary}30`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'grab', flexShrink: 0,
+            }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 'bold', color: colors.primary, letterSpacing: 1 }}>[ CUSTOMIZE WIDGETS ]</div>
+              <div style={{ fontSize: 12, fontWeight: 'bold', color: colors.primary, letterSpacing: 1 }}>
+                <span style={{ fontSize: 10, marginRight: 6, opacity: 0.5 }}>⠿</span>[ CUSTOMIZE WIDGETS ]
+              </div>
               <div style={{ fontSize: 9, color: `${colors.primary}60`, marginTop: 2 }}>
-                Drag ≡ to reorder · toggle visibility
+                Drag header to move · resize corner · toggle visibility
               </div>
             </div>
             <button
+              onMouseDown={e => e.stopPropagation()}
               onClick={() => setShowWidgetPanel(false)}
               style={{
                 background: 'transparent', border: `1px solid ${colors.primary}40`,
@@ -1985,6 +2034,23 @@ export default function NeoCrtDesktopShell() {
             >
               RESET ORDER
             </button>
+          </div>
+          <div
+            onMouseDown={e => {
+              e.stopPropagation();
+              panelResizeRef.current = { startMX: e.clientX, startMY: e.clientY, startW: panelSize.w, startH: panelSize.h };
+            }}
+            title="Drag to resize"
+            style={{
+              position: 'absolute', bottom: 0, right: 0, width: 18, height: 18,
+              cursor: 'se-resize', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
+              paddingBottom: 3, paddingRight: 3,
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <line x1="3" y1="10" x2="10" y2="3" stroke={`${colors.primary}60`} strokeWidth="1.5"/>
+              <line x1="6" y1="10" x2="10" y2="6" stroke={`${colors.primary}60`} strokeWidth="1.5"/>
+            </svg>
           </div>
         </div>
       )}
