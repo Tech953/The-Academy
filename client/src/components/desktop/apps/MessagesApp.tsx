@@ -6,7 +6,7 @@ const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
 
 export default function MessagesApp() {
-  const { messages, conversations, markMessageRead, unreadMessageCount, sendMessage, character } = useGameState();
+  const { messages, conversations, markMessageRead, unreadMessageCount, sendMessage, character, isEnrolled } = useGameState();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [replyText, setReplyText] = useState('');
 
@@ -219,6 +219,21 @@ export default function MessagesApp() {
           >
             <Send size={12} />
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isEnrolled) {
+    return (
+      <div style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"Courier New", monospace', color: NEON_GREEN, gap: '16px', padding: '24px', textAlign: 'center' }}>
+        <MessageCircle size={40} style={{ color: NEON_GREEN, opacity: 0.4 }} />
+        <div style={{ color: NEON_GREEN, fontSize: '14px', letterSpacing: '2px', textTransform: 'uppercase' }}>ChatLink</div>
+        <div style={{ color: '#555', fontSize: '11px', lineHeight: '1.8', maxWidth: '280px' }}>
+          Your message network is offline. Enroll in a class to connect with classmates, faculty, and your companion Cub.
+        </div>
+        <div style={{ color: NEON_GREEN, fontSize: '10px', opacity: 0.6, border: `1px solid ${NEON_GREEN}33`, padding: '8px 16px', letterSpacing: '1px' }}>
+          TYPE: ENROLL IN THE ACADEMY TERMINAL
         </div>
       </div>
     );

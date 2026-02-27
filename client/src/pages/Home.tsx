@@ -50,7 +50,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   const [confluenceContradictions, setConfluenceContradictions] = useState<ContradictionMap | null>(null);
   const [confluenceDepartureVector, setConfluenceDepartureVector] = useState<ConfluenceDepartureVector | null>(null);
   
-  const { addMessage, addEmail, updateCharacter, addExperience } = useGameState();
+  const { addMessage, addEmail, updateCharacter, addExperience, addEnrolledCourse, setIsGameActive } = useGameState();
   const radiantAI = useRadiantAIContext();
 
   // Helper functions
@@ -292,6 +292,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
           onComplete={(newCharacter) => {
             setCharacter(newCharacter);
             setGameStarted(true);
+            setIsGameActive(true);
           }}
         />
         {onToggleFullscreen && (
@@ -1784,6 +1785,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine('');
       addTerminalLine('Type SCHEDULE to view your class schedule.');
       addTerminalLine('Type READ [course] to access your textbook.');
+      addEnrolledCourse(String(matchingCourse.id));
       
     } catch (error) {
       addTerminalLine('Failed to access enrollment system.', 'error');

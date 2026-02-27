@@ -677,7 +677,7 @@ export default function NeoCrtDesktopShell() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { colors, accentColors, modeLabel } = useCrtTheme();
   const { unreadCount: notificationCount } = useNotificationsContext();
-  const { unreadEmailCount, unreadMessageCount } = useGameState();
+  const { unreadEmailCount, unreadMessageCount, isEnrolled } = useGameState();
   const { t } = useI18n();
   
   const [uiMode, setUiMode] = useState<UiMode>(() => {
@@ -1056,7 +1056,9 @@ export default function NeoCrtDesktopShell() {
       }}
         onClick={(e) => e.stopPropagation()}
       >
-        {SIDEBAR_ICONS.map((icon) => (
+        {SIDEBAR_ICONS.filter(icon =>
+          isEnrolled || (icon.id !== 'email' && icon.id !== 'messages')
+        ).map((icon) => (
           <SidebarIcon
             key={icon.id}
             icon={icon}

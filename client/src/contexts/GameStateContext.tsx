@@ -55,6 +55,9 @@ interface GameStateContextType {
   cubAffection: number;
   unreadEmailCount: number;
   unreadMessageCount: number;
+  enrolledCourses: string[];
+  isEnrolled: boolean;
+  isGameActive: boolean;
   updateCharacter: (updates: Partial<GameCharacter>) => void;
   addExperience: (amount: number) => void;
   setCubAffection: (value: number | ((prev: number) => number)) => void;
@@ -66,6 +69,8 @@ interface GameStateContextType {
   getConversation: (participantName: string) => Conversation | undefined;
   unlockPerk: (perkId: string) => void;
   setResonanceState: (state: 'stable' | 'unstable' | 'critical') => void;
+  addEnrolledCourse: (courseId: string) => void;
+  setIsGameActive: (active: boolean) => void;
 }
 
 const STORAGE_KEY = 'academy-game-state';
@@ -147,7 +152,7 @@ function getDefaultMessages(): DirectMessage[] {
   ];
 }
 
-function loadGameState(): { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number } {
+function loadGameState(): { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[] } {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -157,6 +162,7 @@ function loadGameState(): { character: GameCharacter; emails: Email[]; messages:
         emails: (parsed.emails || getDefaultEmails()).map((e: Email) => ({ ...e, timestamp: new Date(e.timestamp) })),
         messages: (parsed.messages || getDefaultMessages()).map((m: DirectMessage) => ({ ...m, timestamp: new Date(m.timestamp) })),
         cubAffection: parsed.cubAffection ?? 50,
+        enrolledCourses: parsed.enrolledCourses ?? [],
       };
     }
   } catch (e) {
@@ -167,10 +173,11 @@ function loadGameState(): { character: GameCharacter; emails: Email[]; messages:
     emails: getDefaultEmails(),
     messages: getDefaultMessages(),
     cubAffection: 50,
+    enrolledCourses: [],
   };
 }
 
-function saveGameState(state: { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number }): void {
+function saveGameState(state: { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[] }): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -182,6 +189,7 @@ const GameStateContext = createContext<GameStateContextType | undefined>(undefin
 
 export function GameStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(() => loadGameState());
+  const [isGameActive, setIsGameActive] = useState(false);
 
   useEffect(() => {
     saveGameState(state);
@@ -225,6 +233,15 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const addEnrolledCourse = useCallback((courseId: string) => {
+    setState(prev => ({
+      ...prev,
+      enrolledCourses: prev.enrolledCourses.includes(courseId)
+        ? prev.enrolledCourses
+        : [...prev.enrolledCourses, courseId],
+    }));
+  }, []);
+
   const addEmail = useCallback((email: Omit<Email, 'id' | 'timestamp' | 'read'>) => {
     const newEmail: Email = {
       ...email,
@@ -232,10 +249,13 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
       timestamp: new Date(),
       read: false,
     };
-    setState(prev => ({
-      ...prev,
-      emails: [newEmail, ...prev.emails],
-    }));
+    setState(prev => {
+      if (prev.enrolledCourses.length === 0) return prev;
+      return {
+        ...prev,
+        emails: [newEmail, ...prev.emails],
+      };
+    });
   }, []);
 
   const markEmailRead = useCallback((id: string) => {
@@ -252,10 +272,13 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
       timestamp: new Date(),
       read: false,
     };
-    setState(prev => ({
-      ...prev,
-      messages: [newMessage, ...prev.messages],
-    }));
+    setState(prev => {
+      if (prev.enrolledCourses.length === 0) return prev;
+      return {
+        ...prev,
+        messages: [newMessage, ...prev.messages],
+      };
+    });
   }, []);
 
   const markMessageRead = useCallback((id: string) => {
@@ -427,14 +450,19 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
   const unreadEmailCount = state.emails.filter(e => !e.read).length;
   const unreadMessageCount = state.messages.filter(m => !m.read && !m.isFromPlayer).length;
 
+  const isEnrolled = state.enrolledCourses.length > 0;
+
   const value: GameStateContextType = {
     character: state.character,
     emails: state.emails,
     messages: state.messages,
     conversations,
     cubAffection: state.cubAffection,
-    unreadEmailCount,
-    unreadMessageCount,
+    unreadEmailCount: isEnrolled ? unreadEmailCount : 0,
+    unreadMessageCount: isEnrolled ? unreadMessageCount : 0,
+    enrolledCourses: state.enrolledCourses,
+    isEnrolled,
+    isGameActive,
     updateCharacter,
     addExperience,
     setCubAffection,
@@ -446,6 +474,8 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     getConversation,
     unlockPerk,
     setResonanceState,
+    addEnrolledCourse,
+    setIsGameActive,
   };
 
   return (

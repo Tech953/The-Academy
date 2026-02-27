@@ -17,7 +17,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function AcademyEmailApp() {
-  const { emails, markEmailRead, unreadEmailCount, addEmail } = useGameState();
+  const { emails, markEmailRead, unreadEmailCount, addEmail, isEnrolled } = useGameState();
   const { t } = useI18n();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -312,6 +312,21 @@ export default function AcademyEmailApp() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!isEnrolled) {
+    return (
+      <div style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"Courier New", monospace', color: NEON_GREEN, gap: '16px', padding: '24px', textAlign: 'center' }}>
+        <Mail size={40} style={{ color: NEON_CYAN, opacity: 0.4 }} />
+        <div style={{ color: NEON_CYAN, fontSize: '14px', letterSpacing: '2px', textTransform: 'uppercase' }}>Academy Email</div>
+        <div style={{ color: '#555', fontSize: '11px', lineHeight: '1.8', maxWidth: '280px' }}>
+          Your inbox is waiting. Enroll in a class to activate Academy communications and receive emails from faculty, staff, and fellow students.
+        </div>
+        <div style={{ color: NEON_GREEN, fontSize: '10px', opacity: 0.6, border: `1px solid ${NEON_GREEN}33`, padding: '8px 16px', letterSpacing: '1px' }}>
+          TYPE: ENROLL IN THE ACADEMY TERMINAL
         </div>
       </div>
     );
