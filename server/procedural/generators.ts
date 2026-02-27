@@ -492,13 +492,33 @@ export class ProceduralGenerator {
   }
 
   private generateBackstory(name: string, roleType: string): string {
-    const templates = [
-      `${name} arrived here seeking knowledge and understanding of their abilities.`,
-      `${name} has always been drawn to places of learning and mystery.`,
-      `${name} comes from a long line of scholars and practitioners.`,
-      `${name} discovered their calling through unexpected circumstances.`,
-      `${name} seeks to unlock the secrets that lie hidden in this place.`
+    const studentTemplates = [
+      `${name} transferred here without much explanation. Their coursework suggests they have been studying independently for some time.`,
+      `${name} is the first in their family to be in a place like this. They carry that weight quietly.`,
+      `${name} applied on impulse and got in. The surprise still hasn't entirely worn off. They work hard to justify the spot.`,
+      `${name} had a mentor who shaped how they see learning. That person is gone now. ${name} keeps going in their memory.`,
+      `${name} is known for arriving at the right answer through the wrong method. Their reasoning is unconventional — but it tends to hold.`,
+      `${name} almost didn't come back after the last break. Something changed. They're here, more focused, saying less.`,
+      `${name} keeps detailed notes going back years. They've never shown them to anyone but references them constantly.`,
+      `${name} ran out of reasons to stay somewhere else and ended up here. It turned out to be the right move.`,
     ];
+    const facultyTemplates = [
+      `${name} spent years in the field before returning to education. The classroom, they decided, was where the real questions lived.`,
+      `${name} once failed spectacularly before mastering their subject. That failure is, they'll admit, their best credential.`,
+      `${name} published work at an early age that caused minor controversy. The field eventually caught up.`,
+      `${name} turned down a more prestigious position to come here. The students at this institution, they said, are worth teaching.`,
+      `${name} came to the Academy to fix something they experienced as a student — the sense that the subject had nothing to do with real life.`,
+      `${name} ran a small learning center before this. The students who failed everywhere else became the ones who surprised everyone.`,
+    ];
+    const staffTemplates = [
+      `${name} has been here longer than most of the faculty. Things that feel institutional were often ${name}'s doing, implemented quietly years ago.`,
+      `${name} could have moved on several times. They chose not to. The Academy, they'll say if pressed, has the right kind of problems.`,
+      `${name} came here after a career in a completely different field. They don't volunteer the details, and the personnel file doesn't explain it.`,
+      `${name} knows every room, every shortcut, and most of the unwritten rules. New arrivals figure out quickly that a good relationship with ${name} is useful.`,
+    ];
+    const templates = roleType === 'faculty' ? facultyTemplates
+      : roleType === 'staff' ? staffTemplates
+      : studentTemplates;
     return this.rng.choice(templates);
   }
 

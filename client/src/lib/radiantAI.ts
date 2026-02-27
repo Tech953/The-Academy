@@ -160,6 +160,9 @@ export interface NPCEntity {
   club?: ClubType;         // Extracurricular club membership
   secretSociety?: SecretSociety;  // Hidden affiliation (rare)
   mentorship?: MentorshipInfo;    // Mentor/mentee relationships
+  specialty?: string;      // Faculty academic subject or student focus area
+  quirks?: string[];       // 1-3 behavioral/personality quirks
+  backstory?: string;      // Generated biographical detail
   stats: NPCStats;
   personality: NPCPersonality;
   emotions: NPCEmotions;
@@ -295,34 +298,183 @@ export function createNPCEntity(
 // ============================================
 
 const FIRST_NAMES = [
-  'Alice', 'Bob', 'Claire', 'David', 'Eve', 'Frank', 'Gina', 'Henry',
-  'Iris', 'Jack', 'Kate', 'Leo', 'Maya', 'Noah', 'Olivia', 'Paul',
-  'Quinn', 'Riley', 'Sofia', 'Tyler', 'Uma', 'Victor', 'Wendy', 'Xavier',
-  'Yuki', 'Zara', 'Aiden', 'Bella', 'Caleb', 'Diana', 'Ethan', 'Fiona'
+  'Alice', 'Amara', 'Amelia', 'Amina', 'Arjun', 'Aria', 'Asel', 'Ash',
+  'Bashir', 'Beatriz', 'Bianca', 'Bo', 'Caleb', 'Camille', 'Chloe', 'Ciara',
+  'Clara', 'Cleo', 'Cyrus', 'Dani', 'Danielle', 'Darius', 'David', 'Diana',
+  'Elara', 'Elena', 'Elise', 'Emeka', 'Emre', 'Esme', 'Ethan', 'Eva',
+  'Fatima', 'Felix', 'Femi', 'Fiona', 'Freya', 'Gabriel', 'Gina', 'Grace',
+  'Hadley', 'Hana', 'Henry', 'Hugo', 'Ida', 'Imani', 'Iris', 'Isaac',
+  'Jada', 'Jamal', 'Jasper', 'Jordan', 'Juno', 'Kai', 'Kamau', 'Karin',
+  'Kasimir', 'Kate', 'Keiko', 'Kemi', 'Kira', 'Laila', 'Lena', 'Leo',
+  'Leona', 'Lila', 'Lior', 'Liora', 'Luca', 'Lucia', 'Malik', 'Mara',
+  'Maren', 'Marta', 'Maya', 'Mia', 'Micah', 'Min', 'Mira', 'Miriam',
+  'Naomi', 'Nate', 'Nia', 'Nicolas', 'Nneka', 'Noah', 'Noel', 'Nora',
+  'Nour', 'Nyah', 'Odin', 'Olivia', 'Omar', 'Oscar', 'Phoebe', 'Priya',
+  'Quinn', 'Rafael', 'Rania', 'Ren', 'Rhea', 'Riley', 'River', 'Roman',
+  'Rosa', 'Ryo', 'Sage', 'Sam', 'Sana', 'Santiago', 'Sara', 'Selene',
+  'Seren', 'Sia', 'Simone', 'Sofia', 'Sol', 'Sora', 'Stella', 'Suki',
+  'Tariq', 'Teo', 'Thea', 'Tilda', 'Tobias', 'Uma', 'Valencia', 'Veda',
+  'Victor', 'Wren', 'Xander', 'Xia', 'Yasmin', 'Yuki', 'Zara', 'Zoe',
 ];
 
 const LAST_NAMES = [
-  'Smith', 'Johnson', 'Lee', 'Garcia', 'Patel', 'Chen', 'Brown', 'Nguyen',
-  'Williams', 'Rodriguez', 'Martinez', 'Anderson', 'Taylor', 'Thomas', 'Moore',
-  'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Wilson', 'Clark', 'Lewis'
+  'Adeyemi', 'Afolabi', 'Ahmed', 'Akana', 'Akintola', 'Alabi', 'Almeida', 'Amara',
+  'Anderson', 'Andrade', 'Asante', 'Atkins', 'Ayala', 'Balogun', 'Baptiste', 'Barnes',
+  'Bekele', 'Bell', 'Bennett', 'Bishop', 'Blackwood', 'Bloom', 'Bowen', 'Brooks',
+  'Brown', 'Cain', 'Cardenas', 'Carter', 'Castillo', 'Celik', 'Chan', 'Chang',
+  'Chen', 'Cheng', 'Choi', 'Clarke', 'Cole', 'Coleman', 'Collins', 'Contreras',
+  'Cooper', 'Cortez', 'Costa', 'Cruz', 'Dabo', 'Dahl', 'Danso', 'Das',
+  'Davis', 'Dias', 'Diop', 'Dixon', 'Dlamini', 'Dunn', 'Ekwueme', 'Ellis',
+  'Emeka', 'Espinoza', 'Evans', 'Ferreira', 'Figueiredo', 'Flores', 'Flynn', 'Foster',
+  'Fox', 'Fujimoto', 'Garcia', 'Gomez', 'Grant', 'Greene', 'Griffin', 'Gupta',
+  'Hall', 'Hammond', 'Harris', 'Harrison', 'Hart', 'Hassan', 'Hayes', 'Hill',
+  'Holmes', 'Howard', 'Huang', 'Hughes', 'Hunt', 'Ibrahim', 'Iglesias', 'Ihejirika',
+  'Ikenna', 'Jackson', 'Jacobs', 'James', 'Jang', 'Jensen', 'Johnson', 'Jonasson',
+  'Jones', 'Jordan', 'Kadir', 'Kanu', 'Kapur', 'Kasparov', 'Kelly', 'Khan',
+  'Kim', 'King', 'Knight', 'Kowalski', 'Kumar', 'Larsson', 'Lawson', 'Lee',
+  'Lewis', 'Li', 'Lin', 'Liu', 'Lozano', 'Mabunda', 'Maduka', 'Makwela',
+  'Malik', 'Mann', 'Martin', 'Martinez', 'Mason', 'Mbeki', 'Medina', 'Mensah',
+  'Meyer', 'Miller', 'Mills', 'Mitchell', 'Moore', 'Morales', 'Morgan', 'Morris',
+  'Muhammad', 'Murphy', 'Murray', 'Ndiaye', 'Nelson', 'Nguyen', 'Nkosi', 'Nwosu',
+  'Obi', 'Ochoa', 'Oguike', 'Okeke', 'Okonkwo', 'Osei', 'Owusu', 'Ozoemena',
+  'Park', 'Parker', 'Patel', 'Perez', 'Phillips', 'Pierce', 'Pinto', 'Powell',
+  'Price', 'Ramachandran', 'Ramirez', 'Ramos', 'Reed', 'Reeves', 'Reid', 'Reyes',
+  'Roberts', 'Robinson', 'Rodriguez', 'Rowe', 'Ruiz', 'Santos', 'Serrano', 'Shah',
+  'Sharma', 'Shaw', 'Silva', 'Simmons', 'Singh', 'Smith', 'Solano', 'Soto',
+  'Souza', 'Spencer', 'Stevens', 'Stewart', 'Storey', 'Suarez', 'Sullivan', 'Suzuki',
+  'Tanaka', 'Taylor', 'Thomas', 'Thompson', 'Torres', 'Turner', 'Uche', 'Vasquez',
+  'Vega', 'Wade', 'Walker', 'Wallace', 'Wang', 'Ward', 'Warren', 'Washington',
+  'Watson', 'Webb', 'Wells', 'White', 'Williams', 'Wilson', 'Wood', 'Wright',
+  'Wu', 'Yamamoto', 'Yang', 'Yilmaz', 'Young', 'Zhang', 'Zhou', 'Zimmermann',
 ];
+
+const FACULTY_SUBJECTS = [
+  'Mathematical Reasoning', 'Language Arts & Composition', 'Physical Science',
+  'Life Science & Biology', 'Social Studies & Civics', 'United States History',
+  'World History', 'Earth & Space Science', 'Extended Mathematical Reasoning',
+  'Literary Analysis', 'Applied Mathematics', 'Economics', 'Government & Politics',
+  'Environmental Science', 'Research Methods', 'Critical Thinking & Logic',
+  'Philosophy', 'Sociology', 'Psychology', 'Statistics',
+];
+
+const STUDENT_INTERESTS = [
+  'mathematics', 'creative writing', 'visual art', 'music theory', 'biology',
+  'chemistry', 'history', 'political theory', 'computer science', 'literature',
+  'philosophy', 'economics', 'environmental studies', 'astronomy', 'film',
+  'graphic design', 'journalism', 'debate', 'theater', 'athletics',
+];
+
+const NPC_QUIRKS: string[] = [
+  'always carries a worn notebook everywhere',
+  'quotes obscure historical figures mid-sentence',
+  'hums quietly when concentrating',
+  'keeps a strict color-coding system for everything',
+  'refuses to sit with their back to a door',
+  'collects strange coins from different countries',
+  'writes reminders on their wrist instead of paper',
+  'knows the names of every plant on campus',
+  'always arrives exactly two minutes early',
+  'taps a rhythmic pattern when nervous',
+  're-reads the last page of books first',
+  'traces letters on their palm when thinking',
+  'only drinks from the same dented thermos',
+  'has a photographic memory for dialogue but forgets faces',
+  'draws tiny diagrams in the margins of everything',
+  'can tell what time it is within five minutes without a clock',
+  'corrects mispronunciations reflexively',
+  'walks a slightly different route to class each day',
+  'has a habit of finishing other people\'s sentences',
+  'collects phrases in languages they don\'t speak',
+  'doodles elaborate geometric patterns when bored',
+  'always knows when a storm is coming by feel',
+  'keeps a mental running tally of debts, favors, and promises',
+  'speaks in a lower voice when excited, not louder',
+  'always underlines in pencil, never pen',
+  'categorizes people by what kind of reader they\'d be',
+  'falls asleep instantly in any car or bus',
+  'spots typos instinctively, even upside-down',
+  'whistles complex melodies while doing repetitive tasks',
+  'has an unusual number of pencils in their bag — always sharpened',
+  'keeps a list of questions they haven\'t found answers to yet',
+  'mirrors the posture of whoever they\'re talking to',
+  'never uses contractions when stressed',
+  'always finishes their food clockwise on the plate',
+  'can hold very still for very long periods of time',
+  'speaks faster than they think and then corrects themselves mid-sentence',
+  'prefers to work standing up when possible',
+  'has an encyclopedic memory for release dates and numbers',
+  'leaves small, thoughtful gifts with no explanation',
+  'keeps a mental map of every building they enter',
+];
+
+const BACKSTORY_TEMPLATES = {
+  Teacher: [
+    (name: string, s: string) => `${name} spent a decade in the field before returning to education. Teaching ${s} was the only logical next step.`,
+    (name: string, s: string) => `After a sabbatical that took them through six countries, ${name} found that the questions students ask about ${s} are sharper than any research seminar.`,
+    (name: string, s: string) => `${name} once failed spectacularly at ${s} before mastering it. That failure, they say, is the best credential they have.`,
+    (name: string, s: string) => `${name} published a paper on ${s} at 24 that caused modest controversy. Twenty years later, the field caught up.`,
+    (name: string, s: string) => `${name} came to the Academy to fix what they experienced as a student: no one ever made ${s} feel necessary. They intend to change that.`,
+    (name: string, s: string) => `The students call ${name}'s ${s} class difficult. ${name} considers that a compliment.`,
+    (name: string, s: string) => `${name} turned down a more prestigious position to be here. The Academy's students, they said, are the ones worth teaching.`,
+    (name: string, s: string) => `Before the Academy, ${name} ran a small tutoring center. The students who failed everywhere else became the ones who surprised everyone. That pattern stuck.`,
+  ],
+  Student: [
+    (name: string, interest: string) => `${name} transferred here mid-year and hasn't fully explained why. Their notes on ${interest} suggest they've been studying it longer than the official curriculum.`,
+    (name: string, interest: string) => `${name} grew up moving between cities. The Academy is the first place that hasn't felt temporary. They pour that feeling into ${interest}.`,
+    (name: string, interest: string) => `${name} applied on a whim and got in. That surprise still hasn't fully worn off. They're quietly determined to earn the spot.`,
+    (name: string, interest: string) => `${name} had a mentor outside school who introduced them to ${interest}. That mentor is gone now. ${name} keeps studying to honor the time they had.`,
+    (name: string, interest: string) => `${name} is the first in their family to attend a school like this. They carry that weight carefully and don't talk about it much.`,
+    (name: string, interest: string) => `${name} almost didn't come back after the break. Something changed. They're back, and they seem different — more focused, quieter.`,
+    (name: string, interest: string) => `${name} is known for giving the right answer to the wrong question. Their approach to ${interest} is unconventional but it tends to work.`,
+    (name: string, interest: string) => `${name} keeps detailed journals going back three years. They've never shown them to anyone but references them constantly.`,
+    (name: string, interest: string) => `${name} runs on very little sleep and a carefully maintained schedule. Disorder in their environment becomes disorder in their thinking about ${interest}.`,
+  ],
+  Staff: [
+    (name: string, _s: string) => `${name} has been at the Academy longer than most of the faculty. Things that seem institutional are often ${name}'s doing, quietly implemented years ago.`,
+    (name: string, _s: string) => `${name} could have moved on several times. They didn't. The Academy, they'll say if pressed, has the right kind of problems.`,
+    (name: string, _s: string) => `${name} knows every room, every shortcut, and most of the unwritten rules. New arrivals tend to figure out quickly that a good relationship with ${name} is useful.`,
+    (name: string, _s: string) => `${name} came here after a career in a completely different field. The transition wasn't explained in the personnel file, and ${name} doesn't volunteer it.`,
+    (name: string, _s: string) => `${name} is genuinely interested in how people learn. Their job gives them a vantage point that most educators don't have, and they pay attention.`,
+  ],
+};
 
 const GOAL_TEMPLATES = {
   academic: [
-    'Graduate top of class', 'Ace the upcoming exam', 'Complete research project',
-    'Win science fair', 'Get perfect attendance', 'Master advanced mathematics',
-    'Publish research paper', 'Earn scholarship', 'Improve GPA'
+    'Pass the mathematical reasoning section without a calculator', 'Improve my reading comprehension scores by 15 points',
+    'Submit every assignment on time this semester', 'Ace the upcoming practice GED exam', 'Build a study group for the science unit',
+    'Finish the extended essay draft before the midterm', 'Get through the reading list Professor Vasquez assigned',
+    'Understand the essay scoring rubric well enough to teach it', 'Complete every practice problem in the math workbook',
+    'Ask for help before I fall too far behind', 'Stop guessing and start understanding the reasoning steps',
+    'Win the academic achievement award at end of term', 'Publish a short piece in the student journal',
+    'Master the order of operations once and for all', 'Audit the advanced seminar without crashing out',
+    'Identify my weakest GED domain and address it directly', 'Earn a recommendation from a faculty member',
+    'Understand how interest rates work before graduation', 'Improve my essay revision process systematically',
+    'Complete the research notebook to diploma-portfolio standard',
   ],
   social: [
-    'Make new friends', 'Win club competition', 'Lead student council',
-    'Organize campus event', 'Build study group', 'Become popular',
-    'Start new club', 'Mentor younger students', 'Win debate tournament'
+    'Make one genuine friend before the semester ends', 'Introduce myself to someone outside my usual circle',
+    'Win the inter-club debate', 'Help organize the campus cultural showcase', 'Lead a study session that actually helps people',
+    'Repair a friendship that got complicated', 'Stop being invisible in group settings',
+    'Run for a position in student council', 'Build a reputation as someone others can rely on',
+    'Find at least one person who gets my sense of humor', 'Stop drifting away from people when things get difficult',
+    'Be the person who checks in, not the one who waits to be checked on', 'Earn the respect of someone I find intimidating',
+    'Spend less time alone in the library and more time talking to people', 'Write and send the apology I\'ve been avoiding',
+    'Start a club around something I actually care about', 'Have a real conversation with my mentor',
+    'Make peace with the faction politics and stop letting it affect me', 'Get to know the staff — they notice things no one else does',
+    'Host a study dinner in the common room at least twice this term',
   ],
   personal: [
-    'Relax and destress', 'Practice a skill', 'Complete hobby project',
-    'Exercise regularly', 'Learn new instrument', 'Read more books',
-    'Improve self-confidence', 'Find work-life balance', 'Explore campus secrets'
-  ]
+    'Sleep before midnight four days a week', 'Stop catastrophizing before exams',
+    'Develop a study routine that doesn\'t collapse under pressure', 'Figure out what I actually want after this',
+    'Keep a journal for sixty days straight', 'Spend at least two hours outside every week',
+    'Learn one thing that has nothing to do with the curriculum', 'Stop apologizing for opinions I actually hold',
+    'Finish something I started last semester', 'Find out what this campus\'s secret history actually is',
+    'Get through a week without comparing myself to anyone', 'Call home more than I have been',
+    'Read one novel for pleasure, not analysis', 'Let go of the rivalry that\'s been slowing me down',
+    'Build a habit before the semester ends', 'Stop treating rest like a reward and start treating it like a requirement',
+    'Figure out where my scholarship actually came from and why', 'Write a letter to my past self from six months ago',
+    'Learn how to ask for what I need without overexplaining', 'Stop waiting to be ready and just start',
+  ],
 };
 
 const CLUB_TYPES: ClubType[] = ['Chess', 'Science', 'Drama', 'Sports', 'Art', 'Music', 'Debate', 'Literature'];
@@ -389,6 +541,22 @@ export interface NPCGeneratorOptions {
   includeSecretSociety?: boolean;
 }
 
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function pickQuirks(count: number): string[] {
+  const shuffled = [...NPC_QUIRKS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+function generateNPCBackstory(name: string, role: string, specialty: string): string {
+  const key = role === 'Teacher' ? 'Teacher' : role === 'Staff' ? 'Staff' : 'Student';
+  const templates = BACKSTORY_TEMPLATES[key as keyof typeof BACKSTORY_TEMPLATES];
+  const template = pickRandom(templates);
+  return template(name, specialty);
+}
+
 export function generateProceduralNPC(options: NPCGeneratorOptions = {}): NPCEntity {
   const id = `npc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const name = generateRandomName();
@@ -397,6 +565,20 @@ export function generateProceduralNPC(options: NPCGeneratorOptions = {}): NPCEnt
   
   const baseNPC = createNPCEntity(id, name, role, archetype, options.faction);
   
+  // Assign specialty — academic subject for faculty, interest area for students
+  const specialty = role === 'Teacher'
+    ? pickRandom(FACULTY_SUBJECTS)
+    : pickRandom(STUDENT_INTERESTS);
+  baseNPC.specialty = specialty;
+
+  // Assign 1-3 behavioral quirks weighted by personality archetype
+  const quirkCount = Math.floor(Math.random() * 2) + 1; // 1-2 (can be 3 for scholars/perfectionists)
+  const bonus = archetype === 'scholar' || archetype === 'perfectionist' ? 1 : 0;
+  baseNPC.quirks = pickQuirks(quirkCount + bonus);
+
+  // Generate a unique backstory
+  baseNPC.backstory = generateNPCBackstory(name, role, specialty);
+
   // Apply random stats
   baseNPC.stats = generateRandomStats();
   
@@ -410,11 +592,14 @@ export function generateProceduralNPC(options: NPCGeneratorOptions = {}): NPCEnt
     baseNPC.secretSociety = SECRET_SOCIETIES[Math.floor(Math.random() * SECRET_SOCIETIES.length)];
   }
   
-  // Generate goals
-  baseNPC.goals = generateRandomGoals(Math.floor(Math.random() * 2) + 1);
+  // Generate goals — more goals for driven archetypes
+  const goalCount = (archetype === 'perfectionist' || archetype === 'leader') ? 3 : Math.floor(Math.random() * 2) + 1;
+  baseNPC.goals = generateRandomGoals(goalCount);
   
-  // Random starting location
-  baseNPC.currentLocation = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+  // Starting location influenced by specialty
+  baseNPC.currentLocation = role === 'Teacher' ? pickRandom(['Office', 'Classroom', 'Library'])
+    : role === 'Staff' ? pickRandom(['Office', 'Cafeteria', 'Courtyard'])
+    : LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
   
   return baseNPC;
 }
@@ -436,15 +621,48 @@ export function generateNPCPopulation(count: number, options: NPCGeneratorOption
 export function generateSocialNetwork(npcs: NPCEntity[]): void {
   for (const npc of npcs) {
     const others = npcs.filter(o => o.id !== npc.id);
-    const connectionCount = Math.min(Math.floor(Math.random() * 4) + 1, others.length);
+    // Driven/social archetypes form more connections
+    const baseCount = (npc.role === 'Teacher') ? 3 : 2;
+    const connectionCount = Math.min(Math.floor(Math.random() * 3) + baseCount, others.length);
     
-    const shuffled = [...others].sort(() => Math.random() - 0.5);
-    const connections = shuffled.slice(0, connectionCount);
+    // Weight connection probability by shared context
+    const weighted = others.map(other => {
+      let weight = 1;
+      if (npc.club && npc.club === other.club) weight += 3;          // Strong same-club bond
+      if (npc.faction && npc.faction === other.faction) weight += 2; // Faction kinship
+      if (npc.secretSociety && npc.secretSociety === other.secretSociety) weight += 4; // Secret bond
+      if (npc.role === other.role) weight += 1;                      // Same role = more likely to interact
+      return { npc: other, weight };
+    });
+    const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
     
-    for (const other of connections) {
-      const affinity = Math.floor(Math.random() * 80) - 20;  // -20 to 60
-      const trust = Math.floor(Math.random() * 60) + 20;     // 20 to 80
-      const respect = Math.floor(Math.random() * 60) + 20;   // 20 to 80
+    const chosen = new Set<string>();
+    let attempts = 0;
+    while (chosen.size < connectionCount && attempts < others.length * 3) {
+      attempts++;
+      let rand = Math.random() * totalWeight;
+      for (const w of weighted) {
+        rand -= w.weight;
+        if (rand <= 0 && !chosen.has(w.npc.id)) {
+          chosen.add(w.npc.id);
+          break;
+        }
+      }
+    }
+    
+    for (const otherId of chosen) {
+      const other = others.find(o => o.id === otherId)!;
+      if (!other) continue;
+      
+      // Affinity influenced by shared context
+      let affinityBase = Math.floor(Math.random() * 60) - 10;  // -10 to 50
+      if (npc.club && npc.club === other.club) affinityBase += 15;
+      if (npc.faction && npc.faction === other.faction) affinityBase += 10;
+      if (npc.secretSociety && npc.secretSociety === other.secretSociety) affinityBase += 20;
+      const affinity = Math.max(-100, Math.min(100, affinityBase));
+      
+      const trust = Math.floor(Math.random() * 50) + 25;    // 25-75
+      const respect = Math.floor(Math.random() * 50) + 25;  // 25-75
       
       const existingRelationship = npc.relationships.find(r => r.targetId === other.id);
       if (!existingRelationship) {

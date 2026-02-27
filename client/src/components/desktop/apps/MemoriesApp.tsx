@@ -216,7 +216,39 @@ function MemoryDetailPanel({
             </div>
           ) : displayImage ? (
             <>
-              <img src={displayImage} alt={entry.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img
+                src={displayImage}
+                alt={entry.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  el.style.display = 'none';
+                  const parent = el.parentElement;
+                  if (parent && !parent.querySelector('.img-fallback')) {
+                    const fb = document.createElement('div');
+                    fb.className = 'img-fallback';
+                    fb.style.cssText = `
+                      position:absolute;inset:0;display:flex;flex-direction:column;
+                      align-items:center;justify-content:center;gap:8px;
+                      background:linear-gradient(135deg,#0a0a0a 0%,#0f0f0f 100%);
+                    `;
+                    fb.innerHTML = `
+                      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                        <circle cx="24" cy="24" r="22" stroke="${rarityColor}40" stroke-width="1"/>
+                        <circle cx="24" cy="24" r="16" stroke="${rarityColor}25" stroke-width="1" stroke-dasharray="4 2"/>
+                        <circle cx="24" cy="24" r="4" fill="${rarityColor}60"/>
+                        <line x1="24" y1="2" x2="24" y2="8" stroke="${rarityColor}40" stroke-width="1"/>
+                        <line x1="24" y1="40" x2="24" y2="46" stroke="${rarityColor}40" stroke-width="1"/>
+                        <line x1="2" y1="24" x2="8" y2="24" stroke="${rarityColor}40" stroke-width="1"/>
+                        <line x1="40" y1="24" x2="46" y2="24" stroke="${rarityColor}40" stroke-width="1"/>
+                      </svg>
+                      <span style="font-family:'Courier New',monospace;font-size:10px;color:${rarityColor}60;letter-spacing:1px;text-transform:uppercase">ACADEMY ARCHIVE</span>
+                      <span style="font-family:'Courier New',monospace;font-size:9px;color:#ffffff25;letter-spacing:0.5px">${entry.title}</span>
+                    `;
+                    parent.appendChild(fb);
+                  }
+                }}
+              />
               {!isCustom && (
                 <div style={{
                   position: 'absolute', bottom: 6, right: 8,

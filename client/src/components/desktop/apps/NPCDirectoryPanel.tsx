@@ -109,7 +109,8 @@ export default function NPCDirectoryPanel({ mode, onClose, onSelectNPC, alreadyC
       .filter(({ npc, status, connected }) => {
         if (search && !npc.name.toLowerCase().includes(search.toLowerCase()) &&
           !(npc.faction ?? '').toLowerCase().includes(search.toLowerCase()) &&
-          !(npc.club ?? '').toLowerCase().includes(search.toLowerCase())) return false;
+          !(npc.club ?? '').toLowerCase().includes(search.toLowerCase()) &&
+          !(npc.specialty ?? '').toLowerCase().includes(search.toLowerCase())) return false;
         if (roleFilter !== 'all' && npc.role !== roleFilter) return false;
         if (tierFilter === 'connected' && !connected) return false;
         if (tierFilter === 'available' && (connected || !status.canConnect)) return false;
@@ -155,7 +156,7 @@ export default function NPCDirectoryPanel({ mode, onClose, onSelectNPC, alreadyC
           <Search size={12} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: `${accentColor}60` }} />
           <input
             type="text"
-            placeholder="Search by name, faction, club..."
+            placeholder="Search by name, faction, club, specialty..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
@@ -252,30 +253,43 @@ export default function NPCDirectoryPanel({ mode, onClose, onSelectNPC, alreadyC
                       <Star size={9} style={{ color: NEON_AMBER, opacity: 0.7 }} />
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 9, color: getRoleColor(npc.role), letterSpacing: '0.5px' }}>
                       {getRoleLabel(npc.role)}
                     </span>
+                    {npc.specialty && (
+                      <span style={{ fontSize: 9, color: `${accentColor}80`, fontStyle: 'italic' }}>
+                        {npc.specialty}
+                      </span>
+                    )}
                     {npc.faction && (
                       <span style={{ fontSize: 9, color: NEON_PURPLE, opacity: 0.7 }}>
                         {npc.faction}
                       </span>
                     )}
                     {npc.club && (
-                      <span style={{ fontSize: 9, color: `${accentColor}60` }}>
+                      <span style={{ fontSize: 9, color: `${accentColor}50` }}>
                         {npc.club}
                       </span>
                     )}
-                    <span style={{ fontSize: 9, color: `${accentColor}40` }}>
-                      @ {npc.currentLocation}
-                    </span>
                   </div>
+                  {isHovered && npc.quirks && npc.quirks.length > 0 && (
+                    <div style={{
+                      fontSize: 8, color: '#ffffff45', marginBottom: 3,
+                      fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {npc.quirks[0]}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{ flex: 1, height: 2, background: `${accentColor}15`, position: 'relative', maxWidth: 80 }}>
                       <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${bar.pct}%`, background: bar.color, transition: 'width 0.3s' }} />
                     </div>
                     <span style={{ fontSize: 9, color: status.color, letterSpacing: '0.5px', fontWeight: 'bold' }}>
                       {status.label}
+                    </span>
+                    <span style={{ fontSize: 8, color: `${accentColor}40` }}>
+                      @ {npc.currentLocation}
                     </span>
                   </div>
                   {status.isCold && (
