@@ -12,37 +12,32 @@ import physicalStatsImg from '@assets/STAT_ICON_PROTOTYPE_2_1769387147169.png';
 import mentalStatsImg from '@assets/STAT_ICON_PROTOTYPE_3_1769387147170.png';
 import spiritualStatsImg from '@assets/STAT_ICON_PROTOTYPE_4_1769387147171.png';
 
-// All sprite sheets are 1536×1024px.
-// Physical/Mental sheets: 3 cols × 2 rows → each cell = 512×512px (square)
-// Spiritual sheet:        4 cols × 2 rows → each cell = 384×512px (portrait)
-// Main categories sheet:  3 cols × 2 rows → each cell = 512×512px (square, mascots in row 0)
+// All sprite sheets: 1536×1024px
+// Main categories sheet:  3 cols × 2 rows → cell = 512×512 (mascots in row 0)
+// Physical stats sheet:   3 cols × 2 rows → cell = 512×512
+// Mental stats sheet:     3 cols × 2 rows → cell = 512×512
+// Spiritual stats sheet:  4 cols × 2 rows → cell = 384×512 (portrait)
 const ICON_POSITIONS: Record<StatKey, {
-  row: number;
-  col: number;
-  cellW: number;  // px width of one sprite cell in the source image
-  cellH: number;  // px height of one sprite cell in the source image
+  row: number; col: number;
+  cellW: number; cellH: number;
   imageKey: 'main' | 'physical' | 'mental' | 'spiritual';
 }> = {
-  // Main category mascots — sheet: 1536×1024, grid 3×2, cell 512×512
   physical:      { row: 0, col: 0, cellW: 512, cellH: 512, imageKey: 'main' },
   mental:        { row: 0, col: 1, cellW: 512, cellH: 512, imageKey: 'main' },
   spiritual:     { row: 0, col: 2, cellW: 512, cellH: 512, imageKey: 'main' },
 
-  // Physical stats — sheet: 1536×1024, grid 3×2, cell 512×512
   quickness:     { row: 0, col: 0, cellW: 512, cellH: 512, imageKey: 'physical' },
   endurance:     { row: 0, col: 1, cellW: 512, cellH: 512, imageKey: 'physical' },
   agility:       { row: 0, col: 2, cellW: 512, cellH: 512, imageKey: 'physical' },
   speed:         { row: 1, col: 0, cellW: 512, cellH: 512, imageKey: 'physical' },
   strength:      { row: 1, col: 1, cellW: 512, cellH: 512, imageKey: 'physical' },
 
-  // Mental stats — sheet: 1536×1024, grid 3×2, cell 512×512
   mathLogic:     { row: 0, col: 0, cellW: 512, cellH: 512, imageKey: 'mental' },
   linguistic:    { row: 0, col: 1, cellW: 512, cellH: 512, imageKey: 'mental' },
   presence:      { row: 0, col: 2, cellW: 512, cellH: 512, imageKey: 'mental' },
   fortitude:     { row: 1, col: 0, cellW: 512, cellH: 512, imageKey: 'mental' },
   musicCreative: { row: 1, col: 1, cellW: 512, cellH: 512, imageKey: 'mental' },
 
-  // Spiritual stats — sheet: 1536×1024, grid 4×2, cell 384×512 (portrait)
   faith:         { row: 0, col: 0, cellW: 384, cellH: 512, imageKey: 'spiritual' },
   karma:         { row: 0, col: 1, cellW: 384, cellH: 512, imageKey: 'spiritual' },
   resonance:     { row: 0, col: 2, cellW: 384, cellH: 512, imageKey: 'spiritual' },
@@ -52,7 +47,6 @@ const ICON_POSITIONS: Record<StatKey, {
   ashe:          { row: 1, col: 3, cellW: 384, cellH: 512, imageKey: 'spiritual' },
 };
 
-// Full image dimensions (all sheets: 1536×1024)
 const IMAGE_DIMS = { w: 1536, h: 1024 };
 
 const IMAGES = {
@@ -62,7 +56,7 @@ const IMAGES = {
   spiritual: spiritualStatsImg,
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
+export const CATEGORY_COLORS: Record<string, string> = {
   physical:  '#00ff88',
   mental:    '#00ccff',
   spiritual: '#cc66ff',
@@ -76,23 +70,50 @@ function getCategoryColor(statKey: StatKey): string {
   return stat ? (CATEGORY_COLORS[stat.category] ?? '#00ff88') : '#00ff88';
 }
 
-// Display sizes — balanced for legibility without overflow
+// Display sizes
 const SIZE_PX: Record<string, number> = {
-  xxs: 28,   // compact badges (PerksViewer chips)
-  xs:  36,   // filter tabs / inline small
-  sm:  48,   // header strip mascots
-  md:  60,   // stat list rows
-  lg:  76,   // category section headers
-  xl:  96,   // detail panel
-  xxl: 120,  // hero / standalone display
+  xxs: 24,  // tiny inline (PerksViewer compact chips)
+  xs:  32,  // small (stat list rows)
+  sm:  40,  // medium-small (category headers)
+  md:  52,  // medium (detail panel secondary)
+  lg:  68,  // large (detail panel primary)
+  xl:  88,  // xlarge (hero display)
+  xxl: 112, // hero/standalone
 };
+
+// ── Sprite centering math ─────────────────────────────────────────────────────
+// The bears tend to occupy the bottom ~75% of each sprite cell.
+// We zoom in by 1/CROP (≈1.33×) so the cell is larger than the box, then
+// crop to show: horizontally centered, vertically focused on the lower portion.
+const CROP = 0.75; // fraction of the cell to reveal
+
+function computeSpritePx(displayPx: number, pos: typeof ICON_POSITIONS[StatKey]) {
+  const largerDim = Math.max(pos.cellW, pos.cellH);
+  // Scale so that CROP fraction of the larger dimension == displayPx
+  const scale = displayPx / (largerDim * CROP);
+
+  const scaledCellW = pos.cellW * scale;
+  const scaledCellH = pos.cellH * scale;
+  const scaledImageW = IMAGE_DIMS.w * scale;
+  const scaledImageH = IMAGE_DIMS.h * scale;
+
+  // Center horizontally within the cell
+  const offsetX = (displayPx - scaledCellW) / 2;
+  // Show the bottom CROP fraction vertically (crop off the empty top)
+  const yStart = scaledCellH * (1 - CROP);
+  const offsetY = -yStart;
+
+  const bpX = -(pos.col * scaledCellW) + offsetX;
+  const bpY = -(pos.row * scaledCellH) + offsetY;
+
+  return { scaledImageW, scaledImageH, bpX, bpY };
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface StatIconProps {
   statKey: StatKey;
   size?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
   showTooltip?: boolean;
-  showValue?: boolean;
-  value?: number;
   glowColor?: string;
   className?: string;
   style?: React.CSSProperties;
@@ -100,10 +121,8 @@ export interface StatIconProps {
 
 export default function StatIcon({
   statKey,
-  size = 'md',
-  showTooltip = true,
-  showValue = false,
-  value,
+  size = 'xs',
+  showTooltip = false,
   glowColor,
   className = '',
   style,
@@ -114,84 +133,55 @@ export default function StatIcon({
   if (!pos) return null;
 
   const imageSrc = IMAGES[pos.imageKey];
-  const displayPx = SIZE_PX[size] ?? 88;
+  const displayPx = SIZE_PX[size] ?? 32;
   const catColor = glowColor ?? getCategoryColor(statKey);
 
-  // ── Pixel-precise sprite positioning ─────────────────────────────────
-  // Scale so the cell HEIGHT fits exactly into the display box.
-  // This preserves aspect ratio — portrait cells get horizontal letterboxing.
-  const scale = displayPx / pos.cellH;
-  const scaledImageW = IMAGE_DIMS.w * scale;
-  const scaledImageH = IMAGE_DIMS.h * scale;
-  const cellDisplayW = pos.cellW * scale;   // may be < displayPx for portrait cells
-  const cellDisplayH = pos.cellH * scale;   // always equals displayPx
-
-  // Center portrait cells (like the 384×512 spiritual sprites) horizontally
-  const letterboxX = (displayPx - cellDisplayW) / 2;
-  const bpX = -(pos.col * cellDisplayW) + letterboxX;
-  const bpY = -(pos.row * cellDisplayH);
-  // ─────────────────────────────────────────────────────────────────────
+  const { scaledImageW, scaledImageH, bpX, bpY } = computeSpritePx(displayPx, pos);
 
   const statDef = ALL_STATS.find(s => s.id === statKey) ??
     (statKey === 'physical' || statKey === 'mental' || statKey === 'spiritual'
       ? { name: STAT_CATEGORIES[statKey as StatCategory].name, description: STAT_CATEGORIES[statKey as StatCategory].description }
       : null);
 
+  // ── Outer container — strict size, clips everything ───────────────────────
   const containerStyle: React.CSSProperties = {
     position: 'relative',
     width: displayPx,
     height: displayPx,
     flexShrink: 0,
+    overflow: 'hidden',   // ensures sprite never bleeds outside
+    border: `1px solid ${catColor}55`,
+    background: '#04040a',
+    boxShadow: isHovered
+      ? `0 0 10px ${catColor}70, inset 0 0 8px ${catColor}12`
+      : `0 0 4px ${catColor}30`,
+    transition: 'box-shadow 0.2s ease',
     ...style,
   };
 
-  const borderGlow = isHovered
-    ? `0 0 16px ${catColor}90, 0 0 4px ${catColor}60, inset 0 0 12px ${catColor}18`
-    : `0 0 8px ${catColor}40, 0 0 2px ${catColor}30, inset 0 0 6px ${catColor}0a`;
-
-  const boxStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    border: `1px solid ${catColor}60`,
-    boxShadow: borderGlow,
-    background: '#040408',
-    overflow: 'hidden',
-    position: 'relative',
-    transition: 'box-shadow 0.2s ease',
-  };
-
-  const spriteStyle: React.CSSProperties = {
+  // ── Sprite img positioned with negative margins ───────────────────────────
+  const imgStyle: React.CSSProperties = {
     position: 'absolute',
-    inset: 0,
-    backgroundImage: `url(${imageSrc})`,
-    backgroundSize: `${scaledImageW}px ${scaledImageH}px`,
-    backgroundPosition: `${bpX}px ${bpY}px`,
-    backgroundRepeat: 'no-repeat',
+    left: bpX,
+    top: bpY,
+    width: scaledImageW,
+    height: scaledImageH,
     imageRendering: 'pixelated',
     filter: isHovered
-      ? `brightness(1.3) contrast(1.1) drop-shadow(0 0 6px ${catColor}cc)`
-      : `brightness(1.05) contrast(1.05)`,
+      ? `brightness(1.25) drop-shadow(0 0 4px ${catColor}aa)`
+      : 'brightness(1.0)',
     transition: 'filter 0.2s ease',
+    pointerEvents: 'none',
+    userSelect: 'none',
   };
 
-  // CRT scanline overlay — subtle alternating lines for retro feel
+  // CRT scanlines overlaid on top of the sprite
   const scanlineStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
-    background: 'repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.18) 1px, rgba(0,0,0,0.18) 2px)',
+    background: 'repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.20) 1px, rgba(0,0,0,0.20) 2px)',
     pointerEvents: 'none',
     zIndex: 2,
-  };
-
-  // Hover color wash
-  const hoverWashStyle: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
-    background: `${catColor}10`,
-    pointerEvents: 'none',
-    zIndex: 3,
-    opacity: isHovered ? 1 : 0,
-    transition: 'opacity 0.2s ease',
   };
 
   return (
@@ -201,125 +191,37 @@ export default function StatIcon({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div style={boxStyle}>
-        <div style={spriteStyle} />
-        <div style={scanlineStyle} />
-        <div style={hoverWashStyle} />
-      </div>
-
-      {showValue && value !== undefined && (
-        <div style={{
-          position: 'absolute', bottom: -5, right: -5,
-          background: '#060609',
-          border: `1px solid ${catColor}70`,
-          borderRadius: 3,
-          padding: '1px 5px',
-          fontSize: Math.max(9, displayPx * 0.18),
-          fontFamily: '"Courier New", monospace',
-          color: catColor,
-          fontWeight: 'bold',
-          lineHeight: 1.3,
-          zIndex: 10,
-          boxShadow: `0 0 6px ${catColor}40`,
-        }}>
-          {value}
-        </div>
-      )}
+      <img
+        src={imageSrc}
+        alt={statDef?.name ?? statKey}
+        draggable={false}
+        style={imgStyle}
+      />
+      <div style={scanlineStyle} />
 
       {showTooltip && statDef && isHovered && (
         <div style={{
           position: 'absolute', bottom: '100%', left: '50%',
           transform: 'translateX(-50%)',
           marginBottom: 8,
-          background: '#08080f',
+          background: '#06060f',
           border: `1px solid ${catColor}50`,
-          borderRadius: 4,
-          padding: '9px 12px',
-          boxShadow: `0 0 20px #00000090, 0 0 10px ${catColor}20`,
+          borderRadius: 3,
+          padding: '8px 12px',
+          boxShadow: `0 4px 20px #00000090, 0 0 10px ${catColor}18`,
           zIndex: 9999,
-          width: 190,
+          width: 180,
           pointerEvents: 'none',
-          whiteSpace: 'normal',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 'bold', color: catColor, marginBottom: 4, fontFamily: '"Courier New", monospace', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 10, fontWeight: 'bold', color: catColor, marginBottom: 3, fontFamily: '"Courier New", monospace', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             {statDef.name}
           </div>
-          <div style={{ fontSize: 10, color: '#ffffff65', lineHeight: 1.6 }}>{statDef.description}</div>
-          {value !== undefined && (
-            <div style={{ marginTop: 6, fontSize: 11, color: catColor, fontFamily: '"Courier New", monospace', fontWeight: 'bold' }}>
-              VALUE: {value}
-            </div>
-          )}
+          <div style={{ fontSize: 9, color: '#ffffff60', lineHeight: 1.6 }}>{statDef.description}</div>
         </div>
       )}
     </div>
   );
 }
 
-// ── Category header icon + label ──────────────────────────────────────────────
-interface StatCategoryHeaderProps {
-  category: StatCategory;
-  total?: number;
-  className?: string;
-}
-
-export function StatCategoryHeader({ category, total, className = '' }: StatCategoryHeaderProps) {
-  const categoryInfo = STAT_CATEGORIES[category];
-  const catColor = CATEGORY_COLORS[category] ?? '#00ff88';
-  return (
-    <div className={className} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <StatIcon statKey={category} size="lg" showTooltip={false} glowColor={catColor} />
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 12, fontFamily: '"Courier New", monospace', color: catColor, fontWeight: 'bold', letterSpacing: '0.5px' }}>
-          {categoryInfo.name}
-        </div>
-        <div style={{ fontSize: 10, color: '#ffffff50' }}>{categoryInfo.description}</div>
-      </div>
-      {total !== undefined && (
-        <div style={{ fontSize: 11, fontFamily: '"Courier New", monospace', color: catColor, background: `${catColor}12`, border: `1px solid ${catColor}30`, borderRadius: 3, padding: '2px 8px' }}>
-          {total}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Compact stat row (sidebar panels) ────────────────────────────────────────
-interface StatRowProps {
-  stat: StatDefinition;
-  value: number;
-  maxValue?: number;
-  showBar?: boolean;
-  compact?: boolean;
-}
-
-export function StatRow({ stat, value, maxValue = 100, showBar = true, compact = false }: StatRowProps) {
-  const catColor = CATEGORY_COLORS[stat.category] ?? '#00ff88';
-  const barPct = Math.min((value / maxValue) * 100, 100);
-
-  if (compact) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-        <span style={{ color: '#ffffff50', width: 28, fontFamily: '"Courier New", monospace' }}>{stat.abbreviation}</span>
-        <span style={{ fontFamily: '"Courier New", monospace', color: catColor }}>{value}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
-      <StatIcon statKey={stat.iconKey as StatKey} size="sm" showTooltip />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginBottom: 2 }}>
-          <span style={{ color: '#ffffffcc', fontFamily: '"Courier New", monospace' }}>{stat.name}</span>
-          <span style={{ color: catColor, fontFamily: '"Courier New", monospace', fontWeight: 'bold' }}>{value}</span>
-        </div>
-        {showBar && (
-          <div style={{ height: 4, background: '#111', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ width: `${barPct}%`, height: '100%', background: `linear-gradient(90deg, ${catColor}60, ${catColor})`, transition: 'width 0.3s ease' }} />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+// ── Lightweight exports for use outside CharacterStatsApp ─────────────────────
+export { CATEGORY_COLORS as StatCategoryColors };

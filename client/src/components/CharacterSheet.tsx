@@ -14,7 +14,7 @@ import {
   type FullCharacterStats,
   type StatCategory
 } from '@shared/stats';
-import StatIcon, { StatCategoryHeader, StatRow } from '@/components/ui/stat-icon';
+import StatIcon from '@/components/ui/stat-icon';
 import BearMascot, { type BearAnimation } from '@/components/BearMascot';
 import { useState } from 'react';
 
@@ -177,13 +177,19 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
             </div>
             {expandedCategory === 'physical' && (
               <div className="p-2 space-y-1 bg-green-500/5">
-                {PHYSICAL_STATS.map(stat => (
-                  <StatRow 
-                    key={stat.id}
-                    stat={stat}
-                    value={fullStats[stat.id as keyof FullCharacterStats] as number}
-                  />
-                ))}
+                {PHYSICAL_STATS.map(stat => {
+                  const v = (fullStats[stat.id as keyof FullCharacterStats] as number) ?? 10;
+                  return (
+                    <div key={stat.id} className="flex items-center gap-2">
+                      <StatIcon statKey={stat.iconKey as any} size="xxs" showTooltip={false} />
+                      <span className="text-xs font-mono text-green-300 w-24 truncate">{stat.name}</span>
+                      <div className="flex-1 h-1.5 bg-black/40 rounded overflow-hidden">
+                        <div className="h-full bg-green-500/70" style={{ width: `${Math.min(v, 100)}%` }} />
+                      </div>
+                      <span className="text-xs font-mono text-green-400 w-6 text-right">{v}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -209,13 +215,19 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
             </div>
             {expandedCategory === 'mental' && (
               <div className="p-2 space-y-1 bg-blue-500/5">
-                {MENTAL_STATS.map(stat => (
-                  <StatRow 
-                    key={stat.id}
-                    stat={stat}
-                    value={fullStats[stat.id as keyof FullCharacterStats] as number}
-                  />
-                ))}
+                {MENTAL_STATS.map(stat => {
+                  const v = (fullStats[stat.id as keyof FullCharacterStats] as number) ?? 10;
+                  return (
+                    <div key={stat.id} className="flex items-center gap-2">
+                      <StatIcon statKey={stat.iconKey as any} size="xxs" showTooltip={false} />
+                      <span className="text-xs font-mono text-blue-300 w-24 truncate">{stat.name}</span>
+                      <div className="flex-1 h-1.5 bg-black/40 rounded overflow-hidden">
+                        <div className="h-full bg-blue-500/70" style={{ width: `${Math.min(v, 100)}%` }} />
+                      </div>
+                      <span className="text-xs font-mono text-blue-400 w-6 text-right">{v}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -241,13 +253,19 @@ export default function CharacterSheet({ character, className = "" }: CharacterS
             </div>
             {expandedCategory === 'spiritual' && (
               <div className="p-2 space-y-1 bg-purple-500/5">
-                {SPIRITUAL_STATS.map(stat => (
-                  <StatRow 
-                    key={stat.id}
-                    stat={stat}
-                    value={fullStats[stat.id as keyof FullCharacterStats] as number}
-                  />
-                ))}
+                {SPIRITUAL_STATS.map(stat => {
+                  const v = (fullStats[stat.id as keyof FullCharacterStats] as number) ?? 10;
+                  return (
+                    <div key={stat.id} className="flex items-center gap-2">
+                      <StatIcon statKey={stat.iconKey as any} size="xxs" showTooltip={false} />
+                      <span className="text-xs font-mono text-purple-300 w-24 truncate">{stat.name}</span>
+                      <div className="flex-1 h-1.5 bg-black/40 rounded overflow-hidden">
+                        <div className="h-full bg-purple-500/70" style={{ width: `${Math.min(v, 100)}%` }} />
+                      </div>
+                      <span className="text-xs font-mono text-purple-400 w-6 text-right">{v}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
