@@ -69,21 +69,43 @@ interface DesktopIconConfig {
   colorKey: ColorKey;
 }
 
-const SIDEBAR_ICONS: DesktopIconConfig[] = [
-  { id: 'email', iconType: 'email', labelKey: 'desktop.email', colorKey: 'cyan' },
-  { id: 'messages', iconType: 'messages', labelKey: 'desktop.messages', colorKey: 'green' },
-  { id: 'assignments', iconType: 'assignments', labelKey: 'desktop.assignments', colorKey: 'amber' },
-  { id: 'perks', iconType: 'perks', labelKey: 'desktop.perks', colorKey: 'purple' },
-  { id: 'resonance', iconType: 'resonance', labelKey: 'desktop.resonance', colorKey: 'purple' },
-  { id: 'skillgraph', iconType: 'skillgraph', labelKey: 'desktop.skillgraph', colorKey: 'purple' },
-  { id: 'notebook', iconType: 'notebook', labelKey: 'desktop.notebook', colorKey: 'cyan' },
-  { id: 'progress', iconType: 'progress', labelKey: 'desktop.progress', colorKey: 'green' },
-  { id: 'schedule', iconType: 'schedule', labelKey: 'desktop.schedule', colorKey: 'amber' },
-  { id: 'schoolfiles', iconType: 'schoolfiles', labelKey: 'desktop.schoolfiles', colorKey: 'cyan' },
-  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink' },
-  { id: 'cub', iconType: 'cub', labelKey: 'desktop.cub', colorKey: 'pink' },
-  { id: 'settings', iconType: 'settings', labelKey: 'desktop.settings', colorKey: 'green' },
+const SIDEBAR_GROUPS: { label: string; icons: DesktopIconConfig[] }[] = [
+  {
+    label: 'COMMS',
+    icons: [
+      { id: 'email', iconType: 'email', labelKey: 'desktop.email', colorKey: 'cyan' },
+      { id: 'messages', iconType: 'messages', labelKey: 'desktop.messages', colorKey: 'green' },
+    ],
+  },
+  {
+    label: 'ACADEMIC',
+    icons: [
+      { id: 'assignments', iconType: 'assignments', labelKey: 'desktop.assignments', colorKey: 'amber' },
+      { id: 'schedule', iconType: 'schedule', labelKey: 'desktop.schedule', colorKey: 'amber' },
+      { id: 'notebook', iconType: 'notebook', labelKey: 'desktop.notebook', colorKey: 'cyan' },
+      { id: 'progress', iconType: 'progress', labelKey: 'desktop.progress', colorKey: 'green' },
+    ],
+  },
+  {
+    label: 'CHARACTER',
+    icons: [
+      { id: 'perks', iconType: 'perks', labelKey: 'desktop.perks', colorKey: 'purple' },
+      { id: 'skillgraph', iconType: 'skillgraph', labelKey: 'desktop.skillgraph', colorKey: 'purple' },
+      { id: 'resonance', iconType: 'resonance', labelKey: 'desktop.resonance', colorKey: 'purple' },
+      { id: 'cub', iconType: 'cub', labelKey: 'desktop.cub', colorKey: 'pink' },
+    ],
+  },
+  {
+    label: 'FILES',
+    icons: [
+      { id: 'schoolfiles', iconType: 'schoolfiles', labelKey: 'desktop.schoolfiles', colorKey: 'cyan' },
+      { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink' },
+      { id: 'settings', iconType: 'settings', labelKey: 'desktop.settings', colorKey: 'green' },
+    ],
+  },
 ];
+
+const SIDEBAR_ICONS: DesktopIconConfig[] = SIDEBAR_GROUPS.flatMap(g => g.icons);
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
   { id: 'academy', iconType: 'academy', labelKey: 'desktop.academy', colorKey: 'green' },
@@ -141,6 +163,7 @@ const SidebarIcon = memo(function SidebarIcon({
   accentColors,
   badgeCount = 0,
   label,
+  locked = false,
 }: { 
   icon: DesktopIconConfig;
   isSelected: boolean;
@@ -149,62 +172,85 @@ const SidebarIcon = memo(function SidebarIcon({
   accentColors: AccentColors;
   badgeCount?: number;
   label: string;
+  locked?: boolean;
 }) {
-  const color = accentColors[icon.colorKey];
+  const color = locked ? '#333' : accentColors[icon.colorKey];
+  const activeColor = accentColors[icon.colorKey];
   return (
     <button
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className="neo-crt-sidebar-icon"
+      title={locked ? `${label} — enroll in a class to unlock` : label}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '8px',
-        padding: '16px 20px',
-        background: isSelected ? `${color}26` : 'transparent',
-        border: 'none',
+        gap: '4px',
+        padding: '7px 10px',
+        background: isSelected ? `${activeColor}20` : 'transparent',
+        border: isSelected ? `1px solid ${activeColor}30` : '1px solid transparent',
+        borderRadius: '6px',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.2s ease',
         position: 'relative',
+        opacity: locked ? 0.35 : 1,
+        width: '72px',
       }}
     >
       <div style={{
-        filter: `drop-shadow(0 0 8px ${color})`,
-        transition: 'filter 0.3s ease',
+        filter: locked ? 'none' : `drop-shadow(0 0 6px ${color}80)`,
+        transition: 'filter 0.2s ease',
         position: 'relative',
       }}>
-        {getNeoCrtIcon(icon.iconType, 32, color)}
-        {badgeCount > 0 && (
+        {getNeoCrtIcon(icon.iconType, 20, color)}
+        {!locked && badgeCount > 0 && (
           <div style={{
             position: 'absolute',
-            top: '-6px',
-            right: '-6px',
+            top: '-5px',
+            right: '-7px',
             background: accentColors.red,
             color: '#000',
-            fontSize: '9px',
+            fontSize: '8px',
             fontWeight: 'bold',
-            minWidth: '16px',
-            height: '16px',
-            borderRadius: '8px',
+            minWidth: '14px',
+            height: '14px',
+            borderRadius: '7px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontFamily: '"Courier New", monospace',
-            boxShadow: `0 0 8px ${accentColors.red}`,
+            boxShadow: `0 0 6px ${accentColors.red}`,
           }}>
             {badgeCount > 9 ? '9+' : badgeCount}
+          </div>
+        )}
+        {locked && (
+          <div style={{
+            position: 'absolute',
+            bottom: '-3px',
+            right: '-5px',
+            fontSize: '9px',
+            lineHeight: 1,
+            color: '#555',
+          }}>
+            ⚿
           </div>
         )}
       </div>
       <span style={{
         color: color,
-        fontFamily: '"Press Start 2P", "Courier New", monospace',
-        fontSize: '10px',
-        fontWeight: 'bold',
-        letterSpacing: '1px',
-        textShadow: `0 0 10px ${color}`,
-        transition: 'color 0.3s ease, text-shadow 0.3s ease',
+        fontFamily: '"Courier New", monospace',
+        fontSize: '7px',
+        letterSpacing: '0.5px',
+        textTransform: 'uppercase',
+        textAlign: 'center',
+        lineHeight: '1.2',
+        maxWidth: '64px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        transition: 'color 0.2s ease',
       }}>
         {label}
       </span>
@@ -1044,61 +1090,90 @@ export default function NeoCrtDesktopShell() {
       {uiMode === 'student' && (
       <div style={{
         position: 'absolute',
-        top: viewport.height < 600 ? '15px' : '30px',
-        left: viewport.width < 800 ? '15px' : '30px',
+        top: viewport.height < 600 ? '12px' : '20px',
+        left: viewport.width < 800 ? '10px' : '16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: viewport.height < 600 ? '12px' : '20px',
+        gap: '6px',
         zIndex: 10,
-        maxHeight: 'calc(100vh - 140px)',
+        maxHeight: 'calc(100vh - 120px)',
         overflowY: 'auto',
         overflowX: 'hidden',
+        padding: '4px 0',
       }}
         onClick={(e) => e.stopPropagation()}
       >
-        {SIDEBAR_ICONS.filter(icon =>
-          isEnrolled || (icon.id !== 'email' && icon.id !== 'messages')
-        ).map((icon) => (
-          <SidebarIcon
-            key={icon.id}
-            icon={icon}
-            isSelected={selectedIcon === icon.id}
-            onClick={() => { setSelectedIcon(icon.id); openWindow(icon.id); }}
-            onDoubleClick={() => openWindow(icon.id)}
-            accentColors={accentColors}
-            badgeCount={
-              icon.id === 'email' ? unreadEmailCount :
-              icon.id === 'messages' ? unreadMessageCount : 0
-            }
-            label={t(icon.labelKey)}
-          />
+        {SIDEBAR_GROUPS.map((group, gi) => (
+          <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {gi > 0 && (
+              <div style={{
+                height: '1px',
+                background: `${colors.primary}20`,
+                margin: '4px 8px',
+              }} />
+            )}
+            <div style={{
+              fontSize: '6px',
+              color: `${colors.primary}60`,
+              fontFamily: '"Courier New", monospace',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              padding: '0 8px 2px',
+            }}>
+              {group.label}
+            </div>
+            {group.icons.map((icon) => {
+              const isLocked = !isEnrolled && (icon.id === 'email' || icon.id === 'messages');
+              return (
+                <SidebarIcon
+                  key={icon.id}
+                  icon={icon}
+                  isSelected={selectedIcon === icon.id}
+                  onClick={() => { setSelectedIcon(icon.id); openWindow(icon.id); }}
+                  onDoubleClick={() => openWindow(icon.id)}
+                  accentColors={accentColors}
+                  badgeCount={
+                    icon.id === 'email' ? unreadEmailCount :
+                    icon.id === 'messages' ? unreadMessageCount : 0
+                  }
+                  label={t(icon.labelKey)}
+                  locked={isLocked}
+                />
+              );
+            })}
+          </div>
         ))}
         
-        <div style={{ height: '20px' }} />
-        
+        <div style={{
+          height: '1px',
+          background: `${colors.primary}20`,
+          margin: '4px 8px',
+        }} />
+
         <div 
           style={{
             position: 'relative',
             padding: '4px',
-            border: `2px solid ${colors.primary}`,
-            borderRadius: '8px',
-            background: `${colors.primary}08`,
-            boxShadow: `0 0 20px ${colors.primaryGlow}, inset 0 0 10px ${colors.primary}10`,
+            border: `1px solid ${colors.primary}60`,
+            borderRadius: '6px',
+            background: `${colors.primary}06`,
+            boxShadow: `0 0 12px ${colors.primaryGlow}60`,
             animation: 'pulse-glow 2s ease-in-out infinite',
             transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
           }}
         >
           <div style={{
             position: 'absolute',
-            top: '-12px',
+            top: '-9px',
             left: '50%',
             transform: 'translateX(-50%)',
             background: colors.background,
-            padding: '2px 8px',
-            fontSize: '8px',
+            padding: '1px 6px',
+            fontSize: '6px',
             color: colors.primary,
             fontFamily: '"Courier New", monospace',
-            letterSpacing: '1px',
+            letterSpacing: '1.5px',
             textShadow: `0 0 5px ${colors.primary}`,
             whiteSpace: 'nowrap',
             transition: 'color 0.5s ease, background 0.5s ease',
