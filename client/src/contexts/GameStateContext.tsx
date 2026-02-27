@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
+import { earnMemory } from '@/lib/memoriesStore';
 import { FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
 
@@ -451,6 +452,32 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
   const unreadMessageCount = state.messages.filter(m => !m.read && !m.isFromPlayer).length;
 
   const isEnrolled = state.enrolledCourses.length > 0;
+
+  useEffect(() => {
+    earnMemory('first_boot');
+  }, []);
+
+  useEffect(() => {
+    const name = state.character.name;
+    if (name && name !== 'New Student' && name !== '') {
+      earnMemory('character_created');
+    }
+  }, [state.character.name]);
+
+  useEffect(() => {
+    const n = state.enrolledCourses.length;
+    if (n >= 1) earnMemory('first_enroll');
+    if (n >= 3) earnMemory('three_courses');
+    if (n >= 5) earnMemory('five_courses');
+  }, [state.enrolledCourses.length]);
+
+  useEffect(() => {
+    if (state.character.level >= 5) earnMemory('level_5');
+  }, [state.character.level]);
+
+  useEffect(() => {
+    if (state.cubAffection >= 100) earnMemory('cub_bond');
+  }, [state.cubAffection]);
 
   const value: GameStateContextType = {
     character: state.character,

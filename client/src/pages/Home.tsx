@@ -12,6 +12,7 @@ import { i18nManager } from '@/lib/i18n';
 import { glossaryManager } from '@/lib/glossary';
 import { localizedContentManager } from '@/lib/localizedContent';
 import { useGameState } from '@/contexts/GameStateContext';
+import { earnMemory } from '@/lib/memoriesStore';
 import { useRadiantAIContext } from '@/contexts/RadiantAIContext';
 import { getEmotionalState } from '@/lib/radiantAI';
 import {
@@ -621,6 +622,8 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       addTerminalLine(`> ${command}`, 'command');
       return; // Silently ignore empty commands
     }
+
+    earnMemory('first_command');
     
     // Intercept commands during Confluence Hall graduation ceremony
     if (inGraduationCeremony && confluenceState) {

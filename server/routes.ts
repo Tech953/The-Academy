@@ -733,6 +733,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/memories/visualize", async (req, res) => {
+    try {
+      const { memoryId, prompt } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ error: "prompt is required" });
+      }
+      const fullPrompt = `${prompt}. Style: retro-futuristic Academy RPG, Neo-CRT green terminal aesthetic, dark background, neon accents, cinematic quality, detailed illustration.`;
+      const response = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: fullPrompt,
+        size: "1024x1024",
+      });
+      const b64 = response.data?.[0]?.b64_json;
+      if (!b64) {
+        return res.status(500).json({ error: "No image returned from generation" });
+      }
+      res.json({ imageDataUrl: `data:image/png;base64,${b64}`, memoryId });
+    } catch (err: any) {
+      console.error("Memory visualization error:", err);
+      res.status(500).json({ error: err.message ?? "Visualization failed" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

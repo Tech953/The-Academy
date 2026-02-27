@@ -14,6 +14,7 @@ import AcademyEmailApp from './apps/AcademyEmailApp';
 import MessagesApp from './apps/MessagesApp';
 import PersonalProfileApp from './apps/PersonalProfileApp';
 import { FileManagerApp } from './apps/FileManagerApp';
+import MemoriesApp from './apps/MemoriesApp';
 import { ResearchNotebookApp } from './apps/ResearchNotebookApp';
 import { SkillGraphApp } from './apps/SkillGraphApp';
 import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
@@ -556,129 +557,6 @@ const TaskbarIcon = memo(function TaskbarIcon({
   );
 });
 
-interface Memory {
-  id: string;
-  title: string;
-  description: string;
-  timestamp: Date;
-  type: 'achievement' | 'relationship' | 'discovery' | 'milestone';
-}
-
-function MemoriesApp({ accentColors }: { accentColors: AccentColors }) {
-  const { t } = useI18n();
-  const [memories] = useState<Memory[]>([
-    { id: '1', title: 'First Day at The Academy', description: 'Arrived at the gates, unsure what awaited inside...', timestamp: new Date(), type: 'milestone' },
-    { id: '2', title: 'Met Cub', description: 'The little polar bear mascot became your guide.', timestamp: new Date(), type: 'relationship' },
-    { id: '3', title: 'Library Discovery', description: 'Found a hidden section in the archives.', timestamp: new Date(), type: 'discovery' },
-  ]);
-
-  const getTypeColor = (type: Memory['type']) => {
-    switch (type) {
-      case 'achievement': return accentColors.amber;
-      case 'relationship': return accentColors.pink;
-      case 'discovery': return accentColors.cyan;
-      case 'milestone': return accentColors.green;
-      default: return accentColors.green;
-    }
-  };
-
-  return (
-    <div style={{ 
-      padding: '20px', 
-      color: accentColors.pink, 
-      fontFamily: 'monospace', 
-      height: '100%', 
-      overflow: 'auto',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #111 100%)'
-    }}>
-      <h2 style={{ 
-        borderBottom: `1px solid ${accentColors.pink}40`, 
-        paddingBottom: '10px', 
-        whiteSpace: 'nowrap',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px'
-      }}>
-        <Camera size={20} />
-        {t('desktop.taskbar.polaroidMemories')}
-      </h2>
-      <p style={{ opacity: 0.6, fontSize: '11px', marginTop: '10px' }}>
-        {t('desktop.taskbar.memoriesDesc')}
-      </p>
-      
-      <div style={{ 
-        marginTop: '20px', 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-        gap: '15px' 
-      }}>
-        {memories.map((memory) => (
-          <div 
-            key={memory.id}
-            style={{ 
-              background: '#1a1a1a', 
-              border: `2px solid ${getTypeColor(memory.type)}40`,
-              borderRadius: '4px',
-              padding: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: `0 4px 12px ${getTypeColor(memory.type)}20`,
-            }}
-          >
-            <div style={{
-              width: '100%',
-              height: '80px',
-              background: `linear-gradient(135deg, ${getTypeColor(memory.type)}20, transparent)`,
-              borderRadius: '2px',
-              marginBottom: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid ${getTypeColor(memory.type)}30`,
-            }}>
-              <Camera size={24} color={getTypeColor(memory.type)} style={{ opacity: 0.5 }} />
-            </div>
-            <div style={{ 
-              fontSize: '10px', 
-              fontWeight: 'bold', 
-              color: getTypeColor(memory.type),
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: '4px'
-            }}>
-              {memory.title}
-            </div>
-            <div style={{ 
-              fontSize: '9px', 
-              color: '#888',
-              lineHeight: '1.3'
-            }}>
-              {memory.description}
-            </div>
-          </div>
-        ))}
-        
-        <div style={{ 
-          border: `2px dashed ${accentColors.pink}30`,
-          borderRadius: '4px',
-          padding: '12px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '130px',
-          opacity: 0.5,
-          cursor: 'not-allowed'
-        }}>
-          <Camera size={24} color={accentColors.pink} />
-          <span style={{ fontSize: '9px', marginTop: '8px', textAlign: 'center' }}>
-            More memories await...
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function NotificationBadge({ count, color }: { count: number; color: string }) {
   if (count === 0) return null;
@@ -1354,8 +1232,8 @@ export default function NeoCrtDesktopShell() {
         };
       case 'memories':
         return { 
-          component: <MemoriesApp accentColors={accentColors} />, 
-          title: 'Polaroid Memories', 
+          component: <MemoriesApp />, 
+          title: 'Academy Chronicle', 
           width: 480, 
           height: 450,
           minWidth: 350,

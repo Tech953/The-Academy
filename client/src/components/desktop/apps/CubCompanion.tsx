@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Heart, Sparkles, MessageCircle, Star, Coffee, Book, Smile, HelpCircle, Moon, Zap, Brain, LucideIcon } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 import { useGameState } from '@/contexts/GameStateContext';
+import { earnMemory } from '@/lib/memoriesStore';
 
 interface CubMood {
   name: string;
@@ -43,6 +44,10 @@ export default function CubCompanion() {
   const [isAnimating, setIsAnimating] = useState(false);
   const affection = cubAffection;
   const setAffection = setCubAffection;
+
+  useEffect(() => {
+    earnMemory('met_cub');
+  }, []);
 
   useEffect(() => {
     const moodInterval = setInterval(() => {
