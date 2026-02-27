@@ -820,7 +820,8 @@ export type UiMode = 'legacy' | 'student';
 export default function NeoCrtDesktopShell() {
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
-  const [nextZIndex, setNextZIndex] = useState(100);
+  const nextZIndexRef = useRef(100);
+  const claimZ = () => { nextZIndexRef.current += 1; return nextZIndexRef.current; };
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [academyFullscreen, setAcademyFullscreen] = useState(false);
@@ -1239,11 +1240,11 @@ export default function NeoCrtDesktopShell() {
   const openWindowWithParams = useCallback((windowId: string, appId: string, params: Record<string, unknown>) => {
     const existingWindow = windows.find(w => w.id === windowId);
     if (existingWindow) {
+      const z = claimZ();
       setWindows(prev => prev.map(w =>
-        w.id === windowId ? { ...w, isMinimized: false, zIndex: nextZIndex } : w
+        w.id === windowId ? { ...w, isMinimized: false, zIndex: z } : w
       ));
       setFocusedWindowId(windowId);
-      setNextZIndex(prev => prev + 1);
       return;
     }
     const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId, params);
@@ -1258,13 +1259,13 @@ export default function NeoCrtDesktopShell() {
     const offsetY = (windows.length % 5) * 25;
     const x = Math.max(sidebarWidth + 10, Math.min(centerX + offsetX, viewport.width - width - 20));
     const y = Math.max(10, Math.min(centerY + offsetY, viewport.height - height - taskbarHeight - 20));
+    const z = claimZ();
     setWindows(prev => [...prev, {
       id: windowId, title, iconType: iconConfig?.iconType || 'file', component,
-      x, y, width, height, minWidth, minHeight, isMinimized: false, isMaximized: false, zIndex: nextZIndex,
+      x, y, width, height, minWidth, minHeight, isMinimized: false, isMaximized: false, zIndex: z,
     }]);
     setFocusedWindowId(windowId);
-    setNextZIndex(prev => prev + 1);
-  }, [windows, nextZIndex, viewport]);
+  }, [windows, viewport]);
 
   const openWindow = useCallback((appId: string) => {
     if (appId === 'academy') {
@@ -1274,13 +1275,13 @@ export default function NeoCrtDesktopShell() {
 
     const existingWindow = windows.find(w => w.id === appId);
     if (existingWindow) {
+      const z = claimZ();
       setWindows(prev => prev.map(w => 
         w.id === appId 
-          ? { ...w, isMinimized: false, zIndex: nextZIndex }
+          ? { ...w, isMinimized: false, zIndex: z }
           : w
       ));
       setFocusedWindowId(appId);
-      setNextZIndex(prev => prev + 1);
       return;
     }
 
@@ -1301,6 +1302,7 @@ export default function NeoCrtDesktopShell() {
     const x = Math.max(sidebarWidth + 10, Math.min(centerX + offsetX, viewport.width - width - 20));
     const y = Math.max(10, Math.min(centerY + offsetY, viewport.height - height - taskbarHeight - 20));
 
+    const z = claimZ();
     const newWindow: WindowState = {
       id: appId,
       title,
@@ -1314,13 +1316,12 @@ export default function NeoCrtDesktopShell() {
       minHeight,
       isMinimized: false,
       isMaximized: false,
-      zIndex: nextZIndex,
+      zIndex: z,
     };
 
     setWindows(prev => [...prev, newWindow]);
     setFocusedWindowId(appId);
-    setNextZIndex(prev => prev + 1);
-  }, [windows, nextZIndex, viewport]);
+  }, [windows, viewport]);
 
   const closeWindow = useCallback((id: string) => {
     setWindows(prev => prev.filter(w => w.id !== id));
@@ -1337,10 +1338,10 @@ export default function NeoCrtDesktopShell() {
   }, []);
 
   const focusWindow = useCallback((id: string) => {
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: nextZIndex } : w));
+    const z = claimZ();
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: z } : w));
     setFocusedWindowId(id);
-    setNextZIndex(prev => prev + 1);
-  }, [nextZIndex]);
+  }, []);
 
   const resizeWindow = useCallback((id: string, width: number, height: number) => {
     setWindows(prev => prev.map(w => w.id === id ? { ...w, width, height } : w));
