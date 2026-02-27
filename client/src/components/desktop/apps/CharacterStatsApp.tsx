@@ -52,8 +52,8 @@ function StatRow({ stat, value, barColor, glowColor, selected, onClick }:
         transition: 'background 0.15s',
       }}
     >
-      {/* Icon — md size for clear rendering */}
-      <StatIcon statKey={stat.iconKey as StatKey} size="md" showTooltip={false} glowColor={barColor} />
+      {/* Icon — lg size for clear sprite rendering */}
+      <StatIcon statKey={stat.iconKey as StatKey} size="lg" showTooltip={false} glowColor={barColor} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
@@ -89,24 +89,24 @@ function CategorySection({ categoryKey, stats, characterStats, selectedStat, onS
 
   return (
     <div style={{ marginBottom: 20 }}>
-      {/* Category header */}
+      {/* Category header — xl icon for maximum clarity */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 12px', marginBottom: 4,
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '12px 14px', marginBottom: 4,
         borderBottom: `1px solid ${barColor}30`,
         background: `${barColor}06`,
       }}>
-        <StatIcon statKey={categoryKey} size="lg" showTooltip={false} glowColor={barColor} />
+        <StatIcon statKey={categoryKey} size="xl" showTooltip={false} glowColor={barColor} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 'bold', color: barColor, letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: '"Courier New", monospace' }}>
+          <div style={{ fontSize: 14, fontWeight: 'bold', color: barColor, letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: '"Courier New", monospace' }}>
             {catInfo.name}
           </div>
-          <div style={{ fontSize: 9, color: '#ffffff35', marginTop: 2, fontFamily: '"Courier New", monospace', letterSpacing: '0.3px' }}>
+          <div style={{ fontSize: 9, color: '#ffffff35', marginTop: 3, fontFamily: '"Courier New", monospace', letterSpacing: '0.3px' }}>
             {catInfo.description}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 'bold', color: barColor, fontFamily: '"Courier New", monospace', textShadow: `0 0 10px ${barColor}80` }}>{avg}</div>
+          <div style={{ fontSize: 22, fontWeight: 'bold', color: barColor, fontFamily: '"Courier New", monospace', textShadow: `0 0 12px ${barColor}80` }}>{avg}</div>
           <div style={{ fontSize: 8, color: '#ffffff30', fontFamily: '"Courier New", monospace', letterSpacing: '0.5px' }}>avg</div>
         </div>
       </div>
@@ -136,18 +136,19 @@ function StatDetail({ statId, characterStats }: { statId: string; characterStats
   const { barColor, glowColor } = CATEGORY_META[catKey];
 
   return (
-    <div style={{ padding: '14px 16px', borderTop: `1px solid ${barColor}25`, background: '#0a0a0f', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-        <StatIcon statKey={statDef.iconKey as StatKey} size="xl" showTooltip={false} glowColor={barColor} />
+    <div style={{ padding: '16px 18px', borderTop: `1px solid ${barColor}25`, background: '#0a0a0f', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
+        {/* xxl icon in detail panel — the most prominent display */}
+        <StatIcon statKey={statDef.iconKey as StatKey} size="xxl" showTooltip={false} glowColor={barColor} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 'bold', color: barColor, fontFamily: '"Courier New", monospace', letterSpacing: '0.5px', textShadow: `0 0 8px ${barColor}80` }}>
+          <div style={{ fontSize: 16, fontWeight: 'bold', color: barColor, fontFamily: '"Courier New", monospace', letterSpacing: '0.6px', textShadow: `0 0 10px ${barColor}80` }}>
             {statDef.name}
           </div>
-          <div style={{ fontSize: 9, color: '#ffffff35', fontFamily: '"Courier New", monospace', letterSpacing: '0.5px', marginTop: 2 }}>
+          <div style={{ fontSize: 9, color: '#ffffff35', fontFamily: '"Courier New", monospace', letterSpacing: '0.5px', marginTop: 3 }}>
             {statDef.abbreviation} · {catKey.toUpperCase()}
           </div>
         </div>
-        <div style={{ fontSize: 32, fontWeight: 'bold', color: barColor, fontFamily: '"Courier New", monospace', textShadow: `0 0 16px ${glowColor}` }}>
+        <div style={{ fontSize: 36, fontWeight: 'bold', color: barColor, fontFamily: '"Courier New", monospace', textShadow: `0 0 20px ${glowColor}` }}>
           {value}
         </div>
       </div>
@@ -189,10 +190,10 @@ export default function CharacterStatsApp() {
 
   const catBtnStyle = (cat: CategoryFilter, color: string): React.CSSProperties => ({
     flex: 1,
-    background: categoryFilter === cat ? `${color}15` : 'transparent',
+    background: categoryFilter === cat ? `${color}18` : 'transparent',
     border: `1px solid ${categoryFilter === cat ? `${color}60` : '#ffffff12'}`,
     color: categoryFilter === cat ? color : '#ffffff40',
-    padding: '6px 4px',
+    padding: '7px 4px',
     cursor: 'pointer',
     fontSize: 9,
     fontFamily: '"Courier New", monospace',
@@ -202,7 +203,7 @@ export default function CharacterStatsApp() {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 6,
     transition: 'background 0.15s, border-color 0.15s',
   });
 
@@ -210,13 +211,14 @@ export default function CharacterStatsApp() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#06060a', color: '#fff', fontFamily: '"Courier New", monospace', overflow: 'hidden' }}>
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ padding: '14px 16px', borderBottom: '1px solid #ffffff0f', background: '#0a0a12', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-          {/* Three category mascot icons in header */}
+          {/* Three category mascot icons — md size for crisp header display */}
           <div style={{ display: 'flex', gap: 6 }}>
             {(['physical', 'mental', 'spiritual'] as const).map(cat => (
-              <StatIcon key={cat} statKey={cat} size="sm" showTooltip={false} glowColor={CATEGORY_META[cat].barColor} />
+              <StatIcon key={cat} statKey={cat} size="md" showTooltip={false} glowColor={CATEGORY_META[cat].barColor} />
             ))}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -244,7 +246,7 @@ export default function CharacterStatsApp() {
         <XpBar xp={character.experience} xpToNext={character.experienceToNextLevel} />
       </div>
 
-      {/* Category filter tabs */}
+      {/* ── Category filter tabs — sm icons for visibility ────────────── */}
       <div style={{ display: 'flex', gap: 4, padding: '8px 12px', borderBottom: '1px solid #ffffff08', flexShrink: 0 }}>
         <button style={catBtnStyle('all', '#ffffff')} onClick={() => setCategoryFilter('all')}>ALL</button>
         {(['physical', 'mental', 'spiritual'] as const).map(cat => (
@@ -255,7 +257,7 @@ export default function CharacterStatsApp() {
         ))}
       </div>
 
-      {/* Scrollable stat list */}
+      {/* ── Scrollable stat list ─────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '10px 8px 0' }}>
         {(['physical', 'mental', 'spiritual'] as const).map(cat => (
           <CategorySection
@@ -270,7 +272,7 @@ export default function CharacterStatsApp() {
         ))}
       </div>
 
-      {/* Stat detail panel */}
+      {/* ── Stat detail panel ──────────────────────────────────────────── */}
       {selectedStat && selectedStatDef && (
         <StatDetail statId={selectedStat} characterStats={stats} />
       )}

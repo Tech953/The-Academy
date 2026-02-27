@@ -57,7 +57,7 @@ function EffectDisplay({ effect, compact = false }: { effect: PerkEffect; compac
   if (compact) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', background: `${color}0c`, border: `1px solid ${color}25`, borderRadius: 2 }}>
-        {statKey && <StatIcon statKey={statKey} size="xs" showTooltip={false} />}
+        {statKey && <StatIcon statKey={statKey} size="xxs" showTooltip={false} />}
         {isBonus && (
           <span style={{ fontSize: 11, fontWeight: 'bold', color, fontFamily: '"Courier New", monospace', textShadow: `0 0 6px ${color}70` }}>
             {size > 0 ? `+${size}` : size}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { 
-  ALL_STATS, 
+import {
+  ALL_STATS,
   STAT_CATEGORIES,
   type StatKey,
   type StatCategory,
@@ -12,50 +12,54 @@ import physicalStatsImg from '@assets/STAT_ICON_PROTOTYPE_2_1769387147169.png';
 import mentalStatsImg from '@assets/STAT_ICON_PROTOTYPE_3_1769387147170.png';
 import spiritualStatsImg from '@assets/STAT_ICON_PROTOTYPE_4_1769387147171.png';
 
-// Each sprite sheet has a fixed column count across ALL rows.
-// Physical sheet: 3 columns × 2 rows  (row 0: 3 icons, row 1: 2 icons left-aligned)
-// Mental sheet:   3 columns × 2 rows  (row 0: 3 icons, row 1: 2 icons left-aligned)
-// Spiritual sheet:4 columns × 2 rows  (row 0: 3 icons left-aligned, row 1: 4 icons)
-// Main sheet:     3 columns × 1 row   (physical, mental, spiritual categories)
+// All sprite sheets are 1536×1024px.
+// Physical/Mental sheets: 3 cols × 2 rows → each cell = 512×512px (square)
+// Spiritual sheet:        4 cols × 2 rows → each cell = 384×512px (portrait)
+// Main categories sheet:  3 cols × 2 rows → each cell = 512×512px (square, mascots in row 0)
 const ICON_POSITIONS: Record<StatKey, {
-  row: number; col: number;
-  totalCols: number; totalRows: number;
+  row: number;
+  col: number;
+  cellW: number;  // px width of one sprite cell in the source image
+  cellH: number;  // px height of one sprite cell in the source image
   imageKey: 'main' | 'physical' | 'mental' | 'spiritual';
 }> = {
-  // Main category mascots (prototype 1 – 3 × 1 grid)
-  physical:      { row: 0, col: 0, totalCols: 3, totalRows: 1, imageKey: 'main' },
-  mental:        { row: 0, col: 1, totalCols: 3, totalRows: 1, imageKey: 'main' },
-  spiritual:     { row: 0, col: 2, totalCols: 3, totalRows: 1, imageKey: 'main' },
+  // Main category mascots — sheet: 1536×1024, grid 3×2, cell 512×512
+  physical:      { row: 0, col: 0, cellW: 512, cellH: 512, imageKey: 'main' },
+  mental:        { row: 0, col: 1, cellW: 512, cellH: 512, imageKey: 'main' },
+  spiritual:     { row: 0, col: 2, cellW: 512, cellH: 512, imageKey: 'main' },
 
-  // Physical stats (prototype 2 – 3 × 2 grid; row 1 has 2 icons, left-aligned)
-  quickness:     { row: 0, col: 0, totalCols: 3, totalRows: 2, imageKey: 'physical' },
-  endurance:     { row: 0, col: 1, totalCols: 3, totalRows: 2, imageKey: 'physical' },
-  agility:       { row: 0, col: 2, totalCols: 3, totalRows: 2, imageKey: 'physical' },
-  speed:         { row: 1, col: 0, totalCols: 3, totalRows: 2, imageKey: 'physical' },
-  strength:      { row: 1, col: 1, totalCols: 3, totalRows: 2, imageKey: 'physical' },
+  // Physical stats — sheet: 1536×1024, grid 3×2, cell 512×512
+  quickness:     { row: 0, col: 0, cellW: 512, cellH: 512, imageKey: 'physical' },
+  endurance:     { row: 0, col: 1, cellW: 512, cellH: 512, imageKey: 'physical' },
+  agility:       { row: 0, col: 2, cellW: 512, cellH: 512, imageKey: 'physical' },
+  speed:         { row: 1, col: 0, cellW: 512, cellH: 512, imageKey: 'physical' },
+  strength:      { row: 1, col: 1, cellW: 512, cellH: 512, imageKey: 'physical' },
 
-  // Mental stats (prototype 3 – 3 × 2 grid; row 1 has 2 icons, left-aligned)
-  mathLogic:     { row: 0, col: 0, totalCols: 3, totalRows: 2, imageKey: 'mental' },
-  linguistic:    { row: 0, col: 1, totalCols: 3, totalRows: 2, imageKey: 'mental' },
-  presence:      { row: 0, col: 2, totalCols: 3, totalRows: 2, imageKey: 'mental' },
-  fortitude:     { row: 1, col: 0, totalCols: 3, totalRows: 2, imageKey: 'mental' },
-  musicCreative: { row: 1, col: 1, totalCols: 3, totalRows: 2, imageKey: 'mental' },
+  // Mental stats — sheet: 1536×1024, grid 3×2, cell 512×512
+  mathLogic:     { row: 0, col: 0, cellW: 512, cellH: 512, imageKey: 'mental' },
+  linguistic:    { row: 0, col: 1, cellW: 512, cellH: 512, imageKey: 'mental' },
+  presence:      { row: 0, col: 2, cellW: 512, cellH: 512, imageKey: 'mental' },
+  fortitude:     { row: 1, col: 0, cellW: 512, cellH: 512, imageKey: 'mental' },
+  musicCreative: { row: 1, col: 1, cellW: 512, cellH: 512, imageKey: 'mental' },
 
-  // Spiritual stats (prototype 4 – 4 × 2 grid; row 0 has 3 icons, left-aligned)
-  faith:         { row: 0, col: 0, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
-  karma:         { row: 0, col: 1, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
-  resonance:     { row: 0, col: 2, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
-  luck:          { row: 1, col: 0, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
-  chi:           { row: 1, col: 1, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
-  nagual:        { row: 1, col: 2, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
-  ashe:          { row: 1, col: 3, totalCols: 4, totalRows: 2, imageKey: 'spiritual' },
+  // Spiritual stats — sheet: 1536×1024, grid 4×2, cell 384×512 (portrait)
+  faith:         { row: 0, col: 0, cellW: 384, cellH: 512, imageKey: 'spiritual' },
+  karma:         { row: 0, col: 1, cellW: 384, cellH: 512, imageKey: 'spiritual' },
+  resonance:     { row: 0, col: 2, cellW: 384, cellH: 512, imageKey: 'spiritual' },
+  luck:          { row: 1, col: 0, cellW: 384, cellH: 512, imageKey: 'spiritual' },
+  chi:           { row: 1, col: 1, cellW: 384, cellH: 512, imageKey: 'spiritual' },
+  nagual:        { row: 1, col: 2, cellW: 384, cellH: 512, imageKey: 'spiritual' },
+  ashe:          { row: 1, col: 3, cellW: 384, cellH: 512, imageKey: 'spiritual' },
 };
 
+// Full image dimensions (all sheets: 1536×1024)
+const IMAGE_DIMS = { w: 1536, h: 1024 };
+
 const IMAGES = {
-  main:     physicalMentalSpiritualImg,
-  physical: physicalStatsImg,
-  mental:   mentalStatsImg,
-  spiritual:spiritualStatsImg,
+  main:      physicalMentalSpiritualImg,
+  physical:  physicalStatsImg,
+  mental:    mentalStatsImg,
+  spiritual: spiritualStatsImg,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -72,18 +76,20 @@ function getCategoryColor(statKey: StatKey): string {
   return stat ? (CATEGORY_COLORS[stat.category] ?? '#00ff88') : '#00ff88';
 }
 
-// Size → pixel side length
+// Display sizes — use multiples of 512÷N where possible for pixel-perfect rendering
 const SIZE_PX: Record<string, number> = {
-  xs:  24,
-  sm:  36,
-  md:  48,
-  lg:  64,
-  xl:  80,
+  xxs: 32,   // inline-badge contexts only
+  xs:  48,
+  sm:  64,
+  md:  88,
+  lg:  112,
+  xl:  144,
+  xxl: 180,
 };
 
 export interface StatIconProps {
   statKey: StatKey;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
   showTooltip?: boolean;
   showValue?: boolean;
   value?: number;
@@ -108,18 +114,23 @@ export default function StatIcon({
   if (!pos) return null;
 
   const imageSrc = IMAGES[pos.imageKey];
-  const px = SIZE_PX[size] ?? 48;
-
-  // Background-size: stretch the full sprite sheet to fill N×M times the container.
-  const bgW = pos.totalCols * 100;
-  const bgH = pos.totalRows * 100;
-
-  // Background-position: select the correct cell.
-  // Formula: col/(cols-1)*100%, row/(rows-1)*100%  — safe-guarded for single col/row.
-  const xPct = pos.totalCols > 1 ? (pos.col / (pos.totalCols - 1)) * 100 : 0;
-  const yPct = pos.totalRows > 1 ? (pos.row / (pos.totalRows - 1)) * 100 : 0;
-
+  const displayPx = SIZE_PX[size] ?? 88;
   const catColor = glowColor ?? getCategoryColor(statKey);
+
+  // ── Pixel-precise sprite positioning ─────────────────────────────────
+  // Scale so the cell HEIGHT fits exactly into the display box.
+  // This preserves aspect ratio — portrait cells get horizontal letterboxing.
+  const scale = displayPx / pos.cellH;
+  const scaledImageW = IMAGE_DIMS.w * scale;
+  const scaledImageH = IMAGE_DIMS.h * scale;
+  const cellDisplayW = pos.cellW * scale;   // may be < displayPx for portrait cells
+  const cellDisplayH = pos.cellH * scale;   // always equals displayPx
+
+  // Center portrait cells (like the 384×512 spiritual sprites) horizontally
+  const letterboxX = (displayPx - cellDisplayW) / 2;
+  const bpX = -(pos.col * cellDisplayW) + letterboxX;
+  const bpY = -(pos.row * cellDisplayH);
+  // ─────────────────────────────────────────────────────────────────────
 
   const statDef = ALL_STATS.find(s => s.id === statKey) ??
     (statKey === 'physical' || statKey === 'mental' || statKey === 'spiritual'
@@ -128,35 +139,59 @@ export default function StatIcon({
 
   const containerStyle: React.CSSProperties = {
     position: 'relative',
-    width: px,
-    height: px,
+    width: displayPx,
+    height: displayPx,
     flexShrink: 0,
     ...style,
   };
 
+  const borderGlow = isHovered
+    ? `0 0 16px ${catColor}90, 0 0 4px ${catColor}60, inset 0 0 12px ${catColor}18`
+    : `0 0 8px ${catColor}40, 0 0 2px ${catColor}30, inset 0 0 6px ${catColor}0a`;
+
   const boxStyle: React.CSSProperties = {
     width: '100%',
     height: '100%',
-    border: `1px solid ${catColor}50`,
-    boxShadow: isHovered
-      ? `0 0 12px ${catColor}80, inset 0 0 8px ${catColor}20`
-      : `0 0 6px ${catColor}30, inset 0 0 4px ${catColor}10`,
-    background: `#060608`,
+    border: `1px solid ${catColor}60`,
+    boxShadow: borderGlow,
+    background: '#040408',
     overflow: 'hidden',
     position: 'relative',
     transition: 'box-shadow 0.2s ease',
   };
 
-  const imgStyle: React.CSSProperties = {
+  const spriteStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
     backgroundImage: `url(${imageSrc})`,
-    backgroundSize: `${bgW}% ${bgH}%`,
-    backgroundPosition: `${xPct}% ${yPct}%`,
+    backgroundSize: `${scaledImageW}px ${scaledImageH}px`,
+    backgroundPosition: `${bpX}px ${bpY}px`,
     backgroundRepeat: 'no-repeat',
     imageRendering: 'pixelated',
-    filter: isHovered ? `brightness(1.25) drop-shadow(0 0 4px ${catColor})` : `brightness(1.05)`,
+    filter: isHovered
+      ? `brightness(1.3) contrast(1.1) drop-shadow(0 0 6px ${catColor}cc)`
+      : `brightness(1.05) contrast(1.05)`,
     transition: 'filter 0.2s ease',
+  };
+
+  // CRT scanline overlay — subtle alternating lines for retro feel
+  const scanlineStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    background: 'repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.18) 1px, rgba(0,0,0,0.18) 2px)',
+    pointerEvents: 'none',
+    zIndex: 2,
+  };
+
+  // Hover color wash
+  const hoverWashStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    background: `${catColor}10`,
+    pointerEvents: 'none',
+    zIndex: 3,
+    opacity: isHovered ? 1 : 0,
+    transition: 'opacity 0.2s ease',
   };
 
   return (
@@ -167,25 +202,25 @@ export default function StatIcon({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div style={boxStyle}>
-        <div style={imgStyle} />
-
-        {isHovered && (
-          <div style={{ position: 'absolute', inset: 0, background: `${catColor}15`, pointerEvents: 'none' }} />
-        )}
+        <div style={spriteStyle} />
+        <div style={scanlineStyle} />
+        <div style={hoverWashStyle} />
       </div>
 
       {showValue && value !== undefined && (
         <div style={{
-          position: 'absolute', bottom: -4, right: -4,
-          background: '#06060a',
-          border: `1px solid ${catColor}60`,
+          position: 'absolute', bottom: -5, right: -5,
+          background: '#060609',
+          border: `1px solid ${catColor}70`,
           borderRadius: 3,
-          padding: '1px 4px',
-          fontSize: Math.max(8, px * 0.22),
+          padding: '1px 5px',
+          fontSize: Math.max(9, displayPx * 0.18),
           fontFamily: '"Courier New", monospace',
           color: catColor,
           fontWeight: 'bold',
-          lineHeight: 1.2,
+          lineHeight: 1.3,
+          zIndex: 10,
+          boxShadow: `0 0 6px ${catColor}40`,
         }}>
           {value}
         </div>
@@ -195,23 +230,23 @@ export default function StatIcon({
         <div style={{
           position: 'absolute', bottom: '100%', left: '50%',
           transform: 'translateX(-50%)',
-          marginBottom: 6,
-          background: '#0a0a12',
-          border: `1px solid ${catColor}40`,
+          marginBottom: 8,
+          background: '#08080f',
+          border: `1px solid ${catColor}50`,
           borderRadius: 4,
-          padding: '8px 10px',
-          boxShadow: `0 0 16px #00000080, 0 0 8px ${catColor}20`,
+          padding: '9px 12px',
+          boxShadow: `0 0 20px #00000090, 0 0 10px ${catColor}20`,
           zIndex: 9999,
-          width: 180,
+          width: 190,
           pointerEvents: 'none',
           whiteSpace: 'normal',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 'bold', color: catColor, marginBottom: 4, fontFamily: '"Courier New", monospace', letterSpacing: '0.4px' }}>
+          <div style={{ fontSize: 11, fontWeight: 'bold', color: catColor, marginBottom: 4, fontFamily: '"Courier New", monospace', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
             {statDef.name}
           </div>
-          <div style={{ fontSize: 10, color: '#ffffff70', lineHeight: 1.5 }}>{statDef.description}</div>
+          <div style={{ fontSize: 10, color: '#ffffff65', lineHeight: 1.6 }}>{statDef.description}</div>
           {value !== undefined && (
-            <div style={{ marginTop: 6, fontSize: 11, color: catColor, fontFamily: '"Courier New", monospace' }}>
+            <div style={{ marginTop: 6, fontSize: 11, color: catColor, fontFamily: '"Courier New", monospace', fontWeight: 'bold' }}>
               VALUE: {value}
             </div>
           )}
@@ -221,7 +256,7 @@ export default function StatIcon({
   );
 }
 
-// Category header — larger icon with label
+// ── Category header icon + label ──────────────────────────────────────────────
 interface StatCategoryHeaderProps {
   category: StatCategory;
   total?: number;
@@ -232,8 +267,8 @@ export function StatCategoryHeader({ category, total, className = '' }: StatCate
   const categoryInfo = STAT_CATEGORIES[category];
   const catColor = CATEGORY_COLORS[category] ?? '#00ff88';
   return (
-    <div className={className} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <StatIcon statKey={category} size="md" showTooltip={false} glowColor={catColor} />
+    <div className={className} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <StatIcon statKey={category} size="lg" showTooltip={false} glowColor={catColor} />
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 12, fontFamily: '"Courier New", monospace', color: catColor, fontWeight: 'bold', letterSpacing: '0.5px' }}>
           {categoryInfo.name}
@@ -249,7 +284,7 @@ export function StatCategoryHeader({ category, total, className = '' }: StatCate
   );
 }
 
-// Compact stat row (used in sidebar panels)
+// ── Compact stat row (sidebar panels) ────────────────────────────────────────
 interface StatRowProps {
   stat: StatDefinition;
   value: number;
