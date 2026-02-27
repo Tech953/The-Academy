@@ -219,39 +219,49 @@ export default function NeoCrtWindow({
           zIndex: 10,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 10px',
+          height: '36px',
+          padding: '0 0 0 12px',
           background: isFocused
-            ? `linear-gradient(90deg, ${primaryColor}20 0%, transparent 100%)`
+            ? `linear-gradient(90deg, ${primaryColor}18 0%, transparent 60%)`
             : 'transparent',
-          borderBottom: `1px solid ${isFocused ? primaryColor : dimmedColor}80`,
+          borderBottom: `1px solid ${isFocused ? primaryColor : dimmedColor}60`,
           cursor: isMaximized ? 'default' : 'move',
-          minHeight: '28px',
           flexShrink: 0,
+          gap: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
           {iconType && (
             <div style={{ filter: `drop-shadow(0 0 4px ${primaryColor})`, flexShrink: 0 }}>
-              {getNeoCrtIcon(iconType, 14, primaryColor)}
+              {getNeoCrtIcon(iconType, 13, primaryColor)}
             </div>
           )}
           <span style={{
             color: primaryColor,
             fontWeight: 'bold',
             fontSize: '12px',
-            textShadow: `0 0 10px ${primaryColor}`,
-            letterSpacing: '1px',
+            textShadow: `0 0 8px ${primaryColor}80`,
+            letterSpacing: '0.8px',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             textTransform: 'uppercase',
+            opacity: isFocused ? 1 : 0.7,
           }}>
             {title}
           </span>
         </div>
 
-        <div style={{ display: 'flex', gap: '4px', flexShrink: 0, marginLeft: 8 }}>
+        <div style={{
+          display: 'flex',
+          gap: '3px',
+          flexShrink: 0,
+          alignItems: 'center',
+          height: '100%',
+          padding: '0 8px',
+          borderLeft: `1px solid ${primaryColor}20`,
+          marginLeft: 8,
+        }}>
           {onFullscreen && (
             <WinBtn color={primaryColor} title="Fullscreen" onClick={(e) => { e.stopPropagation(); onFullscreen(); }} testId="button-fullscreen-toggle">
               <Expand size={10} strokeWidth={2} />
@@ -269,7 +279,7 @@ export default function NeoCrtWindow({
           )}
           {onClose && (
             <WinBtn color="#ff3366" title="Close" onClick={(e) => { e.stopPropagation(); onClose(); }} isClose>
-              <X size={12} strokeWidth={2} />
+              <X size={11} strokeWidth={2} />
             </WinBtn>
           )}
         </div>
