@@ -932,7 +932,11 @@ export default function NeoCrtDesktopShell() {
   const [dragGhost, setDragGhost] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hiddenWidgets, setHiddenWidgets] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('academy-hidden-widgets') ?? '[]'); } catch { return []; }
+    try {
+      const stored = localStorage.getItem('academy-hidden-widgets');
+      if (stored !== null) return JSON.parse(stored);
+    } catch {/* ignore */}
+    return AMBIENT_WIDGETS.map(w => w.id);
   });
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
     try {
@@ -950,6 +954,10 @@ export default function NeoCrtDesktopShell() {
   const panelRef = useRef<HTMLDivElement>(null);
   const panelMoveRef = useRef<{ startMX: number; startMY: number; startX: number; startY: number } | null>(null);
   const panelResizeRef = useRef<{ startMX: number; startMY: number; startW: number; startH: number } | null>(null);
+  const iconPositionsRef = useRef(iconPositions);
+  const hiddenWidgetsRef = useRef(hiddenWidgets);
+  useEffect(() => { iconPositionsRef.current = iconPositions; }, [iconPositions]);
+  useEffect(() => { hiddenWidgetsRef.current = hiddenWidgets; }, [hiddenWidgets]);
 
   const dragRef = useRef<{
     iconId: string;
@@ -1448,11 +1456,29 @@ export default function NeoCrtDesktopShell() {
   }, []);
 
   const toggleWidgetVisibility = useCallback((widgetId: string) => {
-    setHiddenWidgets(prev => {
-      const next = prev.includes(widgetId) ? prev.filter(id => id !== widgetId) : [...prev, widgetId];
-      localStorage.setItem('academy-hidden-widgets', JSON.stringify(next));
-      return next;
-    });
+    const currentHidden = hiddenWidgetsRef.current;
+    const isCurrentlyHidden = currentHidden.includes(widgetId);
+    const next = isCurrentlyHidden
+      ? currentHidden.filter(id => id !== widgetId)
+      : [...currentHidden, widgetId];
+    localStorage.setItem('academy-hidden-widgets', JSON.stringify(next));
+    setHiddenWidgets(next);
+
+    if (isCurrentlyHidden) {
+      const widget = AMBIENT_WIDGETS.find(w => w.id === widgetId);
+      if (widget) {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const stillHidden = new Set(next);
+        const visiblePositions: Record<string, { x: number; y: number }> = {};
+        for (const [id, pos] of Object.entries(iconPositionsRef.current)) {
+          if (!stillHidden.has(id)) visiblePositions[id] = pos;
+        }
+        const defaultPos = gridToPixel(widget.defaultCol, widget.defaultRow);
+        const freePos = findNearestFreePosition(widgetId, defaultPos.x, defaultPos.y, visiblePositions, vw, vh);
+        setIconPositions(prev => ({ ...prev, [widgetId]: freePos }));
+      }
+    }
   }, []);
 
   const handleDesktopContextMenu = useCallback((e: React.MouseEvent) => {
