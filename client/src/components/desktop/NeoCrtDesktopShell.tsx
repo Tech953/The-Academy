@@ -29,7 +29,7 @@ import {
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
   BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
-  Monitor, Terminal, Network, BarChart3, Notebook
+  Monitor, Terminal, Network, BarChart3, Notebook, Award
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 
@@ -121,10 +121,32 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 6 },
 ];
 
+type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge';
+
+interface AmbientWidgetDef {
+  id: string;
+  widgetType: WidgetType;
+  defaultCol: number;
+  defaultRow: number;
+  unlockLevel?: number;
+}
+
+const AMBIENT_WIDGETS: AmbientWidgetDef[] = [
+  { id: 'w-mascot',   widgetType: 'cub-mascot',  defaultCol: 10, defaultRow: 1 },
+  { id: 'w-photo',    widgetType: 'photo',        defaultCol: 9,  defaultRow: 0 },
+  { id: 'w-sticker',  widgetType: 'sticker',      defaultCol: 10, defaultRow: 0, unlockLevel: 2 },
+  { id: 'w-calendar', widgetType: 'calendar',     defaultCol: 9,  defaultRow: 2 },
+  { id: 'w-book',     widgetType: 'book-stack',   defaultCol: 9,  defaultRow: 3, unlockLevel: 3 },
+  { id: 'w-badge',    widgetType: 'badge',        defaultCol: 10, defaultRow: 3 },
+];
+
 function getDefaultPositions(): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
   DESKTOP_ICONS.forEach(icon => {
     positions[icon.id] = gridToPixel(icon.defaultCol, icon.defaultRow);
+  });
+  AMBIENT_WIDGETS.forEach(w => {
+    positions[w.id] = gridToPixel(w.defaultCol, w.defaultRow);
   });
   return positions;
 }
@@ -355,6 +377,144 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
           START
         </div>
       )}
+    </div>
+  );
+});
+
+const DraggableWidget = memo(function DraggableWidget({
+  widget,
+  position,
+  isDragging = false,
+  isSelected = false,
+  onMouseDown,
+  accentColors,
+  primaryColor,
+  mascotSrc,
+}: {
+  widget: AmbientWidgetDef;
+  position: { x: number; y: number };
+  isDragging?: boolean;
+  isSelected?: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+  accentColors: AccentColors;
+  primaryColor: string;
+  mascotSrc?: string;
+}) {
+  const renderInner = () => {
+    switch (widget.widgetType) {
+      case 'cub-mascot':
+        return (
+          <div style={{
+            width: ICON_W - 4,
+            height: ICON_H - 4,
+            borderRadius: '50%',
+            border: `2px solid ${primaryColor}80`,
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: `${primaryColor}10`,
+            boxShadow: `0 0 12px ${primaryColor}40`,
+          }}>
+            {mascotSrc ? (
+              <img src={mascotSrc} alt="Cub" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: `drop-shadow(0 0 6px ${primaryColor})` }} />
+            ) : (
+              <Heart size={24} color={primaryColor} />
+            )}
+          </div>
+        );
+      case 'photo':
+        return (
+          <div style={{
+            width: 50,
+            height: 60,
+            background: 'linear-gradient(180deg, #f5f5dc 0%, #e8e4d0 100%)',
+            border: '3px solid #fff',
+            boxShadow: '2px 2px 8px rgba(0,0,0,0.5)',
+            padding: '4px',
+            paddingBottom: '12px',
+            transform: 'rotate(-5deg)',
+          }}>
+            <div style={{
+              width: '100%',
+              height: '70%',
+              background: `linear-gradient(135deg, ${accentColors.cyan}40, ${accentColors.purple}40)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Heart size={16} color={accentColors.pink} />
+            </div>
+          </div>
+        );
+      case 'sticker':
+        return (
+          <div style={{ filter: `drop-shadow(0 0 6px ${accentColors.amber})` }}>
+            <Star size={36} color={accentColors.amber} fill={accentColors.amber} />
+          </div>
+        );
+      case 'calendar':
+        return (
+          <div style={{
+            width: 44,
+            height: 50,
+            background: '#1a1a1a',
+            border: `1px solid ${accentColors.green}60`,
+            borderRadius: '4px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <div style={{ background: accentColors.red, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={8} color="#fff" />
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColors.green, fontSize: 18, fontWeight: 'bold', fontFamily: 'monospace' }}>
+              {new Date().getDate()}
+            </div>
+          </div>
+        );
+      case 'book-stack':
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {[accentColors.purple, accentColors.cyan, accentColors.amber].map((color, i) => (
+              <div key={i} style={{ width: 40, height: 10, background: color, borderRadius: 2, boxShadow: `0 0 4px ${color}60` }} />
+            ))}
+          </div>
+        );
+      case 'badge':
+        return (
+          <div style={{ filter: `drop-shadow(0 0 8px ${accentColors.purple})` }}>
+            <Award size={36} color={accentColors.purple} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      style={{
+        position: 'absolute',
+        left: position.x,
+        top: position.y,
+        width: ICON_W,
+        height: ICON_H,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        userSelect: 'none',
+        transition: isDragging ? 'none' : 'left 0.12s ease, top 0.12s ease, opacity 0.2s ease',
+        opacity: isDragging ? 0.72 : 0.75,
+        zIndex: isDragging ? 999 : isSelected ? 15 : 4,
+        transform: isDragging ? 'scale(1.06)' : 'scale(1)',
+        filter: isDragging ? 'brightness(1.3)' : 'none',
+        boxSizing: 'border-box',
+        border: isSelected ? `1px dashed ${primaryColor}40` : '1px solid transparent',
+        borderRadius: '8px',
+      }}
+    >
+      {renderInner()}
     </div>
   );
 });
@@ -900,10 +1060,11 @@ export default function NeoCrtDesktopShell() {
       setIconPositions(prev => {
         const curPos = prev[id] ?? { x: 20, y: 20 };
         const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
+        const targetCell = pixelToGrid(snapped.x, snapped.y);
         const occupant = Object.entries(prev).find(([otherId, pos]) => {
           if (otherId === id) return false;
-          const { x: ox, y: oy } = pos;
-          return Math.abs(ox - snapped.x) < GRID_CELL_W / 2 && Math.abs(oy - snapped.y) < GRID_CELL_H / 2;
+          const cell = pixelToGrid(pos.x, pos.y);
+          return cell.col === targetCell.col && cell.row === targetCell.row;
         });
         const next = { ...prev, [id]: snapped };
         if (occupant) {
@@ -1281,7 +1442,7 @@ export default function NeoCrtDesktopShell() {
       <div className="crt-scanlines" style={{ opacity: colors.scanlineOpacity }} />
       <div className="crt-vignette" />
       
-      <AmbientObjects characterLevel={characterLevel} />
+      
       
       <WindowSnapZones 
         activeZone={windowSnap.activeZone} 
@@ -1338,19 +1499,23 @@ export default function NeoCrtDesktopShell() {
         );
       })}
 
-      {viewport.width > 900 && viewport.height > 500 && (
-        <div style={{
-          position: 'absolute',
-          right: viewport.width < 1200 ? '40px' : '80px',
-          top: '50%',
-          transform: `translateY(-60%) scale(${viewport.width < 1100 ? 0.7 : 1})`,
-          transformOrigin: 'center center',
-          zIndex: 5,
-          transition: 'right 0.3s ease, transform 0.3s ease',
-        }}>
-          <CubMascot mood="thinking" primaryColor={colors.primary} />
-        </div>
-      )}
+      {uiMode === 'student' && viewport.width > 900 && AMBIENT_WIDGETS.map((widget) => {
+        if (widget.unlockLevel && widget.unlockLevel > characterLevel) return null;
+        const pos = iconPositions[widget.id] ?? gridToPixel(widget.defaultCol, widget.defaultRow);
+        return (
+          <DraggableWidget
+            key={widget.id}
+            widget={widget}
+            position={pos}
+            isDragging={draggingId === widget.id}
+            isSelected={selectedIcon === widget.id}
+            onMouseDown={(e) => handleIconMouseDown(e, widget.id)}
+            accentColors={accentColors}
+            primaryColor={colors.primary}
+            mascotSrc={widget.widgetType === 'cub-mascot' ? bearMascot : undefined}
+          />
+        );
+      })}
 
       <div style={{
         position: 'absolute',
