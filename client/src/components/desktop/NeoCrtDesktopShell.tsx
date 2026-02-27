@@ -18,6 +18,7 @@ import MemoriesApp from './apps/MemoriesApp';
 import { ResearchNotebookApp } from './apps/ResearchNotebookApp';
 import { SkillGraphApp } from './apps/SkillGraphApp';
 import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
+import CharacterStatsApp from './apps/CharacterStatsApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
@@ -51,7 +52,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats';
 
 type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
 
@@ -122,6 +123,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   { id: 'settings',     iconType: 'settings',     labelKey: 'desktop.settings',     colorKey: 'green',  defaultCol: 0, defaultRow: 6 },
   { id: 'recycle',      iconType: 'recycle',      labelKey: 'desktop.recycle',      colorKey: 'red',    defaultCol: 1, defaultRow: 6 },
   { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 0, defaultRow: 7 },
+  { id: 'charstats',   iconType: 'charstats',   labelKey: 'desktop.charstats',   colorKey: 'purple', defaultCol: 1, defaultRow: 7 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge';
@@ -209,6 +211,7 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'skillgraph': return <Network {...props} />;
     case 'notebook': return <Notebook {...props} />;
     case 'progress': return <BarChart3 {...props} />;
+    case 'charstats': return <Award {...props} />;
     default: return <FileText {...props} />;
   }
 }
@@ -1238,6 +1241,15 @@ export default function NeoCrtDesktopShell() {
           height: 450,
           minWidth: 350,
           minHeight: 350
+        };
+      case 'charstats':
+        return {
+          component: <CharacterStatsApp />,
+          title: 'Character Stats',
+          width: 420,
+          height: 580,
+          minWidth: 340,
+          minHeight: 420,
         };
       case 'notifications':
         return { 
