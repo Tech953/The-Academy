@@ -1853,7 +1853,7 @@ export default function NeoCrtDesktopShell() {
             ACADEMY OS — DESKTOP
           </div>
           {[
-            { label: '◧  Customize Widgets', action: () => { setShowWidgetPanel(true); closeContextMenu(); } },
+            { label: '◧  Customize Widgets', action: () => { setPanelPos(null); setShowWidgetPanel(true); closeContextMenu(); } },
             { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
             { label: `${uiMode === 'student' ? '◉' : '◎'}  Switch to ${uiMode === 'student' ? 'Legacy' : 'Student'} Mode`, action: () => { toggleUiMode(); closeContextMenu(); } },
           ].map(item => (
@@ -1922,7 +1922,7 @@ export default function NeoCrtDesktopShell() {
             </div>
             <button
               onMouseDown={e => e.stopPropagation()}
-              onClick={() => setShowWidgetPanel(false)}
+              onClick={() => { setShowWidgetPanel(false); setPanelPos(null); }}
               style={{
                 background: 'transparent', border: `1px solid ${colors.primary}40`,
                 color: colors.primary, width: 24, height: 24, cursor: 'pointer',
