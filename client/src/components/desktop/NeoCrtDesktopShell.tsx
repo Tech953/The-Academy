@@ -38,6 +38,9 @@ import {
   Monitor, Terminal, Network, BarChart3, Notebook, Award, Lock
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
+import { PostItWidget } from './widgets/PostItWidget';
+import { CalendarEventsWidget } from './widgets/CalendarEventsWidget';
+import { RssFeedWidget } from './widgets/RssFeedWidget';
 
 interface WindowState {
   id: string;
@@ -135,7 +138,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 5 },
 ];
 
-type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge';
+type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
 
 interface AmbientWidgetDef {
   id: string;
@@ -143,6 +146,8 @@ interface AmbientWidgetDef {
   defaultCol: number;
   defaultRow: number;
   unlockLevel?: number;
+  widgetWidth?: number;
+  widgetHeight?: number;
 }
 
 const AMBIENT_WIDGETS: AmbientWidgetDef[] = [
@@ -152,6 +157,9 @@ const AMBIENT_WIDGETS: AmbientWidgetDef[] = [
   { id: 'w-calendar', widgetType: 'calendar',     defaultCol: 9,  defaultRow: 2 },
   { id: 'w-book',     widgetType: 'book-stack',   defaultCol: 9,  defaultRow: 3, unlockLevel: 3 },
   { id: 'w-badge',    widgetType: 'badge',        defaultCol: 10, defaultRow: 3 },
+  { id: 'w-note',     widgetType: 'post-it',      defaultCol: 7,  defaultRow: 0, widgetWidth: 130, widgetHeight: 120 },
+  { id: 'w-events',   widgetType: 'event-cal',    defaultCol: 7,  defaultRow: 2, widgetWidth: 170, widgetHeight: 180 },
+  { id: 'w-rss',      widgetType: 'rss-feed',     defaultCol: 7,  defaultRow: 5, widgetWidth: 210, widgetHeight: 200 },
 ];
 
 function getDefaultPositions(): Record<string, { x: number; y: number }> {
@@ -453,10 +461,19 @@ const DraggableWidget = memo(function DraggableWidget({
             <Award size={36} color={accentColors.purple} />
           </div>
         );
+      case 'post-it':
+        return <PostItWidget primaryColor={primaryColor} widgetId={widget.id} />;
+      case 'event-cal':
+        return <CalendarEventsWidget primaryColor={primaryColor} accentRed={accentColors.red} accentCyan={accentColors.cyan} />;
+      case 'rss-feed':
+        return <RssFeedWidget primaryColor={primaryColor} accentCyan={accentColors.cyan} accentAmber={accentColors.amber} />;
       default:
         return null;
     }
   };
+
+  const wW = widget.widgetWidth ?? ICON_W;
+  const wH = widget.widgetHeight ?? ICON_H;
 
   return (
     <div
@@ -465,17 +482,17 @@ const DraggableWidget = memo(function DraggableWidget({
         position: 'absolute',
         left: position.x,
         top: position.y,
-        width: ICON_W,
-        height: ICON_H,
+        width: wW,
+        height: wH,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
         transition: isDragging ? 'none' : 'left 0.12s ease, top 0.12s ease, opacity 0.2s ease',
-        opacity: isDragging ? 0.72 : 0.75,
+        opacity: isDragging ? 0.72 : 0.82,
         zIndex: isDragging ? 999 : isSelected ? 15 : 4,
-        transform: isDragging ? 'scale(1.06)' : 'scale(1)',
+        transform: isDragging ? 'scale(1.03)' : 'scale(1)',
         filter: isDragging ? 'brightness(1.3)' : 'none',
         boxSizing: 'border-box',
         border: isSelected ? `1px dashed ${primaryColor}40` : '1px solid transparent',
@@ -1770,6 +1787,9 @@ export default function NeoCrtDesktopShell() {
                 'w-calendar': { name: 'Day Planner',      desc: "Today's date at a glance",                icon: '▦' },
                 'w-book':     { name: 'Book Stack',       desc: 'Stack of books decoration',               icon: '▤' },
                 'w-badge':    { name: 'Achievement Badge',desc: 'Displays your current rank badge',         icon: '◈' },
+                'w-note':     { name: 'Post-It Note',     desc: 'Editable sticky note — click to write',   icon: '✎' },
+                'w-events':   { name: 'Calendar Events',  desc: 'Mini calendar with personal events',       icon: '▦' },
+                'w-rss':      { name: 'Live Feed / RSS',  desc: 'Live headline feed from 7 data nodes',     icon: '◎' },
               };
               const meta = LABELS[widget.id] ?? { name: widget.widgetType, desc: '', icon: '■' };
               return (

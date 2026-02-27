@@ -759,6 +759,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/rss", async (req, res) => {
+    const rawUrl = req.query.url as string;
+    if (!rawUrl) return res.status(400).json({ error: "url query param required" });
+    let feedUrl: string;
+    try { feedUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).json({ error: "invalid url" }); }
+    const ALLOWED_DOMAINS = [
+      'nasa.gov', 'sciencedaily.com', 'wikipedia.org', 'hnrss.org',
+      'nationalgeographic.com', 'technologyreview.com', 'phys.org',
+    ];
+    try {
+      const parsed = new URL(feedUrl);
+      const ok = ALLOWED_DOMAINS.some(d => parsed.hostname.endsWith(d));
+      if (!ok) return res.status(403).json({ error: "feed domain not allowed" });
+    } catch { return res.status(400).json({ error: "malformed url" }); }
+    try {
+      const resp = await fetch(feedUrl, {
+        headers: { 'User-Agent': 'AcademyOS/1.0 RSS Reader', 'Accept': 'application/rss+xml, application/xml, text/xml' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!resp.ok) return res.status(502).json({ error: `upstream ${resp.status}` });
+      const xml = await resp.text();
+      const items: { title: string; link: string; pubDate?: string; description?: string }[] = [];
+      const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
+      const extract = (block: string, tag: string) => {
+        const m = block.match(new RegExp(`<${tag}(?:[^>]*)>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`, 'i'));
+        return m ? m[1].trim() : undefined;
+      };
+      let m: RegExpExecArray | null;
+      while ((m = itemRx.exec(xml)) !== null && items.length < 12) {
+        const block = m[1];
+        const title = extract(block, 'title') ?? '';
+        const link = extract(block, 'link') ?? extract(block, 'guid') ?? '';
+        const pubDate = extract(block, 'pubDate') ?? extract(block, 'dc:date');
+        const description = extract(block, 'description')?.replace(/<[^>]+>/g, '').slice(0, 150);
+        if (title) items.push({ title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'"), link, pubDate, description });
+      }
+      res.json({ items });
+    } catch (err: any) {
+      res.status(502).json({ error: err.message ?? "fetch failed" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
