@@ -968,6 +968,9 @@ export default function NeoCrtDesktopShell() {
     const newMode = uiMode === 'legacy' ? 'student' : 'legacy';
     setUiMode(newMode);
     localStorage.setItem('academy-ui-mode', newMode);
+    if (newMode === 'legacy') {
+      setAcademyFullscreen(true);
+    }
     addNotification({
       type: 'info',
       title: 'UI Mode Changed',
