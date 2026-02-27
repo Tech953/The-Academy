@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Clock, User, MapPin } from 'lucide-react';
+import { Clock, User, MapPin, Lock } from 'lucide-react';
 import { DAYS, DEFAULT_SCHEDULE, DayOfWeek, ScheduleEntry } from '@shared/curriculum';
+import { useGameState } from '@/contexts/GameStateContext';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
@@ -14,11 +15,8 @@ const TYPE_COLORS: Record<string, string> = {
   break: NEON_AMBER,
 };
 
-interface ClassScheduleProps {
-  schedule?: Record<DayOfWeek, ScheduleEntry[]>;
-}
-
-export default function ClassSchedule({ schedule = DEFAULT_SCHEDULE }: ClassScheduleProps) {
+export default function ClassSchedule() {
+  const { enrolledCourses } = useGameState();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('MONDAY');
 
   const containerStyle: React.CSSProperties = {
@@ -66,7 +64,44 @@ export default function ClassSchedule({ schedule = DEFAULT_SCHEDULE }: ClassSche
     borderRadius: '2px',
   });
 
-  const daySchedule = schedule[selectedDay] || [];
+  const fullDaySchedule: ScheduleEntry[] = DEFAULT_SCHEDULE[selectedDay] || [];
+
+  const filteredDaySchedule = enrolledCourses.length === 0
+    ? []
+    : fullDaySchedule.filter(entry =>
+        entry.type === 'break' || entry.type === 'study' ||
+        (entry.courseId && enrolledCourses.includes(entry.courseId))
+      );
+
+  if (enrolledCourses.length === 0) {
+    return (
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <Clock size={16} color={NEON_CYAN} />
+          [ CLASS SCHEDULE ]
+        </div>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 'calc(100% - 80px)',
+          gap: '16px',
+          color: `${NEON_GREEN}50`,
+          textAlign: 'center',
+        }}>
+          <Lock size={36} strokeWidth={1} color={`${NEON_GREEN}50`} />
+          <div style={{ fontSize: '13px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            No Courses Enrolled
+          </div>
+          <div style={{ fontSize: '10px', color: `${NEON_GREEN}40`, maxWidth: 260, lineHeight: 1.6 }}>
+            Your schedule will populate once you enroll in courses.<br />
+            Use the <span style={{ color: NEON_AMBER }}>ENROLL</span> command in the terminal to get started.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={containerStyle}>
@@ -77,65 +112,62 @@ export default function ClassSchedule({ schedule = DEFAULT_SCHEDULE }: ClassSche
 
       <div style={{ display: 'flex', gap: '2px', marginBottom: '16px' }}>
         {DAYS.map(day => (
-          <button
-            key={day}
-            style={dayTabStyle(selectedDay === day)}
-            onClick={() => setSelectedDay(day)}
-          >
+          <button key={day} style={dayTabStyle(selectedDay === day)} onClick={() => setSelectedDay(day)}>
             {day.substring(0, 3)}
           </button>
         ))}
       </div>
 
-      <div style={{ 
-        fontSize: '12px', 
-        fontWeight: 'bold', 
-        marginBottom: '12px',
-        color: NEON_CYAN,
-      }}>
+      <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '12px', color: NEON_CYAN }}>
         {selectedDay}
       </div>
 
-      {daySchedule.map(entry => (
-        <div key={entry.id} style={scheduleEntryStyle(entry.type)}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ 
-                fontSize: '12px', 
-                fontWeight: 'bold',
-                color: TYPE_COLORS[entry.type],
-                marginBottom: '4px',
-              }}>
-                {entry.subject}
+      {filteredDaySchedule.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: `${NEON_GREEN}40`, fontSize: '11px' }}>
+          No enrolled classes scheduled for {selectedDay.toLowerCase()}.
+        </div>
+      ) : (
+        filteredDaySchedule.map(entry => (
+          <div key={entry.id} style={scheduleEntryStyle(entry.type)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  color: TYPE_COLORS[entry.type],
+                  marginBottom: '4px',
+                }}>
+                  {entry.subject}
+                </div>
+                {entry.instructor && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: `${NEON_GREEN}80` }}>
+                    <User size={10} />
+                    {entry.instructor}
+                  </div>
+                )}
+                {entry.room && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: `${NEON_GREEN}60` }}>
+                    <MapPin size={10} />
+                    {entry.room}
+                  </div>
+                )}
               </div>
-              {entry.instructor && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: `${NEON_GREEN}80` }}>
-                  <User size={10} />
-                  {entry.instructor}
-                </div>
-              )}
-              {entry.room && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: `${NEON_GREEN}60` }}>
-                  <MapPin size={10} />
-                  {entry.room}
-                </div>
-              )}
-            </div>
-            <div style={{ 
-              fontSize: '11px', 
-              fontWeight: 'bold',
-              color: NEON_AMBER,
-              background: '#1a1a0a',
-              padding: '2px 6px',
-              border: `1px solid ${NEON_AMBER}40`,
-            }}>
-              {entry.time}
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: NEON_AMBER,
+                background: '#1a1a0a',
+                padding: '2px 6px',
+                border: `1px solid ${NEON_AMBER}40`,
+              }}>
+                {entry.time}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))
+      )}
 
-      <div style={{ 
+      <div style={{
         marginTop: '12px',
         display: 'flex',
         gap: '12px',
