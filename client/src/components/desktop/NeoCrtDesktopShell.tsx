@@ -20,6 +20,7 @@ import { SkillGraphApp } from './apps/SkillGraphApp';
 import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
 import CharacterStatsApp from './apps/CharacterStatsApp';
 import StarterPerkFlow from './apps/StarterPerkFlow';
+import PersonalFilesApp from './apps/PersonalFilesApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
@@ -1178,32 +1179,12 @@ export default function NeoCrtDesktopShell() {
         };
       case 'personalfiles':
         return { 
-          component: <div style={{ padding: '20px', color: accentColors.pink, fontFamily: 'monospace', height: '100%', overflow: 'auto' }}>
-            <h2 style={{ borderBottom: `1px solid ${accentColors.pink}40`, paddingBottom: '10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FolderHeart size={20} color={accentColors.pink} />
-              PERSONAL FILES
-            </h2>
-            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={16} color={accentColors.pink} /> Journal Entries
-              </div>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={16} color={accentColors.pink} /> Private Notes
-              </div>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Mail size={16} color={accentColors.pink} /> Saved Letters
-              </div>
-              <div style={{ padding: '8px', border: `1px solid ${accentColors.pink}40`, borderRadius: '4px', cursor: 'pointer', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Heart size={16} color={accentColors.pink} /> Keepsakes
-              </div>
-            </div>
-            <p style={{ marginTop: '20px', fontSize: '11px', opacity: 0.5 }}>Your personal memories and files.</p>
-          </div>, 
+          component: <PersonalFilesApp />, 
           title: 'Personal Files', 
-          width: 400, 
-          height: 380,
-          minWidth: 280,
-          minHeight: 250
+          width: 420, 
+          height: 460,
+          minWidth: 300,
+          minHeight: 320
         };
       case 'memories':
         return { 

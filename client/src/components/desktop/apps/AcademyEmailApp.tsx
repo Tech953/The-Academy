@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
-import { Mail, MailOpen, Inbox, Send, ArrowLeft, Reply, PenLine, UserPlus, X, Loader } from 'lucide-react';
+import { Mail, MailOpen, Inbox, Send, ArrowLeft, Reply, PenLine, UserPlus, X, Loader, Star } from 'lucide-react';
 import { useGameState, Email } from '@/contexts/GameStateContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { useRadiantAI } from '@/hooks/useRadiantAI';
 import { NPCEntity } from '@/lib/radiantAI';
 import NPCDirectoryPanel, { NPCContactStatus } from './NPCDirectoryPanel';
+import { toggleSavedEmailId } from '@/lib/savedEmailsStore';
 
 const NEON_GREEN = '#00ff00';
 const NEON_CYAN = '#00ffff';
@@ -39,6 +40,10 @@ export default function AcademyEmailApp() {
   const [showDirectory, setShowDirectory] = useState(false);
   const [composeState, setComposeState] = useState<ComposeState | null>(null);
   const [composeSending, setComposeSending] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('academy-saved-email-ids') || '[]')); }
+    catch { return new Set(); }
+  });
 
   const getCategoryLabel = (category: string) => t(`desktop.email.category.${category}`);
 
@@ -211,6 +216,27 @@ export default function AcademyEmailApp() {
           <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {translatedSelected.subject}
           </span>
+          <button
+            onClick={() => {
+              const wasAdded = toggleSavedEmailId(selectedEmail.id);
+              setSavedIds(prev => {
+                const next = new Set(prev);
+                if (wasAdded) next.add(selectedEmail.id); else next.delete(selectedEmail.id);
+                return next;
+              });
+            }}
+            title={savedIds.has(selectedEmail.id) ? 'Remove from Personal Files' : 'Save to Personal Files'}
+            style={{
+              background: savedIds.has(selectedEmail.id) ? `${NEON_AMBER}20` : 'transparent',
+              border: `1px solid ${NEON_AMBER}60`,
+              color: NEON_AMBER,
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+              padding: '4px 8px',
+            }}
+          >
+            <Star size={12} fill={savedIds.has(selectedEmail.id) ? NEON_AMBER : 'transparent'} />
+          </button>
           <button
             onClick={() => setReplyMode(!replyMode)}
             style={{
