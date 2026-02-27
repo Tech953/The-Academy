@@ -1016,12 +1016,17 @@ export default function NeoCrtDesktopShell() {
       const isSmall = iW === ICON_W && iH === ICON_H;
       setIconPositions(prev => {
         const curPos = prev[id] ?? { x: 20, y: 20 };
+        const hidden = new Set(hiddenWidgetsRef.current);
+        const visiblePos: Record<string, { x: number; y: number }> = {};
+        for (const [k, v] of Object.entries(prev)) {
+          if (!hidden.has(k)) visiblePos[k] = v;
+        }
         if (isSmall) {
           const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
-          const free = findNearestFreePosition(id, snapped.x, snapped.y, prev, vw, vh);
+          const free = findNearestFreePosition(id, snapped.x, snapped.y, visiblePos, vw, vh);
           return { ...prev, [id]: free };
         } else {
-          const free = findNearestFreePosition(id, curPos.x, curPos.y, prev, vw, vh);
+          const free = findNearestFreePosition(id, curPos.x, curPos.y, visiblePos, vw, vh);
           return { ...prev, [id]: free };
         }
       });
@@ -1853,7 +1858,17 @@ export default function NeoCrtDesktopShell() {
             ACADEMY OS — DESKTOP
           </div>
           {[
-            { label: '◧  Customize Widgets', action: () => { setPanelPos(null); setShowWidgetPanel(true); closeContextMenu(); } },
+            { label: '◧  Customize Widgets', action: () => {
+                if (contextMenu) {
+                  const px = Math.min(contextMenu.x, window.innerWidth - panelSize.w - 10);
+                  const py = Math.min(contextMenu.y, window.innerHeight - panelSize.h - 10);
+                  setPanelPos({ x: Math.max(10, px), y: Math.max(60, py) });
+                } else {
+                  setPanelPos(null);
+                }
+                setShowWidgetPanel(true);
+                closeContextMenu();
+              } },
             { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
             { label: `${uiMode === 'student' ? '◉' : '◎'}  Switch to ${uiMode === 'student' ? 'Legacy' : 'Student'} Mode`, action: () => { toggleUiMode(); closeContextMenu(); } },
           ].map(item => (
