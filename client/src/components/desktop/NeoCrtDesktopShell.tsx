@@ -73,13 +73,13 @@ interface DesktopIconConfig {
 }
 
 const GRID_CELL_W = 96;
-const GRID_CELL_H = 100;
+const GRID_CELL_H = 92;
 const GRID_MARGIN_X = 16;
 const GRID_MARGIN_Y = 16;
-const TASKBAR_RESERVE = 72;
+const TASKBAR_RESERVE = 60;
 const ICON_W = 82;
 const ICON_H = 88;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v2';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v3';
 
 function gridToPixel(col: number, row: number): { x: number; y: number } {
   return {
@@ -108,22 +108,28 @@ interface DesktopIconEntry extends DesktopIconConfig {
 }
 
 const DESKTOP_ICONS: DesktopIconEntry[] = [
+  // Row 0 — Communication (enrollment-gated)
   { id: 'email',        iconType: 'email',        labelKey: 'desktop.email',        colorKey: 'cyan',   defaultCol: 0, defaultRow: 0 },
   { id: 'messages',     iconType: 'messages',     labelKey: 'desktop.messages',     colorKey: 'green',  defaultCol: 1, defaultRow: 0 },
+  // Row 1 — Academic core
   { id: 'assignments',  iconType: 'assignments',  labelKey: 'desktop.assignments',  colorKey: 'amber',  defaultCol: 0, defaultRow: 1 },
   { id: 'schedule',     iconType: 'schedule',     labelKey: 'desktop.schedule',     colorKey: 'amber',  defaultCol: 1, defaultRow: 1 },
-  { id: 'notebook',     iconType: 'notebook',     labelKey: 'desktop.notebook',     colorKey: 'cyan',   defaultCol: 0, defaultRow: 2 },
-  { id: 'progress',     iconType: 'progress',     labelKey: 'desktop.progress',     colorKey: 'green',  defaultCol: 1, defaultRow: 2 },
-  { id: 'perks',        iconType: 'perks',        labelKey: 'desktop.perks',        colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
-  { id: 'skillgraph',   iconType: 'skillgraph',   labelKey: 'desktop.skillgraph',   colorKey: 'purple', defaultCol: 1, defaultRow: 3 },
-  { id: 'resonance',    iconType: 'resonance',    labelKey: 'desktop.resonance',    colorKey: 'purple', defaultCol: 0, defaultRow: 4 },
-  { id: 'cub',          iconType: 'cub',          labelKey: 'desktop.cub',          colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
-  { id: 'schoolfiles',  iconType: 'schoolfiles',  labelKey: 'desktop.schoolfiles',  colorKey: 'cyan',   defaultCol: 0, defaultRow: 5 },
-  { id: 'personalfiles',iconType: 'personalfiles',labelKey: 'desktop.personalfiles',colorKey: 'pink',   defaultCol: 1, defaultRow: 5 },
-  { id: 'settings',     iconType: 'settings',     labelKey: 'desktop.settings',     colorKey: 'green',  defaultCol: 0, defaultRow: 6 },
-  { id: 'recycle',      iconType: 'recycle',      labelKey: 'desktop.recycle',      colorKey: 'red',    defaultCol: 1, defaultRow: 6 },
-  { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 0, defaultRow: 7 },
-  { id: 'charstats',   iconType: 'charstats',   labelKey: 'desktop.charstats',   colorKey: 'purple', defaultCol: 1, defaultRow: 7 },
+  { id: 'notebook',     iconType: 'notebook',     labelKey: 'desktop.notebook',     colorKey: 'cyan',   defaultCol: 2, defaultRow: 1 },
+  // Row 2 — Progress & skills
+  { id: 'progress',     iconType: 'progress',     labelKey: 'desktop.progress',     colorKey: 'green',  defaultCol: 0, defaultRow: 2 },
+  { id: 'perks',        iconType: 'perks',        labelKey: 'desktop.perks',        colorKey: 'purple', defaultCol: 1, defaultRow: 2 },
+  { id: 'skillgraph',   iconType: 'skillgraph',   labelKey: 'desktop.skillgraph',   colorKey: 'purple', defaultCol: 2, defaultRow: 2 },
+  // Row 3 — Mystical & companion
+  { id: 'resonance',    iconType: 'resonance',    labelKey: 'desktop.resonance',    colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
+  { id: 'cub',          iconType: 'cub',          labelKey: 'desktop.cub',          colorKey: 'pink',   defaultCol: 1, defaultRow: 3 },
+  { id: 'charstats',    iconType: 'charstats',    labelKey: 'desktop.charstats',    colorKey: 'purple', defaultCol: 2, defaultRow: 3 },
+  // Row 4 — Files & system
+  { id: 'schoolfiles',  iconType: 'schoolfiles',  labelKey: 'desktop.schoolfiles',  colorKey: 'cyan',   defaultCol: 0, defaultRow: 4 },
+  { id: 'personalfiles',iconType: 'personalfiles',labelKey: 'desktop.personalfiles',colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
+  { id: 'settings',     iconType: 'settings',     labelKey: 'desktop.settings',     colorKey: 'green',  defaultCol: 2, defaultRow: 4 },
+  // Row 5 — Game & utility
+  { id: 'recycle',      iconType: 'recycle',      labelKey: 'desktop.recycle',      colorKey: 'red',    defaultCol: 0, defaultRow: 5 },
+  { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 5 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge';
@@ -987,9 +993,20 @@ export default function NeoCrtDesktopShell() {
   }, [iconPositions]);
 
   const resetIconLayout = useCallback(() => {
-    const defaults = getDefaultPositions();
-    setIconPositions(defaults);
-  }, []);
+    const vw = viewport.width;
+    const vh = viewport.height;
+    const positions: Record<string, { x: number; y: number }> = {};
+    DESKTOP_ICONS.forEach(icon => {
+      const raw = gridToPixel(icon.defaultCol, icon.defaultRow);
+      positions[icon.id] = snapPixelToGrid(raw.x, raw.y, vw, vh);
+    });
+    AMBIENT_WIDGETS.forEach(w => {
+      const raw = gridToPixel(w.defaultCol, w.defaultRow);
+      positions[w.id] = snapPixelToGrid(raw.x, raw.y, vw, vh);
+    });
+    setIconPositions(positions);
+    localStorage.removeItem(DESKTOP_POSITIONS_KEY);
+  }, [viewport]);
   
   const toggleUiMode = useCallback(() => {
     const newMode = uiMode === 'legacy' ? 'student' : 'legacy';
@@ -1478,18 +1495,20 @@ export default function NeoCrtDesktopShell() {
 
       <div style={{
         position: 'absolute',
-        bottom: viewport.height < 600 ? '15px' : '30px',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        bottom: 0,
+        left: 0,
+        right: 0,
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: viewport.width < 600 ? '4px' : '8px',
-        padding: viewport.width < 600 ? '6px 10px' : '8px 16px',
-        border: `2px solid ${colors.primary}`,
-        borderRadius: '4px',
-        boxShadow: `0 0 20px ${colors.primaryGlow}, inset 0 0 10px ${colors.primary}10`,
-        background: `${colors.background}cc`,
+        padding: viewport.width < 600 ? '5px 10px' : '6px 20px',
+        borderTop: `1px solid ${colors.primary}60`,
+        boxShadow: `0 -4px 24px ${colors.primary}18, inset 0 1px 0 ${colors.primary}30`,
+        background: `${colors.background}f0`,
         zIndex: 10,
+        height: `${TASKBAR_RESERVE}px`,
+        boxSizing: 'border-box',
         transition: 'border-color 0.5s ease, box-shadow 0.5s ease, background 0.5s ease',
       }}>
         {TASKBAR_QUICK_APPS.map((icon) => (
