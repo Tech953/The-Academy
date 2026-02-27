@@ -108,6 +108,69 @@ function snapPixelToGrid(x: number, y: number, vw: number, vh: number): { x: num
   return gridToPixel(Math.min(col, maxCol), Math.min(row, maxRow));
 }
 
+const COLLISION_GAP = 8;
+
+function getItemBounds(id: string): { w: number; h: number } {
+  const WIDGET_SIZES: Record<string, { w: number; h: number }> = {
+    'w-note':   { w: 130, h: 120 },
+    'w-events': { w: 170, h: 180 },
+    'w-rss':    { w: 210, h: 200 },
+  };
+  return WIDGET_SIZES[id] ?? { w: ICON_W, h: ICON_H };
+}
+
+function rectsOverlap(
+  ax: number, ay: number, aw: number, ah: number,
+  bx: number, by: number, bw: number, bh: number
+): boolean {
+  return (
+    ax < bx + bw + COLLISION_GAP &&
+    ax + aw + COLLISION_GAP > bx &&
+    ay < by + bh + COLLISION_GAP &&
+    ay + ah + COLLISION_GAP > by
+  );
+}
+
+function findNearestFreePosition(
+  id: string,
+  targetX: number,
+  targetY: number,
+  positions: Record<string, { x: number; y: number }>,
+  vw: number,
+  vh: number
+): { x: number; y: number } {
+  const { w, h } = getItemBounds(id);
+  const clamp = (px: number, py: number) => ({
+    x: Math.max(8, Math.min(vw - w - 8, px)),
+    y: Math.max(8, Math.min(vh - h - TASKBAR_RESERVE - 8, py)),
+  });
+  const hasCollision = (px: number, py: number) =>
+    Object.entries(positions).some(([oid, pos]) => {
+      if (oid === id) return false;
+      const ob = getItemBounds(oid);
+      return rectsOverlap(px, py, w, h, pos.x, pos.y, ob.w, ob.h);
+    });
+  const start = clamp(targetX, targetY);
+  if (!hasCollision(start.x, start.y)) return start;
+  const STEP = 20;
+  for (let ring = 1; ring <= 24; ring++) {
+    const d = ring * STEP;
+    const offsets = [
+      { dx: 0,  dy: -d }, { dx: 0,  dy: d  },
+      { dx: -d, dy: 0  }, { dx: d,  dy: 0  },
+      { dx: -d, dy: -d }, { dx: d,  dy: -d },
+      { dx: -d, dy: d  }, { dx: d,  dy: d  },
+      { dx: -d, dy: -Math.round(d/2) }, { dx: d, dy: -Math.round(d/2) },
+      { dx: -d, dy:  Math.round(d/2) }, { dx: d, dy:  Math.round(d/2) },
+    ];
+    for (const { dx, dy } of offsets) {
+      const c = clamp(start.x + dx, start.y + dy);
+      if (!hasCollision(c.x, c.y)) return c;
+    }
+  }
+  return start;
+}
+
 interface DesktopIconEntry extends DesktopIconConfig {
   defaultCol: number;
   defaultRow: number;
@@ -866,13 +929,22 @@ export default function NeoCrtDesktopShell() {
   const [resonanceState, setResonanceState] = useState<'stable' | 'unstable' | 'critical'>('stable');
 
   const [iconPositions, setIconPositions] = useState<Record<string, { x: number; y: number }>>(loadIconPositions);
-  const [dragGhost, setDragGhost] = useState<{ x: number; y: number } | null>(null);
+  const [dragGhost, setDragGhost] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hiddenWidgets, setHiddenWidgets] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('academy-hidden-widgets') ?? '[]'); } catch { return []; }
   });
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('academy-widget-order') ?? '[]') as string[];
+      if (saved.length > 0) return saved;
+    } catch {/* ignore */}
+    return AMBIENT_WIDGETS.map(w => w.id);
+  });
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [showWidgetPanel, setShowWidgetPanel] = useState(false);
+  const [panelDragOver, setPanelDragOver] = useState<string | null>(null);
+  const panelDragSrc = useRef<string | null>(null);
 
   const dragRef = useRef<{
     iconId: string;
@@ -880,8 +952,10 @@ export default function NeoCrtDesktopShell() {
     startMouseY: number;
     startIconX: number;
     startIconY: number;
-    originSnappedX: number;
-    originSnappedY: number;
+    originX: number;
+    originY: number;
+    itemW: number;
+    itemH: number;
     hasMoved: boolean;
   } | null>(null);
 
@@ -900,16 +974,15 @@ export default function NeoCrtDesktopShell() {
       dragRef.current.hasMoved = true;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const iW = dragRef.current.itemW;
+      const iH = dragRef.current.itemH;
       const rawX = dragRef.current.startIconX + dx;
       const rawY = dragRef.current.startIconY + dy;
-      const maxX = vw - ICON_W - 4;
-      const maxY = vh - ICON_H - TASKBAR_RESERVE;
-      const clampedX = Math.max(4, Math.min(maxX, rawX));
-      const clampedY = Math.max(4, Math.min(maxY, rawY));
+      const clampedX = Math.max(4, Math.min(vw - iW - 4, rawX));
+      const clampedY = Math.max(4, Math.min(vh - iH - TASKBAR_RESERVE, rawY));
       const id = dragRef.current.iconId;
       setIconPositions(prev => ({ ...prev, [id]: { x: clampedX, y: clampedY } }));
-      const snapped = snapPixelToGrid(clampedX, clampedY, vw, vh);
-      setDragGhost(snapped);
+      setDragGhost({ x: clampedX, y: clampedY, w: iW, h: iH });
     };
     const handleMouseUp = () => {
       if (!dragRef.current) return;
@@ -921,29 +994,28 @@ export default function NeoCrtDesktopShell() {
         return;
       }
       const id = dragRef.current.iconId;
-      const originX = dragRef.current.originSnappedX;
-      const originY = dragRef.current.originSnappedY;
+      const originX = dragRef.current.originX;
+      const originY = dragRef.current.originY;
+      const iW = dragRef.current.itemW;
+      const iH = dragRef.current.itemH;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const isSmall = iW === ICON_W && iH === ICON_H;
       setIconPositions(prev => {
         const curPos = prev[id] ?? { x: 20, y: 20 };
-        const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
-        const targetCell = pixelToGrid(snapped.x, snapped.y);
-        const occupant = Object.entries(prev).find(([otherId, pos]) => {
-          if (otherId === id) return false;
-          const cell = pixelToGrid(pos.x, pos.y);
-          return cell.col === targetCell.col && cell.row === targetCell.row;
-        });
-        const next = { ...prev, [id]: snapped };
-        if (occupant) {
-          const [occupantId] = occupant;
-          next[occupantId] = { x: originX, y: originY };
+        if (isSmall) {
+          const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
+          const free = findNearestFreePosition(id, snapped.x, snapped.y, prev, vw, vh);
+          return { ...prev, [id]: free };
+        } else {
+          const free = findNearestFreePosition(id, curPos.x, curPos.y, prev, vw, vh);
+          return { ...prev, [id]: free };
         }
-        return next;
       });
       dragRef.current = null;
       setDraggingId(null);
       setDragGhost(null);
+      void originX; void originY;
     };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -957,15 +1029,17 @@ export default function NeoCrtDesktopShell() {
     e.stopPropagation();
     e.preventDefault();
     const pos = iconPositions[iconId] ?? { x: 20, y: 20 };
-    const snappedOrigin = snapPixelToGrid(pos.x, pos.y, window.innerWidth, window.innerHeight);
+    const { w, h } = getItemBounds(iconId);
     dragRef.current = {
       iconId,
       startMouseX: e.clientX,
       startMouseY: e.clientY,
       startIconX: pos.x,
       startIconY: pos.y,
-      originSnappedX: snappedOrigin.x,
-      originSnappedY: snappedOrigin.y,
+      originX: pos.x,
+      originY: pos.y,
+      itemW: w,
+      itemH: h,
       hasMoved: false,
     };
     setDraggingId(iconId);
@@ -1400,14 +1474,15 @@ export default function NeoCrtDesktopShell() {
             position: 'absolute',
             left: dragGhost.x,
             top: dragGhost.y,
-            width: ICON_W,
-            height: ICON_H,
-            border: `1px dashed ${colors.primary}60`,
-            borderRadius: '8px',
-            background: `${colors.primary}08`,
+            width: dragGhost.w,
+            height: dragGhost.h,
+            border: `1px dashed ${colors.primary}80`,
+            borderRadius: '6px',
+            background: `${colors.primary}06`,
             pointerEvents: 'none',
             zIndex: 998,
             boxSizing: 'border-box',
+            boxShadow: `0 0 12px ${colors.primary}20`,
           }}
         />
       )}
@@ -1764,7 +1839,9 @@ export default function NeoCrtDesktopShell() {
           }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 'bold', color: colors.primary, letterSpacing: 1 }}>[ CUSTOMIZE WIDGETS ]</div>
-              <div style={{ fontSize: 9, color: `${colors.primary}60`, marginTop: 2 }}>Toggle desktop decorations on/off</div>
+              <div style={{ fontSize: 9, color: `${colors.primary}60`, marginTop: 2 }}>
+                Drag ≡ to reorder · toggle visibility
+              </div>
             </div>
             <button
               onClick={() => setShowWidgetPanel(false)}
@@ -1775,15 +1852,12 @@ export default function NeoCrtDesktopShell() {
               }}
             >×</button>
           </div>
-          <div style={{ padding: '8px' }}>
-            {AMBIENT_WIDGETS.map(widget => {
-              const isLocked = !!(widget.unlockLevel && widget.unlockLevel > characterLevel);
-              const isHidden = hiddenWidgets.includes(widget.id);
-              const isVisible = !isHidden && !isLocked;
+          <div style={{ padding: '8px', maxHeight: 420, overflowY: 'auto' }}>
+            {(() => {
               const LABELS: Record<string, { name: string; desc: string; icon: string }> = {
                 'w-mascot':   { name: 'Academy Mascot',   desc: 'Your loyal bear mascot companion',        icon: '♡' },
                 'w-photo':    { name: 'Polaroid Frame',   desc: 'Decorative photo frame on your desktop',  icon: '◻' },
-                'w-sticker':  { name: 'Sticker',          desc: 'A decorative sticker for your desktop',   icon: '★' },
+                'w-sticker':  { name: 'Sticker',          desc: 'A decorable sticker for your desktop',    icon: '★' },
                 'w-calendar': { name: 'Day Planner',      desc: "Today's date at a glance",                icon: '▦' },
                 'w-book':     { name: 'Book Stack',       desc: 'Stack of books decoration',               icon: '▤' },
                 'w-badge':    { name: 'Achievement Badge',desc: 'Displays your current rank badge',         icon: '◈' },
@@ -1791,60 +1865,122 @@ export default function NeoCrtDesktopShell() {
                 'w-events':   { name: 'Calendar Events',  desc: 'Mini calendar with personal events',       icon: '▦' },
                 'w-rss':      { name: 'Live Feed / RSS',  desc: 'Live headline feed from 7 data nodes',     icon: '◎' },
               };
-              const meta = LABELS[widget.id] ?? { name: widget.widgetType, desc: '', icon: '■' };
-              return (
-                <div key={widget.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 8px',
-                  borderBottom: `1px solid ${colors.primary}15`,
-                  opacity: isLocked ? 0.45 : 1,
-                }}>
-                  <div style={{
-                    width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: `1px solid ${colors.primary}30`, fontSize: 16, color: colors.primary,
-                    flexShrink: 0,
-                  }}>
-                    {meta.icon}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: colors.primary, fontWeight: 'bold' }}>
-                      {meta.name}
-                      {isLocked && (
-                        <span style={{ fontSize: 9, color: accentColors.amber, marginLeft: 6 }}>
-                          [LVL {widget.unlockLevel}]
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 9, color: `${colors.primary}60`, marginTop: 1 }}>{meta.desc}</div>
-                  </div>
-                  <button
-                    onClick={() => !isLocked && toggleWidgetVisibility(widget.id)}
-                    disabled={isLocked}
-                    title={isLocked ? `Unlocks at Level ${widget.unlockLevel}` : isHidden ? 'Show widget' : 'Hide widget'}
+              const orderedWidgets = [...AMBIENT_WIDGETS].sort((a, b) => {
+                const ai = widgetOrder.indexOf(a.id);
+                const bi = widgetOrder.indexOf(b.id);
+                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+              });
+              return orderedWidgets.map(widget => {
+                const isLocked = !!(widget.unlockLevel && widget.unlockLevel > characterLevel);
+                const isHidden = hiddenWidgets.includes(widget.id);
+                const isVisible = !isHidden && !isLocked;
+                const meta = LABELS[widget.id] ?? { name: widget.widgetType, desc: '', icon: '■' };
+                const isDragOver = panelDragOver === widget.id;
+                return (
+                  <div
+                    key={widget.id}
+                    draggable
+                    onDragStart={() => { panelDragSrc.current = widget.id; }}
+                    onDragOver={e => { e.preventDefault(); setPanelDragOver(widget.id); }}
+                    onDragLeave={() => setPanelDragOver(null)}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const src = panelDragSrc.current;
+                      if (!src || src === widget.id) { setPanelDragOver(null); return; }
+                      setWidgetOrder(prev => {
+                        const base = prev.length > 0 ? [...prev] : AMBIENT_WIDGETS.map(w => w.id);
+                        const fromIdx = base.indexOf(src);
+                        const toIdx = base.indexOf(widget.id);
+                        if (fromIdx === -1 || toIdx === -1) return prev;
+                        const next = [...base];
+                        next.splice(fromIdx, 1);
+                        next.splice(toIdx, 0, src);
+                        localStorage.setItem('academy-widget-order', JSON.stringify(next));
+                        return next;
+                      });
+                      setPanelDragOver(null);
+                      panelDragSrc.current = null;
+                    }}
+                    onDragEnd={() => { setPanelDragOver(null); panelDragSrc.current = null; }}
                     style={{
-                      background: isVisible ? `${colors.primary}20` : 'transparent',
-                      border: `1px solid ${isVisible ? colors.primary : colors.primary + '40'}`,
-                      color: isVisible ? colors.primary : `${colors.primary}50`,
-                      padding: '4px 10px', cursor: isLocked ? 'not-allowed' : 'pointer',
-                      fontFamily: 'inherit', fontSize: 10, letterSpacing: 0.5, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 6px',
+                      borderBottom: `1px solid ${colors.primary}15`,
+                      borderTop: isDragOver ? `2px solid ${colors.primary}80` : '2px solid transparent',
+                      opacity: isLocked ? 0.45 : 1,
+                      background: isDragOver ? `${colors.primary}08` : 'transparent',
+                      transition: 'background 0.1s, border-color 0.1s',
                     }}
                   >
-                    {isLocked ? 'LOCKED' : isHidden ? 'SHOW' : 'HIDE'}
-                  </button>
-                </div>
-              );
-            })}
+                    <div
+                      title="Drag to reorder"
+                      style={{
+                        cursor: 'grab', color: `${colors.primary}40`,
+                        fontSize: 14, flexShrink: 0, userSelect: 'none',
+                        paddingRight: 2,
+                      }}
+                    >≡</div>
+                    <div style={{
+                      width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: `1px solid ${colors.primary}25`, fontSize: 14, color: colors.primary,
+                      flexShrink: 0,
+                    }}>
+                      {meta.icon}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: colors.primary, fontWeight: 'bold' }}>
+                        {meta.name}
+                        {isLocked && (
+                          <span style={{ fontSize: 9, color: accentColors.amber, marginLeft: 6 }}>
+                            [LVL {widget.unlockLevel}]
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 9, color: `${colors.primary}50`, marginTop: 1 }}>{meta.desc}</div>
+                    </div>
+                    <button
+                      onClick={() => !isLocked && toggleWidgetVisibility(widget.id)}
+                      disabled={isLocked}
+                      title={isLocked ? `Unlocks at Level ${widget.unlockLevel}` : isHidden ? 'Show widget' : 'Hide widget'}
+                      style={{
+                        background: isVisible ? `${colors.primary}20` : 'transparent',
+                        border: `1px solid ${isVisible ? colors.primary : colors.primary + '30'}`,
+                        color: isVisible ? colors.primary : `${colors.primary}40`,
+                        padding: '3px 8px', cursor: isLocked ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit', fontSize: 9, letterSpacing: 0.5, flexShrink: 0,
+                      }}
+                    >
+                      {isLocked ? 'LOCKED' : isHidden ? 'SHOW' : 'HIDE'}
+                    </button>
+                  </div>
+                );
+              });
+            })()}
           </div>
-          <div style={{ padding: '8px 14px', borderTop: `1px solid ${colors.primary}20` }}>
+          <div style={{ padding: '8px 14px', borderTop: `1px solid ${colors.primary}20`, display: 'flex', gap: 6 }}>
             <button
               onClick={() => { setHiddenWidgets([]); localStorage.removeItem('academy-hidden-widgets'); }}
               style={{
-                width: '100%', background: 'transparent', border: `1px solid ${colors.primary}40`,
-                color: `${colors.primary}80`, padding: '6px 0', cursor: 'pointer',
-                fontFamily: 'inherit', fontSize: 10, letterSpacing: 1,
+                flex: 1, background: 'transparent', border: `1px solid ${colors.primary}30`,
+                color: `${colors.primary}70`, padding: '5px 0', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
               }}
             >
-              SHOW ALL WIDGETS
+              SHOW ALL
+            </button>
+            <button
+              onClick={() => {
+                const defaultOrder = AMBIENT_WIDGETS.map(w => w.id);
+                setWidgetOrder(defaultOrder);
+                localStorage.setItem('academy-widget-order', JSON.stringify(defaultOrder));
+              }}
+              style={{
+                flex: 1, background: 'transparent', border: `1px solid ${colors.primary}30`,
+                color: `${colors.primary}70`, padding: '5px 0', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+              }}
+            >
+              RESET ORDER
             </button>
           </div>
         </div>
