@@ -19,6 +19,7 @@ import { ResearchNotebookApp } from './apps/ResearchNotebookApp';
 import { SkillGraphApp } from './apps/SkillGraphApp';
 import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
 import CharacterStatsApp from './apps/CharacterStatsApp';
+import StarterPerkFlow from './apps/StarterPerkFlow';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
@@ -873,7 +874,7 @@ export default function NeoCrtDesktopShell() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { colors, accentColors, modeLabel } = useCrtTheme();
   const { unreadCount: notificationCount } = useNotificationsContext();
-  const { unreadEmailCount, unreadMessageCount, isEnrolled } = useGameState();
+  const { unreadEmailCount, unreadMessageCount, isEnrolled, character } = useGameState();
   const { t } = useI18n();
   
   const [uiMode, setUiMode] = useState<UiMode>(() => {
@@ -1415,6 +1416,7 @@ export default function NeoCrtDesktopShell() {
         transition: 'background 0.5s ease',
       }}
     >
+      {character.starterPerks.length === 0 && <StarterPerkFlow />}
       <div className="crt-scanlines" style={{ opacity: colors.scanlineOpacity }} />
       <div className="crt-vignette" />
       

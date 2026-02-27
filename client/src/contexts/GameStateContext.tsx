@@ -69,6 +69,7 @@ interface GameStateContextType {
   sendMessage: (conversationId: string, content: string) => void;
   getConversation: (participantName: string) => Conversation | undefined;
   unlockPerk: (perkId: string) => void;
+  chooseStarterPerks: (perkIds: string[]) => void;
   setResonanceState: (state: 'stable' | 'unstable' | 'critical') => void;
   addEnrolledCourse: (courseId: string) => void;
   setIsGameActive: (active: boolean) => void;
@@ -301,6 +302,16 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const chooseStarterPerks = useCallback((perkIds: string[]) => {
+    setState(prev => ({
+      ...prev,
+      character: {
+        ...prev.character,
+        starterPerks: perkIds,
+      },
+    }));
+  }, []);
+
   const setResonanceState = useCallback((resonanceState: 'stable' | 'unstable' | 'critical') => {
     setState(prev => ({
       ...prev,
@@ -500,6 +511,7 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     sendMessage,
     getConversation,
     unlockPerk,
+    chooseStarterPerks,
     setResonanceState,
     addEnrolledCourse,
     setIsGameActive,

@@ -84,6 +84,23 @@ PostgreSQL with Drizzle ORM is used for type-safe database interactions, includi
 ## Game State Management
 Features include a multi-step AI-driven character creation, location-based navigation, a three-tier reputation system, energy/health management, and an inventory system. A 17-stat system (Physical, Mental, Spiritual) is implemented. A curriculum system offers 24 courses across 4 GED areas, with auto-generated textbooks and NLP for natural language command interpretation. Accessibility features include voice input, a command palette, and ARIA support. A Localized Content System provides language-aware educational content. Advanced systems include an Object Interaction Resolver, Research Notebook System, Academy OS Engagement Tracking System, Dialogue Modulation System, Ambient World Change System, Confluence Hall System, GED Culmination System, and a Crisis Intervention System.
 
+## Perk System
+
+### Starter Perk Flow (Fallout NV Style)
+On first boot (when `character.starterPerks.length === 0`), a full-screen overlay (`StarterPerkFlow.tsx`) activates:
+- **Phase 1**: Player selects 2 perks from 11 starter perks across combat/social/academic/survival/mystical categories
+- **Phase 2**: Summary screen shows "INITIALIZATION COMPLETE" with selected perk cards (with large glowing +X stat bonus numbers) and the character's base stat profile; clicking "ENTER THE ACADEMY" commits the choices
+- Managed by `chooseStarterPerks()` in `GameStateContext`; stored in `character.starterPerks`
+
+### PerksViewer App (`charstats`/perks desktop icon)
+Redesigned viewer with 4 tabs:
+- **AVAILABLE**: Level-up perks the player can unlock now (meets level + stat requirements)
+- **ACTIVE**: All earned perks (starter + level-up)
+- **LOCKED**: Perks still gated by level or stat requirements — clicking shows exact requirements with pass/fail indicators
+- **ALL STARTER**: The full starter perk library for reference
+- Rarity gating: common=Lv1, uncommon=Lv3, rare=Lv5, legendary=Lv8
+- Effects displayed with large colored `+X` glowing numbers and StatIcon sprites
+
 ## GED Graduation System
 The game includes a complete GED preparation and graduation system. Skill progress is tracked via game flags, with skills becoming "emerging" after 2 attendances and "stable/mastered" after 5. Players need 3+ stable skills per domain (Mathematical Reasoning, Language Arts, Science, Social Studies) to be GED ready. Upon readiness, the `GRADUATION CEREMONY` command initiates the Confluence Hall experience, a multi-node journey with optional branches, influenced by player stats and faction interactions, leading to different "Departure Vectors."
 
