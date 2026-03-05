@@ -88,7 +88,7 @@ const GRID_MARGIN_Y = 16;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 96;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v5';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v6';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -166,35 +166,54 @@ function findNearestFreePosition(
   vh: number
 ): { x: number; y: number } {
   const { w, h } = getItemBounds(id);
-  const clamp = (px: number, py: number) => ({
-    x: Math.max(8, Math.min(vw - w - 8, px)),
-    y: Math.max(8, Math.min(vh - h - TASKBAR_RESERVE - 8, py)),
-  });
+  const isIcon = w === ICON_W && h === ICON_H;
+
   const hasCollision = (px: number, py: number) =>
     Object.entries(positions).some(([oid, pos]) => {
       if (oid === id) return false;
       const ob = getItemBounds(oid);
       return rectsOverlap(px, py, w, h, pos.x, pos.y, ob.w, ob.h);
     });
-  const start = clamp(targetX, targetY);
-  if (!hasCollision(start.x, start.y)) return start;
-  const STEP = 20;
-  for (let ring = 1; ring <= 24; ring++) {
-    const d = ring * STEP;
-    const offsets = [
-      { dx: 0,  dy: -d }, { dx: 0,  dy: d  },
-      { dx: -d, dy: 0  }, { dx: d,  dy: 0  },
-      { dx: -d, dy: -d }, { dx: d,  dy: -d },
-      { dx: -d, dy: d  }, { dx: d,  dy: d  },
-      { dx: -d, dy: -Math.round(d/2) }, { dx: d, dy: -Math.round(d/2) },
-      { dx: -d, dy:  Math.round(d/2) }, { dx: d, dy:  Math.round(d/2) },
-    ];
-    for (const { dx, dy } of offsets) {
-      const c = clamp(start.x + dx, start.y + dy);
-      if (!hasCollision(c.x, c.y)) return c;
+
+  if (isIcon) {
+    // Search outward through grid cells — always stay on the grid
+    const { col: startCol, row: startRow } = pixelToGrid(targetX, targetY);
+    const maxCol = Math.max(0, Math.floor((vw - GRID_MARGIN_X) / GRID_CELL_W) - 1);
+    const maxRow = Math.max(0, Math.floor((vh - TASKBAR_RESERVE - GRID_MARGIN_Y) / GRID_CELL_H) - 1);
+
+    for (let ring = 0; ring <= 14; ring++) {
+      // Walk the perimeter of the ring in row-major order
+      for (let dr = -ring; dr <= ring; dr++) {
+        for (let dc = -ring; dc <= ring; dc++) {
+          if (Math.abs(dr) !== ring && Math.abs(dc) !== ring) continue;
+          const col = Math.max(0, Math.min(maxCol, startCol + dc));
+          const row = Math.max(0, Math.min(maxRow, startRow + dr));
+          const { x, y } = gridToPixel(col, row);
+          if (!hasCollision(x, y)) return { x, y };
+        }
+      }
     }
+    // Fallback: return the snapped start position
+    return gridToPixel(
+      Math.max(0, Math.min(maxCol, startCol)),
+      Math.max(0, Math.min(maxRow, startRow)),
+    );
+  } else {
+    // For widgets: simple clamp, no grid snapping needed
+    const clamped = {
+      x: Math.max(8, Math.min(vw - w - 8, targetX)),
+      y: Math.max(8, Math.min(vh - h - TASKBAR_RESERVE - 8, targetY)),
+    };
+    if (!hasCollision(clamped.x, clamped.y)) return clamped;
+    // Try slight offsets for widgets
+    for (let d = 24; d <= 200; d += 24) {
+      for (const [dx, dy] of [[0,-d],[0,d],[-d,0],[d,0]]) {
+        const c = { x: Math.max(8, Math.min(vw-w-8, clamped.x+dx)), y: Math.max(8, Math.min(vh-h-TASKBAR_RESERVE-8, clamped.y+dy)) };
+        if (!hasCollision(c.x, c.y)) return c;
+      }
+    }
+    return clamped;
   }
-  return start;
 }
 
 interface DesktopIconEntry extends DesktopIconConfig {
@@ -1282,6 +1301,19 @@ export default function NeoCrtDesktopShell() {
     setIconPositions(prev => ({ ...prev, ...newPositions }));
   }, [iconLabels, viewport]);
 
+  const snapAllToGrid = useCallback(() => {
+    const vw = viewport.width;
+    const vh = viewport.height;
+    setIconPositions(prev => {
+      const next = { ...prev };
+      DESKTOP_ICONS.forEach(icon => {
+        const cur = prev[icon.id];
+        if (cur) next[icon.id] = snapPixelToGrid(cur.x, cur.y, vw, vh);
+      });
+      return next;
+    });
+  }, [viewport]);
+
   const resetIconLayout = useCallback(() => {
     const vw = viewport.width;
     const vh = viewport.height;
@@ -2178,7 +2210,7 @@ export default function NeoCrtDesktopShell() {
           style={{
             position: 'fixed',
             left: Math.min(contextMenu.x, viewport.width - 210),
-            top: Math.min(contextMenu.y, viewport.height - 170),
+            top: Math.min(contextMenu.y, viewport.height - 210),
             zIndex: 99000,
             background: '#0a0a0a',
             border: `1px solid ${colors.primary}60`,
@@ -2211,6 +2243,7 @@ export default function NeoCrtDesktopShell() {
                 setShowWallpaperPanel(true);
                 closeContextMenu();
               } },
+            { label: '⊞  Snap All to Grid', action: () => { snapAllToGrid(); closeContextMenu(); } },
             { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
             { label: '↑  Sort by Name', action: () => { handleSortIcons('name'); closeContextMenu(); } },
             { label: '↑  Sort by Type', action: () => { handleSortIcons('type'); closeContextMenu(); } },
