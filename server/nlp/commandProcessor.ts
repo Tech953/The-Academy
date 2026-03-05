@@ -17,6 +17,8 @@ export interface GameContext {
   characterFaction: string;
   inventory: string[];
   energy: number;
+  lastTalkedNpc?: string;
+  npcTopics?: string[];
 }
 
 export interface ParsedCommand {
@@ -25,6 +27,7 @@ export interface ParsedCommand {
   confidence: number;
   reasoning: string;
   alternativeActions?: string[];
+  correction?: string;
 }
 
 const GAME_COMMANDS = {
@@ -38,74 +41,155 @@ const GAME_COMMANDS = {
   meta: ['help', 'save', 'load', 'quit', 'exit', 'time', 'score', 'clear'],
 };
 
+// ─── Fuzzy matching helpers ───────────────────────────────────────────────────
+
+export function levenshteinDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+export interface FuzzyMatch {
+  value: string;
+  distance: number;
+  score: number;
+}
+
+export function fuzzyMatch(
+  query: string,
+  candidates: string[],
+  maxDistance = 3
+): FuzzyMatch | null {
+  if (!query || candidates.length === 0) return null;
+  const q = query.toLowerCase();
+  let best: FuzzyMatch | null = null;
+
+  for (const candidate of candidates) {
+    const c = candidate.toLowerCase();
+    if (c === q) return { value: candidate, distance: 0, score: 1 };
+
+    const dist = levenshteinDistance(q, c);
+    const score = 1 - dist / Math.max(q.length, c.length);
+
+    if (dist <= maxDistance && (!best || dist < best.distance)) {
+      best = { value: candidate, distance: dist, score };
+    }
+  }
+  return best;
+}
+
+export function fuzzyMatchNPC(
+  query: string,
+  npcNames: string[],
+  maxDistance = 3
+): FuzzyMatch | null {
+  const q = query.toLowerCase();
+
+  // First try: exact first-name match
+  for (const name of npcNames) {
+    if (name.toLowerCase().split(' ')[0] === q) {
+      return { value: name, distance: 0, score: 1 };
+    }
+  }
+
+  // Second try: fuzzy against full name
+  const fullMatch = fuzzyMatch(query, npcNames, maxDistance);
+  if (fullMatch) return fullMatch;
+
+  // Third try: fuzzy against first names only
+  const firstNames = npcNames.map(n => n.split(' ')[0]);
+  const firstMatch = fuzzyMatch(query, firstNames, maxDistance);
+  if (firstMatch) {
+    const fullName = npcNames.find(n => n.split(' ')[0].toLowerCase() === firstMatch.value.toLowerCase());
+    if (fullName) return { value: fullName, distance: firstMatch.distance, score: firstMatch.score };
+  }
+
+  return null;
+}
+
+const DIRECTION_ALIASES: Record<string, string> = {
+  n: 'north', s: 'south', e: 'east', w: 'west',
+  ne: 'northeast', se: 'southeast', nw: 'northwest', sw: 'southwest',
+  u: 'up', d: 'down',
+  norht: 'north', nroth: 'north', sooth: 'south', soath: 'south',
+  esat: 'east', waest: 'west', wesat: 'west',
+};
+
+const ACTION_ALIASES: Record<string, string> = {
+  go: 'look', l: 'look', looks: 'look', loot: 'look',
+  exam: 'examine', examne: 'examine', examin: 'examine', exmaine: 'examine', insepct: 'inspect',
+  tk: 'talk', tlak: 'talk', tak: 'talk', talkto: 'talk', talek: 'talk', spek: 'speak', speek: 'speak',
+  inv: 'inventory', inven: 'inventory',
+  stat: 'status', stats: 'status',
+  hlep: 'help', halp: 'help',
+  savge: 'save',
+};
+
+// ─── Main NLP entry point ─────────────────────────────────────────────────────
+
 export async function processNaturalLanguage(
   userInput: string,
   context: GameContext
 ): Promise<ParsedCommand> {
   try {
-    const systemPrompt = `You are a command interpreter for a text-based RPG game called "The Academy" - a mysterious private school with 144 students and faculty. Your job is to interpret natural language input from players and convert it into structured game commands.
+    const lastNpcClause = context.lastTalkedNpc
+      ? `\nLast NPC spoken to: ${context.lastTalkedNpc}${context.npcTopics?.length ? ` (topics: ${context.npcTopics.join(', ')})` : ''}`
+      : '';
 
-AVAILABLE COMMAND TYPES:
-- Movement: north, south, east, west, up, down, enter (+ location name)
-- Observation: look (at surroundings), examine (specific object/person)
-- Interaction: talk (to NPC), ask (NPC about topic)
-- Inventory: inventory, status
-- Social: list (show people in location - use for "who's here?", "who else is around?", "show people", etc.)
-- Academic: 
-  * grades (view current course grades)
-  * transcript (view completed courses)
-  * schedule (view class schedule)
-  * gpa (view GPA and academic standing)
-  * read (read a textbook table of contents - requires textbook name/course name)
-  * chapter (read a specific chapter - requires course name and chapter number)
-  * lecture (view lecture notes - requires course name and week number)
-  * attend (attend a class session - requires course name)
-  * enroll (enroll in a course - requires course name or "list" to see available courses)
-  * courses (list all available courses)
-  * study (study a subject)
-  * textbook (access course textbook)
-  * assignments (view pending assignments)
-  * progress (view academic progress)
-  * graduation (check GED progress, trigger graduation ceremony)
-- Meta: help, save, load, quit, time, score, clear
+    const topicInstructions = context.lastTalkedNpc
+      ? `\nSPECIAL RULE — TOPIC SHORTCUTS: If the player types just a single word/phrase that matches one of the NPC topics listed above (e.g. "STUDIES", "INTRODUCTION") and does NOT match any NPC name, treat it as: action "talk", target "${context.lastTalkedNpc} [that_topic]". This handles the case where they reply with just the topic after seeing the topic list.`
+      : '';
 
-CURRENT GAME CONTEXT:
+    const systemPrompt = `You are a command interpreter for a text-based RPG game called "The Academy". Interpret player input and convert to game commands. Be tolerant of typos, abbreviations, and natural phrasing.
+
+AVAILABLE COMMANDS:
+- Movement: north/n, south/s, east/e, west/w, up/u, down/d, enter [place]
+- Observation: look, examine [object]
+- Interaction: talk [npc], talk [npc] [topic]
+- Inventory: inventory
+- Status: status
+- Social: list (who's here?)
+- Academic: grades, transcript, schedule, gpa, read [book], chapter [book] [#], lecture [book] [week], attend [class], enroll [class], courses, study, assignments, progress, graduation
+- Meta: help, save, time, score, clear
+
+CURRENT CONTEXT:
 Location: ${context.currentLocation}
-Description: ${context.locationDescription}
 Available exits: ${context.availableExits.join(', ') || 'none'}
 NPCs present: ${context.npcsPresent.join(', ') || 'none'}
-Objects you can examine: ${context.interactables.join(', ') || 'none'}
-Character: ${context.characterName} (${context.characterRace} ${context.characterClass}, ${context.characterFaction} faction)
+Objects: ${context.interactables.join(', ') || 'none'}
+Character: ${context.characterName} (${context.characterRace} ${context.characterClass})${lastNpcClause}${topicInstructions}
 
-INSTRUCTIONS:
-1. Interpret the player's natural language input
-2. Map it to the most appropriate game action
-3. Extract any targets (NPC names, directions, objects, topics)
-4. Handle variations like "go to library" → action: "enter", target: "library"
-5. Handle casual phrasings like "what's here?" → action: "look"
-6. IMPORTANT: Questions about WHO is present ("who's around?", "who else is here?", "show me the people") → action: "list"
-7. Questions about general surroundings ("what do I see?", "look around") → action: "look"
-8. If unclear, suggest the most likely action with high confidence
-9. Consider the context - if they ask about a specific person by name, use "talk" or "examine"
-10. For inventory questions ("what am I carrying?", "check my stuff") → action: "inventory"
-11. For status questions ("how am I doing?", "check myself") → action: "status"
-12. For academic content:
-    - "read math textbook" → action: "read", target: "math"
-    - "show chapter 3 of algebra" → action: "chapter", target: "algebra 3"
-    - "view week 5 lecture for science" → action: "lecture", target: "science 5"
-    - "go to geometry class" → action: "attend", target: "geometry"
-    - "enroll in algebra" → action: "enroll", target: "algebra"
-    - "enroll" or "sign up for classes" → action: "enroll", target: "list"
-    - "what courses are available" → action: "courses"
-    - "show my assignments" → action: "assignments"
+INTERPRETATION RULES:
+1. Be lenient with typos — match to the closest valid command/name
+2. "go north" → north, "head east" → east, "n" → north
+3. "talk to X about Y" → action: talk, target: "X Y"
+4. "ask X about Y" → action: talk, target: "X Y"  
+5. "what's here?" / "look around" → look
+6. "who's here?" / "show people" → list
+7. "what am I carrying?" → inventory
+8. Single topic word after talking to an NPC → talk [lastNPC] [topic]
+9. Typos in NPC names: match to closest NPC present
+10. Typos in directions: match to closest direction
 
-Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON:
 {
-  "action": "the game command (e.g., 'look', 'north', 'talk', 'examine')",
-  "target": "the target of the action (e.g., NPC name, object, direction, or null if not applicable)",
-  "confidence": 0.95,
-  "reasoning": "brief explanation of interpretation",
-  "alternativeActions": ["alternative1", "alternative2"]
+  "action": "command",
+  "target": "target or null",
+  "confidence": 0.0-1.0,
+  "reasoning": "brief explanation",
+  "alternativeActions": ["alt1"],
+  "correction": "if you corrected a typo, show: 'Interpreting: CORRECTED COMMAND'"
 }`;
 
     const response = await openai.chat.completions.create({
@@ -114,144 +198,192 @@ Respond ONLY with valid JSON in this exact format:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userInput }
       ],
-      temperature: 0.3,
+      temperature: 0.2,
       max_tokens: 300,
     });
 
     const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from AI');
-    }
+    if (!content) throw new Error('No response from AI');
 
-    // Parse the JSON response
     const parsed = JSON.parse(content) as ParsedCommand;
-    
-    // Validate the response
-    if (!parsed.action || parsed.confidence === undefined) {
-      throw new Error('Invalid AI response format');
-    }
+    if (!parsed.action || parsed.confidence === undefined) throw new Error('Invalid AI response format');
 
     return parsed;
   } catch (error) {
     console.error('NLP processing error:', error);
-    
-    // Fallback to simple parsing if AI fails
     return fallbackParser(userInput, context);
   }
 }
 
-// Simple fallback parser when AI is unavailable
+// ─── Enhanced fallback parser ─────────────────────────────────────────────────
+
 function fallbackParser(input: string, context: GameContext): ParsedCommand {
-  const lowered = input.toLowerCase().trim();
-  
-  // Check for direction words
-  const directions = ['north', 'south', 'east', 'west', 'up', 'down'];
-  for (const dir of directions) {
-    if (lowered.includes(dir)) {
+  const raw = input.toLowerCase().trim();
+  const words = raw.split(/\s+/);
+  const firstWord = words[0];
+  const rest = words.slice(1).join(' ');
+
+  // ── Direction shortcuts & typo correction
+  const directionMap: Record<string, string> = {
+    north: 'north', south: 'south', east: 'east', west: 'west',
+    up: 'up', down: 'down', northeast: 'northeast', northwest: 'northwest',
+    southeast: 'southeast', southwest: 'southwest',
+    ...DIRECTION_ALIASES,
+  };
+  if (directionMap[raw]) {
+    return { action: directionMap[raw], confidence: 0.9, reasoning: 'Direction keyword' };
+  }
+
+  // Check first word against all directions with fuzzy matching
+  const allDirections = [...context.availableExits.map(e => e.toLowerCase()), 'north', 'south', 'east', 'west', 'up', 'down'];
+  const dirMatch = fuzzyMatch(firstWord, allDirections, 2);
+  if (dirMatch && dirMatch.distance <= 2 && words.length === 1) {
+    const correction = dirMatch.distance > 0 ? `Interpreting "${input}" as: ${dirMatch.value.toUpperCase()}` : undefined;
+    return { action: dirMatch.value, confidence: 0.85 - dirMatch.distance * 0.1, reasoning: 'Fuzzy direction match', correction };
+  }
+
+  // ── Action aliases & typo correction
+  const correctedAction = ACTION_ALIASES[firstWord];
+  if (correctedAction) {
+    return fallbackParser(`${correctedAction} ${rest}`.trim(), context);
+  }
+
+  // ── "go [direction]" or "go to [place]"
+  if (firstWord === 'go' || firstWord === 'head' || firstWord === 'move' || firstWord === 'walk') {
+    const dirResult = fuzzyMatch(rest, allDirections, 2);
+    if (dirResult) {
+      return { action: dirResult.value, confidence: 0.85, reasoning: 'Movement with direction' };
+    }
+    return { action: 'enter', target: rest, confidence: 0.7, reasoning: 'Movement to place' };
+  }
+
+  // ── LOOK
+  if (firstWord === 'look' || firstWord === 'l' || raw.includes('look around') || raw.includes('what do i see') || raw.includes("what's here")) {
+    if (rest) {
+      return { action: 'examine', target: rest, confidence: 0.8, reasoning: 'Look at specific target' };
+    }
+    return { action: 'look', confidence: 0.9, reasoning: 'Look around' };
+  }
+
+  // ── EXAMINE
+  if (firstWord === 'examine' || firstWord === 'inspect' || firstWord === 'check') {
+    return { action: 'examine', target: rest || undefined, confidence: 0.85, reasoning: 'Examine object' };
+  }
+
+  // ── TALK / ASK / SPEAK
+  if (firstWord === 'talk' || firstWord === 'speak' || firstWord === 'ask' || firstWord === 'greet' || firstWord === 'converse') {
+    if (!rest) {
+      return { action: 'talk', confidence: 0.4, reasoning: 'Talk without target', alternativeActions: ['list'] };
+    }
+
+    // Strip filler words: "to", "with", "the"
+    const strippedRest = rest.replace(/^(to|with|the)\s+/i, '');
+    const restWords = strippedRest.split(/\s+/);
+    const candidateName = restWords[0];
+    const remainingTopic = restWords.slice(1).join(' ');
+
+    // Try to find NPC by fuzzy first name or full name
+    const npcMatch = fuzzyMatchNPC(candidateName, context.npcsPresent, 3);
+
+    if (npcMatch) {
+      const firstName = npcMatch.value.split(' ')[0];
+      const correction = npcMatch.distance > 0
+        ? `Interpreting "${input}" as: TALK ${firstName}${remainingTopic ? ' ' + remainingTopic.toUpperCase() : ''}`
+        : undefined;
       return {
-        action: dir,
+        action: 'talk',
+        target: remainingTopic ? `${firstName} ${remainingTopic}` : firstName,
+        confidence: 0.9 - npcMatch.distance * 0.05,
+        reasoning: npcMatch.distance > 0 ? `Fuzzy NPC name match (${npcMatch.value})` : 'NPC name match',
+        correction,
+      };
+    }
+
+    // No NPC name matched — check if the whole "rest" is a topic for the last NPC
+    if (context.lastTalkedNpc && context.npcTopics) {
+      const topicMatch = fuzzyMatch(strippedRest, context.npcTopics, 2);
+      if (topicMatch) {
+        const npcFirstName = context.lastTalkedNpc.split(' ')[0];
+        return {
+          action: 'talk',
+          target: `${npcFirstName} ${topicMatch.value}`,
+          confidence: 0.85,
+          reasoning: `Topic shortcut for last-spoken NPC (${context.lastTalkedNpc})`,
+          correction: `Talking to ${npcFirstName} about ${topicMatch.value.toUpperCase()}`,
+        };
+      }
+    }
+
+    return {
+      action: 'talk',
+      target: candidateName,
+      confidence: 0.5,
+      reasoning: 'Talk target, NPC not found nearby',
+    };
+  }
+
+  // ── Bare topic word (no action verb) — check against last NPC topics
+  if (words.length <= 2 && context.lastTalkedNpc && context.npcTopics && context.npcTopics.length > 0) {
+    const topicMatch = fuzzyMatch(raw, context.npcTopics, 2);
+    if (topicMatch && topicMatch.distance <= 2) {
+      const npcFirstName = context.lastTalkedNpc.split(' ')[0];
+      return {
+        action: 'talk',
+        target: `${npcFirstName} ${topicMatch.value}`,
         confidence: 0.8,
-        reasoning: 'Detected direction keyword',
+        reasoning: `Bare topic word matched to ${context.lastTalkedNpc} topics`,
+        correction: `Talking to ${npcFirstName} about ${topicMatch.value.toUpperCase()}`,
       };
     }
   }
-  
-  // Check for common action words
-  if (lowered.includes('look') || lowered.includes('see') || lowered.includes('around')) {
-    return {
-      action: 'look',
-      confidence: 0.7,
-      reasoning: 'Detected observation intent',
-    };
+
+  // ── WHO / LIST
+  if (firstWord === 'who' || firstWord === 'list' || raw.includes('people') || raw.includes("who's here") || raw.includes('anyone here')) {
+    return { action: 'list', confidence: 0.8, reasoning: 'Social query' };
   }
-  
-  if (lowered.includes('talk') || lowered.includes('speak') || lowered.includes('ask')) {
-    // Try to find NPC name in input
-    const npc = context.npcsPresent.find(name => 
-      lowered.includes(name.toLowerCase().split(' ')[0])
-    );
-    return {
-      action: 'talk',
-      target: npc?.split(' ')[0],
-      confidence: 0.7,
-      reasoning: 'Detected conversation intent',
-    };
+
+  // ── INVENTORY
+  if (firstWord === 'inventory' || firstWord === 'inv' || firstWord === 'i' || raw.includes('carrying') || raw.includes('my items') || raw.includes('my stuff')) {
+    return { action: 'inventory', confidence: 0.9, reasoning: 'Inventory request' };
   }
-  
-  if (lowered.includes('who') || lowered.includes('people') || lowered.includes('here')) {
-    return {
-      action: 'list',
-      confidence: 0.7,
-      reasoning: 'Detected social query',
-    };
+
+  // ── STATUS
+  if (firstWord === 'status' || firstWord === 'stats' || raw.includes('how am i') || raw.includes('check myself')) {
+    return { action: 'status', confidence: 0.9, reasoning: 'Status request' };
   }
-  
-  if (lowered.includes('inventory') || lowered.includes('items') || lowered.includes('carrying')) {
-    return {
-      action: 'inventory',
-      confidence: 0.8,
-      reasoning: 'Detected inventory request',
-    };
+
+  // ── ACADEMIC
+  if (firstWord === 'enroll' || raw.includes('sign up')) {
+    const target = rest.replace(/^(in|for)\s+/i, '') || 'list';
+    return { action: 'enroll', target, confidence: 0.85, reasoning: 'Enrollment request' };
   }
-  
-  if (lowered.includes('status') || lowered.includes('stats') || lowered.includes('me')) {
-    return {
-      action: 'status',
-      confidence: 0.8,
-      reasoning: 'Detected status request',
-    };
+  if (firstWord === 'grades' || raw.includes('my grades')) return { action: 'grades', confidence: 0.9, reasoning: 'Grades request' };
+  if (firstWord === 'transcript') return { action: 'transcript', confidence: 0.9, reasoning: 'Transcript request' };
+  if (firstWord === 'schedule' || raw.includes('my classes')) return { action: 'schedule', confidence: 0.9, reasoning: 'Schedule request' };
+  if (firstWord === 'gpa') return { action: 'gpa', confidence: 0.9, reasoning: 'GPA request' };
+  if (firstWord === 'courses' || raw.includes('available courses') || raw.includes('classes available')) return { action: 'courses', confidence: 0.9, reasoning: 'Courses query' };
+  if (firstWord === 'assignments' || firstWord === 'homework') return { action: 'assignments', confidence: 0.9, reasoning: 'Assignments request' };
+  if (firstWord === 'study') return { action: 'study', target: rest || undefined, confidence: 0.85, reasoning: 'Study request' };
+  if (firstWord === 'progress') return { action: 'progress', confidence: 0.9, reasoning: 'Progress request' };
+  if (firstWord === 'read') return { action: 'read', target: rest || undefined, confidence: 0.85, reasoning: 'Read request' };
+  if (firstWord === 'attend') return { action: 'attend', target: rest || undefined, confidence: 0.85, reasoning: 'Attend class' };
+  if (firstWord === 'help' || raw === '?') return { action: 'help', confidence: 0.95, reasoning: 'Help request' };
+  if (firstWord === 'save') return { action: 'save', confidence: 0.95, reasoning: 'Save request' };
+  if (firstWord === 'time') return { action: 'time', confidence: 0.95, reasoning: 'Time request' };
+  if (firstWord === 'clear' || firstWord === 'cls') return { action: 'clear', confidence: 0.95, reasoning: 'Clear terminal' };
+
+  // ── Fuzzy fallback: try all known command words
+  const allActions = Object.values(GAME_COMMANDS).flat();
+  const actionMatch = fuzzyMatch(firstWord, allActions, 2);
+  if (actionMatch && actionMatch.distance <= 2) {
+    const correction = `Interpreting "${firstWord}" as: ${actionMatch.value.toUpperCase()}`;
+    return fallbackParser(`${actionMatch.value} ${rest}`.trim(), { ...context });
   }
-  
-  // Academic commands
-  if (lowered.includes('enroll') || lowered.includes('sign up')) {
-    // Extract course name if present
-    const words = lowered.split(' ').filter(w => !['enroll', 'in', 'for', 'sign', 'up'].includes(w));
-    const target = words.length > 0 ? words.join(' ') : 'list';
-    return {
-      action: 'enroll',
-      target,
-      confidence: 0.8,
-      reasoning: 'Detected enrollment request',
-    };
-  }
-  
-  if (lowered.includes('courses') || lowered.includes('classes available')) {
-    return {
-      action: 'courses',
-      confidence: 0.8,
-      reasoning: 'Detected courses query',
-    };
-  }
-  
-  if (lowered.includes('assignments') || lowered.includes('homework')) {
-    return {
-      action: 'assignments',
-      confidence: 0.8,
-      reasoning: 'Detected assignments query',
-    };
-  }
-  
-  if (lowered.includes('study')) {
-    return {
-      action: 'study',
-      confidence: 0.8,
-      reasoning: 'Detected study request',
-    };
-  }
-  
-  if (lowered.includes('progress')) {
-    return {
-      action: 'progress',
-      confidence: 0.8,
-      reasoning: 'Detected progress request',
-    };
-  }
-  
-  // Default to help if we can't parse
+
   return {
     action: 'help',
     confidence: 0.3,
-    reasoning: 'Could not parse command, showing help',
+    reasoning: 'Could not parse command',
     alternativeActions: ['look', 'status', 'list'],
   };
 }
