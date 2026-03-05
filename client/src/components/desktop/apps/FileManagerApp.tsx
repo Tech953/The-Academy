@@ -16,6 +16,22 @@ export interface FileManagerAppProps {
 
 type SortKey = 'name' | 'type' | 'size';
 
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
+const BINARY_EXTS = new Set(['pdf', 'zip', 'tar', 'gz', 'exe', 'bin', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'mp3', 'mp4', 'wav', 'ogg', 'avi', 'mov']);
+
+function fileExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? ''; }
+function isImageFile(name: string) { return IMAGE_EXTS.has(fileExt(name)); }
+function isBinaryFile(name: string) { return BINARY_EXTS.has(fileExt(name)); }
+function hasBinaryContent(content: string) {
+  const sample = content.slice(0, 512);
+  let nonPrintable = 0;
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i);
+    if ((c < 9) || (c > 13 && c < 32) || c === 127) nonPrintable++;
+  }
+  return nonPrintable / Math.max(sample.length, 1) > 0.08;
+}
+
 export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: FileManagerAppProps) {
   const { colors, accentColors } = useCrtTheme();
   const c = colors.primary;
@@ -35,6 +51,7 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
   const [showPreview, setShowPreview] = useState(true);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<'text' | 'image' | 'binary' | null>(null);
   const [copySource, setCopySource] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,10 +79,43 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
   };
 
   const loadPreview = useCallback((file: VirtualFile) => {
-    if (file.type === 'directory' || file.type === 'locked') { setPreviewContent(null); setPreviewPath(null); return; }
-    const result = virtualFS.readFile(file.path);
-    if (result.success && result.content) {
+    if (file.type === 'directory' || file.type === 'locked') {
+      setPreviewContent(null); setPreviewPath(null); setPreviewMode(null); return;
+    }
+
+    // Image files — show inline if stored as data URL, otherwise label as binary
+    if (isImageFile(file.name)) {
+      const result = virtualFS.readFile(file.path);
       setPreviewPath(file.path);
+      if (result.success && result.content?.startsWith('data:image/')) {
+        setPreviewContent(result.content);
+        setPreviewMode('image');
+      } else {
+        setPreviewContent(null);
+        setPreviewMode('binary');
+      }
+      return;
+    }
+
+    // Known binary formats — never attempt text preview
+    if (isBinaryFile(file.name)) {
+      setPreviewPath(file.path);
+      setPreviewContent(null);
+      setPreviewMode('binary');
+      return;
+    }
+
+    // Text files — read and display
+    const result = virtualFS.readFile(file.path);
+    if (result.success && result.content != null) {
+      setPreviewPath(file.path);
+      // Detect binary content masquerading as text (e.g. a binary uploaded with readAsText)
+      if (hasBinaryContent(result.content)) {
+        setPreviewContent(null);
+        setPreviewMode('binary');
+        return;
+      }
+      setPreviewMode('text');
       // For .acd files, try to parse and show title + preview
       if (file.name.endsWith('.acd')) {
         try {
@@ -82,6 +132,7 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
     } else {
       setPreviewContent(null);
       setPreviewPath(null);
+      setPreviewMode(null);
     }
   }, []);
 
@@ -94,11 +145,27 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
     if (file.type === 'directory') {
       navigateTo(file.path);
     } else if (file.type === 'file' || file.type === 'executable') {
+      // Block binary and image files from being opened in the text viewer
+      if (isImageFile(file.name)) {
+        flash(`"${file.name}" is an image file — use the image preview on the right`);
+        return;
+      }
+      if (isBinaryFile(file.name)) {
+        flash(`"${file.name}" is a binary file and cannot be opened in Notepad`);
+        return;
+      }
       const result = virtualFS.readFile(file.path);
-      if (result.success && onOpenFile) {
-        onOpenFile(file.path, result.content ?? '');
-      } else if (!onOpenFile) {
-        flash(`Cannot open: no viewer registered`);
+      if (result.success) {
+        // Extra guard: check for binary content even if extension looks like text
+        if (hasBinaryContent(result.content ?? '')) {
+          flash(`"${file.name}" appears to be a binary file and cannot be opened in Notepad`);
+          return;
+        }
+        if (onOpenFile) {
+          onOpenFile(file.path, result.content ?? '');
+        } else {
+          flash(`Cannot open: no viewer registered`);
+        }
       } else {
         flash(result.error ?? 'Cannot read file');
       }
@@ -189,7 +256,11 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
           resolve();
         };
         reader.onerror = () => { failed++; resolve(); };
-        reader.readAsText(file);
+        if (isImageFile(file.name)) {
+          reader.readAsDataURL(file);
+        } else {
+          reader.readAsText(file);
+        }
       });
     });
     Promise.all(promises).then(() => {
@@ -485,7 +556,26 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
             )}
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
-              {previewContent ? (
+              {previewMode === 'image' && previewContent ? (
+                <div style={{ textAlign: 'center' }}>
+                  <img
+                    src={previewContent}
+                    alt={selectedFile?.name}
+                    style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain', border: `1px solid ${c}20`, borderRadius: 2 }}
+                  />
+                </div>
+              ) : previewMode === 'binary' ? (
+                <div style={{ fontSize: 9, color: `${c}35`, textAlign: 'center', paddingTop: 20, lineHeight: 1.7 }}>
+                  <div style={{ marginBottom: 6 }}>
+                    {selectedFile && isImageFile(selectedFile.name) ? '[ IMAGE FILE ]' : '[ BINARY FILE ]'}
+                  </div>
+                  <div style={{ color: `${c}22`, fontSize: 8 }}>
+                    {selectedFile && isImageFile(selectedFile.name)
+                      ? 'Re-upload this image to enable preview'
+                      : 'Cannot display binary content'}
+                  </div>
+                </div>
+              ) : previewMode === 'text' && previewContent ? (
                 <pre style={{ margin: 0, fontSize: 9, color: `${c}70`, fontFamily: '"Courier New", monospace',
                   whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
                   {previewContent}

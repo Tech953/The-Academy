@@ -3,6 +3,24 @@ import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { virtualFS } from '@/lib/virtualFilesystem';
 import { Save, FileText, ChevronDown } from 'lucide-react';
 
+const BINARY_EXTS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico', 'svg',
+  'zip', 'tar', 'gz', 'exe', 'bin', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'mp3', 'mp4', 'wav', 'ogg', 'avi', 'mov']);
+
+function isBinaryFileName(name: string) {
+  return BINARY_EXTS.has(name.split('.').pop()?.toLowerCase() ?? '');
+}
+
+function hasBinaryContent(content: string) {
+  const sample = content.slice(0, 512);
+  let nonPrintable = 0;
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i);
+    if ((c < 9) || (c > 13 && c < 32) || c === 127) nonPrintable++;
+  }
+  return nonPrintable / Math.max(sample.length, 1) > 0.08;
+}
+
 export interface NotepadProps {
   initialContent?: string;
   initialFileName?: string;
@@ -12,7 +30,15 @@ export interface NotepadProps {
 
 export default function Notepad({ initialContent = '', initialFileName = 'Untitled', filePath, onSave }: NotepadProps) {
   const { colors, accentColors } = useCrtTheme();
-  const [content, setContent] = useState(initialContent);
+
+  // Detect binary files before populating state
+  const detectedBinary =
+    (filePath && isBinaryFileName(filePath.split('/').pop() ?? '')) ||
+    (initialFileName && isBinaryFileName(initialFileName)) ||
+    (initialContent && hasBinaryContent(initialContent));
+
+  const [isBinary, setIsBinary] = useState(!!detectedBinary);
+  const [content, setContent] = useState(detectedBinary ? '' : initialContent);
   const [fileName, setFileName] = useState(initialFileName);
   const [currentPath, setCurrentPath] = useState(filePath ?? '');
   const [hasChanges, setHasChanges] = useState(false);
@@ -27,10 +53,20 @@ export default function Notepad({ initialContent = '', initialFileName = 'Untitl
 
   useEffect(() => {
     if (filePath && !initialContent) {
+      const name = filePath.split('/').pop() ?? 'Untitled';
+      if (isBinaryFileName(name)) {
+        setIsBinary(true);
+        setFileName(name);
+        return;
+      }
       const result = virtualFS.readFile(filePath);
-      if (result.success && result.content) {
-        setContent(result.content);
-        setFileName(filePath.split('/').pop() ?? 'Untitled');
+      if (result.success && result.content != null) {
+        if (hasBinaryContent(result.content)) {
+          setIsBinary(true);
+        } else {
+          setContent(result.content);
+        }
+        setFileName(name);
       }
     }
   }, [filePath]);
@@ -199,28 +235,45 @@ export default function Notepad({ initialContent = '', initialFileName = 'Untitl
       )}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <div
-          style={{ padding: '8px 6px 8px 8px', borderRight: `1px solid ${colors.primary}18`, background: `${colors.primary}03`, textAlign: 'right', minWidth: 38, overflow: 'hidden', userSelect: 'none', fontSize: 11, lineHeight: '18px', color: `${colors.primary}35` }}
-        >
-          {Array.from({ length: lineCount }, (_, i) => i + 1).map(n => (
-            <div key={n}>{n}</div>
-          ))}
-        </div>
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => { setContent(e.target.value); setHasChanges(true); }}
-          onKeyUp={(e) => updateCursor(e.currentTarget)}
-          onClick={(e) => updateCursor(e.currentTarget)}
-          onKeyDown={(e) => {
-            if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSave(); }
-            if (e.ctrlKey && e.key === 'n') { e.preventDefault(); handleNew(); }
-            if (e.ctrlKey && e.key === 'f') { e.preventDefault(); handleFind(); }
-            if (e.ctrlKey && e.key === 'a') { e.preventDefault(); handleSelectAll(); }
-          }}
-          placeholder={`${fileName} — start typing…`}
-          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: colors.primary, fontFamily: '"Courier New", monospace', fontSize: 12, lineHeight: '18px', padding: '8px', resize: 'none', caretColor: colors.primary }}
-        />
+        {isBinary ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: `${colors.primary}50`, fontFamily: '"Courier New", monospace', padding: 24 }}>
+            <FileText size={32} color={`${colors.primary}30`} />
+            <div style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.8 }}>
+              <div style={{ color: `${colors.primary}70`, marginBottom: 4, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Cannot open file</div>
+              <div style={{ fontSize: 10, color: `${colors.primary}40` }}>
+                {fileName} is a binary file.
+              </div>
+              <div style={{ fontSize: 10, color: `${colors.primary}30`, marginTop: 6 }}>
+                Notepad can only open plain text files (.txt, .md, .json, etc.)
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              style={{ padding: '8px 6px 8px 8px', borderRight: `1px solid ${colors.primary}18`, background: `${colors.primary}03`, textAlign: 'right', minWidth: 38, overflow: 'hidden', userSelect: 'none', fontSize: 11, lineHeight: '18px', color: `${colors.primary}35` }}
+            >
+              {Array.from({ length: lineCount }, (_, i) => i + 1).map(n => (
+                <div key={n}>{n}</div>
+              ))}
+            </div>
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => { setContent(e.target.value); setHasChanges(true); }}
+              onKeyUp={(e) => updateCursor(e.currentTarget)}
+              onClick={(e) => updateCursor(e.currentTarget)}
+              onKeyDown={(e) => {
+                if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSave(); }
+                if (e.ctrlKey && e.key === 'n') { e.preventDefault(); handleNew(); }
+                if (e.ctrlKey && e.key === 'f') { e.preventDefault(); handleFind(); }
+                if (e.ctrlKey && e.key === 'a') { e.preventDefault(); handleSelectAll(); }
+              }}
+              placeholder={`${fileName} — start typing…`}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: colors.primary, fontFamily: '"Courier New", monospace', fontSize: 12, lineHeight: '18px', padding: '8px', resize: 'none', caretColor: colors.primary }}
+            />
+          </>
+        )}
       </div>
 
       <div style={{ padding: '4px 12px', borderTop: `1px solid ${colors.primary}30`, background: `${colors.primary}05`, fontSize: 10, color: `${colors.primary}55`, display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
