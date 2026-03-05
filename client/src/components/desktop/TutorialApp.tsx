@@ -908,71 +908,121 @@ function ChapterContent({ chapterId, color, character }: {
         <div>
           <div style={{ fontSize: 13, color, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 14 }}>CMD: THE COMMAND TERMINAL</div>
           <Divider color={color} />
-          <p>The Academy's primary interface is a <span style={{ color }}>text adventure command prompt</span>. Open it by double-clicking the <span style={{ color }}>THE ACADEMY</span> icon on your desktop.</p>
-          <p style={{ marginTop: 8 }}>Type commands at the <span style={{ color }}>&gt;</span> prompt and press <span style={{ color }}>ENTER</span> to execute them. Commands are not case-sensitive.</p>
+          <p>Open the terminal by double-clicking <span style={{ color }}>THE ACADEMY</span> on your desktop. Type at the <span style={{ color }}>&gt;</span> prompt and press <span style={{ color }}>ENTER</span>. Commands are not case-sensitive — you can type in lowercase, uppercase, or mixed.</p>
+          <p style={{ marginTop: 8 }}>A <span style={{ color }}>Quick Command Bar</span> appears above the input. It shows clickable buttons for exits, nearby objects, and utility actions — updated automatically every time you move or look around.</p>
           <Divider color={color} />
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>NAVIGATION COMMANDS:</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 6 }}>MOVEMENT:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.85, marginBottom: 12 }}>
+            <div>After each <span style={{ color }}>LOOK</span>, the terminal prints <span style={{ color }}>Exits: NORTH, SOUTH...</span> — those are your available directions.</div>
+            <div style={{ marginTop: 6 }}>Type the direction name <em>or</em> its abbreviation to move:</div>
             {[
-              ['go [location]',      'Move to a named location (e.g. go library)'],
-              ['look',               'Examine your current surroundings'],
-              ['map',                'Display an overview of accessible rooms'],
-              ['go library',         'The main study hall — boosts academic actions'],
-              ['go classroom',       'Attend formal lessons and interact with teachers'],
-              ['go dormitory',       'Rest and recover energy between cycles'],
-              ['go cafeteria',       'Restore health; social interactions with students'],
-              ['go hallway',         'Move between wings of the Academy'],
+              ['NORTH / N',          'SOUTH / S',   'EAST / E',    'WEST / W'],
+              ['NORTHEAST / NE',     'NORTHWEST / NW', 'SOUTHEAST / SE', 'SOUTHWEST / SW'],
+              ['UP / U',             'DOWN / DN',   'ENTER [place]',''],
+            ].map((row, ri) => (
+              <div key={ri} style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+                {row.filter(Boolean).map(d => (
+                  <span key={d} style={{ color }}>{d}</span>
+                ))}
+              </div>
+            ))}
+            <div style={{ marginTop: 6, color: `${color}50` }}>You can also click the cyan direction buttons in the Quick Command Bar.</div>
+          </div>
+          <Divider color={color} />
+
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 6 }}>OBSERVATION:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.85, marginBottom: 12 }}>
+            {[
+              ['LOOK  (L)',           'Describe your current room, NPCs, exits, and examinables'],
+              ['EXAMINE [object]',    'Inspect something closely: EXAMINE FOUNTAIN · X STATUE · EX DESK'],
+              ['LIST / WHO / PEOPLE', 'List all NPCs currently present in this location'],
+              ['TIME',               'Show current in-game time of day'],
             ].map(([cmd, desc]) => (
-              <div key={cmd} style={{ display: 'flex', gap: 0, marginBottom: 3 }}>
-                <span style={{ color, minWidth: 190 }}>{`> ${cmd}`}</span>
-                <span style={{ color: `${color}50` }}>— {desc}</span>
+              <div key={cmd} style={{ marginBottom: 4 }}>
+                <span style={{ color, display: 'inline-block', minWidth: 200 }}>&gt; {cmd}</span>
+                <span style={{ color: `${color}50` }}>{desc}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 4, color: `${color}45` }}>Tip: After LOOK, the terminal lists <em>You can examine: ITEM, ITEM...</em> — click the amber X: buttons to examine without typing.</div>
+          </div>
+          <Divider color={color} />
+
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 6 }}>TALKING TO NPCs:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.85, marginBottom: 12 }}>
+            {[
+              ['TALK [name]',          'Start a conversation: TALK NIARDIR · TALK ARCHIVIST'],
+              ['TALK [name] [topic]',  'Ask about a topic: TALK NIARDIR STUDIES · TALK ZARA COMMUNITY'],
+              ['LIST',                 'See who is here before you start talking'],
+            ].map(([cmd, desc]) => (
+              <div key={cmd} style={{ marginBottom: 4 }}>
+                <span style={{ color, display: 'inline-block', minWidth: 200 }}>&gt; {cmd}</span>
+                <span style={{ color: `${color}50` }}>{desc}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 6, background: `${color}08`, border: `1px solid ${color}18`, padding: '8px 12px' }}>
+              <div style={{ color: `${color}50`, fontSize: 9, marginBottom: 4 }}>EXAMPLE SESSION:</div>
+              <div style={{ color }}>{'> look'}</div>
+              <div style={{ color: `${color}70` }}>{'CENTRAL PLAZA'}</div>
+              <div style={{ color: `${color}70` }}>{'You see: - Niardir Isardian (Staff)'}</div>
+              <div style={{ color: `${color}70` }}>{'Exits: NORTH, SOUTH, EAST, ENTER'}</div>
+              <div style={{ color: `${color}70` }}>{'You can examine: FOUNTAIN, NOTICE_BOARD'}</div>
+              <div style={{ color, marginTop: 4 }}>{'> talk niardir'}</div>
+              <div style={{ color: `${color}70` }}>{'Niardir Isardian: "You could ask me about: INTRODUCTION, STUDIES, COMMUNITY"'}</div>
+              <div style={{ color, marginTop: 4 }}>{'> talk niardir studies'}</div>
+              <div style={{ color: `${color}70` }}>{'Niardir begins explaining the academic track...'}</div>
+            </div>
+          </div>
+          <Divider color={color} />
+
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 6 }}>CHARACTER & ACADEMIC COMMANDS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.85, marginBottom: 12 }}>
+            {[
+              ['STATUS / STAT',        'View your full character stats and energy'],
+              ['INVENTORY / I',        'Check what items you are carrying'],
+              ['GRADES',               'View your current course grades and GPA'],
+              ['PROGRESS',             'View GED readiness per subject domain'],
+              ['GRADUATION',           'Check eligibility and begin the graduation ceremony'],
+              ['ENROLL [course]',      'Enroll in a course, or list available courses (no argument)'],
+              ['ATTEND [course]',      'Mark attendance for a class this cycle'],
+              ['NOTES',                'List your research notebook entries'],
+              ['NOTE NEW [title]',     'Create a new notebook entry'],
+              ['STUDY',                'Get a study recommendation from the system'],
+            ].map(([cmd, desc]) => (
+              <div key={cmd} style={{ marginBottom: 4 }}>
+                <span style={{ color, display: 'inline-block', minWidth: 200 }}>&gt; {cmd}</span>
+                <span style={{ color: `${color}50` }}>{desc}</span>
               </div>
             ))}
           </div>
           <Divider color={color} />
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>ACTION COMMANDS:</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 6 }}>SYSTEM COMMANDS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.85, marginBottom: 14 }}>
             {[
-              ['study [subject]',    'Spend time studying a topic (math, reading, science...)'],
-              ['attend class',       'Join the current scheduled class session'],
-              ['rest',               'Recover energy at the cost of one time unit'],
-              ['train [stat]',       'Build a physical or mental stat through practice'],
-              ['explore',            'Investigate your surroundings for hidden events'],
-              ['check stats',        'Display your current stat readout'],
-              ['check schedule',     'Show today\'s class schedule'],
-              ['check inventory',    'List items you are currently carrying'],
-              ['help',               'List all available commands in the current location'],
+              ['HELP',                 'Show all available commands'],
+              ['HELP MOVEMENT',        'Context-specific help: also HELP EXAMINE, HELP TALK'],
+              ['SAVE',                 'Save your game progress'],
+              ['CLEAR',                'Clear the terminal output'],
+              ['TUTORIAL',             'Open this orientation document from within the terminal'],
+              ['QUIT / EXIT',          'Return to the desktop'],
             ].map(([cmd, desc]) => (
-              <div key={cmd} style={{ display: 'flex', gap: 0, marginBottom: 3 }}>
-                <span style={{ color, minWidth: 190 }}>{`> ${cmd}`}</span>
-                <span style={{ color: `${color}50` }}>— {desc}</span>
+              <div key={cmd} style={{ marginBottom: 4 }}>
+                <span style={{ color, display: 'inline-block', minWidth: 200 }}>&gt; {cmd}</span>
+                <span style={{ color: `${color}50` }}>{desc}</span>
               </div>
             ))}
           </div>
           <Divider color={color} />
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>INTERACTION COMMANDS:</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
-            {[
-              ['talk [name]',        'Begin a dialogue with an NPC (e.g. talk Professor Chen)'],
-              ['ask [name] about [x]','Ask an NPC a specific question'],
-              ['give [item] to [name]','Transfer an item to an NPC'],
-              ['use [item]',         'Use an item from your inventory'],
-              ['read [object]',      'Read a book, note, or posted document'],
-            ].map(([cmd, desc]) => (
-              <div key={cmd} style={{ display: 'flex', gap: 0, marginBottom: 3 }}>
-                <span style={{ color, minWidth: 190 }}>{`> ${cmd}`}</span>
-                <span style={{ color: `${color}50` }}>— {desc}</span>
-              </div>
-            ))}
-          </div>
-          <Divider color={color} />
+
           <div style={{ background: `${color}08`, border: `1px solid ${color}20`, padding: '12px 16px', fontFamily: 'monospace' }}>
-            <div style={{ fontSize: 9, color: `${color}50`, letterSpacing: 1, marginBottom: 6 }}>TIPS</div>
+            <div style={{ fontSize: 9, color: `${color}50`, letterSpacing: 1, marginBottom: 6 }}>KEYBOARD SHORTCUTS & TIPS</div>
             <div style={{ fontSize: 10, color: `${color}70`, lineHeight: 1.8 }}>
-              <div>· The terminal remembers your last 20 commands — use UP/DOWN to recall them.</div>
-              <div>· If a command does nothing, type <span style={{ color }}>help</span> to see what is available in this location.</div>
-              <div>· NPCs and objects only appear in the command list when they are present with you.</div>
-              <div>· Some commands only unlock after meeting certain stat or affinity thresholds.</div>
+              <div>· <span style={{ color }}>↑ / ↓ arrow keys</span> — scroll through your previous commands</div>
+              <div>· <span style={{ color }}>Ctrl + K</span> — open the Command Palette for structured browsing</div>
+              <div>· The game supports <span style={{ color }}>natural language</span> for most actions (e.g. "What mysteries are here?") — but explicit commands are more reliable</div>
+              <div>· If something doesn't work, type <span style={{ color }}>HELP</span> to see what's valid in this location</div>
+              <div>· NPC names appearing in the terminal can be used directly: <span style={{ color }}>TALK NIARDIR</span> (not "talk to Niardir Isardian")</div>
             </div>
           </div>
         </div>

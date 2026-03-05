@@ -1,6 +1,16 @@
-import { useState, useEffect, useRef, useTransition, startTransition, useCallback } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef, useTransition, startTransition, useCallback, useMemo } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import CommandPalette from './CommandPalette';
+
+const DIR_ABBREV: Record<string, string> = {
+  NORTH: 'N', SOUTH: 'S', EAST: 'E', WEST: 'W',
+  NORTHEAST: 'NE', NORTHWEST: 'NW', SOUTHEAST: 'SE', SOUTHWEST: 'SW',
+  UP: 'UP', DOWN: 'DN', ENTER: 'ENT',
+};
+
+function abbrevDir(d: string): string {
+  return DIR_ABBREV[d.toUpperCase()] ?? d.slice(0, 4);
+}
 
 interface TerminalLine {
   id: string;
@@ -31,11 +41,44 @@ export default function TerminalInterface({
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [savedInput, setSavedInput] = useState('');
+  const [quickBarOpen, setQuickBarOpen] = useState(true);
+  const [exitCommands, setExitCommands] = useState<string[]>([]);
+  const [examineTargets, setExamineTargets] = useState<string[]>([]);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollAnimationRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
   const isAutoScrollingRef = useRef(false);
+
+  // Parse recent terminal lines for exits and examinable objects
+  useEffect(() => {
+    const recent = lines.slice(-40).reverse();
+    let foundExits = false;
+    let foundExamine = false;
+    for (const line of recent) {
+      if (!foundExits && line.text.startsWith('Exits:')) {
+        const exits = line.text.replace('Exits:', '').split(',').map(e => e.trim()).filter(Boolean);
+        setExitCommands(exits);
+        foundExits = true;
+      }
+      if (!foundExamine && line.text.startsWith('You can examine:')) {
+        const targets = line.text.replace('You can examine:', '').split(',').map(e => e.trim()).filter(Boolean);
+        setExamineTargets(targets);
+        foundExamine = true;
+      }
+      if (foundExits && foundExamine) break;
+    }
+  }, [lines]);
+
+  const fireQuickCommand = useCallback((cmd: string) => {
+    setHistoryIndex(-1);
+    setSavedInput('');
+    startTransition(() => {
+      onCommand(cmd);
+      setCurrentCommand('');
+    });
+    inputRef.current?.focus();
+  }, [onCommand]);
 
   // Jump to bottom of terminal
   const jumpToBottom = useCallback(() => {
@@ -392,6 +435,111 @@ export default function TerminalInterface({
               <ChevronDown className="h-3 w-3" />
               <span>New content</span>
             </button>
+          )}
+        </div>
+
+        {/* Quick Command Bar */}
+        <div
+          style={{
+            borderTop: '1px solid hsl(var(--terminal-glow) / 0.2)',
+            background: 'hsl(var(--terminal-bg))',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '2px 10px',
+              cursor: 'pointer',
+            }}
+            onClick={() => setQuickBarOpen(o => !o)}
+          >
+            <span style={{ fontSize: 8, color: 'hsl(var(--terminal-glow) / 0.4)', letterSpacing: 1, fontFamily: 'monospace' }}>
+              QUICK COMMANDS
+            </span>
+            <span style={{ color: 'hsl(var(--terminal-glow) / 0.4)', display: 'flex', alignItems: 'center' }}>
+              {quickBarOpen ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
+            </span>
+          </div>
+          {quickBarOpen && (
+            <div style={{ padding: '0 8px 6px', display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+              {/* Utility commands */}
+              {['LOOK', 'STATUS', 'INVENTORY', 'LIST', 'HELP', 'SAVE', 'TIME', 'NOTES'].map(cmd => (
+                <button
+                  key={cmd}
+                  onClick={() => fireQuickCommand(cmd)}
+                  style={{
+                    background: 'hsl(var(--terminal-glow) / 0.06)',
+                    border: '1px solid hsl(var(--terminal-glow) / 0.3)',
+                    color: 'hsl(var(--terminal-glow) / 0.75)',
+                    fontFamily: 'monospace',
+                    fontSize: 9,
+                    padding: '1px 7px',
+                    cursor: 'pointer',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {cmd}
+                </button>
+              ))}
+              {/* Exits */}
+              {exitCommands.length > 0 && (
+                <>
+                  <span style={{ color: 'hsl(var(--terminal-glow) / 0.25)', fontSize: 9, margin: '0 2px' }}>|</span>
+                  <span style={{ fontSize: 8, color: 'hsl(180, 100%, 70% / 0.5)', fontFamily: 'monospace', letterSpacing: 0.5 }}>GO:</span>
+                  {exitCommands.map(exit => (
+                    <button
+                      key={exit}
+                      onClick={() => fireQuickCommand(exit)}
+                      title={exit}
+                      style={{
+                        background: 'hsl(180, 100%, 70% / 0.07)',
+                        border: '1px solid hsl(180, 100%, 70% / 0.35)',
+                        color: 'hsl(180, 100%, 70% / 0.8)',
+                        fontFamily: 'monospace',
+                        fontSize: 9,
+                        padding: '1px 6px',
+                        cursor: 'pointer',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {abbrevDir(exit)}
+                    </button>
+                  ))}
+                </>
+              )}
+              {/* Examine targets */}
+              {examineTargets.length > 0 && (
+                <>
+                  <span style={{ color: 'hsl(var(--terminal-glow) / 0.25)', fontSize: 9, margin: '0 2px' }}>|</span>
+                  <span style={{ fontSize: 8, color: 'hsl(var(--accent) / 0.5)', fontFamily: 'monospace', letterSpacing: 0.5 }}>X:</span>
+                  {examineTargets.map(target => (
+                    <button
+                      key={target}
+                      onClick={() => fireQuickCommand(`examine ${target}`)}
+                      title={`examine ${target}`}
+                      style={{
+                        background: 'hsl(var(--accent) / 0.07)',
+                        border: '1px solid hsl(var(--accent) / 0.3)',
+                        color: 'hsl(var(--accent) / 0.75)',
+                        fontFamily: 'monospace',
+                        fontSize: 9,
+                        padding: '1px 6px',
+                        cursor: 'pointer',
+                        letterSpacing: 0.5,
+                        maxWidth: 80,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {target.length > 10 ? target.slice(0, 9) + '…' : target}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
           )}
         </div>
 
