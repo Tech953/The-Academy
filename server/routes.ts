@@ -250,6 +250,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-enhanced description engine — education-aware narrative flavor
+  app.post("/api/ai/describe", async (req, res) => {
+    try {
+      const {
+        type,           // 'location' | 'examine'
+        locationName,
+        locationDescription,
+        target,         // object name for examine
+        characterClass,
+        characterFaction,
+        npcsPresent,
+        interactables,
+        corridorMutation,
+      } = req.body;
+
+      if (!type || !locationName) {
+        return res.status(400).json({ error: "type and locationName are required" });
+      }
+
+      let systemPrompt: string;
+      let userPrompt: string;
+
+      if (type === 'location') {
+        systemPrompt = `You are the narrative engine for "The Academy" — a mysterious private school where students prepare for the GED. Your role is to produce a single short paragraph of atmospheric, immersive description that enriches the player's sense of place.
+
+TONE & STYLE RULES:
+- Second-person present tense ("You notice...", "The air carries...")
+- 2–4 sentences, vivid but concise — never verbose
+- Weave in subtle educational subtext naturally: a stack of reference books, the smell of chalk and ink, the hum of quiet study, maps on walls, equations on a board, the weight of accumulated knowledge
+- The school is Neo-Gothic, slightly eerie, institutional but alive with intellectual energy
+- Do NOT repeat the base description verbatim — ADD atmosphere, sensory detail, or a small narrative hook
+- Do NOT mention "GED" explicitly — keep it immersive
+- Do NOT add dialogue or invented NPC actions
+- End with one brief sensory detail or atmospheric observation`;
+
+        userPrompt = `Location: ${locationName}
+Base description: ${locationDescription || 'A room in the Academy.'}
+NPCs present: ${(npcsPresent || []).join(', ') || 'none'}
+Interactable objects: ${(interactables || []).join(', ') || 'none'}
+${corridorMutation ? `Atmospheric condition: ${corridorMutation}` : ''}
+Character class: ${characterClass || 'Student'}
+Character faction: ${characterFaction || 'Unknown'}
+
+Write a 2–4 sentence atmospheric paragraph that adds sensory and educational flavor to this location.`;
+
+      } else {
+        systemPrompt = `You are the narrative engine for "The Academy" — a mysterious private school with an educational mission. Your role is to produce an immersive, education-aware examine description for an object or feature in the school.
+
+TONE & STYLE RULES:
+- Second-person present tense ("You lean in...", "Running your fingers over...")
+- 2–3 sentences — detailed but tight
+- Connect the object to intellectual discovery, academic history, or the pursuit of knowledge where natural
+- The school is slightly mysterious — objects may hint at hidden significance or layers of history
+- If the object is academic equipment (books, boards, instruments), describe what knowledge it might unlock
+- Do NOT invent NPC actions, dialogue, or events
+- Be specific and sensory — texture, weight, smell, sound`;
+
+        userPrompt = `Location: ${locationName}
+Object being examined: ${target || 'unknown object'}
+Character class: ${characterClass || 'Student'}
+Character faction: ${characterFaction || 'Unknown'}
+
+Write a 2–3 sentence examine description for this object that is immersive and subtly educational.`;
+      }
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4.1-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.75,
+        max_tokens: 180,
+      });
+
+      const description = response.choices[0]?.message?.content?.trim();
+      if (!description) throw new Error('Empty AI response');
+
+      res.json({ description });
+    } catch (error) {
+      console.error('AI describe error:', error);
+      res.status(500).json({ error: 'Failed to generate description' });
+    }
+  });
+
   // Character creation AI - Generate physical characteristic questions
   app.post("/api/character-creation/generate-questions", async (req, res) => {
     try {

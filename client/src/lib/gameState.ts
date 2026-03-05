@@ -105,7 +105,7 @@ export interface GameState {
 export interface TerminalLine {
   id: string;
   text: string;
-  type: 'output' | 'command' | 'system' | 'error';
+  type: 'output' | 'command' | 'system' | 'error' | 'narrative';
 }
 
 export class GameStateManager {

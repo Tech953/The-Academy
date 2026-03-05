@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import TerminalInterface from '@/components/TerminalInterface';
 import AcademyGameLayout from '@/components/AcademyGameLayout';
 import TextCharacterCreation from '@/components/TextCharacterCreation';
@@ -53,6 +53,45 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   
   const { addMessage, addEmail, updateCharacter, addExperience, addEnrolledCourse, setIsGameActive } = useGameState();
   const radiantAI = useRadiantAIContext();
+
+  // AI description cache — keyed by "type:locationId:target" to avoid redundant calls
+  const aiDescCache = useRef<Map<string, string>>(new Map());
+
+  // Call the AI description endpoint; returns cached result on repeat visits
+  const aiDescribe = useCallback(async (params: {
+    type: 'location' | 'examine';
+    locationName: string;
+    locationDescription?: string;
+    target?: string;
+    npcsPresent?: string[];
+    interactables?: string[];
+    corridorMutation?: string;
+  }): Promise<string | null> => {
+    const cacheKey = `${params.type}:${params.locationName}:${params.target ?? ''}`;
+    if (aiDescCache.current.has(cacheKey)) {
+      return aiDescCache.current.get(cacheKey)!;
+    }
+    try {
+      const res = await fetch('/api/ai/describe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...params,
+          characterClass: character?.class ?? 'Student',
+          characterFaction: character?.faction ?? 'Unknown',
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.description) {
+        aiDescCache.current.set(cacheKey, data.description);
+        return data.description;
+      }
+    } catch {
+      // silently fail — base description still shows
+    }
+    return null;
+  }, [character]);
 
   // Helper functions
   const addTerminalLine = (text: string, type: TerminalLine['type'] = 'output') => {
@@ -111,9 +150,36 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     addTerminalLine('');
     addTerminalLine(gameStateData.currentLocation.name.toUpperCase(), 'system');
     addTerminalLine(gameStateData.currentLocation.description);
-    
-    // Show corridor mutations/atmosphere if applicable
+
+    // Fetch corridor mutations for context
     const corridorDescriptions = gameStateManager.getCorridorDescription();
+    const corridorMutation = corridorDescriptions.length > 0 ? corridorDescriptions[0] : undefined;
+
+    // Fetch NPCs early so they can be passed to the AI description
+    let npcs: NPC[] = [];
+    try {
+      npcs = await gameStateManager.getNPCsInCurrentLocation();
+    } catch (error) {
+      console.warn('Failed to fetch NPCs:', error);
+    }
+
+    const interactables = gameStateData.currentLocation.interactables as string[];
+
+    // AI-enhanced flavor text — added immediately after the base description
+    const aiFlavorText = await aiDescribe({
+      type: 'location',
+      locationName: gameStateData.currentLocation.name,
+      locationDescription: gameStateData.currentLocation.description,
+      npcsPresent: npcs.map(n => `${n.name} (${n.title})`),
+      interactables: interactables ?? [],
+      corridorMutation,
+    });
+    if (aiFlavorText) {
+      addTerminalLine('');
+      addTerminalLine(aiFlavorText, 'narrative');
+    }
+
+    // Show corridor mutations/atmosphere if applicable
     if (corridorDescriptions.length > 0) {
       addTerminalLine('');
       corridorDescriptions.forEach(desc => {
@@ -136,17 +202,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     }
     
     // Show NPCs in location
-    try {
-      const npcs = await gameStateManager.getNPCsInCurrentLocation();
-      if (npcs.length > 0) {
-        addTerminalLine('');
-        addTerminalLine('You see:');
-        npcs.forEach(npc => {
-          addTerminalLine(`- ${npc.name} (${npc.title})`);
-        });
-      }
-    } catch (error) {
-      console.warn('Failed to fetch NPCs:', error);
+    if (npcs.length > 0) {
+      addTerminalLine('');
+      addTerminalLine('You see:');
+      npcs.forEach(npc => {
+        addTerminalLine(`- ${npc.name} (${npc.title})`);
+      });
     }
     
     // Show available exits
@@ -154,13 +215,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     if (exits && Object.keys(exits).length > 0) {
       addTerminalLine('');
       const exitList = Object.entries(exits)
-        .map(([direction, destination]) => `${direction.toUpperCase()}`)
+        .map(([direction]) => `${direction.toUpperCase()}`)
         .join(', ');
       addTerminalLine(`Exits: ${exitList}`, 'system');
     }
     
     // Show interactable objects
-    const interactables = gameStateData.currentLocation.interactables as string[];
     if (interactables && interactables.length > 0) {
       addTerminalLine('');
       const interactableList = interactables
@@ -966,50 +1026,20 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         }
       }
       
-      // Add specific examine descriptions based on the object
-      switch (target) {
-        case 'portraits':
-          addTerminalLine('You step closer to examine the portraits. The painted figures seem');
-          addTerminalLine('ancient, wearing academic robes from centuries past. Their eyes');
-          addTerminalLine('definitely follow you as you move. One portrait\'s nameplate reads');
-          addTerminalLine('"Professor Blackwood - Founder." The paint seems to shift when');
-          addTerminalLine('you\'re not looking directly at it.');
-          break;
-        case 'reception_desk':
-          addTerminalLine('The receptionist desk appears to be made of dark mahogany. It\'s');
-          addTerminalLine('currently unattended, but papers and schedules are neatly organized.');
-          addTerminalLine('A small nameplate reads "Emily Carter - Academy Receptionist."');
-          break;
-        case 'fireplace':
-          addTerminalLine('A grand stone fireplace dominates this wall. The fire crackles');
-          addTerminalLine('warmly, but the flames seem to dance in patterns that almost');
-          addTerminalLine('look like they\'re trying to form shapes or symbols.');
-          break;
-        case 'bookshelves':
-        case 'books':
-          addTerminalLine('Towering bookshelves stretch from floor to ceiling, packed with');
-          addTerminalLine('ancient tomes and mysterious volumes. Some books seem to');
-          addTerminalLine('shimmer slightly, and you swear you saw one move on its own.');
-          break;
-        case 'chandelier':
-          addTerminalLine('An ornate crystal chandelier hangs overhead, casting dancing');
-          addTerminalLine('shadows throughout the room. The crystals tinkle softly even');
-          addTerminalLine('when there\'s no breeze.');
-          break;
-        case 'windows':
-        case 'window':
-          addTerminalLine('Large windows offer a view of the Academy grounds. The glass');
-          addTerminalLine('seems unusually thick, and sometimes you glimpse movement');
-          addTerminalLine('in the reflections that doesn\'t match what\'s in the room.');
-          break;
-        case 'food':
-        case 'cafeteria_food':
-          addTerminalLine('The food looks surprisingly appetizing for institutional fare.');
-          addTerminalLine('There\'s a wide variety, and some dishes seem to shift and');
-          addTerminalLine('change when you\'re not looking directly at them.');
-          break;
-        default:
-          addTerminalLine(`You examine the ${target}. Nothing particularly unusual stands out.`);
+      // AI-generated examine description — education-aware and contextual
+      addTerminalLine('[ examining... ]', 'system');
+      const examineDesc = await aiDescribe({
+        type: 'examine',
+        locationName: gameState.currentLocation.name,
+        target,
+      });
+      // Remove the placeholder and show the result
+      setTerminalLines(prev => prev.filter(l => l.text !== '[ examining... ]'));
+      if (examineDesc) {
+        addTerminalLine(examineDesc, 'narrative');
+      } else {
+        // Graceful fallback if AI is unavailable
+        addTerminalLine(`You examine the ${target.replace(/_/g, ' ')} carefully. The details reveal layers of history embedded in this institution.`);
       }
     } else {
       addTerminalLine('');

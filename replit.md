@@ -9,6 +9,12 @@ Preferred communication style: Simple, everyday language.
 ## Frontend Architecture
 The frontend is a React with TypeScript single-page application utilizing a "Neo-CRT Academy OS Wrapper" for a retro-modern design. It features responsive layouts, multi-window management, customizable sidebar and taskbar, and a terminal-first game window. Styling is handled by Tailwind CSS, shadcn/ui components, and Lucide React. Server state is managed with React Query. A Dual-Mode UI System allows switching between Legacy (terminal-first) and Student (clickable windows) modes. Core OS systems include a Linux-style Virtual Filesystem and an App Manifest System. State persistence is managed via `localStorage`.
 
+## AI Description Engine — Education-Aware Narrative
+The text adventure's descriptive language is enhanced by a server-side OpenAI endpoint (`POST /api/ai/describe`). It operates in two modes:
+- **Location mode** (`LOOK` command): After the base location description renders, a 2–4 sentence AI-generated paragraph adds atmospheric, sensory, and educationally-inflected flavor text — connecting the room's physical details to themes of knowledge, study, and intellectual curiosity. Uses `gpt-4.1-mini` with a Neo-Gothic academic system prompt.
+- **Examine mode** (`EXAMINE` command): Replaces the previous hardcoded switch statement with AI-generated 2–3 sentence contextual descriptions for any interactable object. A `[ examining... ]` placeholder appears while the AI generates, then is replaced by the result.
+Both modes cache results client-side (per location + target) so repeat visits and examines don't re-call the API. A `'narrative'` terminal line type (rendered italic in soft purple) visually distinguishes AI flavor text from system output and base descriptions.
+
 ## Radiant AI System
 This comprehensive NPC AI system provides autonomous behavior, procedural generation, and emergent social dynamics. NPCs have stats, personality, emotions, memory, and affiliations, managed by Goals, Relationships, and Schedule Systems. A Decision Engine processes information to output actions, and a Dialogue System enables autonomous, context-aware conversations. World Events and Event Chaining influence NPC behavior, leading to Adaptive Goal Evolution, an Emergent Faction System, and Procedural NPC Generation.
 

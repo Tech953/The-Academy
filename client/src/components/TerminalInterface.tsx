@@ -15,7 +15,7 @@ function abbrevDir(d: string): string {
 interface TerminalLine {
   id: string;
   text: string;
-  type: 'output' | 'command' | 'system' | 'error';
+  type: 'output' | 'command' | 'system' | 'error' | 'narrative';
 }
 
 interface TerminalInterfaceProps {
@@ -341,14 +341,16 @@ export default function TerminalInterface({
   const getLineStyle = (type: TerminalLine['type']) => {
     switch (type) {
       case 'command':
-        return { color: 'hsl(var(--accent))' }; // Yellow for commands
+        return { color: 'hsl(var(--accent))' };
       case 'system':
-        return { color: 'hsl(180, 100%, 70%)' }; // Cyan for system
+        return { color: 'hsl(180, 100%, 70%)' };
       case 'error':
-        return { color: 'hsl(var(--destructive))' }; // Red for errors
+        return { color: 'hsl(var(--destructive))' };
+      case 'narrative':
+        return { color: 'hsl(280, 70%, 78%)', fontStyle: 'italic', opacity: 0.92 };
       case 'output':
       default:
-        return { color: 'hsl(var(--terminal-glow))' }; // Green for output
+        return { color: 'hsl(var(--terminal-glow))' };
     }
   };
 
