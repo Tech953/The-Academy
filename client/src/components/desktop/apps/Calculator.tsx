@@ -6,7 +6,17 @@ import { useCrtTheme } from '@/contexts/CrtThemeContext';
 function safeEval(expr: string, mode: 'DEG' | 'RAD', mem: number, ans: number): number {
   const toR = (x: number) => mode === 'DEG' ? x * Math.PI / 180 : x;
   const fromR = (x: number) => mode === 'DEG' ? x * 180 / Math.PI : x;
-  const clean = expr
+
+  // Auto-close unclosed parentheses
+  let e = expr.trim();
+  let opens = 0;
+  for (const ch of e) { if (ch === '(') opens++; else if (ch === ')') opens--; }
+  if (opens > 0) e = e + ')'.repeat(opens);
+
+  // Two-pass replacement to avoid substring conflicts.
+  // Pass 1: replace longer/prefixed names with safe intermediate tokens.
+  // Pass 2: replace shorter names, then restore final forms.
+  const pass1 = e
     .replace(/π/g, `(${Math.PI})`)
     .replace(/\be\b/g, `(${Math.E})`)
     .replace(/ANS/g, `(${ans})`)
@@ -16,27 +26,53 @@ function safeEval(expr: string, mode: 'DEG' | 'RAD', mem: number, ans: number): 
     .replace(/\^/g, '**')
     .replace(/√\(/g, '_sqrt(')
     .replace(/√(\d+\.?\d*)/g, '_sqrt($1)')
+    // Stake out hyperbolic FIRST (contains 'sin','cos','tan' substrings)
+    .replace(/sinh\(/g,  'QQH1QQ(')
+    .replace(/cosh\(/g,  'QQH2QQ(')
+    .replace(/tanh\(/g,  'QQH3QQ(')
+    // Stake out inverse trig BEFORE forward trig
+    .replace(/arcsin\(/g, 'QQA1QQ(')
+    .replace(/arccos\(/g, 'QQA2QQ(')
+    .replace(/arctan\(/g, 'QQA3QQ(')
+    .replace(/asin\(/g,   'QQA1QQ(')
+    .replace(/acos\(/g,   'QQA2QQ(')
+    .replace(/atan\(/g,   'QQA3QQ(')
+    // Forward trig (safe now that asin/sinh are staked out)
     .replace(/sin\(/g, '_sin(')
     .replace(/cos\(/g, '_cos(')
     .replace(/tan\(/g, '_tan(')
-    .replace(/asin\(/g, '_asin(')
-    .replace(/acos\(/g, '_acos(')
-    .replace(/atan\(/g, '_atan(')
-    .replace(/sinh\(/g, '_sinh(')
-    .replace(/cosh\(/g, '_cosh(')
-    .replace(/tanh\(/g, '_tanh(')
-    .replace(/log\(/g, '_log(')
-    .replace(/ln\(/g, '_ln(')
-    .replace(/abs\(/g, '_abs(')
-    .replace(/cbrt\(/g, '_cbrt(')
-    .replace(/(\d)\(/g, '$1*(');
+    // Other functions
+    .replace(/log10\(/g, '_log(')
+    .replace(/log\(/g,   '_log(')
+    .replace(/ln\(/g,    '_ln(')
+    .replace(/abs\(/g,   '_abs(')
+    .replace(/cbrt\(/g,  '_cbrt(')
+    .replace(/ceil\(/g,  '_ceil(')
+    .replace(/floor\(/g, '_floor(')
+    .replace(/round\(/g, '_round(');
 
-  if (!/^[\d\s\+\-\*\/\.\(\)\%_a-z]+$/.test(clean)) throw new Error('Invalid expression');
+  // Pass 2: resolve staked tokens → final _fn( form
+  const clean = pass1
+    .replace(/QQH1QQ\(/g, '_sinh(')
+    .replace(/QQH2QQ\(/g, '_cosh(')
+    .replace(/QQH3QQ\(/g, '_tanh(')
+    .replace(/QQA1QQ\(/g, '_asin(')
+    .replace(/QQA2QQ\(/g, '_acos(')
+    .replace(/QQA3QQ\(/g, '_atan(')
+    // Implicit multiplication
+    .replace(/(\d)\(/g, '$1*(')
+    .replace(/\)(\d)/g, ')*$1')
+    .replace(/\)\(/g, ')*(');
+
+  if (!/^[\d\s+\-*/.()%_a-z]+$/.test(clean)) {
+    throw new Error(`Blocked: "${clean}"`);
+  }
 
   // eslint-disable-next-line no-new-func
   const fn = new Function(
     '_sin','_cos','_tan','_asin','_acos','_atan',
     '_sinh','_cosh','_tanh','_log','_ln','_abs','_sqrt','_cbrt',
+    '_ceil','_floor','_round',
     `"use strict"; return (${clean});`
   );
   return fn(
@@ -49,12 +85,23 @@ function safeEval(expr: string, mode: 'DEG' | 'RAD', mem: number, ans: number): 
     Math.sinh, Math.cosh, Math.tanh,
     Math.log10, Math.log,
     Math.abs, Math.sqrt, Math.cbrt,
+    Math.ceil, Math.floor, Math.round,
   );
 }
 
 function evalGraph(expr: string, x: number, mode: 'DEG' | 'RAD'): number {
-  const safe = expr.replace(/x/g, `(${x})`);
+  const safe = expr
+    .replace(/\bx\b/g, `(${x})`)
+    .replace(/\be\b/g, `(${Math.E})`);
   return safeEval(safe, mode, 0, 0);
+}
+
+function formatResult(val: number): string {
+  if (!isFinite(val)) return 'Infinity';
+  if (isNaN(val)) return 'NaN';
+  // Use up to 10 sig digits, trim trailing zeros
+  const s = parseFloat(val.toPrecision(10)).toString();
+  return s;
 }
 
 // ─── Graph SVG ────────────────────────────────────────────────────────────────
@@ -68,12 +115,10 @@ function GraphPlot({ func, xMin, xMax, yMin, yMax, mode, c, accentColors }: {
   const toSX = (x: number) => ((x - xMin) / (xMax - xMin)) * W;
   const toSY = (y: number) => H - ((y - yMin) / (yMax - yMin)) * H;
 
-  const points: string[] = [];
   const segments: string[][] = [];
   let cur: string[] = [];
-  const steps = 400;
-  for (let i = 0; i <= steps; i++) {
-    const x = xMin + (i / steps) * (xMax - xMin);
+  for (let i = 0; i <= 600; i++) {
+    const x = xMin + (i / 600) * (xMax - xMin);
     try {
       const y = evalGraph(func, x, mode);
       if (!isFinite(y) || isNaN(y) || y < yMin - (yMax - yMin) * 2 || y > yMax + (yMax - yMin) * 2) {
@@ -89,33 +134,30 @@ function GraphPlot({ func, xMin, xMax, yMin, yMax, mode, c, accentColors }: {
   }
   if (cur.length > 1) segments.push(cur);
 
-  const gridColor = `${c}25`;
-  const axisColor = `${c}60`;
-  const gridLines: number[] = [];
-  const step = (xMax - xMin) / 8;
-  for (let v = Math.ceil(xMin / step) * step; v <= xMax; v += step) gridLines.push(v);
-  const gridLinesY: number[] = [];
+  const gridColor = `${c}20`;
+  const axisColor = `${c}50`;
+  const stepX = (xMax - xMin) / 8;
   const stepY = (yMax - yMin) / 6;
-  for (let v = Math.ceil(yMin / stepY) * stepY; v <= yMax; v += stepY) gridLinesY.push(v);
+  const gridX: number[] = [];
+  const gridY: number[] = [];
+  for (let v = Math.ceil(xMin / stepX) * stepX; v <= xMax + stepX * 0.01; v += stepX) gridX.push(v);
+  for (let v = Math.ceil(yMin / stepY) * stepY; v <= yMax + stepY * 0.01; v += stepY) gridY.push(v);
 
   return (
-    <svg width={W} height={H} style={{ display: 'block', background: '#00000088', border: `1px solid ${c}30` }}>
-      {gridLines.map(v => (
-        <line key={`vg${v}`} x1={toSX(v)} y1={0} x2={toSX(v)} y2={H} stroke={gridColor} strokeWidth={0.5} />
+    <svg width={W} height={H} style={{ display: 'block', background: '#040404', border: `1px solid ${c}25`, borderRadius: 2 }}>
+      {gridX.map((v, i) => <line key={`vg${i}`} x1={toSX(v)} y1={0} x2={toSX(v)} y2={H} stroke={gridColor} strokeWidth={0.5} />)}
+      {gridY.map((v, i) => <line key={`hg${i}`} x1={0} y1={toSY(v)} x2={W} y2={toSY(v)} stroke={gridColor} strokeWidth={0.5} />)}
+      {xMin <= 0 && xMax >= 0 && <line x1={toSX(0)} y1={0} x2={toSX(0)} y2={H} stroke={axisColor} strokeWidth={1} />}
+      {yMin <= 0 && yMax >= 0 && <line x1={0} y1={toSY(0)} x2={W} y2={toSY(0)} stroke={axisColor} strokeWidth={1} />}
+      {/* Axis labels */}
+      {gridX.filter((_, i) => i % 2 === 0).map((v, i) => (
+        <text key={`xl${i}`} x={toSX(v)} y={H - 2} textAnchor="middle" fontSize={7} fill={`${c}40`} fontFamily="Courier New">
+          {v.toFixed(1)}
+        </text>
       ))}
-      {gridLinesY.map(v => (
-        <line key={`hg${v}`} x1={0} y1={toSY(v)} x2={W} y2={toSY(v)} stroke={gridColor} strokeWidth={0.5} />
-      ))}
-      {xMin <= 0 && xMax >= 0 && (
-        <line x1={toSX(0)} y1={0} x2={toSX(0)} y2={H} stroke={axisColor} strokeWidth={1} />
-      )}
-      {yMin <= 0 && yMax >= 0 && (
-        <line x1={0} y1={toSY(0)} x2={W} y2={toSY(0)} stroke={axisColor} strokeWidth={1} />
-      )}
       {segments.map((seg, i) => (
-        <polyline key={i} points={seg.join(' ')} fill="none" stroke={accentColors.cyan} strokeWidth={1.5} strokeLinejoin="round" />
+        <polyline key={i} points={seg.join(' ')} fill="none" stroke={accentColors.cyan} strokeWidth={1.8} strokeLinejoin="round" />
       ))}
-      {points.length > 0 && <polyline points={points.join(' ')} fill="none" stroke={accentColors.cyan} strokeWidth={1.5} />}
     </svg>
   );
 }
@@ -148,41 +190,52 @@ export default function Calculator() {
   const [graphError, setGraphError] = useState('');
   const [shift, setShift] = useState(false);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the expression input when the component mounts
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
   const compute = useCallback((e = expr) => {
     if (!e.trim()) return;
     try {
       const val = safeEval(e, mode, mem, ans);
-      const res = Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(10)).toString();
+      const res = formatResult(val);
       setResult(res);
       setError('');
       setAns(val);
-      setHistory(prev => [{ expr: e, result: res }, ...prev.slice(0, 29)]);
-    } catch {
+      setHistory(prev => [{ expr: e, result: res }, ...prev.slice(0, 49)]);
+      setExpr('');
+      setTimeout(() => inputRef.current?.focus(), 10);
+    } catch (err) {
       setError('ERROR');
       setResult('ERROR');
     }
   }, [expr, mode, mem, ans]);
 
   const append = useCallback((s: string) => {
-    setExpr(prev => prev + s);
-    setError('');
+    setExpr(prev => {
+      const next = prev + s;
+      setError('');
+      return next;
+    });
+    setTimeout(() => {
+      const el = inputRef.current;
+      if (el) { el.focus(); el.setSelectionRange(el.value.length + s.length, el.value.length + s.length); }
+    }, 10);
   }, []);
 
-  const del = useCallback(() => setExpr(prev => prev.slice(0, -1)), []);
-  const clear = useCallback(() => { setExpr(''); setResult('0'); setError(''); }, []);
+  const del = useCallback(() => {
+    setExpr(prev => prev.slice(0, -1));
+    setError('');
+    inputRef.current?.focus();
+  }, []);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (tab !== 'calc') return;
-      if (e.key === 'Enter') { compute(); return; }
-      if (e.key === 'Escape') { clear(); return; }
-      if (e.key === 'Backspace') { del(); return; }
-      const allowed = '0123456789.+-*/()^%';
-      if (e.key.length === 1 && allowed.includes(e.key)) append(e.key);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [tab, compute, clear, del, append]);
+  const clear = useCallback(() => {
+    setExpr('');
+    setResult('0');
+    setError('');
+    inputRef.current?.focus();
+  }, []);
 
   const plotGraph = () => {
     setGraphError('');
@@ -190,185 +243,234 @@ export default function Calculator() {
       evalGraph(graphFunc, 1, mode);
       setGraphExpr(graphFunc);
     } catch {
-      setGraphError('Invalid function');
+      setGraphError('Invalid expression');
     }
   };
 
   const bg = '#000';
-  const panelBg = `${c}08`;
-  const borderC = `${c}25`;
+  const panelBg = `${c}06`;
+  const borderC = `${c}20`;
 
   const btnBase: React.CSSProperties = {
     fontFamily: '"Courier New", monospace',
-    fontSize: 10,
+    fontSize: 11,
     cursor: 'pointer',
-    border: `1px solid ${c}35`,
-    background: `${c}0a`,
+    border: `1px solid ${c}30`,
+    background: `${c}08`,
     color: `${c}cc`,
-    padding: '5px 2px',
-    letterSpacing: 0.5,
-    transition: 'background 0.1s',
+    padding: '7px 4px',
+    letterSpacing: 0.3,
     userSelect: 'none',
+    borderRadius: 2,
+    transition: 'background 0.08s',
   };
-  const btnOp: React.CSSProperties = { ...btnBase, background: `${c}18`, color: c, fontWeight: 'bold' };
-  const btnEq: React.CSSProperties = { ...btnBase, background: `${accentColors.green}25`, color: accentColors.green, border: `1px solid ${accentColors.green}60`, fontWeight: 'bold', fontSize: 13 };
-  const btnSci: React.CSSProperties = { ...btnBase, color: accentColors.cyan, border: `1px solid ${accentColors.cyan}30`, background: `${accentColors.cyan}08`, fontSize: 9 };
-  const btnMem: React.CSSProperties = { ...btnBase, color: accentColors.amber, border: `1px solid ${accentColors.amber}30`, background: `${accentColors.amber}08`, fontSize: 9 };
-  const btnAC: React.CSSProperties = { ...btnBase, color: accentColors.red, border: `1px solid ${accentColors.red}50`, background: `${accentColors.red}12`, fontWeight: 'bold' };
-  const btnShift: React.CSSProperties = { ...btnBase, color: accentColors.purple, border: `1px solid ${accentColors.purple}50`, background: shift ? `${accentColors.purple}20` : `${accentColors.purple}08` };
+  const btnOp: React.CSSProperties = { ...btnBase, background: `${c}15`, color: c, fontWeight: 'bold', fontSize: 13 };
+  const btnEq: React.CSSProperties = { ...btnBase, background: `${accentColors.green}20`, color: accentColors.green, border: `1px solid ${accentColors.green}55`, fontWeight: 'bold', fontSize: 15, padding: '7px 4px' };
+  const btnSci: React.CSSProperties = { ...btnBase, color: accentColors.cyan, border: `1px solid ${accentColors.cyan}25`, background: `${accentColors.cyan}06`, fontSize: 10 };
+  const btnMem: React.CSSProperties = { ...btnBase, color: accentColors.amber, border: `1px solid ${accentColors.amber}25`, background: `${accentColors.amber}06`, fontSize: 10 };
+  const btnAC: React.CSSProperties = { ...btnBase, color: accentColors.red, border: `1px solid ${accentColors.red}45`, background: `${accentColors.red}10`, fontWeight: 'bold' };
+  const btnShift: React.CSSProperties = { ...btnBase, color: accentColors.purple, border: `1px solid ${accentColors.purple}45`, background: shift ? `${accentColors.purple}20` : `${accentColors.purple}06`, fontWeight: shift ? 'bold' : 'normal' };
 
-  const sciBtn = (label: string, primary: string, secondary: string, ins: string) => (
+  // Scientific button: shows primary/secondary label based on shift, appends appropriate string
+  const sciBtn = (primary: string, secondary: string, primaryIns: string, secondaryIns: string) => (
     <button
-      key={label}
-      style={btnSci}
-      onClick={() => { append(ins); setShift(false); }}
+      style={{ ...btnSci, color: shift ? accentColors.amber : accentColors.cyan }}
+      onClick={() => { append(shift ? secondaryIns : primaryIns); setShift(false); inputRef.current?.focus(); }}
       title={shift ? secondary : primary}
     >
-      {shift && secondary ? secondary : primary}
+      {shift ? secondary : primary}
     </button>
   );
 
-  const numGrid: [string, string, React.CSSProperties][] = [
-    ['7','7',btnBase],['8','8',btnBase],['9','9',btnBase],['÷','÷',btnOp],['^','^',btnOp],
-    ['4','4',btnBase],['5','5',btnBase],['6','6',btnBase],['×','×',btnOp],['√(','√',{ ...btnSci, fontSize: 12 }],
-    ['1','1',btnBase],['2','2',btnBase],['3','3',btnBase],['-','-',btnOp],['x²','x²',btnSci],
-    ['(','(',btnBase],[')',')',btnBase],['0','0',btnBase],['.','.',btnBase],['+','+',btnOp],
+  const numGrid: Array<{ lbl: string; ins: string; style: React.CSSProperties }> = [
+    { lbl:'7', ins:'7', style:btnBase }, { lbl:'8', ins:'8', style:btnBase }, { lbl:'9', ins:'9', style:btnBase },
+    { lbl:'÷', ins:'÷', style:btnOp }, { lbl:'^', ins:'^', style:btnOp },
+    { lbl:'4', ins:'4', style:btnBase }, { lbl:'5', ins:'5', style:btnBase }, { lbl:'6', ins:'6', style:btnBase },
+    { lbl:'×', ins:'×', style:btnOp }, { lbl:'√(', ins:'√(', style:{ ...btnSci, fontSize: 13 } },
+    { lbl:'1', ins:'1', style:btnBase }, { lbl:'2', ins:'2', style:btnBase }, { lbl:'3', ins:'3', style:btnBase },
+    { lbl:'−', ins:'-', style:btnOp }, { lbl:'x²', ins:'**2', style:btnSci },
+    { lbl:'(', ins:'(', style:{ ...btnBase, color: `${c}90` } },
+    { lbl:')', ins:')', style:{ ...btnBase, color: `${c}90` } },
+    { lbl:'0', ins:'0', style:btnBase },
+    { lbl:'.', ins:'.', style:btnBase },
+    { lbl:'+', ins:'+', style:btnOp },
   ];
 
   return (
-    <div style={{ height: '100%', background: bg, color: c, fontFamily: '"Courier New", monospace',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none' }}>
-
-      {/* Tab bar + mode + memory */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
+    <div
+      style={{ height: '100%', background: bg, color: c, fontFamily: '"Courier New", monospace',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none' }}
+      onClick={() => inputRef.current?.focus()}
+    >
+      {/* ── Tab bar ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px',
         borderBottom: `1px solid ${borderC}`, background: panelBg, flexShrink: 0 }}>
         {(['calc','graph'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             ...btnBase, fontSize: 9, padding: '3px 10px', letterSpacing: 1,
-            background: tab === t ? `${c}20` : 'transparent',
-            color: tab === t ? c : `${c}50`,
-            border: `1px solid ${tab === t ? c + '60' : 'transparent'}`,
+            background: tab === t ? `${c}18` : 'transparent',
+            color: tab === t ? c : `${c}45`,
+            border: `1px solid ${tab === t ? c + '50' : 'transparent'}`,
           }}>
             {t.toUpperCase()}
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: `${accentColors.amber}80` }}>M:{mem}</span>
+        <span style={{ fontSize: 9, color: `${accentColors.amber}70`, letterSpacing: 0.5 }}>M: {mem}</span>
         <button onClick={() => setMode(m => m === 'DEG' ? 'RAD' : 'DEG')} style={{
-          ...btnBase, fontSize: 9, padding: '2px 7px',
-          color: accentColors.amber, border: `1px solid ${accentColors.amber}40`,
+          ...btnBase, fontSize: 9, padding: '2px 8px',
+          color: accentColors.amber, border: `1px solid ${accentColors.amber}35`,
         }}>
           {mode}
         </button>
         <button onClick={() => setShowHistory(h => !h)} style={{
-          ...btnBase, fontSize: 9, padding: '2px 7px',
-          color: showHistory ? accentColors.purple : `${c}50`,
-          border: `1px solid ${showHistory ? accentColors.purple + '50' : borderC}`,
+          ...btnBase, fontSize: 9, padding: '2px 8px',
+          color: showHistory ? accentColors.purple : `${c}45`,
+          border: `1px solid ${showHistory ? accentColors.purple + '45' : borderC}`,
         }}>
           HIST
         </button>
       </div>
 
-      {/* Main content */}
+      {/* ── Main content ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
           {tab === 'calc' ? (
             <>
-              {/* Display */}
-              <div style={{ padding: '8px 10px', borderBottom: `1px solid ${borderC}`,
-                background: '#000', flexShrink: 0 }}>
-                <div style={{ fontSize: 10, color: `${c}40`, minHeight: 16, textAlign: 'right',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {expr || '…'}
+              {/* ── Display ── */}
+              <div style={{ padding: '8px 10px 6px', borderBottom: `1px solid ${borderC}`,
+                background: '#020202', flexShrink: 0 }}>
+
+                {/* Previous result / ANS */}
+                <div style={{ fontSize: 9, color: `${c}35`, textAlign: 'right', marginBottom: 2, minHeight: 13 }}>
+                  {ans !== 0 && !error ? `ANS = ${formatResult(ans)}` : ''}
                 </div>
-                <div style={{ fontSize: 22, color: error ? accentColors.red : c, textAlign: 'right',
-                  fontWeight: 'bold', letterSpacing: 1, minHeight: 30, lineHeight: 1.2,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {error || result}
+
+                {/* Expression input — fully editable */}
+                <input
+                  ref={inputRef}
+                  value={expr}
+                  onChange={e => { setExpr(e.target.value); setError(''); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); compute(); }
+                    if (e.key === 'Escape') { e.preventDefault(); clear(); }
+                  }}
+                  placeholder="0"
+                  spellCheck={false}
+                  autoComplete="off"
+                  style={{
+                    display: 'block', width: '100%', background: 'transparent', border: 'none',
+                    outline: 'none', color: error ? accentColors.red : `${c}cc`,
+                    fontFamily: '"Courier New", monospace', fontSize: 14,
+                    textAlign: 'right', padding: '2px 0', letterSpacing: 0.5, boxSizing: 'border-box',
+                    caretColor: c,
+                  }}
+                />
+
+                {/* Result display */}
+                <div style={{
+                  fontSize: error ? 18 : 28, fontWeight: 'bold', textAlign: 'right',
+                  color: error ? accentColors.red : accentColors.green,
+                  letterSpacing: 1, minHeight: 34, lineHeight: 1.2,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {error ? 'ERROR' : result}
                 </div>
               </div>
 
-              {/* Keypad */}
-              <div style={{ flex: 1, overflow: 'auto', padding: 6 }}>
-                {/* Shift + special */}
+              {/* ── Keypad ── */}
+              <div style={{ flex: 1, overflow: 'auto', padding: '6px 6px 4px' }}>
+
+                {/* Row 0: Shift / AC / DEL / % / ANS */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, marginBottom: 3 }}>
-                  <button style={btnShift} onClick={() => setShift(s => !s)}>2nd</button>
+                  <button style={btnShift} onClick={() => { setShift(s => !s); inputRef.current?.focus(); }}>2nd</button>
                   <button style={btnAC} onClick={clear}>AC</button>
                   <button style={btnBase} onClick={del}>DEL</button>
-                  <button style={btnBase} onClick={() => append('%')}>%</button>
-                  <button style={{ ...btnBase, color: accentColors.amber }} onClick={() => append('ANS')}>ANS</button>
+                  <button style={btnBase} onClick={() => { append('%'); }}>%</button>
+                  <button style={{ ...btnBase, color: accentColors.amber }}
+                    onClick={() => { append('ANS'); }}>ANS</button>
                 </div>
 
-                {/* Sci row 1 */}
+                {/* Row 1: Trig */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, marginBottom: 3 }}>
-                  {sciBtn('sin', 'sin(', 'asin(', shift ? 'asin(' : 'sin(')}
-                  {sciBtn('cos', 'cos(', 'acos(', shift ? 'acos(' : 'cos(')}
-                  {sciBtn('tan', 'tan(', 'atan(', shift ? 'atan(' : 'tan(')}
-                  {sciBtn('log', 'log(', 'ln(', shift ? 'ln(' : 'log(')}
-                  <button style={btnSci} onClick={() => { append(shift ? `(${Math.E})` : `π`); setShift(false); }}>
+                  {sciBtn('sin(', 'asin(', 'sin(', 'asin(')}
+                  {sciBtn('cos(', 'acos(', 'cos(', 'acos(')}
+                  {sciBtn('tan(', 'atan(', 'tan(', 'atan(')}
+                  {sciBtn('log(', 'ln(', 'log(', 'ln(')}
+                  <button style={{ ...btnSci, color: shift ? accentColors.amber : accentColors.cyan }}
+                    onClick={() => { append(shift ? `(${Math.E})` : 'π'); setShift(false); inputRef.current?.focus(); }}>
                     {shift ? 'e' : 'π'}
                   </button>
                 </div>
 
-                {/* Sci row 2 */}
+                {/* Row 2: Hyperbolic + abs + cbrt */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, marginBottom: 3 }}>
-                  <button style={btnSci} onClick={() => append('sinh(')}>sinh</button>
-                  <button style={btnSci} onClick={() => append('cosh(')}>cosh</button>
-                  <button style={btnSci} onClick={() => append('tanh(')}>tanh</button>
-                  <button style={btnSci} onClick={() => append('abs(')}>|x|</button>
-                  <button style={btnSci} onClick={() => append('cbrt(')}>∛</button>
+                  <button style={btnSci} onClick={() => { append('sinh('); inputRef.current?.focus(); }}>sinh(</button>
+                  <button style={btnSci} onClick={() => { append('cosh('); inputRef.current?.focus(); }}>cosh(</button>
+                  <button style={btnSci} onClick={() => { append('tanh('); inputRef.current?.focus(); }}>tanh(</button>
+                  <button style={btnSci} onClick={() => { append('abs('); inputRef.current?.focus(); }}>|x|</button>
+                  <button style={btnSci} onClick={() => { append('cbrt('); inputRef.current?.focus(); }}>∛(</button>
                 </div>
 
-                {/* Number grid */}
+                {/* Number + operator grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, marginBottom: 3 }}>
-                  {numGrid.map(([ins, lbl, style], i) => (
-                    <button key={i} style={style} onClick={() => {
-                      if (ins === 'x²') append('**2');
-                      else append(ins);
-                    }}>
-                      {lbl}
+                  {numGrid.map((btn, i) => (
+                    <button key={i} style={btn.style} onClick={() => { append(btn.ins); }}>
+                      {btn.lbl}
                     </button>
                   ))}
                 </div>
 
                 {/* Memory + equals */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3 }}>
-                  <button style={btnMem} onClick={() => { const v = safeEval(expr || result, mode, mem, ans); setMem(m => m + v); }}>M+</button>
-                  <button style={btnMem} onClick={() => { const v = safeEval(expr || result, mode, mem, ans); setMem(m => m - v); }}>M-</button>
-                  <button style={btnMem} onClick={() => append('MEM')}>MR</button>
-                  <button style={btnMem} onClick={() => setMem(0)}>MC</button>
-                  <button style={btnEq} onClick={() => compute()}>＝</button>
+                  <button style={btnMem} onClick={() => {
+                    try { const v = safeEval(expr || result, mode, mem, ans); setMem(m => m + v); } catch {}
+                    inputRef.current?.focus();
+                  }}>M+</button>
+                  <button style={btnMem} onClick={() => {
+                    try { const v = safeEval(expr || result, mode, mem, ans); setMem(m => m - v); } catch {}
+                    inputRef.current?.focus();
+                  }}>M-</button>
+                  <button style={btnMem} onClick={() => { append('MEM'); }}>MR</button>
+                  <button style={btnMem} onClick={() => { setMem(0); inputRef.current?.focus(); }}>MC</button>
+                  <button style={btnEq} onClick={() => compute()}>=</button>
                 </div>
               </div>
             </>
           ) : (
-            /* Graph tab */
+            /* ── Graph tab ── */
             <div style={{ flex: 1, overflow: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 9, color: `${c}50`, letterSpacing: 1 }}>f(x) =</div>
+              <div style={{ fontSize: 9, color: `${c}45`, letterSpacing: 1 }}>f(x) =</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
                   value={graphFunc}
                   onChange={e => setGraphFunc(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') plotGraph(); }}
-                  style={{ flex: 1, background: 'transparent', border: `1px solid ${c}40`, color: c,
-                    fontFamily: '"Courier New", monospace', fontSize: 12, padding: '5px 8px', outline: 'none' }}
+                  style={{ flex: 1, background: 'transparent', border: `1px solid ${c}35`,
+                    color: c, fontFamily: '"Courier New", monospace', fontSize: 12,
+                    padding: '5px 8px', outline: 'none', borderRadius: 2 }}
                   placeholder="sin(x), x^2+1, ..."
                 />
                 <button onClick={plotGraph} style={{ ...btnBase, color: accentColors.green,
-                  border: `1px solid ${accentColors.green}50`, padding: '5px 12px', fontSize: 10, letterSpacing: 1 }}>
+                  border: `1px solid ${accentColors.green}45`, padding: '5px 14px', fontSize: 10, letterSpacing: 1 }}>
                   PLOT
                 </button>
               </div>
               {graphError && <div style={{ fontSize: 10, color: accentColors.red }}>{graphError}</div>}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 10 }}>
-                {([['xMin', xMin, setXMin], ['xMax', xMax, setXMax], ['yMin', yMin, setYMin], ['yMax', yMax, setYMax]] as const).map(([label, val, setter]) => (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {([
+                  ['xMin', xMin, setXMin], ['xMax', xMax, setXMax],
+                  ['yMin', yMin, setYMin], ['yMax', yMax, setYMax],
+                ] as const).map(([label, val, setter]) => (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ color: `${c}60`, width: 34 }}>{label}:</span>
+                    <span style={{ fontSize: 10, color: `${c}55`, width: 36, flexShrink: 0 }}>{label}:</span>
                     <input type="number" value={val}
                       onChange={e => setter(parseFloat(e.target.value) || 0)}
-                      style={{ flex: 1, background: 'transparent', border: `1px solid ${c}30`, color: c,
-                        fontFamily: '"Courier New", monospace', fontSize: 10, padding: '3px 5px', outline: 'none', width: '100%' }}
+                      style={{ flex: 1, background: 'transparent', border: `1px solid ${c}25`,
+                        color: c, fontFamily: '"Courier New", monospace', fontSize: 10,
+                        padding: '3px 5px', outline: 'none', borderRadius: 2 }}
                     />
                   </div>
                 ))}
@@ -379,29 +481,30 @@ export default function Calculator() {
                 mode={mode} c={c} accentColors={accentColors}
               />
 
-              <div style={{ fontSize: 9, color: `${c}30`, textAlign: 'center' }}>
-                {graphExpr}  |  x:[{xMin},{xMax}]  y:[{yMin},{yMax}]  {mode}
+              <div style={{ fontSize: 9, color: `${c}28`, textAlign: 'center' }}>
+                {graphExpr} · x:[{xMin}, {xMax}] · y:[{yMin}, {yMax}] · {mode}
               </div>
             </div>
           )}
         </div>
 
-        {/* History panel */}
+        {/* ── History panel ── */}
         {showHistory && (
-          <div style={{ width: 130, borderLeft: `1px solid ${borderC}`, background: panelBg,
+          <div style={{ width: 140, borderLeft: `1px solid ${borderC}`, background: panelBg,
             display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
-            <div style={{ padding: '5px 8px', borderBottom: `1px solid ${borderC}`, fontSize: 9,
-              color: `${c}60`, letterSpacing: 1 }}>HISTORY</div>
+            <div style={{ padding: '5px 8px', borderBottom: `1px solid ${borderC}`,
+              fontSize: 8, color: `${c}50`, letterSpacing: 1 }}>HISTORY</div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 4 }}>
               {history.length === 0 && (
-                <div style={{ fontSize: 9, color: `${c}30`, padding: 8, textAlign: 'center' }}>No history</div>
+                <div style={{ fontSize: 9, color: `${c}25`, padding: 10, textAlign: 'center' }}>Empty</div>
               )}
               {history.map((h, i) => (
-                <button key={i} onClick={() => { setExpr(h.expr); setResult(h.result); setError(''); }}
+                <button key={i}
+                  onClick={() => { setExpr(h.expr); setError(''); setResult(h.result); inputRef.current?.focus(); }}
                   style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none',
-                    borderBottom: `1px solid ${c}10`, color: c, padding: '5px 6px', cursor: 'pointer',
+                    borderBottom: `1px solid ${c}08`, color: c, padding: '5px 6px', cursor: 'pointer',
                     fontFamily: '"Courier New", monospace' }}>
-                  <div style={{ fontSize: 9, color: `${c}50`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 9, color: `${c}45`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {h.expr}
                   </div>
                   <div style={{ fontSize: 11, color: accentColors.green, fontWeight: 'bold' }}>
@@ -410,9 +513,9 @@ export default function Calculator() {
                 </button>
               ))}
             </div>
-            <button onClick={() => setHistory([])}
-              style={{ ...btnBase, fontSize: 9, borderRadius: 0, border: 'none', borderTop: `1px solid ${borderC}`,
-                color: accentColors.red, padding: '5px' }}>
+            <button onClick={() => { setHistory([]); inputRef.current?.focus(); }}
+              style={{ ...btnBase, fontSize: 9, borderRadius: 0, border: 'none',
+                borderTop: `1px solid ${borderC}`, color: accentColors.red, padding: '5px' }}>
               CLEAR
             </button>
           </div>
