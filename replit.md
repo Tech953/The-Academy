@@ -61,15 +61,35 @@ A four-tab administrative dashboard (`client/src/components/desktop/apps/Academy
 The Academy includes a structured document authoring system built on top of the virtual filesystem:
 - **AcademyDoc format** (`client/src/lib/academyDocuments.ts`): Schema-versioned JSON stored as `.acd` files in `/home/student/documents/`. Documents have title, subject, tags, author, version, and a `blocks` array.
 - **9 block types**: `paragraph`, `heading1`, `heading2`, `heading3`, `code` (with language tag), `quote`, `math`, `annotation` (with citation), `divider`.
+- **Rich-text support**: Paragraph and heading blocks use `contentEditable` divs supporting Bold/Italic/Underline/Strikethrough/alignment/font-size/text-color via the formatting toolbar.
 - **WordProcessorApp** (`client/src/components/desktop/apps/WordProcessorApp.tsx`): Block-based editor with:
-  - Left sidebar showing all `.acd` files with search, "+NEW DOCUMENT" button, and file list with previews.
-  - Block rows with type-badge selector, auto-resizing textareas, and per-type styling (uppercase headings, green code blocks, amber quotes, cyan annotations).
-  - Toolbar: SAVE, NEW, UNDO/REDO (40-state history), block type shortcuts, COPY TEXT export.
+  - Left sidebar showing all `.acd` files with search, "+NEW DOCUMENT" button.
+  - File toolbar: SAVE, NEW, UNDO/REDO (40-state history), block type shortcuts, COPY TEXT.
+  - **Rich text formatting toolbar**: B/I/U/S buttons, 4 font-size presets, 6 CRT text-color dots, alignment (left/center/right), remove-formatting, TEMPLATE dropdown.
+  - **4 document templates**: Five-Paragraph Essay, Lab Report, Math Worksheet, Study Notes — auto-fill title/subject/tags/blocks on selection.
   - 2.2-second debounced autosave + Ctrl+S for immediate save.
   - Status bar: block count, word count, SAVED/UNSAVED/SAVING indicator.
-  - Document metadata: title, subject, tags (editable inline).
-- **Desktop icon**: `wordproc` type, amber color, `FilePen` icon, at column 3 row 1. Label: "WORD PROCESSOR".
-- **VFS integration**: Documents persist in the virtual filesystem alongside regular files; `academyDocs.seedDefaults()` creates a "Getting Started" guide on first run.
+- **Desktop icon**: `wordproc` type, amber color, `FilePen` icon, at column 3 row 1.
+- **VFS integration**: Documents persist in the virtual filesystem; `academyDocs.seedDefaults()` creates a "Getting Started" guide on first run.
+
+## Scientific Calculator
+- **Calculator** (`client/src/components/desktop/apps/Calculator.tsx`): Full TI-style scientific + graphing calculator (420×560 window).
+  - **CALC tab**: Expression display (expression + result rows), arithmetic, scientific functions (sin/cos/tan/asin/acos/atan/sinh/cosh/tanh, log/ln, abs, √, ∛, x²), constants (π, e), parentheses, ANS, percent; DEG/RAD mode toggle; 2nd-shift for inverse trig functions.
+  - **Memory**: M+, M-, MR, MC buttons; memory value shown in header.
+  - **History panel**: HIST toggle — shows last 30 calculations; click any entry to recall it; CLEAR button.
+  - **GRAPH tab**: Function input (f(x) expression), PLOT button, adjustable x/y range, SVG graph with grid lines, axes, and continuous curve rendering with discontinuity handling.
+  - Safe expression evaluator using sanitized Function() with all math built-ins mapped.
+- **Desktop icon**: `calculator` type, green color, at column 3 row 3.
+
+## File Manager
+- **FileManagerApp** (`client/src/components/desktop/apps/FileManagerApp.tsx`): Full VFS file manager (550×420 window).
+  - Toolbar: Up, Home, Refresh, path breadcrumb, FILE (new file), DIR (new folder/mkdir), Eye (preview toggle), Sort dropdown (name/size/type), Hidden-files toggle, PASTE (when clipboard active).
+  - **Preview pane**: Right-side 200px panel showing selected file metadata (type, permissions, size, modified date) + content preview; `.acd` files show parsed title and block text preview.
+  - **Folder creation**: DIR button → amber input row → Enter to create via `virtualFS.mkdir()`.
+  - **Copy/Paste**: Copy icon on selected file → navigate to destination → PASTE button.
+  - Rename (edit icon) and Delete-to-trash (trash icon) for writable files.
+  - Column headers with sort: directories always sorted first.
+- **Desktop icon**: `files` type, cyan color, at column 3 row 2.
 
 ## GED Graduation System
 The game features a complete GED preparation and graduation system. Skill progress is tracked via game flags, becoming "emerging" after 2 attendances and "stable/mastered" after 5. Players need 3+ stable skills per domain to be GED ready. Upon readiness, the `GRADUATION CEREMONY` command initiates the Confluence Hall experience, a multi-node journey leading to different "Departure Vectors" influenced by player stats and faction interactions.

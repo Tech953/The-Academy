@@ -206,6 +206,8 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   // Column 3 overflow — Admin & Document system
   { id: 'institution',  iconType: 'institution',  labelKey: 'desktop.institution',  colorKey: 'green',  defaultCol: 3, defaultRow: 0 },
   { id: 'wordproc',     iconType: 'wordproc',     labelKey: 'desktop.wordproc',     colorKey: 'amber',  defaultCol: 3, defaultRow: 1 },
+  { id: 'files',        iconType: 'files',        labelKey: 'desktop.files',        colorKey: 'cyan',   defaultCol: 3, defaultRow: 2 },
+  { id: 'calculator',   iconType: 'calculator',   labelKey: 'desktop.calculator',   colorKey: 'green',  defaultCol: 3, defaultRow: 3 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
@@ -1215,7 +1217,7 @@ export default function NeoCrtDesktopShell() {
           minHeight: 300
         };
       case 'calculator':
-        return { component: <Calculator />, title: 'Calculator', width: 220, height: 320, minWidth: 180, minHeight: 280 };
+        return { component: <Calculator />, title: 'Calculator', width: 420, height: 560, minWidth: 340, minHeight: 440 };
       case 'notepad':
       case 'recycle': {
         if (appId === 'recycle') {

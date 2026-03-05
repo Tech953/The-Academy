@@ -42,8 +42,8 @@ export function genBlockId(): string {
   return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 }
 
-export function newBlock(type: BlockType = 'paragraph'): DocBlock {
-  return { id: genBlockId(), type, content: '' };
+export function newBlock(type: BlockType = 'paragraph', content = ''): DocBlock {
+  return { id: genBlockId(), type, content };
 }
 
 export function newDoc(title = 'Untitled Document', subject = ''): AcademyDoc {
