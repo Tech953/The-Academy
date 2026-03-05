@@ -22,6 +22,7 @@ import { ProgressDashboardApp } from './apps/ProgressDashboardApp';
 import CharacterStatsApp from './apps/CharacterStatsApp';
 import StarterPerkFlow from './apps/StarterPerkFlow';
 import PersonalFilesApp from './apps/PersonalFilesApp';
+import { TutorialApp } from './TutorialApp';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
@@ -35,7 +36,7 @@ import {
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
   BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
-  Monitor, Terminal, Network, BarChart3, Notebook, Award, Lock
+  Monitor, Terminal, Network, BarChart3, Notebook, Award, Lock, GraduationCap
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 import { PostItWidget } from './widgets/PostItWidget';
@@ -58,7 +59,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats' | 'tutorial';
 
 type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
 
@@ -199,6 +200,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   // Row 5 — Game & utility
   { id: 'recycle',      iconType: 'recycle',      labelKey: 'desktop.recycle',      colorKey: 'red',    defaultCol: 0, defaultRow: 5 },
   { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 5 },
+  { id: 'tutorial',     iconType: 'tutorial',     labelKey: 'desktop.tutorial',     colorKey: 'cyan',   defaultCol: 2, defaultRow: 5 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
@@ -292,6 +294,7 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'notebook': return <Notebook {...props} />;
     case 'progress': return <BarChart3 {...props} />;
     case 'charstats': return <Award {...props} />;
+    case 'tutorial': return <GraduationCap {...props} />;
     default: return <FileText {...props} />;
   }
 }
@@ -1331,6 +1334,15 @@ export default function NeoCrtDesktopShell() {
           height: 580,
           minWidth: 340,
           minHeight: 420,
+        };
+      case 'tutorial':
+        return {
+          component: <TutorialApp />,
+          title: 'Orientation System',
+          width: Math.min(720, maxWidth),
+          height: Math.min(560, maxHeight),
+          minWidth: 500,
+          minHeight: 400,
         };
       case 'notifications':
         return { 

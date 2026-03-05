@@ -61,6 +61,7 @@ const LANGUAGES: Record<string, Language> = {
       'desktop.cub': 'CUB LINK',
       'desktop.settings': 'SETTINGS',
       'desktop.recycle': 'RECYCLE BIN',
+      'desktop.tutorial': 'ORIENTATION',
       'desktop.academy': 'THE ACADEMY',
       'desktop.calculator': 'CALC',
       'desktop.notepad': 'NOTES',
