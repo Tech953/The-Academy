@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, R
 import { earnMemory } from '@/lib/memoriesStore';
 import { FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
 import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
-import type { StudentCurriculumProgress, GEDSubjectKey } from '@shared/schema';
+import type { StudentCurriculumProgress, GEDSubjectKey, LessonProgress } from '@shared/schema';
 import { emptyProgress, recordQuizAttempt, SUBJECT_STAT_MAP } from '@/lib/gedCurriculum';
 import { LANGUAGE_STAT_MAP } from '@/lib/languageCourseGenerator';
 
@@ -78,6 +78,9 @@ interface GameStateContextType {
   setIsGameActive: (active: boolean) => void;
   curriculumProgress: StudentCurriculumProgress;
   recordLessonQuiz: (lessonCode: string, scorePercent: number, subject: string) => { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> };
+  recordReflection: (lessonCode: string, text: string) => void;
+  markCommentaryRead: (lessonCode: string) => void;
+  markLessonAccessed: (lessonCode: string) => void;
 }
 
 const STORAGE_KEY = 'academy-game-state';
@@ -263,32 +266,57 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
         chapterProgress: { ...prev.curriculumProgress.chapterProgress },
       };
 
+      // ── Resonance & ecology pre-read bonus ──────────────────────────────
+      const existingLp = progressCopy.lessonProgress[lessonCode];
+      const resonanceBonus = Math.min(20, (existingLp?.resonanceScore ?? 0) * 0.2);
+      const commentaryBonus = existingLp?.preReadCommentary ? 5 : 0;
+      const boostedScore = Math.min(100, scorePercent + resonanceBonus + commentaryBonus);
+
+      // ── Apply ecology update post-quiz ─────────────────────────────────
+      const applyEcologyUpdate = (lp: LessonProgress, success: boolean) => {
+        const ecol = lp.ecology ?? { stability: 0, coherence: 0, strain: 0, lastInteraction: null };
+        if (success) {
+          ecol.stability = Math.min(100, ecol.stability + 15);
+          ecol.strain = ecol.strain * 0.5;
+          ecol.coherence = Math.min(100, ecol.coherence + 5);
+        } else {
+          ecol.strain = Math.min(100, ecol.strain + 10);
+          ecol.stability = Math.max(0, ecol.stability - 5);
+        }
+        ecol.lastInteraction = new Date().toISOString();
+        lp.ecology = ecol;
+        lp.lastAccessed = new Date().toISOString();
+      };
+
       if (isLangSubject) {
         const lp = { ...(progressCopy.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
-        const passed = scorePercent >= 60;
+        const passed = boostedScore >= 60;
         const wasComplete = lp.completed;
         let xp = 0;
         const bonuses: Array<{ stat: string; gain: number }> = [];
         lp.attempts += 1;
         lp.lastAttemptAt = new Date().toISOString();
         if (!wasComplete) { xp += 25; lp.completed = true; }
-        if (passed && (!lp.quizScore || scorePercent > lp.quizScore)) {
+        if (passed && (!lp.quizScore || boostedScore > lp.quizScore)) {
           if (!lp.quizScore || lp.quizScore < 60) {
             xp += 50;
             const rawCode = subject === 'Language: Spanish' ? 'es' : subject === 'Language: French' ? 'fr' : subject === 'Language: German' ? 'de' : subject === 'Language: Chinese' ? 'zh' : null;
             if (rawCode) {
               const statMap = LANGUAGE_STAT_MAP[rawCode as keyof typeof LANGUAGE_STAT_MAP] ?? [];
-              statMap.forEach((b) => bonuses.push({ stat: b.stat, gain: Math.ceil(b.bonus * (scorePercent / 100)) }));
+              statMap.forEach((b) => bonuses.push({ stat: b.stat, gain: Math.ceil(b.bonus * (boostedScore / 100)) }));
             }
           }
-          lp.quizScore = Math.max(lp.quizScore ?? 0, scorePercent);
+          lp.quizScore = Math.max(lp.quizScore ?? 0, boostedScore);
         }
+        applyEcologyUpdate(lp, passed);
         progressCopy.lessonProgress[lessonCode] = lp;
         progressCopy.totalXpEarned = (progressCopy.totalXpEarned ?? 0) + xp;
         progressCopy.lastStudiedAt = new Date().toISOString();
         result = { xpEarned: xp, passed, statBonuses: bonuses };
       } else {
-        result = recordQuizAttempt(progressCopy, lessonCode, scorePercent, subject as GEDSubjectKey);
+        result = recordQuizAttempt(progressCopy, lessonCode, boostedScore, subject as GEDSubjectKey);
+        const gedLp = progressCopy.lessonProgress[lessonCode];
+        if (gedLp) applyEcologyUpdate(gedLp, result.passed);
       }
 
       const statUpdates: Partial<FullCharacterStats> = {};
@@ -317,6 +345,56 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
       };
     });
     return result;
+  }, []);
+
+  const markLessonAccessed = useCallback((lessonCode: string) => {
+    setState(prev => {
+      const lp = { ...(prev.curriculumProgress.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
+      lp.lastAccessed = new Date().toISOString();
+      return {
+        ...prev,
+        curriculumProgress: {
+          ...prev.curriculumProgress,
+          lessonProgress: { ...prev.curriculumProgress.lessonProgress, [lessonCode]: lp },
+        },
+      };
+    });
+  }, []);
+
+  const markCommentaryRead = useCallback((lessonCode: string) => {
+    setState(prev => {
+      const existing = prev.curriculumProgress.lessonProgress[lessonCode];
+      if (existing?.preReadCommentary) return prev;
+      const lp = { ...(existing ?? { lessonCode, completed: false, attempts: 0 }), preReadCommentary: true };
+      return {
+        ...prev,
+        curriculumProgress: {
+          ...prev.curriculumProgress,
+          lessonProgress: { ...prev.curriculumProgress.lessonProgress, [lessonCode]: lp },
+        },
+      };
+    });
+  }, []);
+
+  const recordReflection = useCallback((lessonCode: string, text: string) => {
+    setState(prev => {
+      const lp = { ...(prev.curriculumProgress.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
+      lp.reflectionText = text;
+      let resonanceDelta = 0;
+      if (text.length > 80) resonanceDelta = 15;
+      else if (text.length > 20) resonanceDelta = 5;
+      const prevResonance = lp.resonanceScore ?? 0;
+      lp.resonanceScore = Math.min(100, prevResonance + resonanceDelta);
+      const ecol = lp.ecology ?? { stability: 0, coherence: 0, strain: 0, lastInteraction: null };
+      lp.ecology = { ...ecol, stability: Math.min(100, ecol.stability + resonanceDelta * 0.5), lastInteraction: new Date().toISOString() };
+      return {
+        ...prev,
+        curriculumProgress: {
+          ...prev.curriculumProgress,
+          lessonProgress: { ...prev.curriculumProgress.lessonProgress, [lessonCode]: lp },
+        },
+      };
+    });
   }, []);
 
   const addEmail = useCallback((email: Omit<Email, 'id' | 'timestamp' | 'read'>) => {
@@ -592,6 +670,9 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     setIsGameActive,
     curriculumProgress: state.curriculumProgress,
     recordLessonQuiz,
+    recordReflection,
+    markCommentaryRead,
+    markLessonAccessed,
   };
 
   return (

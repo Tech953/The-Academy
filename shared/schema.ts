@@ -622,12 +622,42 @@ export interface GEDTextbook {
 
 // ── Curriculum Progress Tracking ─────────────────────────────────────────────
 
+export type CognitiveState = 'fractured' | 'integrating' | 'internalized' | 'untouched';
+
+export interface LessonEcology {
+  stability: number;    // 0–100 — knowledge durability; decays with time
+  coherence: number;    // 0–100 — cross-domain integration strength
+  strain: number;       // 0–100 — accumulated cognitive friction
+  lastInteraction: string | null;
+}
+
 export interface LessonProgress {
   lessonCode: string;       // e.g. 'RLA.Ch1.L2'
   completed: boolean;
   quizScore?: number;       // 0–100
   attempts: number;
   lastAttemptAt?: string;
+  // Reflection & resonance (from CSV mentor commentary integration)
+  reflectionText?: string;      // learner-authored pre-lesson reflection
+  preReadCommentary?: boolean;  // whether learner opened the mentor panel
+  resonanceScore?: number;      // grows from reflection depth; amplifies mastery
+  lastAccessed?: string;        // ISO timestamp; used for temporal drift
+  // Knowledge ecology
+  ecology?: LessonEcology;
+}
+
+export interface LearnerCognitiveModel {
+  persistence: number;           // 0–1  — responds to difficulty by retrying
+  abstractionComfort: number;    // 0–1  — handles conceptual vs concrete
+  integrationTendency: number;   // 0–1  — naturally connects ideas cross-domain
+  recoveryVelocity: number;      // 0–1  — how fast frustration resolves
+  history: Array<{
+    lessonCode: string;
+    retries: number;
+    reflectionLength: number;
+    timeToSuccess: number | null;
+    timestamp: string;
+  }>;
 }
 
 export interface ChapterProgress {
@@ -651,4 +681,5 @@ export interface StudentCurriculumProgress {
   chapterProgress: Record<string, ChapterProgress>;
   totalXpEarned: number;
   lastStudiedAt: string;
+  learnerModel?: LearnerCognitiveModel;
 }
