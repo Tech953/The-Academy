@@ -13,16 +13,19 @@ interface Chapter {
 }
 
 const CHAPTERS: Chapter[] = [
-  { id: 'welcome',       title: 'Welcome',           tag: 'INIT'  },
-  { id: 'atrium',        title: 'Atrium Rite',        tag: 'LIVE'  },
-  { id: 'resonance',     title: 'Resonance',          tag: 'CORE'  },
-  { id: 'cycle',         title: 'The Cycle',          tag: 'SYS'   },
-  { id: 'pillars',       title: 'Three Pillars',      tag: 'CORE'  },
-  { id: 'disciplines',   title: 'Disciplines',        tag: 'DATA'  },
-  { id: 'constellation', title: 'Your Constellation', tag: 'MAP'   },
-  { id: 'living',        title: 'Living Academy',     tag: 'WORLD' },
-  { id: 'hidden',        title: 'Hidden Systems',     tag: 'DEPTH' },
-  { id: 'begin',         title: 'Begin',              tag: 'EXEC'  },
+  { id: 'welcome',       title: 'Welcome',             tag: 'INIT'   },
+  { id: 'terminal',      title: 'Command Terminal',    tag: 'CMD'    },
+  { id: 'atrium',        title: 'Atrium Rite',          tag: 'LIVE'   },
+  { id: 'resonance',     title: 'Resonance',            tag: 'CORE'   },
+  { id: 'cycle',         title: 'The Cycle',            tag: 'SYS'    },
+  { id: 'assignments-guide', title: 'Assignments & GED',tag: 'STUDY'  },
+  { id: 'pillars',       title: 'Three Pillars',        tag: 'CORE'   },
+  { id: 'disciplines',   title: 'Disciplines',          tag: 'DATA'   },
+  { id: 'constellation', title: 'Your Constellation',   tag: 'MAP'    },
+  { id: 'npc-guide',     title: 'NPC Interface',        tag: 'SOCIAL' },
+  { id: 'living',        title: 'Living Academy',       tag: 'WORLD'  },
+  { id: 'hidden',        title: 'Hidden Systems',       tag: 'DEPTH'  },
+  { id: 'begin',         title: 'Begin',                tag: 'EXEC'   },
 ];
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
@@ -896,6 +899,210 @@ function ChapterContent({ chapterId, color, character }: {
               <div>→ NOTEBOOK — document discoveries as they emerge</div>
               <div>→ RESONANCE DASHBOARD — monitor your cascade state</div>
             </div>
+          </div>
+        </div>
+      );
+
+    case 'terminal':
+      return (
+        <div>
+          <div style={{ fontSize: 13, color, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 14 }}>CMD: THE COMMAND TERMINAL</div>
+          <Divider color={color} />
+          <p>The Academy's primary interface is a <span style={{ color }}>text adventure command prompt</span>. Open it by double-clicking the <span style={{ color }}>THE ACADEMY</span> icon on your desktop.</p>
+          <p style={{ marginTop: 8 }}>Type commands at the <span style={{ color }}>&gt;</span> prompt and press <span style={{ color }}>ENTER</span> to execute them. Commands are not case-sensitive.</p>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>NAVIGATION COMMANDS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            {[
+              ['go [location]',      'Move to a named location (e.g. go library)'],
+              ['look',               'Examine your current surroundings'],
+              ['map',                'Display an overview of accessible rooms'],
+              ['go library',         'The main study hall — boosts academic actions'],
+              ['go classroom',       'Attend formal lessons and interact with teachers'],
+              ['go dormitory',       'Rest and recover energy between cycles'],
+              ['go cafeteria',       'Restore health; social interactions with students'],
+              ['go hallway',         'Move between wings of the Academy'],
+            ].map(([cmd, desc]) => (
+              <div key={cmd} style={{ display: 'flex', gap: 0, marginBottom: 3 }}>
+                <span style={{ color, minWidth: 190 }}>{`> ${cmd}`}</span>
+                <span style={{ color: `${color}50` }}>— {desc}</span>
+              </div>
+            ))}
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>ACTION COMMANDS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            {[
+              ['study [subject]',    'Spend time studying a topic (math, reading, science...)'],
+              ['attend class',       'Join the current scheduled class session'],
+              ['rest',               'Recover energy at the cost of one time unit'],
+              ['train [stat]',       'Build a physical or mental stat through practice'],
+              ['explore',            'Investigate your surroundings for hidden events'],
+              ['check stats',        'Display your current stat readout'],
+              ['check schedule',     'Show today\'s class schedule'],
+              ['check inventory',    'List items you are currently carrying'],
+              ['help',               'List all available commands in the current location'],
+            ].map(([cmd, desc]) => (
+              <div key={cmd} style={{ display: 'flex', gap: 0, marginBottom: 3 }}>
+                <span style={{ color, minWidth: 190 }}>{`> ${cmd}`}</span>
+                <span style={{ color: `${color}50` }}>— {desc}</span>
+              </div>
+            ))}
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>INTERACTION COMMANDS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            {[
+              ['talk [name]',        'Begin a dialogue with an NPC (e.g. talk Professor Chen)'],
+              ['ask [name] about [x]','Ask an NPC a specific question'],
+              ['give [item] to [name]','Transfer an item to an NPC'],
+              ['use [item]',         'Use an item from your inventory'],
+              ['read [object]',      'Read a book, note, or posted document'],
+            ].map(([cmd, desc]) => (
+              <div key={cmd} style={{ display: 'flex', gap: 0, marginBottom: 3 }}>
+                <span style={{ color, minWidth: 190 }}>{`> ${cmd}`}</span>
+                <span style={{ color: `${color}50` }}>— {desc}</span>
+              </div>
+            ))}
+          </div>
+          <Divider color={color} />
+          <div style={{ background: `${color}08`, border: `1px solid ${color}20`, padding: '12px 16px', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 9, color: `${color}50`, letterSpacing: 1, marginBottom: 6 }}>TIPS</div>
+            <div style={{ fontSize: 10, color: `${color}70`, lineHeight: 1.8 }}>
+              <div>· The terminal remembers your last 20 commands — use UP/DOWN to recall them.</div>
+              <div>· If a command does nothing, type <span style={{ color }}>help</span> to see what is available in this location.</div>
+              <div>· NPCs and objects only appear in the command list when they are present with you.</div>
+              <div>· Some commands only unlock after meeting certain stat or affinity thresholds.</div>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'assignments-guide':
+      return (
+        <div>
+          <div style={{ fontSize: 13, color, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 14 }}>STUDY: ASSIGNMENTS & GED CURRICULUM</div>
+          <Divider color={color} />
+          <p>The <span style={{ color }}>ASSIGNMENTS</span> desktop app is your primary academic workspace. It houses the full GED curriculum aligned to Kaplan 2022–2023 across four subjects.</p>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>HOW TO OPEN A LESSON:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 2, marginBottom: 14 }}>
+            {[
+              '1. Double-click ASSIGNMENTS on the desktop',
+              '2. Select a GED subject: RLA · Math · Social Studies · Science',
+              '3. Choose a chapter from the subject index',
+              '4. Pick a lesson — the lesson card shows difficulty and GED code',
+              '5. Read the lesson content and review key terms',
+              '6. Click START QUIZ when ready — do not skip the reading',
+            ].map((step, i) => (
+              <div key={i} style={{ color: i === 5 ? color : `${color}60` }}>{step}</div>
+            ))}
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>HOW QUIZZES WORK:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            <div>· Each quiz has multiple-choice questions (4 options: A B C D).</div>
+            <div>· Select an answer and press <span style={{ color }}>CHECK ANSWER</span> to see if you were right.</div>
+            <div>· Correct answers show in green. Wrong answers show in red.</div>
+            <div>· After all questions, the quiz calculates your <span style={{ color }}>score percentage</span>.</div>
+            <div>· Scores of 70%+ grant full XP. Partial scores grant partial XP.</div>
+            <div>· You can retake quizzes — each attempt is recorded separately.</div>
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>WHAT YOU EARN FROM ASSIGNMENTS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, lineHeight: 1.9, marginBottom: 14 }}>
+            {[
+              { label: 'XP',            col: '#00ff00', desc: 'Progress your character level' },
+              { label: 'Stat bonuses',  col: '#00ffaa', desc: 'Math boosts mathLogic; RLA boosts linguistic' },
+              { label: 'GED readiness',col: '#ffaa00', desc: 'Tracked in PROGRESS dashboard per domain' },
+              { label: 'Skill nodes',  col: '#aa44ff', desc: 'Unlocks branches on your constellation map' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', gap: 12, paddingBottom: 4 }}>
+                <span style={{ color: item.col, minWidth: 130, fontFamily: 'monospace' }}>{item.label}</span>
+                <span style={{ color: `${color}60` }}>{item.desc}</span>
+              </div>
+            ))}
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>TRACKING YOUR PROGRESS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9 }}>
+            <div>· Open the <span style={{ color }}>PROGRESS</span> app to see per-domain GED readiness.</div>
+            <div>· The <span style={{ color }}>INSTITUTION</span> app shows class-wide metrics and fragile domains.</div>
+            <div>· Completing 3+ stable skills per domain makes you GED-eligible.</div>
+            <div>· When all four domains reach readiness, the GRADUATION CEREMONY unlocks.</div>
+          </div>
+          <Divider color={color} />
+          <div style={{ background: `${color}08`, border: `1px solid ${color}20`, padding: '12px 16px', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 9, color: `${color}50`, letterSpacing: 1, marginBottom: 6 }}>MENTOR NOTE</div>
+            <div style={{ fontSize: 11, color: `${color}80` }}>"Reading the lesson first is not optional. The quiz is designed to reinforce what you just read — not to test guessing. If you skip the lesson, you will fail the quiz and miss the comprehension."</div>
+            <div style={{ fontSize: 9, color: `${color}40`, marginTop: 6 }}>— Prof. Chen, Mathematics</div>
+          </div>
+        </div>
+      );
+
+    case 'npc-guide':
+      return (
+        <div>
+          <div style={{ fontSize: 13, color, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 14 }}>SOCIAL: THE NPC INTERFACE</div>
+          <Divider color={color} />
+          <p>The Academy's NPCs are <span style={{ color }}>autonomous agents</span>. They have schedules, memories, affiliations, and they react to your behavior over time.</p>
+          <p style={{ marginTop: 8 }}>There are three ways to engage with them: the <span style={{ color }}>command terminal</span>, the <span style={{ color }}>ChatLink</span> messaging app, and <span style={{ color }}>Academy Email</span>.</p>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>METHOD 1 — COMMAND TERMINAL (live interactions):</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            <div>When an NPC is present in your current location:</div>
+            <div style={{ marginLeft: 12, marginTop: 4 }}>
+              <div><span style={{ color }}>&gt; talk [name]</span>  — Opens dialogue. Choose responses carefully.</div>
+              <div><span style={{ color }}>&gt; ask [name] about [topic]</span>  — Targeted questions; may unlock hints.</div>
+              <div><span style={{ color }}>&gt; observe [name]</span>  — Watch without speaking; earns Perception.</div>
+            </div>
+            <div style={{ marginTop: 8, color: `${color}40` }}>Tip: Dialogue choices affect NPC affinity and Resonance simultaneously.</div>
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>METHOD 2 — CHATLINK (asynchronous messaging):</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            <div>· Open <span style={{ color }}>CHATLINK</span> from the taskbar or desktop.</div>
+            <div>· The NPC Directory lists all available contacts with their affinity level.</div>
+            <div>· Click an NPC to open a chat thread — send freeform messages.</div>
+            <div>· Responses are generated based on NPC personality and your relationship history.</div>
+            <div>· <span style={{ color }}>Affinity Gates</span> determine what topics an NPC will discuss.</div>
+            <div style={{ marginLeft: 12, color: `${color}40` }}>Low affinity: surface topics only</div>
+            <div style={{ marginLeft: 12, color: `${color}40` }}>Medium affinity: academic support + personal history</div>
+            <div style={{ marginLeft: 12, color: `${color}40` }}>High affinity: hidden curriculum, faction info, deep lore</div>
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>METHOD 3 — ACADEMY EMAIL (formal correspondence):</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.9, marginBottom: 14 }}>
+            <div>· Open <span style={{ color }}>ACADEMY EMAIL</span> from the desktop.</div>
+            <div>· Compose messages to staff, faculty, or fellow students.</div>
+            <div>· Email is slower than chat — NPC replies arrive on a delay (simulating async).</div>
+            <div>· Some NPCs <span style={{ color }}>only respond to formal email</span> — they ignore chat.</div>
+            <div>· Email exchanges can unlock assignment extensions, special quests, and referrals.</div>
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}80`, marginBottom: 8 }}>KEY ACADEMY CONTACTS:</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 10, lineHeight: 1, marginBottom: 14 }}>
+            {[
+              { name: 'PROF. CHEN',           subject: 'Math',           trait: 'Values precision. Responds to logic.' },
+              { name: 'MS. RIVERA',           subject: 'Language Arts',  trait: 'Values voice. Responds to written effort.' },
+              { name: 'DR. OKAFOR',           subject: 'Social Studies', trait: 'Values evidence. Skeptical of shortcuts.' },
+              { name: 'INSTRUCTOR VASQUEZ',   subject: 'Science',        trait: 'Values curiosity. Rewards questions.' },
+              { name: 'ARCHIVIST ILYRA',      subject: 'Lore / Library', trait: 'Notices patterns. Speaks in implication.' },
+              { name: 'GROUNDSKEEPER TOMAS',  subject: 'Facilities',     trait: 'Watches. Rarely speaks first.' },
+            ].map(npc => (
+              <div key={npc.name} style={{ display: 'flex', gap: 10, padding: '7px 0', borderBottom: `1px solid ${color}10` }}>
+                <div style={{ width: 5, background: `${color}25`, flexShrink: 0, alignSelf: 'stretch' }} />
+                <div>
+                  <div style={{ color, fontSize: 10 }}>{npc.name} <span style={{ color: `${color}40`, fontSize: 9 }}>· {npc.subject}</span></div>
+                  <div style={{ color: `${color}55`, fontSize: 10, marginTop: 2 }}>{npc.trait}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Divider color={color} />
+          <div style={{ fontFamily: 'monospace', fontSize: 10, color: `${color}60`, lineHeight: 1.8 }}>
+            <div><span style={{ color }}>AFFINITY</span> rises through: consistent interaction, correct answers, respectful tone, attending relevant classes.</div>
+            <div style={{ marginTop: 4 }}><span style={{ color }}>AFFINITY</span> falls through: ignoring scheduled events, rude dialogue choices, repeated academic failure.</div>
           </div>
         </div>
       );

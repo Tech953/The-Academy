@@ -88,7 +88,7 @@ const GRID_MARGIN_Y = 16;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 96;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v3';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v4';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -203,34 +203,29 @@ interface DesktopIconEntry extends DesktopIconConfig {
 }
 
 const DESKTOP_ICONS: DesktopIconEntry[] = [
-  // Row 0 — Communication (enrollment-gated)
-  { id: 'email',        iconType: 'email',        labelKey: 'desktop.email',        colorKey: 'cyan',   defaultCol: 0, defaultRow: 0 },
-  { id: 'messages',     iconType: 'messages',     labelKey: 'desktop.messages',     colorKey: 'green',  defaultCol: 1, defaultRow: 0 },
-  // Row 1 — Academic core
-  { id: 'assignments',  iconType: 'assignments',  labelKey: 'desktop.assignments',  colorKey: 'amber',  defaultCol: 0, defaultRow: 1 },
-  { id: 'schedule',     iconType: 'schedule',     labelKey: 'desktop.schedule',     colorKey: 'amber',  defaultCol: 1, defaultRow: 1 },
-  { id: 'notebook',     iconType: 'notebook',     labelKey: 'desktop.notebook',     colorKey: 'cyan',   defaultCol: 2, defaultRow: 1 },
+  // Row 0 — Communication & Administration
+  { id: 'email',         iconType: 'email',         labelKey: 'desktop.email',         colorKey: 'cyan',   defaultCol: 0, defaultRow: 0 },
+  { id: 'messages',      iconType: 'messages',      labelKey: 'desktop.messages',      colorKey: 'green',  defaultCol: 1, defaultRow: 0 },
+  { id: 'institution',   iconType: 'institution',   labelKey: 'desktop.institution',   colorKey: 'green',  defaultCol: 2, defaultRow: 0 },
+  // Row 1 — Academic core & Document tools
+  { id: 'assignments',   iconType: 'assignments',   labelKey: 'desktop.assignments',   colorKey: 'amber',  defaultCol: 0, defaultRow: 1 },
+  { id: 'schedule',      iconType: 'schedule',      labelKey: 'desktop.schedule',      colorKey: 'amber',  defaultCol: 1, defaultRow: 1 },
+  { id: 'wordproc',      iconType: 'wordproc',      labelKey: 'desktop.wordproc',      colorKey: 'amber',  defaultCol: 2, defaultRow: 1 },
   // Row 2 — Progress & skills
-  { id: 'progress',     iconType: 'progress',     labelKey: 'desktop.progress',     colorKey: 'green',  defaultCol: 0, defaultRow: 2 },
-  { id: 'perks',        iconType: 'perks',        labelKey: 'desktop.perks',        colorKey: 'purple', defaultCol: 1, defaultRow: 2 },
-  { id: 'skillgraph',   iconType: 'skillgraph',   labelKey: 'desktop.skillgraph',   colorKey: 'purple', defaultCol: 2, defaultRow: 2 },
-  // Row 3 — Mystical & companion
-  { id: 'resonance',    iconType: 'resonance',    labelKey: 'desktop.resonance',    colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
-  { id: 'cub',          iconType: 'cub',          labelKey: 'desktop.cub',          colorKey: 'pink',   defaultCol: 1, defaultRow: 3 },
-  { id: 'charstats',    iconType: 'charstats',    labelKey: 'desktop.charstats',    colorKey: 'purple', defaultCol: 2, defaultRow: 3 },
-  // Row 4 — Files & system
-  { id: 'schoolfiles',  iconType: 'schoolfiles',  labelKey: 'desktop.schoolfiles',  colorKey: 'cyan',   defaultCol: 0, defaultRow: 4 },
-  { id: 'personalfiles',iconType: 'personalfiles',labelKey: 'desktop.personalfiles',colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
-  { id: 'settings',     iconType: 'settings',     labelKey: 'desktop.settings',     colorKey: 'green',  defaultCol: 2, defaultRow: 4 },
-  // Row 5 — Game & utility
-  { id: 'recycle',      iconType: 'recycle',      labelKey: 'desktop.recycle',      colorKey: 'red',    defaultCol: 0, defaultRow: 5 },
-  { id: 'academy',      iconType: 'academy',      labelKey: 'desktop.academy',      colorKey: 'green',  defaultCol: 1, defaultRow: 5 },
-  { id: 'tutorial',     iconType: 'tutorial',     labelKey: 'desktop.tutorial',     colorKey: 'cyan',   defaultCol: 2, defaultRow: 5 },
-  // Column 3 overflow — Admin & Document system
-  { id: 'institution',  iconType: 'institution',  labelKey: 'desktop.institution',  colorKey: 'green',  defaultCol: 3, defaultRow: 0 },
-  { id: 'wordproc',     iconType: 'wordproc',     labelKey: 'desktop.wordproc',     colorKey: 'amber',  defaultCol: 3, defaultRow: 1 },
-  { id: 'files',        iconType: 'files',        labelKey: 'desktop.files',        colorKey: 'cyan',   defaultCol: 3, defaultRow: 2 },
-  { id: 'calculator',   iconType: 'calculator',   labelKey: 'desktop.calculator',   colorKey: 'green',  defaultCol: 3, defaultRow: 3 },
+  { id: 'progress',      iconType: 'progress',      labelKey: 'desktop.progress',      colorKey: 'green',  defaultCol: 0, defaultRow: 2 },
+  { id: 'perks',         iconType: 'perks',         labelKey: 'desktop.perks',         colorKey: 'purple', defaultCol: 1, defaultRow: 2 },
+  { id: 'skillgraph',    iconType: 'skillgraph',    labelKey: 'desktop.skillgraph',    colorKey: 'purple', defaultCol: 2, defaultRow: 2 },
+  // Row 3 — Mystical & companion (col 2 intentionally empty)
+  { id: 'resonance',     iconType: 'resonance',     labelKey: 'desktop.resonance',     colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
+  { id: 'cub',           iconType: 'cub',           labelKey: 'desktop.cub',           colorKey: 'pink',   defaultCol: 1, defaultRow: 3 },
+  // Row 4 — Files & notebook
+  { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 4 },
+  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
+  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 4 },
+  // Row 5 — Game & character
+  { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 5 },
+  { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 5 },
+  { id: 'charstats',     iconType: 'charstats',     labelKey: 'desktop.charstats',     colorKey: 'purple', defaultCol: 2, defaultRow: 5 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
@@ -281,9 +276,11 @@ function loadIconPositions(): Record<string, { x: number; y: number }> {
 }
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
-  { id: 'calculator', iconType: 'calculator', labelKey: 'desktop.calculator', colorKey: 'green' },
-  { id: 'notepad',    iconType: 'notepad',    labelKey: 'desktop.notepad',    colorKey: 'cyan'  },
-  { id: 'files',      iconType: 'files',      labelKey: 'desktop.files',      colorKey: 'cyan'  },
+  { id: 'calculator', iconType: 'calculator', labelKey: 'desktop.calculator', colorKey: 'green'  },
+  { id: 'notepad',    iconType: 'notepad',    labelKey: 'desktop.notepad',    colorKey: 'cyan'   },
+  { id: 'files',      iconType: 'files',      labelKey: 'desktop.files',      colorKey: 'cyan'   },
+  { id: 'settings',   iconType: 'settings',   labelKey: 'desktop.settings',   colorKey: 'green'  },
+  { id: 'recycle',    iconType: 'recycle',    labelKey: 'desktop.recycle',    colorKey: 'red'    },
 ];
 
 const HIDDEN_APPS: DesktopIconConfig[] = [

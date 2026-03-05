@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, CheckCircle, Zap, Globe } from 'lucide-react';
 import { useGameState } from '@/contexts/GameStateContext';
 import {
@@ -178,6 +178,95 @@ function LessonRow({ lesson, lessonProg, onClick }: {
   );
 }
 
+const MENTOR_COMMENTARIES: Record<string, { mentor: string; role: string; quote: string; prompt: string }> = {
+  'Math': {
+    mentor: 'Prof. Chen',
+    role: 'Mathematics',
+    quote: 'Every formula is compressed history. Before you memorize it, ask yourself what problem drove someone to discover it.',
+    prompt: 'As you read this lesson, note where the math connects to real decisions — money, distance, probability.',
+  },
+  'Language Arts': {
+    mentor: 'Ms. Rivera',
+    role: 'Language Arts',
+    quote: 'Reading slowly is not a weakness. Precision readers extract meaning that fast readers miss entirely.',
+    prompt: 'Identify the author\'s main argument, then ask yourself: what evidence supports it? What evidence is missing?',
+  },
+  'Social Studies': {
+    mentor: 'Dr. Okafor',
+    role: 'Social Studies',
+    quote: 'History does not repeat itself — but patterns do. Your job is to recognize a pattern before it becomes a consequence.',
+    prompt: 'As you read, trace the cause-and-effect chain. Events rarely happen in isolation.',
+  },
+  'Science': {
+    mentor: 'Instructor Vasquez',
+    role: 'Physical Science',
+    quote: 'A hypothesis is not a guess — it is a disciplined question. Learn to ask better questions and the answers become obvious.',
+    prompt: 'Look for testable claims in this lesson. Which ideas could you verify with an experiment?',
+  },
+};
+
+function getMentorFor(subject: string): { mentor: string; role: string; quote: string; prompt: string } {
+  for (const key of Object.keys(MENTOR_COMMENTARIES)) {
+    if (subject.toLowerCase().includes(key.toLowerCase())) return MENTOR_COMMENTARIES[key];
+  }
+  return {
+    mentor: 'Archivist Ilyra',
+    role: 'The Archive',
+    quote: 'Every lesson in this building was written by someone who once struggled with it. You are in good company.',
+    prompt: 'Read carefully. What is the single most important idea in this section?',
+  };
+}
+
+function MentorCommentaryPanel({ lesson, subject }: { lesson: GEDLesson; subject: string }) {
+  const STORAGE_KEY = `academy-mentor-dismissed-${lesson.gedCode}`;
+  const [expanded, setExpanded] = useState(() => !localStorage.getItem(STORAGE_KEY));
+  const commentary = getMentorFor(subject);
+
+  useEffect(() => {
+    if (!expanded) localStorage.setItem(STORAGE_KEY, '1');
+  }, [expanded, STORAGE_KEY]);
+
+  return (
+    <div style={{
+      marginBottom: 14,
+      border: `1px solid ${G}28`,
+      background: `${G}06`,
+    }}>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          width: '100%', background: 'none', border: 'none', padding: '8px 12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', fontFamily: 'Courier New, monospace',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 3, height: 14, background: `${G}60` }} />
+          <span style={{ fontSize: 9, color: `${G}60`, letterSpacing: 1 }}>MENTOR COMMENTARY</span>
+          <span style={{ fontSize: 9, color: `${G}40` }}>— {commentary.mentor}</span>
+        </div>
+        <span style={{ fontSize: 9, color: `${G}40`, fontFamily: 'monospace' }}>{expanded ? '▲' : '▼'}</span>
+      </button>
+      {expanded && (
+        <div style={{ padding: '0 12px 12px', borderTop: `1px solid ${G}18` }}>
+          <div style={{ paddingTop: 10 }}>
+            <div style={{ fontSize: 11, color: `${G}80`, fontFamily: 'Courier New, monospace', lineHeight: 1.7, fontStyle: 'italic', marginBottom: 8 }}>
+              "{commentary.quote}"
+            </div>
+            <div style={{ fontSize: 9, color: `${G}40`, fontFamily: 'monospace', marginBottom: 10 }}>
+              — {commentary.mentor}, {commentary.role}
+            </div>
+            <div style={{ fontSize: 9, color: `${G}55`, letterSpacing: 0.5, marginBottom: 4 }}>READING FOCUS:</div>
+            <div style={{ fontSize: 10, color: `${G}65`, fontFamily: 'Courier New, monospace', lineHeight: 1.6, background: `${G}08`, padding: '6px 10px', borderLeft: `2px solid ${G}30` }}>
+              {commentary.prompt}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LessonView({ lesson, subject, onStartQuiz, onBack }: {
   lesson: GEDLesson;
   subject: string;
@@ -195,6 +284,7 @@ function LessonView({ lesson, subject, onStartQuiz, onBack }: {
         <div style={{ fontSize: 9, color: `${G}50` }}>{lesson.gedCode}</div>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: '14px' }}>
+        <MentorCommentaryPanel lesson={lesson} subject={subject} />
         {lesson.keyTerms && lesson.keyTerms.length > 0 && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 9, color: `${G}60`, marginBottom: 4 }}>KEY TERMS:</div>

@@ -74,6 +74,24 @@ A full VFS file manager (550×420 window) with:
 - **File upload/download**: Import local files to VFS and download VFS files.
 - **Folder creation, Copy/Paste, Rename, Delete-to-trash**: Standard file operations for writable files.
 
+## Desktop Geometric Grid Layout
+Icons are arranged in a clean 3-column, 6-row geometric grid (`DESKTOP_POSITIONS_KEY = v4`):
+- **Row 0**: Academy Email · ChatLink · Institution
+- **Row 1**: Assignments · Schedule · Word Processor
+- **Row 2**: Progress · Perks Viewer · Skill Graph
+- **Row 3**: Resonance · Cub Link (col 2 intentionally empty)
+- **Row 4**: School Files · Personal Files · Notebook
+- **Row 5**: The Academy · Orientation/Tutorial · Char Stats
+Settings and Recycle Bin are accessible via the taskbar quick-launch strip rather than the desktop grid.
+
+## Orientation / Tutorial System
+`TutorialApp.tsx` has 13 chapters (expanded from 10):
+- **Welcome** (INIT) · **Command Terminal** (CMD) · **Atrium Rite** (LIVE) · **Resonance** (CORE) · **The Cycle** (SYS) · **Assignments & GED** (STUDY) · **Three Pillars** (CORE) · **Disciplines** (DATA) · **Your Constellation** (MAP) · **NPC Interface** (SOCIAL) · **Living Academy** (WORLD) · **Hidden Systems** (DEPTH) · **Begin** (EXEC)
+Three new practical chapters teach players how to operate the text adventure command prompt (navigation/action/interaction commands), complete GED assignments step-by-step, and engage with NPCs via terminal, ChatLink, and Academy Email.
+
+## Mentor Commentary in Assignments Portal
+`MentorCommentaryPanel` is injected at the top of `LessonView` in `AssignmentsPortal.tsx`. It shows a subject-specific mentor quote and a reading focus prompt. The panel is expanded by default (first visit) and collapses persistently via a localStorage key per `lesson.gedCode`. Subject-to-mentor mapping: Math → Prof. Chen · Language Arts → Ms. Rivera · Social Studies → Dr. Okafor · Science → Instructor Vasquez · Other → Archivist Ilyra.
+
 ## Desktop Wallpaper System
 Wallpapers are stored in `localStorage` and can be `null` (default), `preset:<id>`, or `image:<dataUrl>`.
 - **8 built-in presets**: VOID, AURORA, NEBULA, DUSK, STORM, DEEP FOREST, CRIMSON, GRID.
