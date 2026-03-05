@@ -82,13 +82,13 @@ interface DesktopIconConfig {
 }
 
 const GRID_CELL_W = 104;
-const GRID_CELL_H = 102;
+const GRID_CELL_H = 88;
 const GRID_MARGIN_X = 16;
-const GRID_MARGIN_Y = 16;
+const GRID_MARGIN_Y = 12;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
-const ICON_H = 96;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v6';
+const ICON_H = 82;
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v7';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -222,30 +222,29 @@ interface DesktopIconEntry extends DesktopIconConfig {
 }
 
 const DESKTOP_ICONS: DesktopIconEntry[] = [
-  // Row 0 — Communication & Administration (full 3-col row)
+  // Row 0 — Communication & Administration
   { id: 'email',         iconType: 'email',         labelKey: 'desktop.email',         colorKey: 'cyan',   defaultCol: 0, defaultRow: 0 },
   { id: 'messages',      iconType: 'messages',      labelKey: 'desktop.messages',      colorKey: 'green',  defaultCol: 1, defaultRow: 0 },
   { id: 'institution',   iconType: 'institution',   labelKey: 'desktop.institution',   colorKey: 'green',  defaultCol: 2, defaultRow: 0 },
-  // Row 1 — Academic core & Document tools (full 3-col row)
+  // Row 1 — Academic core & Document tools
   { id: 'assignments',   iconType: 'assignments',   labelKey: 'desktop.assignments',   colorKey: 'amber',  defaultCol: 0, defaultRow: 1 },
   { id: 'schedule',      iconType: 'schedule',      labelKey: 'desktop.schedule',      colorKey: 'amber',  defaultCol: 1, defaultRow: 1 },
   { id: 'wordproc',      iconType: 'wordproc',      labelKey: 'desktop.wordproc',      colorKey: 'amber',  defaultCol: 2, defaultRow: 1 },
-  // Row 2 — Progress & perks (cols 0-1 only — col 2 intentionally empty for Z-step)
+  // Row 2 — Progress, Perks & Skill graph
   { id: 'progress',      iconType: 'progress',      labelKey: 'desktop.progress',      colorKey: 'green',  defaultCol: 0, defaultRow: 2 },
   { id: 'perks',         iconType: 'perks',         labelKey: 'desktop.perks',         colorKey: 'purple', defaultCol: 1, defaultRow: 2 },
-  // Row 3 — Skill graph steps right (col 2 only — cols 0-1 empty, completing the Z)
-  { id: 'skillgraph',    iconType: 'skillgraph',    labelKey: 'desktop.skillgraph',    colorKey: 'purple', defaultCol: 2, defaultRow: 3 },
-  // Row 4 — Mystical & companion (cols 0-1, col 2 empty — mirrors row 2)
-  { id: 'resonance',     iconType: 'resonance',     labelKey: 'desktop.resonance',     colorKey: 'purple', defaultCol: 0, defaultRow: 4 },
-  { id: 'cub',           iconType: 'cub',           labelKey: 'desktop.cub',           colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
-  // Row 5 — Files & notebook (full 3-col row)
-  { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 5 },
-  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 5 },
-  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 5 },
-  // Row 6 — Game & character (full 3-col row)
-  { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 6 },
-  { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 6 },
-  { id: 'charstats',     iconType: 'charstats',     labelKey: 'desktop.charstats',     colorKey: 'purple', defaultCol: 2, defaultRow: 6 },
+  { id: 'skillgraph',    iconType: 'skillgraph',    labelKey: 'desktop.skillgraph',    colorKey: 'purple', defaultCol: 2, defaultRow: 2 },
+  // Row 3 — Mystical, companion & character
+  { id: 'resonance',     iconType: 'resonance',     labelKey: 'desktop.resonance',     colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
+  { id: 'cub',           iconType: 'cub',           labelKey: 'desktop.cub',           colorKey: 'pink',   defaultCol: 1, defaultRow: 3 },
+  { id: 'charstats',     iconType: 'charstats',     labelKey: 'desktop.charstats',     colorKey: 'purple', defaultCol: 2, defaultRow: 3 },
+  // Row 4 — Files & notebook
+  { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 4 },
+  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
+  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 4 },
+  // Row 5 — Game & orientation
+  { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 5 },
+  { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 5 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
@@ -284,15 +283,26 @@ function getDefaultPositions(): Record<string, { x: number; y: number }> {
 }
 
 function loadIconPositions(): Record<string, { x: number; y: number }> {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
   try {
     const stored = localStorage.getItem(DESKTOP_POSITIONS_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const defaults = getDefaultPositions();
-      return { ...defaults, ...parsed };
+    const defaults = getDefaultPositions();
+    const raw = stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
+    // Snap every position to valid grid cells for the current viewport
+    const snapped: Record<string, { x: number; y: number }> = {};
+    for (const [id, pos] of Object.entries(raw)) {
+      snapped[id] = snapPixelToGrid((pos as { x: number; y: number }).x, (pos as { x: number; y: number }).y, vw, vh);
     }
+    return snapped;
   } catch {/* ignore */}
-  return getDefaultPositions();
+  // Fallback: snap defaults
+  const defaults = getDefaultPositions();
+  const snapped: Record<string, { x: number; y: number }> = {};
+  for (const [id, pos] of Object.entries(defaults)) {
+    snapped[id] = snapPixelToGrid(pos.x, pos.y, vw, vh);
+  }
+  return snapped;
 }
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
@@ -405,8 +415,9 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        gap: '5px',
-        padding: '8px 5px 6px',
+        gap: '2px',
+        padding: '6px 5px 4px',
+        overflow: 'hidden',
         background: isSelected ? `${activeColor}18` : 'transparent',
         border: isSelected
           ? `1px solid ${activeColor}50`
@@ -491,11 +502,11 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         <span style={{
           color: locked ? '#555' : color,
           fontFamily: '"Courier New", monospace',
-          fontSize: '10px',
+          fontSize: '9px',
           letterSpacing: '0.3px',
           textTransform: 'uppercase',
           textAlign: 'center',
-          lineHeight: '1.35',
+          lineHeight: '1.25',
           maxWidth: ICON_W - 8,
           wordBreak: 'break-word',
           transition: 'color 0.2s ease',
