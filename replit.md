@@ -18,6 +18,24 @@ Both modes cache results client-side (per location + target) so repeat visits an
 ## Radiant AI System
 This comprehensive NPC AI system provides autonomous behavior, procedural generation, and emergent social dynamics. NPCs have stats, personality, emotions, memory, and affiliations, managed by Goals, Relationships, and Schedule Systems. A Decision Engine processes information to output actions, and a Dialogue System enables autonomous, context-aware conversations. World Events and Event Chaining influence NPC behavior, leading to Adaptive Goal Evolution, an Emergent Faction System, and Procedural NPC Generation.
 
+## NPC AI Dialogue System
+Every NPC conversation is powered by GPT-4.1-mini via `POST /api/npc-dialogue`. The system supports:
+- **Rich system prompt**: built from full RadiantAI NPC entity — personality (OCEAN traits), emotions, faction, specialty, quirks, backstory, goals, club, secret society, relationship type with player, known static topics (as lore anchors)
+- **Free-form conversation**: any typed input while in conversation is routed to the AI — no more "I don't know much about that"
+- **Thinking placeholder**: `[ NPC is thinking... ]` replaces itself with the AI response
+- **Player echo**: `You: "..."` appears before each NPC response for immersion
+- **Topic suggestions**: shown every 2nd exchange to guide conversation
+
+## NPC Persistent Memory System (`client/src/lib/npcMemoryStore.ts`)
+Full-playthrough NPC memory tracked in `localStorage` under key `academy-npc-mem-v1`. Structure: `{ [characterId]: { [npcId]: NPCMemoryLog } }`. Features:
+- **`NPCMemoryLog`**: stores all conversation entries with timestamps, topics, locations, session IDs, plus aggregate metadata (firstMet, lastInteraction, totalExchanges, sessionCount, topicsDiscussed, locations)
+- **Session detection**: each page load generates a new `sessionIdRef`, so the store can distinguish cross-session re-encounters and bump `sessionCount`
+- **`getMemorySummary()`**: generates a natural-language paragraph of relationship history (time since meeting, topics discussed, exchange count, memorable quotes) injected into the NPC system prompt
+- **`getConvHistoryForAI()`**: returns last 30 messages from all-time history as the OpenAI messages array (conversation memory within and across sessions)
+- **`getEncounterNote()`**: returns a terminal system line when an NPC is re-encountered (`[ Niardir recognises you — last spoke 2 days ago. ]`)
+- **RadiantAI integration**: each exchange also writes a `MemoryEntry` to the NPC's RadiantAI entity (type: `interaction`, with subject, description, importance score) via `addNPCMemory()` and `radiantAISingleton.updateNPC()`
+- **Fallback persistence**: static topic text is stored to memory even if AI is unavailable
+
 ## Resonance System (Physics-Based Narrative Engine)
 This system provides emergent narrative through energy transference, relational space, and quantum-inspired mechanics. Actions emit energy along multiple axes that propagates through a graph of nodes (NPCs, locations, concepts). Nodes transform energy based on their force types. Quantum-inspired mechanics (superposition, observation, phase evolution) and a Geometric Manifold System influence energy propagation. A Skill System tracks Excellence, Efficacy, and Perception, influenced by energy types.
 

@@ -14,7 +14,14 @@ import { localizedContentManager } from '@/lib/localizedContent';
 import { useGameState } from '@/contexts/GameStateContext';
 import { earnMemory } from '@/lib/memoriesStore';
 import { useRadiantAIContext } from '@/contexts/RadiantAIContext';
-import { getEmotionalState } from '@/lib/radiantAI';
+import { getEmotionalState, radiantAI as radiantAISingleton, addMemory as addNPCMemory } from '@/lib/radiantAI';
+import {
+  getOrCreateNPCLog,
+  appendConversationEntries,
+  getConvHistoryForAI,
+  getMemorySummary,
+  getEncounterNote,
+} from '@/lib/npcMemoryStore';
 import {
   CONFLUENCE_NODES,
   initializeConfluenceState,
@@ -57,8 +64,8 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
   // AI description cache — keyed by "type:locationId:target" to avoid redundant calls
   const aiDescCache = useRef<Map<string, string>>(new Map());
   const lastTalkedNpcRef = useRef<{ id: string; name: string; topics: string[] } | null>(null);
-  // Per-NPC conversation history (keyed by npc.id) — last 10 exchanges
-  const npcConvHistoryRef = useRef<Map<string, { isFromPlayer: boolean; content: string }[]>>(new Map());
+  // Stable session ID — generated once per component mount; used to detect cross-session re-encounters
+  const sessionIdRef = useRef<string>(`sess-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
 
   // Call the AI description endpoint; returns cached result on repeat visits
   const aiDescribe = useCallback(async (params: {
@@ -1181,6 +1188,16 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       // Track this NPC as the last one spoken to (for topic shortcuts)
       const topicKeys = Object.keys(dialogue.topics || {});
       lastTalkedNpcRef.current = { id: npc.id, name: npc.name, topics: topicKeys };
+
+      // Initialize/bump the persistent NPC memory log for this session
+      const charId = character?.name ?? 'default';
+      getOrCreateNPCLog(charId, npc.id, npc.name, sessionIdRef.current);
+
+      // Show memory encounter note if this NPC has been spoken to before
+      const encounterNote = getEncounterNote(charId, npc.id, npc.name.split(' ')[0], sessionIdRef.current);
+      if (encounterNote) {
+        addTerminalLine(encounterNote, 'system');
+      }
 
       // Show available conversation topics if they exist
       if (topicKeys.length > 0) {
@@ -2779,15 +2796,22 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     npc: NPC,
     playerMessage: string,
     topicContextText?: string,
+    topicKey?: string,
   ): Promise<string | null> => {
     const radiantNPC = radiantAI.getNPC(npc.id);
     const relationship = radiantNPC ? radiantAI.getRelationshipWithPlayer(npc.id) : null;
     const dialogue = npc.dialogue as any;
     const knownTopics = dialogue.topics || {};
+    const charId = character?.name ?? 'default';
+    const playerName = character?.name || '';
 
-    const history = npcConvHistoryRef.current.get(npc.id) || [];
+    // Load full conversation history from persistent store (all-time, last 30 messages)
+    const history = getConvHistoryForAI(charId, npc.id, 30);
 
-    // If a topic has a static text, inject it as a user-visible context hint
+    // Load long-term memory summary for system prompt enrichment
+    const memorySummary = getMemorySummary(charId, npc.id, playerName);
+
+    // If a topic has a static text, inject it as a context hint (lore anchor)
     const contextualMessage = topicContextText
       ? `${playerMessage}\n[Context — your known view on this: "${topicContextText}"]`
       : playerMessage;
@@ -2812,9 +2836,10 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
           npcRelationship: relationship?.type || 'stranger',
           knownTopics,
           locationName: gameState?.currentLocation?.name || '',
-          playerName: character?.name || '',
+          playerName,
           playerMessage: contextualMessage,
           conversationHistory: history,
+          memorySummary: memorySummary ?? undefined,
         }),
       });
       if (!res.ok) return null;
@@ -2896,10 +2921,14 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     addTerminalLine(thinkingText, 'system');
 
     // ── Call AI ──────────────────────────────────────────────────────────────
+    const charId = character?.name ?? 'default';
+    const locationName = gameState?.currentLocation?.name || '';
+
     const aiResponse = await callNpcDialogueAI(
       npc,
       playerMessage,
       topicContextText ?? undefined,
+      matchedTopic ?? undefined,
     );
 
     // Remove thinking placeholder
@@ -2908,21 +2937,41 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     if (aiResponse) {
       addTerminalLine(`${npc.name}: "${aiResponse}"`);
 
-      // Update per-NPC conversation history
-      const hist = npcConvHistoryRef.current.get(npc.id) || [];
-      hist.push({ isFromPlayer: true, content: playerMessage });
-      hist.push({ isFromPlayer: false, content: aiResponse });
-      // Keep last 10 exchanges (20 messages)
-      npcConvHistoryRef.current.set(npc.id, hist.slice(-20));
+      // ── Persist to full-playthrough NPC memory store ──────────────────────
+      appendConversationEntries(
+        charId,
+        npc.id,
+        npc.name,
+        [
+          { isFromPlayer: true,  content: playerMessage, topic: matchedTopic ?? undefined, location: locationName },
+          { isFromPlayer: false, content: aiResponse,    topic: matchedTopic ?? undefined, location: locationName },
+        ],
+        locationName,
+        sessionIdRef.current,
+      );
+
+      // ── Also write NPC memory entry into RadiantAI entity ─────────────────
+      const rawNPC = radiantAISingleton.getNPC(npc.id);
+      if (rawNPC) {
+        const updatedWithMemory = addNPCMemory(
+          rawNPC,
+          'interaction',
+          character?.name || 'player',
+          `Discussed "${matchedTopic ?? topic.replace(/_/g, ' ')}" — player said: "${playerMessage.slice(0, 100)}"`,
+          1,
+          matchedTopic ? 4 : 2,
+        );
+        radiantAISingleton.updateNPC(npc.id, updatedWithMemory);
+      }
 
       // Update reputation for meaningful topic chats
       if (gameState && matchedTopic) {
         await updateConversationReputation(npc, matchedTopic);
       }
 
-      // Suggest other available topics after every 2nd exchange
-      const hist2 = npcConvHistoryRef.current.get(npc.id) || [];
-      const exchangeCount = Math.floor(hist2.length / 2);
+      // Suggest other available topics after every 2nd exchange (based on persistent history)
+      const persistentHistory = getConvHistoryForAI(charId, npc.id, 100);
+      const exchangeCount = Math.floor(persistentHistory.filter(e => !e.isFromPlayer).length);
       const topicKeys = Object.keys(topics);
       if (exchangeCount > 0 && exchangeCount % 2 === 0 && topicKeys.length > 1) {
         const remaining = topicKeys.filter(t => t !== matchedTopic);
@@ -2938,6 +2987,16 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       // Graceful fallback if AI unavailable
       if (topicContextText) {
         addTerminalLine(`${npc.name}: "${topicContextText}"`);
+        // Still persist the static fallback so memory is complete
+        appendConversationEntries(
+          charId, npc.id, npc.name,
+          [
+            { isFromPlayer: true,  content: playerMessage, topic: matchedTopic ?? undefined, location: locationName },
+            { isFromPlayer: false, content: topicContextText, topic: matchedTopic ?? undefined, location: locationName },
+          ],
+          locationName,
+          sessionIdRef.current,
+        );
       } else {
         addTerminalLine(`${npc.name}: "I'm not sure how to answer that right now."`);
         const topicKeys = Object.keys(topics);

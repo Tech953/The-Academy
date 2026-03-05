@@ -782,7 +782,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
         npcName, npcTitle, playerMessage, conversationHistory,
         npcPersonality, npcEmotions, npcRole, npcFaction, npcSpecialty,
         npcQuirks, npcBackstory, npcGoals, npcClub, npcSecretSociety,
-        npcRelationship, knownTopics, locationName, playerName,
+        npcRelationship, knownTopics, locationName, playerName, memorySummary,
       } = req.body;
       
       if (!npcName || !playerMessage) {
@@ -794,7 +794,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
         faction: npcFaction, specialty: npcSpecialty, quirks: npcQuirks,
         backstory: npcBackstory, goals: npcGoals, club: npcClub,
         secretSociety: npcSecretSociety, relationship: npcRelationship,
-        knownTopics, locationName, playerName,
+        knownTopics, locationName, playerName, memorySummary,
       });
       const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         { role: 'system', content: systemPrompt }
@@ -905,7 +905,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
 function buildNpcSystemPrompt(npcName: string, npcTitle?: string, data?: any): string {
   const {
     personality, emotions, role, faction, specialty, quirks, backstory,
-    goals, club, secretSociety, relationship, knownTopics, locationName, playerName,
+    goals, club, secretSociety, relationship, knownTopics, locationName, playerName, memorySummary,
   } = data || {};
 
   // ── Personality mapping ──────────────────────────────────────────────────
@@ -988,6 +988,7 @@ function buildNpcSystemPrompt(npcName: string, npcTitle?: string, data?: any): s
     `\n${relationshipNote}`,
     goalsNote,
     topicContext,
+    memorySummary ? `\n\n${memorySummary}` : '',
     locationName ? `\nCurrent location: ${locationName}.` : '',
     playerName ? `\nYou are speaking with: ${playerName}.` : '',
     `\n\nRESPONSE RULES:
@@ -996,6 +997,7 @@ function buildNpcSystemPrompt(npcName: string, npcTitle?: string, data?: any): s
 - Use plain conversational prose — no markdown, no asterisk actions (those appear in the terminal separately)
 - Do NOT begin with "${npcName}:" — only provide the spoken dialogue itself
 - Match your tone to your personality, mood, and relationship with the player
+- If you have memory of prior conversations with this player, you may naturally reference them (e.g. "As we discussed before...", "Last time you mentioned...")
 - If asked about something outside your knowledge, deflect in character rather than refusing outright
 - The Academy is slightly mysterious — you may hint at hidden depths without revealing everything`,
   ];
