@@ -47,6 +47,16 @@ Features include AI-driven character creation, location-based navigation, a thre
 - **Starter Perk Flow**: On first boot, players select 2 perks from 11 categories (combat/social/academic/survival/mystical), which grant stat bonuses and are stored in `character.starterPerks`.
 - **PerksViewer App**: A desktop icon (`charstats`/perks) provides a redesigned viewer with four tabs: AVAILABLE (level-up perks the player can unlock), ACTIVE (all earned perks), LOCKED (perks still gated by requirements), and ALL STARTER (for reference). Perks are rarity-gated (common, uncommon, rare, legendary) and display effects with glowing numbers and StatIcon sprites.
 
+## Academy Administrative OS — Institutional Monitor
+A four-tab administrative dashboard (`client/src/components/desktop/apps/AcademyAdminApp.tsx`) powered by `client/src/lib/academyInstitution.ts`:
+
+- **OVERVIEW tab**: Institutional metrics grid (level, resonance, GED readiness, lessons, trials, artifacts), domain stability progress bars, subject readiness report cards, and fragile domain alerts.
+- **ECOLOGY tab**: Interactive SVG Knowledge Ecology Map showing the 4 GED domains as colored nodes (RLA amber, MATH blue, SCI green, SOC pink) with cross-domain memory bleed lines. Clicking a node reveals a detail panel with STABILITY/TENSION/TREND/READINESS metrics. Bleed cross-links: MATH→SCI (30%), SCI→MATH (15%), RLA→SOC (25%), SOC→RLA (15%).
+- **EPOCHS tab**: Archival time-layer timeline showing learning sessions (epochs) with snapshot data (level, XP, lessons, avg score). Pending artifacts accumulate per-epoch and persist to past epochs. Artifact types: Breakthrough, Synthesis, Milestone, Struggle.
+- **TRIALS tab**: Synthesis Trial Registry of 8 pre-defined alignment events organized in 4 tiers (Foundation → Dual-Domain → Multi-Domain → Capstone GED). Trials auto-unlock when domain mastery thresholds are met. Initiating a trial runs a timed alignment event and logs artifacts.
+
+**Data model** (`academyInstitution.ts`): `ArchivalEpoch`, `EpochArtifact`, `DomainTension`, `SynthesisTrial` types with localStorage persistence. `computeDomainTensions()` calculates stability/tension per domain using `computeAllSubjectProgress`. `getInstitutionalSummary()` provides the dashboard summary. **Desktop icon**: `institution` type, green color, `Landmark` icon, column 3 row 0.
+
 ## Document System — Block-Based Word Processor
 The Academy includes a structured document authoring system built on top of the virtual filesystem:
 - **AcademyDoc format** (`client/src/lib/academyDocuments.ts`): Schema-versioned JSON stored as `.acd` files in `/home/student/documents/`. Documents have title, subject, tags, author, version, and a `blocks` array.
