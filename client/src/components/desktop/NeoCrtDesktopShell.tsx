@@ -88,7 +88,7 @@ const GRID_MARGIN_Y = 16;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 96;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v4';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v5';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -203,29 +203,30 @@ interface DesktopIconEntry extends DesktopIconConfig {
 }
 
 const DESKTOP_ICONS: DesktopIconEntry[] = [
-  // Row 0 — Communication & Administration
+  // Row 0 — Communication & Administration (full 3-col row)
   { id: 'email',         iconType: 'email',         labelKey: 'desktop.email',         colorKey: 'cyan',   defaultCol: 0, defaultRow: 0 },
   { id: 'messages',      iconType: 'messages',      labelKey: 'desktop.messages',      colorKey: 'green',  defaultCol: 1, defaultRow: 0 },
   { id: 'institution',   iconType: 'institution',   labelKey: 'desktop.institution',   colorKey: 'green',  defaultCol: 2, defaultRow: 0 },
-  // Row 1 — Academic core & Document tools
+  // Row 1 — Academic core & Document tools (full 3-col row)
   { id: 'assignments',   iconType: 'assignments',   labelKey: 'desktop.assignments',   colorKey: 'amber',  defaultCol: 0, defaultRow: 1 },
   { id: 'schedule',      iconType: 'schedule',      labelKey: 'desktop.schedule',      colorKey: 'amber',  defaultCol: 1, defaultRow: 1 },
   { id: 'wordproc',      iconType: 'wordproc',      labelKey: 'desktop.wordproc',      colorKey: 'amber',  defaultCol: 2, defaultRow: 1 },
-  // Row 2 — Progress & skills
+  // Row 2 — Progress & perks (cols 0-1 only — col 2 intentionally empty for Z-step)
   { id: 'progress',      iconType: 'progress',      labelKey: 'desktop.progress',      colorKey: 'green',  defaultCol: 0, defaultRow: 2 },
   { id: 'perks',         iconType: 'perks',         labelKey: 'desktop.perks',         colorKey: 'purple', defaultCol: 1, defaultRow: 2 },
-  { id: 'skillgraph',    iconType: 'skillgraph',    labelKey: 'desktop.skillgraph',    colorKey: 'purple', defaultCol: 2, defaultRow: 2 },
-  // Row 3 — Mystical & companion (col 2 intentionally empty)
-  { id: 'resonance',     iconType: 'resonance',     labelKey: 'desktop.resonance',     colorKey: 'purple', defaultCol: 0, defaultRow: 3 },
-  { id: 'cub',           iconType: 'cub',           labelKey: 'desktop.cub',           colorKey: 'pink',   defaultCol: 1, defaultRow: 3 },
-  // Row 4 — Files & notebook
-  { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 4 },
-  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
-  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 4 },
-  // Row 5 — Game & character
-  { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 5 },
-  { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 5 },
-  { id: 'charstats',     iconType: 'charstats',     labelKey: 'desktop.charstats',     colorKey: 'purple', defaultCol: 2, defaultRow: 5 },
+  // Row 3 — Skill graph steps right (col 2 only — cols 0-1 empty, completing the Z)
+  { id: 'skillgraph',    iconType: 'skillgraph',    labelKey: 'desktop.skillgraph',    colorKey: 'purple', defaultCol: 2, defaultRow: 3 },
+  // Row 4 — Mystical & companion (cols 0-1, col 2 empty — mirrors row 2)
+  { id: 'resonance',     iconType: 'resonance',     labelKey: 'desktop.resonance',     colorKey: 'purple', defaultCol: 0, defaultRow: 4 },
+  { id: 'cub',           iconType: 'cub',           labelKey: 'desktop.cub',           colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
+  // Row 5 — Files & notebook (full 3-col row)
+  { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 5 },
+  { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 5 },
+  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 5 },
+  // Row 6 — Game & character (full 3-col row)
+  { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 6 },
+  { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 6 },
+  { id: 'charstats',     iconType: 'charstats',     labelKey: 'desktop.charstats',     colorKey: 'purple', defaultCol: 2, defaultRow: 6 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
