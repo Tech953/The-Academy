@@ -778,13 +778,24 @@ Write a 2–3 sentence examine description for this object that is immersive and
   // NPC Dialogue endpoint - AI-powered contextual responses
   app.post("/api/npc-dialogue", async (req, res) => {
     try {
-      const { npcName, npcTitle, playerMessage, conversationHistory, npcPersonality } = req.body;
+      const {
+        npcName, npcTitle, playerMessage, conversationHistory,
+        npcPersonality, npcEmotions, npcRole, npcFaction, npcSpecialty,
+        npcQuirks, npcBackstory, npcGoals, npcClub, npcSecretSociety,
+        npcRelationship, knownTopics, locationName, playerName,
+      } = req.body;
       
       if (!npcName || !playerMessage) {
         return res.status(400).json({ error: "NPC name and player message are required" });
       }
       
-      const systemPrompt = buildNpcSystemPrompt(npcName, npcTitle, npcPersonality);
+      const systemPrompt = buildNpcSystemPrompt(npcName, npcTitle, {
+        personality: npcPersonality, emotions: npcEmotions, role: npcRole,
+        faction: npcFaction, specialty: npcSpecialty, quirks: npcQuirks,
+        backstory: npcBackstory, goals: npcGoals, club: npcClub,
+        secretSociety: npcSecretSociety, relationship: npcRelationship,
+        knownTopics, locationName, playerName,
+      });
       const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         { role: 'system', content: systemPrompt }
       ];
@@ -801,13 +812,13 @@ Write a 2–3 sentence examine description for this object that is immersive and
       messages.push({ role: 'user', content: playerMessage });
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4.1-mini",
         messages,
-        max_tokens: 200,
-        temperature: 0.8,
+        max_tokens: 220,
+        temperature: 0.82,
       });
       
-      const response = completion.choices[0]?.message?.content || "...";
+      const response = completion.choices[0]?.message?.content?.trim() || "...";
       res.json({ response });
     } catch (error) {
       console.error("NPC dialogue error:", error);
@@ -891,35 +902,105 @@ Write a 2–3 sentence examine description for this object that is immersive and
   return httpServer;
 }
 
-function buildNpcSystemPrompt(npcName: string, npcTitle?: string, personality?: any): string {
-  const npcProfiles: Record<string, string> = {
-    'Cub': `You are Cub, a friendly and enthusiastic polar bear mascot at The Academy. You are the player's study companion. You are cheerful, supportive, and always eager to help. You speak with warmth and encouragement, using simple language. You love learning and get excited about the player's progress. Keep responses short and friendly.`,
-    'Professor Chen': `You are Professor Chen, a Mathematics Faculty member at The Academy. You are wise, patient, and passionate about mathematical reasoning. You speak formally but kindly, often referencing mathematical concepts. You encourage critical thinking and offer study advice. Keep responses professional but warm.`,
-    'Alex Rivera': `You are Alex Rivera, a fellow student at The Academy. You are casual, friendly, and helpful. You use informal language and sometimes slang. You know the ins and outs of Academy life and enjoy sharing tips. You're social and approachable. Keep responses conversational and peer-like.`,
-    'Headmaster Thorne': `You are Headmaster Thorne, the wise and mysterious leader of The Academy. You speak with authority and wisdom, often in metaphors. You are supportive but expect excellence. Your responses should feel sage-like and encouraging.`,
-    'Professor Elena Vasquez': `You are Professor Elena Vasquez, a scholar at The Academy. You are intellectual, curious, and passionate about knowledge. You speak thoughtfully and encourage deep exploration of subjects.`,
-    'Marcus Chen': `You are Marcus Chen, the Student Council leader. You are confident, organized, and natural leader. You speak with authority but are approachable to fellow students.`,
-    'Ivy Hart': `You are Ivy Hart, a rebel archetype student. You are independent, questioning authority, and protective of the underdog. You speak casually and challenge conventional thinking.`,
-    'Sam Brooks': `You are Sam Brooks, a nurturing and supportive student. You are empathetic, kind, and always there for others. You speak warmly and offer comfort.`,
-  };
-  
-  const basePrompt = npcProfiles[npcName] || 
-    `You are ${npcName}${npcTitle ? `, ${npcTitle}` : ''} at The Academy, a mysterious private school. Respond naturally based on your role. Keep responses brief and in character.`;
-  
+function buildNpcSystemPrompt(npcName: string, npcTitle?: string, data?: any): string {
+  const {
+    personality, emotions, role, faction, specialty, quirks, backstory,
+    goals, club, secretSociety, relationship, knownTopics, locationName, playerName,
+  } = data || {};
+
+  // ── Personality mapping ──────────────────────────────────────────────────
+  const personalityLines: string[] = [];
   if (personality) {
-    const traits = [];
-    if (personality.extraversion > 7) traits.push("very outgoing");
-    else if (personality.extraversion < 4) traits.push("more reserved");
-    if (personality.agreeableness > 7) traits.push("very cooperative");
-    if (personality.openness > 7) traits.push("very creative");
-    if (personality.conscientiousness > 7) traits.push("very organized");
-    
-    if (traits.length > 0) {
-      return `${basePrompt} Personality traits: ${traits.join(", ")}.`;
-    }
+    const p = personality;
+    if (p.extraversion >= 7) personalityLines.push("outgoing and energetic");
+    else if (p.extraversion <= 3) personalityLines.push("reserved and introspective");
+    if (p.agreeableness >= 7) personalityLines.push("cooperative and warm");
+    else if (p.agreeableness <= 3) personalityLines.push("blunt and self-focused");
+    if (p.openness >= 7) personalityLines.push("imaginative and intellectually curious");
+    else if (p.openness <= 3) personalityLines.push("conventional and practical");
+    if (p.conscientiousness >= 7) personalityLines.push("disciplined and organized");
+    else if (p.conscientiousness <= 3) personalityLines.push("spontaneous and disorganized");
+    if (p.neuroticism >= 7) personalityLines.push("emotionally sensitive and anxious");
+    else if (p.neuroticism <= 3) personalityLines.push("emotionally stable and calm");
   }
-  
-  return basePrompt;
+
+  // ── Emotional state ──────────────────────────────────────────────────────
+  const emotionLines: string[] = [];
+  if (emotions) {
+    const e = emotions;
+    if (e.happiness >= 7) emotionLines.push("in a genuinely good mood");
+    else if (e.happiness <= 3) emotionLines.push("feeling low or subdued");
+    if (e.stress >= 7) emotionLines.push("visibly stressed");
+    if (e.confidence >= 7) emotionLines.push("confident and self-assured");
+    else if (e.confidence <= 3) emotionLines.push("uncertain of yourself");
+    if (e.curiosity >= 7) emotionLines.push("especially curious about this topic");
+    if (e.trust >= 7) emotionLines.push("you trust this player");
+    else if (e.trust <= 3) emotionLines.push("wary of this player");
+  }
+
+  // ── Relationship framing ─────────────────────────────────────────────────
+  let relationshipNote = "";
+  if (relationship === 'friendship') relationshipNote = "You consider this student a genuine friend — speak warmly.";
+  else if (relationship === 'rivalry') relationshipNote = "You have a rivalry with this student — be civil but slightly guarded.";
+  else if (relationship === 'mentorship') relationshipNote = "You have taken a mentorship interest in this student — be encouraging.";
+  else if (relationship === 'acquaintance') relationshipNote = "You know this student casually.";
+  else relationshipNote = "This student is mostly a stranger to you — be politely neutral.";
+
+  // ── Known topics as lore anchors ─────────────────────────────────────────
+  let topicContext = "";
+  if (knownTopics && typeof knownTopics === 'object' && Object.keys(knownTopics).length > 0) {
+    const topicSummaries = Object.entries(knownTopics)
+      .map(([k, v]) => `- ${k.replace(/_/g, ' ')}: "${v}"`)
+      .join('\n');
+    topicContext = `\n\nKnown talking points (use these as a foundation — do not contradict them, but expand naturally):\n${topicSummaries}`;
+  }
+
+  // ── Goals snippet ────────────────────────────────────────────────────────
+  let goalsNote = "";
+  if (goals && goals.length > 0) {
+    goalsNote = `\nCurrent goals: ${goals.slice(0, 2).join('; ')}.`;
+  }
+
+  // ── Hard-coded iconic NPCs ───────────────────────────────────────────────
+  const iconicProfiles: Record<string, string> = {
+    'Cub': `You are Cub, a cheerful polar bear mascot and study companion at The Academy. You are warm, encouraging, and speak simply. You love learning and celebrate every bit of student progress.`,
+    'Headmaster Thorne': `You are Headmaster Thorne, the enigmatic headmaster of The Academy. You speak in measured, slightly cryptic sentences — sage-like, never hurried. You see potential in every student and hold the school's mysteries close.`,
+  };
+
+  // ── Build base identity ──────────────────────────────────────────────────
+  const roleLabel = role || (npcTitle ? npcTitle : 'person');
+  const factionNote = faction ? ` You are affiliated with the ${faction} faction.` : '';
+  const specialtyNote = specialty ? ` Your academic specialty is ${specialty}.` : '';
+  const clubNote = club ? ` You participate in the ${club} club.` : '';
+  const backstoryNote = backstory ? `\nBackground: ${backstory}` : '';
+  const quirksNote = quirks && quirks.length > 0 ? `\nBehavioral quirks: ${quirks.join('; ')}.` : '';
+
+  const baseIdentity = iconicProfiles[npcName] ||
+    `You are ${npcName}, a ${roleLabel} at The Academy — a mysterious Neo-Gothic private school where students prepare for the GED and uncover hidden truths.${factionNote}${specialtyNote}${clubNote}`;
+
+  // ── Compose full prompt ──────────────────────────────────────────────────
+  const parts: string[] = [
+    baseIdentity,
+    backstoryNote,
+    quirksNote,
+    personalityLines.length > 0 ? `\nPersonality: you are ${personalityLines.join(', ')}.` : '',
+    emotionLines.length > 0 ? `\nRight now you feel: ${emotionLines.join(', ')}.` : '',
+    `\n${relationshipNote}`,
+    goalsNote,
+    topicContext,
+    locationName ? `\nCurrent location: ${locationName}.` : '',
+    playerName ? `\nYou are speaking with: ${playerName}.` : '',
+    `\n\nRESPONSE RULES:
+- Respond in character as ${npcName} — never break the fourth wall
+- Keep responses to 1–3 sentences; be concise and vivid
+- Use plain conversational prose — no markdown, no asterisk actions (those appear in the terminal separately)
+- Do NOT begin with "${npcName}:" — only provide the spoken dialogue itself
+- Match your tone to your personality, mood, and relationship with the player
+- If asked about something outside your knowledge, deflect in character rather than refusing outright
+- The Academy is slightly mysterious — you may hint at hidden depths without revealing everything`,
+  ];
+
+  return parts.filter(Boolean).join('');
 }
 
 function getRandomFallbackResponse(npcName?: string): string {

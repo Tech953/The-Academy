@@ -56,7 +56,9 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
 
   // AI description cache — keyed by "type:locationId:target" to avoid redundant calls
   const aiDescCache = useRef<Map<string, string>>(new Map());
-  const lastTalkedNpcRef = useRef<{ name: string; topics: string[] } | null>(null);
+  const lastTalkedNpcRef = useRef<{ id: string; name: string; topics: string[] } | null>(null);
+  // Per-NPC conversation history (keyed by npc.id) — last 10 exchanges
+  const npcConvHistoryRef = useRef<Map<string, { isFromPlayer: boolean; content: string }[]>>(new Map());
 
   // Call the AI description endpoint; returns cached result on repeat visits
   const aiDescribe = useCallback(async (params: {
@@ -953,6 +955,10 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
               await handleTalkTopic(lastTalkedNpcRef.current.name, nearMatch);
               return;
             }
+            // 4. Free-form AI conversation — route unrecognized input to AI
+            addTerminalLine(`[ Asking ${lastTalkedNpcRef.current.name.split(' ')[0]} about "${target}" ]`, 'system');
+            await handleTalkTopic(lastTalkedNpcRef.current.name, target, true);
+            return;
           }
           personName = targetParts[0];
           topic = targetParts.slice(1).join(' ').toLowerCase().replace(/\s+/g, '_');
@@ -1027,12 +1033,18 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     } else if (action === 'glossary' || action === 'define') {
       handleGlossary(target);
     } else {
-      addTerminalLine('');
-      const suggestions = getCommandSuggestions(originalAction);
-      if (suggestions.length > 0) {
-        addTerminalLine(`I don't understand "${originalAction}". Did you mean: ${suggestions.join(', ')}?`, 'error');
+      // Free-form input while in an active NPC conversation → route to AI
+      if (lastTalkedNpcRef.current) {
+        addTerminalLine(`[ Asking ${lastTalkedNpcRef.current.name.split(' ')[0]} about "${originalAction}" ]`, 'system');
+        await handleTalkTopic(lastTalkedNpcRef.current.name, originalAction, true);
       } else {
-        addTerminalLine(`I don't understand "${originalAction}". Type HELP for available commands.`, 'error');
+        addTerminalLine('');
+        const suggestions = getCommandSuggestions(originalAction);
+        if (suggestions.length > 0) {
+          addTerminalLine(`I don't understand "${originalAction}". Did you mean: ${suggestions.join(', ')}?`, 'error');
+        } else {
+          addTerminalLine(`I don't understand "${originalAction}". Type HELP for available commands.`, 'error');
+        }
       }
     }
   };
@@ -1168,7 +1180,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       
       // Track this NPC as the last one spoken to (for topic shortcuts)
       const topicKeys = Object.keys(dialogue.topics || {});
-      lastTalkedNpcRef.current = { name: npc.name, topics: topicKeys };
+      lastTalkedNpcRef.current = { id: npc.id, name: npc.name, topics: topicKeys };
 
       // Show available conversation topics if they exist
       if (topicKeys.length > 0) {
@@ -1245,9 +1257,9 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
           await handleTalkTopic(lastNpc.name, topicMatch);
           return;
         }
-        addTerminalLine(`You don't see anyone named "${target}" here.`, 'error');
-        addTerminalLine(`Did you mean to ask ${lastNpc.name.split(' ')[0]} about something?`, 'system');
-        addTerminalLine(`Topics: ${lastNpc.topics.map(t => t.replace(/_/g, ' ').toUpperCase()).join(', ')}`, 'system');
+        // Free-form: not a person name and not a known topic — ask the NPC anyway via AI
+        addTerminalLine(`[ Asking ${lastNpc.name.split(' ')[0]} about "${target}" ]`, 'system');
+        await handleTalkTopic(lastNpc.name, target, true);
       } else {
         addTerminalLine(`You don't see anyone named "${target}" here.`, 'error');
         addTerminalLine('Type LIST to see who is present, or LOOK to check your surroundings.', 'system');
@@ -2762,7 +2774,58 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     }
   };
   
-  const handleTalkTopic = async (personName: string, topic: string) => {
+  // ── AI NPC Dialogue caller ───────────────────────────────────────────────
+  const callNpcDialogueAI = async (
+    npc: NPC,
+    playerMessage: string,
+    topicContextText?: string,
+  ): Promise<string | null> => {
+    const radiantNPC = radiantAI.getNPC(npc.id);
+    const relationship = radiantNPC ? radiantAI.getRelationshipWithPlayer(npc.id) : null;
+    const dialogue = npc.dialogue as any;
+    const knownTopics = dialogue.topics || {};
+
+    const history = npcConvHistoryRef.current.get(npc.id) || [];
+
+    // If a topic has a static text, inject it as a user-visible context hint
+    const contextualMessage = topicContextText
+      ? `${playerMessage}\n[Context — your known view on this: "${topicContextText}"]`
+      : playerMessage;
+
+    try {
+      const res = await fetch('/api/npc-dialogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          npcName: npc.name,
+          npcTitle: npc.title || '',
+          npcRole: (npc as any).role || '',
+          npcFaction: (npc as any).faction || '',
+          npcSpecialty: radiantNPC?.specialty || '',
+          npcPersonality: radiantNPC?.personality,
+          npcEmotions: radiantNPC?.emotions,
+          npcQuirks: radiantNPC?.quirks || [],
+          npcBackstory: radiantNPC?.backstory || '',
+          npcGoals: radiantNPC?.goals?.filter(g => g.status === 'active').map(g => g.description) || [],
+          npcClub: radiantNPC?.club || '',
+          npcSecretSociety: radiantNPC?.secretSociety || '',
+          npcRelationship: relationship?.type || 'stranger',
+          knownTopics,
+          locationName: gameState?.currentLocation?.name || '',
+          playerName: character?.name || '',
+          playerMessage: contextualMessage,
+          conversationHistory: history,
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.response || data.fallback || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleTalkTopic = async (personName: string, topic: string, freeForm = false) => {
     const npcs = await gameStateManager.getNPCsInCurrentLocation();
     const npc = npcs.find(n => 
       n.name.toLowerCase().includes(personName.toLowerCase()) ||
@@ -2778,75 +2841,111 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     
     const dialogue = npc.dialogue as any;
     const topics = dialogue.topics || {};
-    
-    // Enhanced topic matching - try multiple strategies
-    let matchedTopic = null;
-    let topicResponse = null;
-    
-    // 1. Direct match (exactly as stored)
-    if (topics[topic]) {
-      matchedTopic = topic;
-      topicResponse = topics[topic];
-    }
-    // 2. Try without underscores (convert "academy_secrets" to "academysecrets")
-    else if (topics[topic.replace(/_/g, '')]) {
-      matchedTopic = topic.replace(/_/g, '');
-      topicResponse = topics[matchedTopic];
-    }
-    // 3. Try the reverse - look for topics that match when converted to underscores
-    else {
-      const matchingTopicKey = Object.keys(topics).find(t => {
-        const normalizedTopic = t.toLowerCase().replace(/\s+/g, '_');
-        const userTopic = topic.toLowerCase().replace(/\s+/g, '_');
-        return normalizedTopic === userTopic;
-      });
-      
-      if (matchingTopicKey) {
-        matchedTopic = matchingTopicKey;
-        topicResponse = topics[matchingTopicKey];
+    const firstName = npc.name.split(' ')[0];
+
+    // ── Fuzzy-match the topic to a known key (for context seeding) ──────────
+    let matchedTopic: string | null = null;
+    let topicContextText: string | null = null;
+
+    if (!freeForm) {
+      // 1. Direct match
+      if (topics[topic]) { matchedTopic = topic; topicContextText = topics[topic]; }
+      // 2. Without underscores
+      else if (topics[topic.replace(/_/g, '')]) {
+        matchedTopic = topic.replace(/_/g, ''); topicContextText = topics[matchedTopic];
       }
-    }
-    
-    // 4. Fuzzy topic matching — handle near-typos in topic names
-    if (!matchedTopic) {
-      const topicKeys = Object.keys(topics);
-      const normalize = (s: string) => s.toLowerCase().replace(/[_\s]/g, '');
-      const normalizedQuery = normalize(topic);
-      const fuzzyTopicKey = topicKeys.find(t => {
-        const n = normalize(t);
-        if (n === normalizedQuery) return true;
-        if (n.startsWith(normalizedQuery.slice(0, 4)) && normalizedQuery.length >= 4) return true;
-        if (normalizedQuery.startsWith(n.slice(0, 4)) && n.length >= 4) return true;
-        return false;
-      });
-      if (fuzzyTopicKey) {
-        matchedTopic = fuzzyTopicKey;
-        topicResponse = topics[fuzzyTopicKey];
-        addTerminalLine(`[ Interpreted as: ${fuzzyTopicKey.replace(/_/g, ' ').toUpperCase()} ]`, 'system');
+      // 3. Normalised underscores
+      else {
+        const k = Object.keys(topics).find(t =>
+          t.toLowerCase().replace(/\s+/g, '_') === topic.toLowerCase().replace(/\s+/g, '_')
+        );
+        if (k) { matchedTopic = k; topicContextText = topics[k]; }
+      }
+      // 4. Fuzzy prefix match
+      if (!matchedTopic) {
+        const norm = (s: string) => s.toLowerCase().replace(/[_\s]/g, '');
+        const nq = norm(topic);
+        const fk = Object.keys(topics).find(t => {
+          const n = norm(t);
+          return n === nq
+            || (n.startsWith(nq.slice(0, 4)) && nq.length >= 4)
+            || (nq.startsWith(n.slice(0, 4)) && n.length >= 4);
+        });
+        if (fk) {
+          matchedTopic = fk;
+          topicContextText = topics[fk];
+          addTerminalLine(`[ Interpreted as: ${fk.replace(/_/g, ' ').toUpperCase()} ]`, 'system');
+        }
       }
     }
 
-    if (matchedTopic && topicResponse) {
-      addTerminalLine('');
-      addTerminalLine(`${npc.name}: "${topicResponse}"`);
-      
-      // Update reputation based on conversation
-      if (gameState) {
+    // ── Build player message ─────────────────────────────────────────────────
+    const displayTopic = matchedTopic
+      ? matchedTopic.replace(/_/g, ' ')
+      : topic.replace(/_/g, ' ');
+
+    const playerMessage = freeForm
+      ? topic  // raw free-form text
+      : `Tell me about ${displayTopic}.`;
+
+    addTerminalLine('');
+    addTerminalLine(`You: "${freeForm ? topic : `Tell me about ${displayTopic}`}"`, 'system');
+
+    // ── Thinking placeholder ─────────────────────────────────────────────────
+    const thinkingText = `[ ${firstName} is thinking... ]`;
+    addTerminalLine(thinkingText, 'system');
+
+    // ── Call AI ──────────────────────────────────────────────────────────────
+    const aiResponse = await callNpcDialogueAI(
+      npc,
+      playerMessage,
+      topicContextText ?? undefined,
+    );
+
+    // Remove thinking placeholder
+    setTerminalLines(prev => prev.filter(l => l.text !== thinkingText));
+
+    if (aiResponse) {
+      addTerminalLine(`${npc.name}: "${aiResponse}"`);
+
+      // Update per-NPC conversation history
+      const hist = npcConvHistoryRef.current.get(npc.id) || [];
+      hist.push({ isFromPlayer: true, content: playerMessage });
+      hist.push({ isFromPlayer: false, content: aiResponse });
+      // Keep last 10 exchanges (20 messages)
+      npcConvHistoryRef.current.set(npc.id, hist.slice(-20));
+
+      // Update reputation for meaningful topic chats
+      if (gameState && matchedTopic) {
         await updateConversationReputation(npc, matchedTopic);
       }
-    } else {
-      addTerminalLine('');
+
+      // Suggest other available topics after every 2nd exchange
+      const hist2 = npcConvHistoryRef.current.get(npc.id) || [];
+      const exchangeCount = Math.floor(hist2.length / 2);
       const topicKeys = Object.keys(topics);
-      const firstName = npc.name.split(' ')[0];
-      if (topicKeys.length > 0) {
-        addTerminalLine(`${npc.name}: "I don't know much about that."`, 'error');
-        addTerminalLine('');
-        addTerminalLine(`You can ask ${firstName} about:`, 'system');
-        topicKeys.forEach(t => addTerminalLine(`- ${t.replace(/_/g, ' ').toUpperCase()}`));
-        addTerminalLine('');
-        addTerminalLine(`Type the topic name directly to continue.`, 'system');
+      if (exchangeCount > 0 && exchangeCount % 2 === 0 && topicKeys.length > 1) {
+        const remaining = topicKeys.filter(t => t !== matchedTopic);
+        if (remaining.length > 0) {
+          addTerminalLine('');
+          addTerminalLine(
+            `[ You can also ask about: ${remaining.slice(0, 3).map(t => t.replace(/_/g, ' ').toUpperCase()).join(', ')} ]`,
+            'system'
+          );
+        }
+      }
+    } else {
+      // Graceful fallback if AI unavailable
+      if (topicContextText) {
+        addTerminalLine(`${npc.name}: "${topicContextText}"`);
       } else {
-        addTerminalLine(`${npc.name}: "I don't have much to say about that right now."`);
+        addTerminalLine(`${npc.name}: "I'm not sure how to answer that right now."`);
+        const topicKeys = Object.keys(topics);
+        if (topicKeys.length > 0) {
+          addTerminalLine('');
+          addTerminalLine(`You can ask ${firstName} about:`, 'system');
+          topicKeys.slice(0, 4).forEach(t => addTerminalLine(`- ${t.replace(/_/g, ' ').toUpperCase()}`));
+        }
       }
     }
   };
