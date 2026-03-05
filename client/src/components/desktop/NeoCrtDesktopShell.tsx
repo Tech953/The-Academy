@@ -990,15 +990,7 @@ export default function NeoCrtDesktopShell() {
   const { unreadEmailCount, unreadMessageCount, isEnrolled, character } = useGameState();
   const { t } = useI18n();
   
-  const [uiMode, setUiMode] = useState<UiMode>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('academy-ui-mode');
-      if (saved === 'legacy' || saved === 'student') {
-        return saved as UiMode;
-      }
-    }
-    return 'student';
-  });
+  const [uiMode] = useState<UiMode>('student');
   
   const { notifications, addNotification, dismissNotification } = useNotifications();
   const windowSnap = useWindowSnap();
@@ -1306,28 +1298,6 @@ export default function NeoCrtDesktopShell() {
     localStorage.removeItem(DESKTOP_POSITIONS_KEY);
   }, [viewport]);
   
-  const toggleUiMode = useCallback(() => {
-    const newMode = uiMode === 'legacy' ? 'student' : 'legacy';
-    setUiMode(newMode);
-    localStorage.setItem('academy-ui-mode', newMode);
-    if (newMode === 'legacy') {
-      setAcademyFullscreen(true);
-    }
-    addNotification({
-      type: 'info',
-      title: 'UI Mode Changed',
-      message: `Switched to ${newMode === 'legacy' ? 'Legacy Terminal' : 'Student Desktop'} mode.`,
-    });
-  }, [uiMode, addNotification]);
-  
-  useEffect(() => {
-    const handleUiModeChange = (e: CustomEvent) => {
-      const newMode = e.detail as UiMode;
-      setUiMode(newMode);
-    };
-    window.addEventListener('ui-mode-change', handleUiModeChange as EventListener);
-    return () => window.removeEventListener('ui-mode-change', handleUiModeChange as EventListener);
-  }, []);
 
   useEffect(() => {
     const handleWallpaperChange = (e: CustomEvent) => {
@@ -1973,32 +1943,6 @@ export default function NeoCrtDesktopShell() {
           </>
         )}
 
-        <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 8px' }} />
-        
-        <button
-          onClick={toggleUiMode}
-          title={uiMode === 'legacy' ? t('desktop.taskbar.switchToStudent') : t('desktop.taskbar.switchToLegacy')}
-          className="mode-toggle-option"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            padding: '8px 12px',
-            background: `${colors.primary}15`,
-            border: `1px solid ${colors.primary}40`,
-            borderRadius: '4px',
-            cursor: 'pointer',
-            color: colors.primary,
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {uiMode === 'legacy' ? <Terminal size={14} /> : <Monitor size={14} />}
-          <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-            {uiMode === 'legacy' ? t('desktop.taskbar.legacy') : t('desktop.taskbar.student')}
-          </span>
-        </button>
-        
         <div style={{ width: '1px', height: '24px', background: `${colors.primary}40`, margin: '0 12px' }} />
         
         <button
@@ -2270,7 +2214,6 @@ export default function NeoCrtDesktopShell() {
             { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
             { label: '↑  Sort by Name', action: () => { handleSortIcons('name'); closeContextMenu(); } },
             { label: '↑  Sort by Type', action: () => { handleSortIcons('type'); closeContextMenu(); } },
-            { label: `${uiMode === 'student' ? '◉' : '◎'}  Switch to ${uiMode === 'student' ? 'Legacy' : 'Student'} Mode`, action: () => { toggleUiMode(); closeContextMenu(); } },
           ].map(item => (
             <button
               key={item.label}

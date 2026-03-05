@@ -1,11 +1,9 @@
 import { useState, useRef } from 'react';
 import { useCrtTheme, CrtMode } from '@/contexts/CrtThemeContext';
 import { useI18n } from '@/contexts/I18nContext';
-import { Sun, Sunrise, Moon, Monitor, Check, Languages, Accessibility, Terminal, Image, Upload } from 'lucide-react';
+import { Sun, Sunrise, Moon, Monitor, Check, Languages, Accessibility, Image, Upload } from 'lucide-react';
 import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
 import { WALLPAPER_PRESETS, getWallpaper, setWallpaperStore } from '../NeoCrtDesktopShell';
-
-type UiMode = 'legacy' | 'student';
 
 const MODE_ICONS: Record<CrtMode, typeof Sun> = {
   dawn: Sunrise,
@@ -23,10 +21,6 @@ export default function SettingsApp() {
   const { mode, setMode, colors, accentColors } = useCrtTheme();
   const { language, setLanguage, availableLanguages, t } = useI18n();
   const [currentProfile, setCurrentProfile] = useState(accessibilityManager.getCurrentProfile().id);
-  const [uiMode, setUiMode] = useState<UiMode>(() => {
-    const saved = localStorage.getItem('academy-ui-mode');
-    return (saved === 'legacy' || saved === 'student') ? saved as UiMode : 'student';
-  });
   const [languageChanged, setLanguageChanged] = useState(false);
   const [wallpaper, setWallpaperLocal] = useState<string | null>(getWallpaper);
   const wallpaperFileRef = useRef<HTMLInputElement>(null);
@@ -60,12 +54,6 @@ export default function SettingsApp() {
     }
   };
   
-  const handleUiModeChange = (newMode: UiMode) => {
-    setUiMode(newMode);
-    localStorage.setItem('academy-ui-mode', newMode);
-    window.dispatchEvent(new CustomEvent('ui-mode-change', { detail: newMode }));
-  };
-
   return (
     <div
       style={{
@@ -316,106 +304,6 @@ export default function SettingsApp() {
         </div>
       </div>
 
-      <div style={{ marginTop: '30px', marginBottom: '30px' }}>
-        <h3
-          style={{
-            fontSize: '14px',
-            textTransform: 'uppercase',
-            letterSpacing: '1px',
-            marginBottom: '15px',
-            opacity: 0.8,
-          }}
-        >
-          {t('desktop.settings.interfaceMode')}
-        </h3>
-        <p style={{ fontSize: '11px', opacity: 0.6, marginBottom: '15px' }}>
-          {t('desktop.settings.interfaceModeDesc')}
-        </p>
-        
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {(['legacy', 'student'] as UiMode[]).map((m) => {
-            const isSelected = uiMode === m;
-            const Icon = m === 'legacy' ? Terminal : Monitor;
-            const label = m === 'legacy' ? t('desktop.settings.legacyMode') : t('desktop.settings.studentMode');
-            const description = m === 'legacy' 
-              ? t('desktop.settings.legacyDesc')
-              : t('desktop.settings.studentDesc');
-
-            return (
-              <button
-                key={m}
-                onClick={() => handleUiModeChange(m)}
-                className="hover-elevate"
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '15px',
-                  backgroundColor: isSelected ? `${colors.primary}15` : 'transparent',
-                  border: `1px solid ${isSelected ? colors.primary : colors.primary + '40'}`,
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    backgroundColor: isSelected ? `${colors.primary}20` : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: `1px solid ${colors.primary}60`,
-                  }}
-                >
-                  <Icon size={20} color={colors.primary} />
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      color: colors.primary,
-                      marginBottom: '4px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    {label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '10px',
-                      color: colors.primaryDim,
-                      opacity: 0.7,
-                    }}
-                  >
-                    {description}
-                  </div>
-                </div>
-                {isSelected && (
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      backgroundColor: colors.primary,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Check size={12} color="#000" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <div
         style={{
