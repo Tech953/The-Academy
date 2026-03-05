@@ -47,6 +47,20 @@ Features include AI-driven character creation, location-based navigation, a thre
 - **Starter Perk Flow**: On first boot, players select 2 perks from 11 categories (combat/social/academic/survival/mystical), which grant stat bonuses and are stored in `character.starterPerks`.
 - **PerksViewer App**: A desktop icon (`charstats`/perks) provides a redesigned viewer with four tabs: AVAILABLE (level-up perks the player can unlock), ACTIVE (all earned perks), LOCKED (perks still gated by requirements), and ALL STARTER (for reference). Perks are rarity-gated (common, uncommon, rare, legendary) and display effects with glowing numbers and StatIcon sprites.
 
+## Document System — Block-Based Word Processor
+The Academy includes a structured document authoring system built on top of the virtual filesystem:
+- **AcademyDoc format** (`client/src/lib/academyDocuments.ts`): Schema-versioned JSON stored as `.acd` files in `/home/student/documents/`. Documents have title, subject, tags, author, version, and a `blocks` array.
+- **9 block types**: `paragraph`, `heading1`, `heading2`, `heading3`, `code` (with language tag), `quote`, `math`, `annotation` (with citation), `divider`.
+- **WordProcessorApp** (`client/src/components/desktop/apps/WordProcessorApp.tsx`): Block-based editor with:
+  - Left sidebar showing all `.acd` files with search, "+NEW DOCUMENT" button, and file list with previews.
+  - Block rows with type-badge selector, auto-resizing textareas, and per-type styling (uppercase headings, green code blocks, amber quotes, cyan annotations).
+  - Toolbar: SAVE, NEW, UNDO/REDO (40-state history), block type shortcuts, COPY TEXT export.
+  - 2.2-second debounced autosave + Ctrl+S for immediate save.
+  - Status bar: block count, word count, SAVED/UNSAVED/SAVING indicator.
+  - Document metadata: title, subject, tags (editable inline).
+- **Desktop icon**: `wordproc` type, amber color, `FilePen` icon, at column 3 row 1. Label: "WORD PROCESSOR".
+- **VFS integration**: Documents persist in the virtual filesystem alongside regular files; `academyDocs.seedDefaults()` creates a "Getting Started" guide on first run.
+
 ## GED Graduation System
 The game features a complete GED preparation and graduation system. Skill progress is tracked via game flags, becoming "emerging" after 2 attendances and "stable/mastered" after 5. Players need 3+ stable skills per domain to be GED ready. Upon readiness, the `GRADUATION CEREMONY` command initiates the Confluence Hall experience, a multi-node journey leading to different "Departure Vectors" influenced by player stats and faction interactions.
 
