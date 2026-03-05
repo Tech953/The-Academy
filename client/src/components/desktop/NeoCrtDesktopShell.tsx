@@ -335,12 +335,17 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
   isDragging = false,
   onMouseDown,
   onOpen,
+  onContextMenu,
   accentColors,
   badgeCount = 0,
   label,
   locked = false,
   isAcademy = false,
   primaryColor = '#00ff00',
+  isRenaming = false,
+  renameValue = '',
+  onRenameChange,
+  onRenameCommit,
 }: {
   icon: DesktopIconConfig;
   position: { x: number; y: number };
@@ -348,12 +353,17 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
   isDragging?: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
   onOpen: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
   accentColors: AccentColors;
   badgeCount?: number;
   label: string;
   locked?: boolean;
   isAcademy?: boolean;
   primaryColor?: string;
+  isRenaming?: boolean;
+  renameValue?: string;
+  onRenameChange?: (v: string) => void;
+  onRenameCommit?: () => void;
 }) {
   const color = locked ? '#444' : accentColors[icon.colorKey];
   const activeColor = accentColors[icon.colorKey];
@@ -362,6 +372,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
     <div
       onMouseDown={onMouseDown}
       onDoubleClick={(e) => { e.stopPropagation(); if (!locked) onOpen(); }}
+      onContextMenu={onContextMenu}
       title={locked ? `${label} — enroll in a class to unlock` : label}
       data-testid={isAcademy ? 'academy-game-launcher' : undefined}
       style={{
@@ -433,21 +444,46 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
           </div>
         )}
       </div>
-      <span style={{
-        color: locked ? '#555' : color,
-        fontFamily: '"Courier New", monospace',
-        fontSize: '10px',
-        letterSpacing: '0.3px',
-        textTransform: 'uppercase',
-        textAlign: 'center',
-        lineHeight: '1.35',
-        maxWidth: ICON_W - 8,
-        wordBreak: 'break-word',
-        transition: 'color 0.2s ease',
-        textShadow: locked ? 'none' : `0 1px 3px rgba(0,0,0,0.9), 0 0 8px ${color}70`,
-      }}>
-        {label}
-      </span>
+      {isRenaming ? (
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={e => onRenameChange?.(e.target.value)}
+          onBlur={onRenameCommit}
+          onKeyDown={e => { if (e.key === 'Enter') onRenameCommit?.(); if (e.key === 'Escape') onRenameCommit?.(); }}
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            background: '#0a0a0a',
+            border: `1px solid ${color}80`,
+            color: color,
+            fontFamily: '"Courier New", monospace',
+            fontSize: '10px',
+            letterSpacing: '0.3px',
+            textAlign: 'center',
+            width: ICON_W - 8,
+            padding: '2px 4px',
+            outline: 'none',
+            boxShadow: `0 0 6px ${color}40`,
+          }}
+        />
+      ) : (
+        <span style={{
+          color: locked ? '#555' : color,
+          fontFamily: '"Courier New", monospace',
+          fontSize: '10px',
+          letterSpacing: '0.3px',
+          textTransform: 'uppercase',
+          textAlign: 'center',
+          lineHeight: '1.35',
+          maxWidth: ICON_W - 8,
+          wordBreak: 'break-word',
+          transition: 'color 0.2s ease',
+          textShadow: locked ? 'none' : `0 1px 3px rgba(0,0,0,0.9), 0 0 8px ${color}70`,
+        }}>
+          {label}
+        </span>
+      )}
     </div>
   );
 });
@@ -936,7 +972,15 @@ export default function NeoCrtDesktopShell() {
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
   const nextZIndexRef = useRef(100);
   const claimZ = () => { nextZIndexRef.current += 1; return nextZIndexRef.current; };
-  const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
+  const [selectedIcons, setSelectedIcons] = useState<Set<string>>(new Set());
+  const [iconLabels, setIconLabels] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('academy-icon-labels') ?? '{}'); } catch { return {}; }
+  });
+  const [iconContextMenu, setIconContextMenu] = useState<{ iconId: string; x: number; y: number } | null>(null);
+  const [renamingIcon, setRenamingIcon] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const selectionBoxStartRef = useRef<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [academyFullscreen, setAcademyFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -1008,6 +1052,7 @@ export default function NeoCrtDesktopShell() {
     itemW: number;
     itemH: number;
     hasMoved: boolean;
+    multiOffsets: Record<string, { startX: number; startY: number }>;
   } | null>(null);
 
   useEffect(() => {
@@ -1018,6 +1063,26 @@ export default function NeoCrtDesktopShell() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      if (selectionBoxStartRef.current) {
+        const s = selectionBoxStartRef.current;
+        setSelectionBox({ startX: s.x, startY: s.y, endX: e.clientX, endY: e.clientY });
+        const minX = Math.min(s.x, e.clientX);
+        const maxX = Math.max(s.x, e.clientX);
+        const minY = Math.min(s.y, e.clientY);
+        const maxY = Math.max(s.y, e.clientY);
+        const hit = new Set<string>();
+        const positions = iconPositionsRef.current;
+        DESKTOP_ICONS.forEach(icon => {
+          const pos = positions[icon.id];
+          if (!pos) return;
+          if (pos.x < maxX && pos.x + ICON_W > minX && pos.y < maxY && pos.y + ICON_H > minY) {
+            hit.add(icon.id);
+          }
+        });
+        setSelectedIcons(hit);
+        return;
+      }
+
       if (!dragRef.current) return;
       const dx = e.clientX - dragRef.current.startMouseX;
       const dy = e.clientY - dragRef.current.startMouseY;
@@ -1032,13 +1097,29 @@ export default function NeoCrtDesktopShell() {
       const clampedX = Math.max(4, Math.min(vw - iW - 4, rawX));
       const clampedY = Math.max(4, Math.min(vh - iH - TASKBAR_RESERVE, rawY));
       const id = dragRef.current.iconId;
-      setIconPositions(prev => ({ ...prev, [id]: { x: clampedX, y: clampedY } }));
+      const multiOffsets = dragRef.current.multiOffsets;
+      setIconPositions(prev => {
+        const next = { ...prev, [id]: { x: clampedX, y: clampedY } };
+        Object.entries(multiOffsets).forEach(([oid, off]) => {
+          if (oid === id) return;
+          const ox = Math.max(4, Math.min(vw - ICON_W - 4, rawX + off.startX - dragRef.current!.startIconX));
+          const oy = Math.max(4, Math.min(vh - ICON_H - TASKBAR_RESERVE, rawY + off.startY - dragRef.current!.startIconY));
+          next[oid] = { x: ox, y: oy };
+        });
+        return next;
+      });
       setDragGhost({ x: clampedX, y: clampedY, w: iW, h: iH });
     };
     const handleMouseUp = () => {
+      if (selectionBoxStartRef.current) {
+        selectionBoxStartRef.current = null;
+        setSelectionBox(null);
+        return;
+      }
+
       if (!dragRef.current) return;
       if (!dragRef.current.hasMoved) {
-        setSelectedIcon(dragRef.current.iconId);
+        setSelectedIcons(new Set([dragRef.current.iconId]));
         dragRef.current = null;
         setDraggingId(null);
         setDragGhost(null);
@@ -1052,26 +1133,34 @@ export default function NeoCrtDesktopShell() {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const isSmall = iW === ICON_W && iH === ICON_H;
+      const multiOffsets = dragRef.current.multiOffsets;
       setIconPositions(prev => {
-        const curPos = prev[id] ?? { x: 20, y: 20 };
         const hidden = new Set(hiddenWidgetsRef.current);
         const visiblePos: Record<string, { x: number; y: number }> = {};
         for (const [k, v] of Object.entries(prev)) {
           if (!hidden.has(k)) visiblePos[k] = v;
         }
-        if (isSmall) {
-          const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
-          const free = findNearestFreePosition(id, snapped.x, snapped.y, visiblePos, vw, vh);
-          return { ...prev, [id]: free };
-        } else {
-          const free = findNearestFreePosition(id, curPos.x, curPos.y, visiblePos, vw, vh);
-          return { ...prev, [id]: free };
-        }
+        const next = { ...prev };
+        const idsToSnap = [id, ...Object.keys(multiOffsets).filter(k => k !== id)];
+        idsToSnap.forEach(oid => {
+          const curPos = prev[oid] ?? { x: 20, y: 20 };
+          const ob = getItemBounds(oid);
+          const isOSmall = ob.w === ICON_W && ob.h === ICON_H;
+          if (isOSmall) {
+            const snapped = snapPixelToGrid(curPos.x, curPos.y, vw, vh);
+            const free = findNearestFreePosition(oid, snapped.x, snapped.y, { ...visiblePos, ...next }, vw, vh);
+            next[oid] = free;
+          } else {
+            const free = findNearestFreePosition(oid, curPos.x, curPos.y, { ...visiblePos, ...next }, vw, vh);
+            next[oid] = free;
+          }
+        });
+        return next;
       });
       dragRef.current = null;
       setDraggingId(null);
       setDragGhost(null);
-      void originX; void originY;
+      void originX; void originY; void isSmall;
     };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -1116,6 +1205,33 @@ export default function NeoCrtDesktopShell() {
     e.preventDefault();
     const pos = iconPositions[iconId] ?? { x: 20, y: 20 };
     const { w, h } = getItemBounds(iconId);
+
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedIcons(prev => {
+        const next = new Set(prev);
+        if (next.has(iconId)) next.delete(iconId);
+        else next.add(iconId);
+        return next;
+      });
+      return;
+    }
+
+    const currentSelected = selectedIcons;
+    const isInSelection = currentSelected.has(iconId);
+    if (!isInSelection) {
+      setSelectedIcons(new Set([iconId]));
+    }
+
+    const multiOffsets: Record<string, { startX: number; startY: number }> = {};
+    if (isInSelection && currentSelected.size > 1) {
+      currentSelected.forEach(oid => {
+        const opos = iconPositions[oid] ?? { x: 20, y: 20 };
+        multiOffsets[oid] = { startX: opos.x, startY: opos.y };
+      });
+    } else {
+      multiOffsets[iconId] = { startX: pos.x, startY: pos.y };
+    }
+
     dragRef.current = {
       iconId,
       startMouseX: e.clientX,
@@ -1127,9 +1243,51 @@ export default function NeoCrtDesktopShell() {
       itemW: w,
       itemH: h,
       hasMoved: false,
+      multiOffsets,
     };
     setDraggingId(iconId);
-  }, [iconPositions]);
+  }, [iconPositions, selectedIcons]);
+
+  const handleIconContextMenu = useCallback((e: React.MouseEvent, iconId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIconContextMenu({ iconId, x: e.clientX, y: e.clientY });
+    setSelectedIcons(new Set([iconId]));
+    setContextMenu(null);
+  }, []);
+
+  const commitRename = useCallback(() => {
+    if (!renamingIcon) return;
+    const trimmed = renameValue.trim();
+    if (trimmed) {
+      setIconLabels(prev => {
+        const next = { ...prev, [renamingIcon]: trimmed };
+        try { localStorage.setItem('academy-icon-labels', JSON.stringify(next)); } catch {/* ignore */}
+        return next;
+      });
+    }
+    setRenamingIcon(null);
+    setRenameValue('');
+  }, [renamingIcon, renameValue]);
+
+  const handleSortIcons = useCallback((by: 'name' | 'type') => {
+    const sorted = [...DESKTOP_ICONS].sort((a, b) => {
+      if (by === 'type') return a.colorKey.localeCompare(b.colorKey) || a.id.localeCompare(b.id);
+      const la = iconLabels[a.id] ?? a.labelKey;
+      const lb = iconLabels[b.id] ?? b.labelKey;
+      return la.localeCompare(lb);
+    });
+    const vw = viewport.width;
+    const vh = viewport.height;
+    const newPositions: Record<string, { x: number; y: number }> = {};
+    sorted.forEach((icon, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const raw = gridToPixel(col, row);
+      newPositions[icon.id] = snapPixelToGrid(raw.x, raw.y, vw, vh);
+    });
+    setIconPositions(prev => ({ ...prev, ...newPositions }));
+  }, [iconLabels, viewport]);
 
   const resetIconLayout = useCallback(() => {
     const vw = viewport.width;
@@ -1580,14 +1738,25 @@ export default function NeoCrtDesktopShell() {
     if (uiMode !== 'student') return;
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY });
-    setSelectedIcon(null);
+    setSelectedIcons(new Set());
+    setIconContextMenu(null);
   }, [uiMode]);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  const handleDesktopClick = () => {
-    setSelectedIcon(null);
+  const handleDesktopMouseDown = useCallback((e: React.MouseEvent) => {
+    if (uiMode !== 'student') return;
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement) !== (e.currentTarget as HTMLElement)) return;
+    setIconContextMenu(null);
     setContextMenu(null);
+    selectionBoxStartRef.current = { x: e.clientX, y: e.clientY };
+  }, [uiMode]);
+
+  const handleDesktopClick = () => {
+    setSelectedIcons(new Set());
+    setContextMenu(null);
+    setIconContextMenu(null);
   };
 
 
@@ -1606,6 +1775,7 @@ export default function NeoCrtDesktopShell() {
   return (
     <div
       onClick={handleDesktopClick}
+      onMouseDown={handleDesktopMouseDown}
       onContextMenu={handleDesktopContextMenu}
       className={`neo-crt-desktop ${getResonanceClass()} ${getPerformanceClass()}`}
       style={{
@@ -1676,24 +1846,32 @@ export default function NeoCrtDesktopShell() {
         const isLocked = !isEnrolled && (icon.id === 'email' || icon.id === 'messages');
         const isAcademy = icon.id === 'academy';
         const isIconDragging = draggingId === icon.id;
+        const customLabel = iconLabels[icon.id];
+        const displayLabel = customLabel ?? t(icon.labelKey);
+        const isRenaming = renamingIcon === icon.id;
         return (
           <DraggableDesktopIcon
             key={icon.id}
             icon={icon}
             position={pos}
-            isSelected={selectedIcon === icon.id}
+            isSelected={selectedIcons.has(icon.id)}
             isDragging={isIconDragging}
             onMouseDown={(e) => handleIconMouseDown(e, icon.id)}
             onOpen={() => openWindow(icon.id)}
+            onContextMenu={(e) => handleIconContextMenu(e, icon.id)}
             accentColors={accentColors}
             badgeCount={
               icon.id === 'email' ? unreadEmailCount :
               icon.id === 'messages' ? unreadMessageCount : 0
             }
-            label={t(icon.labelKey)}
+            label={displayLabel}
             locked={isLocked}
             isAcademy={isAcademy}
             primaryColor={colors.primary}
+            isRenaming={isRenaming}
+            renameValue={renameValue}
+            onRenameChange={setRenameValue}
+            onRenameCommit={commitRename}
           />
         );
       })}
@@ -1708,7 +1886,7 @@ export default function NeoCrtDesktopShell() {
             widget={widget}
             position={pos}
             isDragging={draggingId === widget.id}
-            isSelected={selectedIcon === widget.id}
+            isSelected={selectedIcons.has(widget.id)}
             onMouseDown={(e) => handleIconMouseDown(e, widget.id)}
             accentColors={accentColors}
             primaryColor={colors.primary}
@@ -1956,19 +2134,111 @@ export default function NeoCrtDesktopShell() {
         ACADEMY OS v1.0 | {modeLabel.toUpperCase()} | [RES: STABLE]
       </div>
 
+      {/* ── RUBBER-BAND SELECTION BOX ─────────────────────────────────────── */}
+      {selectionBox && uiMode === 'student' && (() => {
+        const minX = Math.min(selectionBox.startX, selectionBox.endX);
+        const minY = Math.min(selectionBox.startY, selectionBox.endY);
+        const w = Math.abs(selectionBox.endX - selectionBox.startX);
+        const h = Math.abs(selectionBox.endY - selectionBox.startY);
+        if (w < 4 && h < 4) return null;
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left: minX, top: minY, width: w, height: h,
+              border: `1px solid ${colors.primary}80`,
+              background: `${colors.primary}10`,
+              pointerEvents: 'none',
+              zIndex: 997,
+              boxSizing: 'border-box',
+            }}
+          />
+        );
+      })()}
+
+      {/* ── ICON CONTEXT MENU ─────────────────────────────────────────────── */}
+      {iconContextMenu && uiMode === 'student' && (() => {
+        const icm = iconContextMenu;
+        const iconCfg = DESKTOP_ICONS.find(i => i.id === icm.iconId);
+        const defaultLabel = iconCfg ? t(iconCfg.labelKey) : icm.iconId;
+        const currentLabel = iconLabels[icm.iconId] ?? defaultLabel;
+        const menuItems = [
+          { label: '▷  Open', action: () => { openWindow(icm.iconId); setIconContextMenu(null); } },
+          { label: '✎  Rename', action: () => {
+            setRenameValue(currentLabel);
+            setRenamingIcon(icm.iconId);
+            setIconContextMenu(null);
+          }},
+          { label: '↺  Reset Label', action: () => {
+            setIconLabels(prev => {
+              const next = { ...prev };
+              delete next[icm.iconId];
+              try { localStorage.setItem('academy-icon-labels', JSON.stringify(next)); } catch {/* */}
+              return next;
+            });
+            setIconContextMenu(null);
+          }},
+          { label: '◎  Reset Position', action: () => {
+            const cfg = DESKTOP_ICONS.find(i => i.id === icm.iconId);
+            if (cfg) {
+              const raw = gridToPixel(cfg.defaultCol, cfg.defaultRow);
+              const snapped = snapPixelToGrid(raw.x, raw.y, viewport.width, viewport.height);
+              setIconPositions(prev => ({ ...prev, [icm.iconId]: snapped }));
+            }
+            setIconContextMenu(null);
+          }},
+        ];
+        const menuH = menuItems.length * 34 + 28;
+        const menuW = 200;
+        const left = Math.min(icm.x, viewport.width - menuW - 8);
+        const top = Math.min(icm.y, viewport.height - menuH - 8);
+        return (
+          <div
+            onContextMenu={e => e.preventDefault()}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+            style={{
+              position: 'fixed', left, top,
+              zIndex: 99100,
+              background: '#0a0a0a',
+              border: `1px solid ${colors.primary}60`,
+              boxShadow: `0 4px 24px rgba(0,0,0,0.9), 0 0 12px ${colors.primary}20`,
+              minWidth: menuW,
+              fontFamily: '"Courier New", monospace',
+            }}
+          >
+            <div style={{ padding: '4px 10px', fontSize: 9, color: `${colors.primary}60`, letterSpacing: 1, borderBottom: `1px solid ${colors.primary}22`, textTransform: 'uppercase' }}>
+              {currentLabel}
+            </div>
+            {menuItems.map(item => (
+              <button key={item.label} onClick={item.action} style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'transparent', border: 'none',
+                padding: '8px 14px', cursor: 'pointer',
+                fontFamily: '"Courier New", monospace', fontSize: 11,
+                color: colors.primary, letterSpacing: 0.5,
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${colors.primary}18`; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              >{item.label}</button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* ── DESKTOP CONTEXT MENU ─────────────────────────────────────────── */}
       {contextMenu && uiMode === 'student' && (
         <div
           onContextMenu={e => e.preventDefault()}
           style={{
             position: 'fixed',
-            left: Math.min(contextMenu.x, viewport.width - 200),
-            top: Math.min(contextMenu.y, viewport.height - 140),
+            left: Math.min(contextMenu.x, viewport.width - 210),
+            top: Math.min(contextMenu.y, viewport.height - 170),
             zIndex: 99000,
             background: '#0a0a0a',
             border: `1px solid ${colors.primary}60`,
             boxShadow: `0 4px 24px rgba(0,0,0,0.8), 0 0 12px ${colors.primary}20`,
-            minWidth: 190,
+            minWidth: 210,
             fontFamily: '"Courier New", monospace',
           }}
         >
@@ -1997,6 +2267,8 @@ export default function NeoCrtDesktopShell() {
                 closeContextMenu();
               } },
             { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
+            { label: '↑  Sort by Name', action: () => { handleSortIcons('name'); closeContextMenu(); } },
+            { label: '↑  Sort by Type', action: () => { handleSortIcons('type'); closeContextMenu(); } },
             { label: `${uiMode === 'student' ? '◉' : '◎'}  Switch to ${uiMode === 'student' ? 'Legacy' : 'Student'} Mode`, action: () => { toggleUiMode(); closeContextMenu(); } },
           ].map(item => (
             <button
