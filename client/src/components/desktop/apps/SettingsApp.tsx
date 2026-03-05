@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useCrtTheme, CrtMode } from '@/contexts/CrtThemeContext';
 import { useI18n } from '@/contexts/I18nContext';
-import { Sun, Sunrise, Moon, Monitor, Check, Languages, Accessibility, Terminal } from 'lucide-react';
+import { Sun, Sunrise, Moon, Monitor, Check, Languages, Accessibility, Terminal, Image, Upload } from 'lucide-react';
 import { accessibilityManager, ACCESSIBILITY_PROFILES } from '@/lib/accessibility';
+import { WALLPAPER_PRESETS, getWallpaper, setWallpaperStore } from '../NeoCrtDesktopShell';
 
 type UiMode = 'legacy' | 'student';
 
@@ -27,6 +28,26 @@ export default function SettingsApp() {
     return (saved === 'legacy' || saved === 'student') ? saved as UiMode : 'student';
   });
   const [languageChanged, setLanguageChanged] = useState(false);
+  const [wallpaper, setWallpaperLocal] = useState<string | null>(getWallpaper);
+  const wallpaperFileRef = useRef<HTMLInputElement>(null);
+
+  const applyWallpaper = (val: string | null) => {
+    setWallpaperLocal(val);
+    setWallpaperStore(val);
+    window.dispatchEvent(new CustomEvent('wallpaper-change', { detail: val }));
+  };
+
+  const handleWallpaperUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) applyWallpaper(`image:${dataUrl}`);
+    };
+    reader.readAsDataURL(file);
+    if (wallpaperFileRef.current) wallpaperFileRef.current.value = '';
+  };
 
   const modes: CrtMode[] = ['dawn', 'day', 'night'];
   const profiles = Object.values(ACCESSIBILITY_PROFILES);
@@ -56,6 +77,72 @@ export default function SettingsApp() {
         overflow: 'auto',
       }}
     >
+      {/* Hidden wallpaper upload input */}
+      <input ref={wallpaperFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleWallpaperUpload} />
+
+      {/* ── WALLPAPER SECTION ─────────────────────────── */}
+      <div style={{ borderBottom: `1px solid ${colors.primary}40`, paddingBottom: '15px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Image size={24} color={colors.primary} />
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '2px', textShadow: `0 0 10px ${colors.primaryGlow}` }}>
+          Wallpaper
+        </h2>
+      </div>
+
+      <div style={{ marginBottom: '30px' }}>
+        <h3 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', opacity: 0.8 }}>Theme Presets</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+          {WALLPAPER_PRESETS.map(preset => {
+            const isActive = wallpaper === (preset.id === 'none' ? null : `preset:${preset.id}`) || (preset.id === 'none' && !wallpaper);
+            return (
+              <button
+                key={preset.id}
+                onClick={() => applyWallpaper(preset.id === 'none' ? null : `preset:${preset.id}`)}
+                title={preset.label}
+                style={{
+                  background: preset.css || '#000',
+                  border: `2px solid ${isActive ? colors.primary : colors.primary + '25'}`,
+                  borderRadius: 3, cursor: 'pointer', padding: 0, aspectRatio: '16/10', position: 'relative',
+                  boxShadow: isActive ? `0 0 8px ${colors.primary}60` : 'none',
+                }}
+              >
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 3 }}>
+                  <span style={{ fontSize: 8, color: isActive ? colors.primary : `${colors.primary}55`, letterSpacing: 0.5, textTransform: 'uppercase', textShadow: '0 1px 3px #000' }}>{preset.label}</span>
+                </div>
+                {isActive && <div style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: colors.primary }} />}
+              </button>
+            );
+          })}
+        </div>
+
+        <h3 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', opacity: 0.8 }}>Custom Image</h3>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            onClick={() => wallpaperFileRef.current?.click()}
+            className="hover-elevate"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
+              background: `${colors.primary}10`, border: `1px solid ${colors.primary}40`,
+              color: colors.primary, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12,
+              letterSpacing: 1, textTransform: 'uppercase',
+            }}
+          >
+            <Upload size={14} />Upload Image
+          </button>
+          {wallpaper?.startsWith('image:') && (
+            <button onClick={() => applyWallpaper(null)}
+              style={{ padding: '8px 12px', background: `${accentColors.red}10`, border: `1px solid ${accentColors.red}40`, color: accentColors.red, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}>
+              Remove
+            </button>
+          )}
+        </div>
+        {wallpaper?.startsWith('image:') && (
+          <div style={{ marginTop: 10, position: 'relative', width: '100%', maxWidth: 280, aspectRatio: '16/9', overflow: 'hidden', border: `1px solid ${colors.primary}25` }}>
+            <img src={wallpaper.slice(6)} alt="Current wallpaper" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />
+            <div style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 9, color: accentColors.green, letterSpacing: 0.5 }}>ACTIVE</div>
+          </div>
+        )}
+      </div>
+
       <div
         style={{
           borderBottom: `1px solid ${colors.primary}40`,

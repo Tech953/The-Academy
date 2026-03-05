@@ -89,6 +89,29 @@ const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 96;
 const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v3';
+const WALLPAPER_KEY = 'academy-desktop-wallpaper';
+
+export const WALLPAPER_PRESETS = [
+  { id: 'none',    label: 'VOID',        css: '',                                                                                       thumb: '#000' },
+  { id: 'aurora',  label: 'AURORA',      css: 'linear-gradient(135deg,#000d1a 0%,#00150a 40%,#0d001a 100%)',                            thumb: '#001a0d' },
+  { id: 'nebula',  label: 'NEBULA',      css: 'linear-gradient(135deg,#0d0020 0%,#1a0033 50%,#001a33 100%)',                            thumb: '#0d0020' },
+  { id: 'dusk',    label: 'DUSK',        css: 'linear-gradient(160deg,#0a0000 0%,#1a0500 40%,#0a0a00 100%)',                            thumb: '#1a0500' },
+  { id: 'storm',   label: 'STORM',       css: 'linear-gradient(135deg,#000814 0%,#001233 50%,#000814 100%)',                            thumb: '#001233' },
+  { id: 'forest',  label: 'DEEP FOREST', css: 'linear-gradient(180deg,#000a00 0%,#001a00 60%,#000d05 100%)',                            thumb: '#001a00' },
+  { id: 'crimson', label: 'CRIMSON',     css: 'linear-gradient(135deg,#0d0000 0%,#1a0008 50%,#0d000d 100%)',                            thumb: '#1a0008' },
+  { id: 'grid',    label: 'GRID',        css: 'repeating-linear-gradient(0deg,#00ff0008 0px,transparent 1px,transparent 39px,#00ff0008 40px),repeating-linear-gradient(90deg,#00ff0008 0px,transparent 1px,transparent 39px,#00ff0008 40px),#000', thumb: '#001200' },
+] as const;
+export type WallpaperPresetId = typeof WALLPAPER_PRESETS[number]['id'];
+
+export function getWallpaper(): string | null {
+  try { return localStorage.getItem(WALLPAPER_KEY); } catch { return null; }
+}
+export function setWallpaperStore(val: string | null) {
+  try {
+    if (val) localStorage.setItem(WALLPAPER_KEY, val);
+    else localStorage.removeItem(WALLPAPER_KEY);
+  } catch {/* ignore */}
+}
 
 function gridToPixel(col: number, row: number): { x: number; y: number } {
   return {
@@ -959,6 +982,12 @@ export default function NeoCrtDesktopShell() {
   });
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [showWidgetPanel, setShowWidgetPanel] = useState(false);
+  const [showWallpaperPanel, setShowWallpaperPanel] = useState(false);
+  const [wallpaper, setWallpaperState] = useState<string | null>(() => getWallpaper());
+  const wallpaperFileInputRef = useRef<HTMLInputElement>(null);
+  const wallpaperPanelRef = useRef<HTMLDivElement>(null);
+  const [wallpaperPanelPos, setWallpaperPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const wallpaperPanelMoveRef = useRef<{ startMX: number; startMY: number; startX: number; startY: number } | null>(null);
   const [panelDragOver, setPanelDragOver] = useState<string | null>(null);
   const panelDragSrc = useRef<string | null>(null);
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
@@ -1143,7 +1172,32 @@ export default function NeoCrtDesktopShell() {
     window.addEventListener('ui-mode-change', handleUiModeChange as EventListener);
     return () => window.removeEventListener('ui-mode-change', handleUiModeChange as EventListener);
   }, []);
+
+  useEffect(() => {
+    const handleWallpaperChange = (e: CustomEvent) => {
+      setWallpaperState(e.detail as string | null);
+    };
+    window.addEventListener('wallpaper-change', handleWallpaperChange as EventListener);
+    return () => window.removeEventListener('wallpaper-change', handleWallpaperChange as EventListener);
+  }, []);
   
+  const applyWallpaper = useCallback((val: string | null) => {
+    setWallpaperState(val);
+    setWallpaperStore(val);
+  }, []);
+
+  const handleWallpaperUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) applyWallpaper(`image:${dataUrl}`);
+    };
+    reader.readAsDataURL(file);
+    if (wallpaperFileInputRef.current) wallpaperFileInputRef.current.value = '';
+  }, [applyWallpaper]);
+
   const getResonanceClass = () => {
     switch (resonanceState) {
       case 'unstable': return 'resonance-unstable';
@@ -1540,6 +1594,18 @@ export default function NeoCrtDesktopShell() {
   };
 
 
+  const wallpaperBg = (() => {
+    if (!wallpaper) return undefined;
+    if (wallpaper.startsWith('image:')) return undefined;
+    if (wallpaper.startsWith('preset:')) {
+      const id = wallpaper.slice(7);
+      const p = WALLPAPER_PRESETS.find(x => x.id === id);
+      return p?.css || undefined;
+    }
+    return undefined;
+  })();
+  const wallpaperImgUrl = wallpaper?.startsWith('image:') ? wallpaper.slice(6) : null;
+
   return (
     <div
       onClick={handleDesktopClick}
@@ -1551,13 +1617,29 @@ export default function NeoCrtDesktopShell() {
         left: 0,
         width: '100vw',
         height: '100vh',
-        background: colors.background,
+        background: wallpaperBg || colors.background,
         overflow: 'hidden',
         fontFamily: '"Courier New", monospace',
         transition: 'background 0.5s ease',
       }}
     >
+      {/* Hidden input for wallpaper image upload */}
+      <input ref={wallpaperFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleWallpaperUpload} />
+
       {character.starterPerks.length === 0 && <StarterPerkFlow />}
+
+      {/* Wallpaper image layer */}
+      {wallpaperImgUrl && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+          backgroundImage: `url(${wallpaperImgUrl})`,
+          backgroundSize: 'cover', backgroundPosition: 'center',
+        }}>
+          {/* Dark overlay so CRT text remains legible */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)' }} />
+        </div>
+      )}
+
       <div className="crt-scanlines" style={{ opacity: colors.scanlineOpacity }} />
       <div className="crt-vignette" />
       
@@ -1908,6 +1990,15 @@ export default function NeoCrtDesktopShell() {
                 setShowWidgetPanel(true);
                 closeContextMenu();
               } },
+            { label: '▣  Set Wallpaper', action: () => {
+                if (contextMenu) {
+                  const px = Math.min(contextMenu.x, window.innerWidth - 360 - 10);
+                  const py = Math.min(contextMenu.y, window.innerHeight - 480 - 10);
+                  setWallpaperPanelPos({ x: Math.max(10, px), y: Math.max(60, py) });
+                }
+                setShowWallpaperPanel(true);
+                closeContextMenu();
+              } },
             { label: '⟳  Reset Icon Layout', action: () => { resetIconLayout(); closeContextMenu(); } },
             { label: `${uiMode === 'student' ? '◉' : '◎'}  Switch to ${uiMode === 'student' ? 'Legacy' : 'Student'} Mode`, action: () => { toggleUiMode(); closeContextMenu(); } },
           ].map(item => (
@@ -2131,6 +2222,118 @@ export default function NeoCrtDesktopShell() {
               <line x1="3" y1="10" x2="10" y2="3" stroke={`${colors.primary}60`} strokeWidth="1.5"/>
               <line x1="6" y1="10" x2="10" y2="6" stroke={`${colors.primary}60`} strokeWidth="1.5"/>
             </svg>
+          </div>
+        </div>
+      )}
+
+      {/* ── WALLPAPER PICKER PANEL ───────────────────────────────────────── */}
+      {showWallpaperPanel && (
+        <div
+          ref={wallpaperPanelRef}
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+          onContextMenu={e => e.preventDefault()}
+          style={{
+            position: 'fixed',
+            ...(wallpaperPanelPos
+              ? { left: wallpaperPanelPos.x, top: wallpaperPanelPos.y }
+              : { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }),
+            zIndex: 99500,
+            background: '#080808',
+            border: `1px solid ${colors.primary}80`,
+            boxShadow: `0 0 40px rgba(0,0,0,0.9), 0 0 20px ${colors.primary}20`,
+            width: 360,
+            fontFamily: '"Courier New", monospace',
+            userSelect: 'none',
+          }}
+        >
+          {/* Title bar */}
+          <div
+            onMouseDown={e => {
+              e.stopPropagation();
+              if (!wallpaperPanelRef.current) return;
+              const rect = wallpaperPanelRef.current.getBoundingClientRect();
+              wallpaperPanelMoveRef.current = { startMX: e.clientX, startMY: e.clientY, startX: rect.left, startY: rect.top };
+              const onMove = (ev: MouseEvent) => {
+                if (!wallpaperPanelMoveRef.current) return;
+                const dx = ev.clientX - wallpaperPanelMoveRef.current.startMX;
+                const dy = ev.clientY - wallpaperPanelMoveRef.current.startMY;
+                setWallpaperPanelPos({ x: wallpaperPanelMoveRef.current.startX + dx, y: wallpaperPanelMoveRef.current.startY + dy });
+              };
+              const onUp = () => { wallpaperPanelMoveRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+            style={{
+              padding: '8px 12px', background: `${colors.primary}12`, borderBottom: `1px solid ${colors.primary}30`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'move',
+            }}
+          >
+            <span style={{ fontSize: 11, color: colors.primary, letterSpacing: 2, textTransform: 'uppercase' }}>▣ Set Wallpaper</span>
+            <button onClick={() => setShowWallpaperPanel(false)}
+              style={{ background: 'transparent', border: 'none', color: `${colors.primary}60`, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</button>
+          </div>
+
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Preset grid */}
+            <div>
+              <div style={{ fontSize: 9, color: `${colors.primary}50`, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Theme Presets</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                {WALLPAPER_PRESETS.map(preset => {
+                  const isActive = wallpaper === (preset.id === 'none' ? null : `preset:${preset.id}`) || (preset.id === 'none' && !wallpaper);
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => applyWallpaper(preset.id === 'none' ? null : `preset:${preset.id}`)}
+                      title={preset.label}
+                      style={{
+                        background: preset.css || '#000',
+                        border: `2px solid ${isActive ? colors.primary : colors.primary + '25'}`,
+                        borderRadius: 3, cursor: 'pointer', padding: 0, aspectRatio: '16/10', position: 'relative',
+                        boxShadow: isActive ? `0 0 8px ${colors.primary}60` : 'none',
+                      }}
+                    >
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 2 }}>
+                        <span style={{ fontSize: 8, color: isActive ? colors.primary : `${colors.primary}60`, letterSpacing: 0.5, textTransform: 'uppercase', textShadow: '0 1px 3px #000' }}>{preset.label}</span>
+                      </div>
+                      {isActive && (
+                        <div style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: colors.primary }} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom image upload */}
+            <div style={{ borderTop: `1px solid ${colors.primary}20`, paddingTop: 12 }}>
+              <div style={{ fontSize: 9, color: `${colors.primary}50`, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>Custom Image</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  onClick={() => wallpaperFileInputRef.current?.click()}
+                  style={{
+                    flex: 1, padding: '8px 12px', background: `${colors.primary}10`,
+                    border: `1px solid ${colors.primary}40`, color: colors.primary,
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
+                  }}
+                >
+                  Upload Image
+                </button>
+                {wallpaper?.startsWith('image:') && (
+                  <div style={{ fontSize: 9, color: accentColors.green, letterSpacing: 0.5 }}>Custom image active</div>
+                )}
+              </div>
+              {wallpaper?.startsWith('image:') && (
+                <div style={{ marginTop: 8, position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', border: `1px solid ${colors.primary}25` }}>
+                  <img src={wallpaper.slice(6)} alt="Current wallpaper" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />
+                </div>
+              )}
+            </div>
+
+            {/* Overlay opacity note */}
+            <div style={{ fontSize: 9, color: `${colors.primary}30`, letterSpacing: 0.5, fontStyle: 'italic' }}>
+              Custom images use a dark overlay to maintain CRT readability. Presets are native CRT palettes.
+            </div>
           </div>
         </div>
       )}

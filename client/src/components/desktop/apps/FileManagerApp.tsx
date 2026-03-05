@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { virtualFS, VirtualFile } from '@/lib/virtualFilesystem';
 import { moveToTrash } from '@/lib/trashStore';
 import {
   Folder, FileText, ArrowUp, Home, RefreshCw, Lock, FolderPlus,
   Terminal as TerminalIcon, Plus, Trash2, Edit2, X, Check, Copy, Eye, EyeOff,
+  Upload, Download,
 } from 'lucide-react';
 
 export interface FileManagerAppProps {
@@ -35,6 +36,7 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [copySource, setCopySource] = useState<string | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const refreshFiles = useCallback((path?: string) => {
     const target = path ?? currentPath;
@@ -170,6 +172,49 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
     }
   }, [copySource, currentPath, refreshFiles]);
 
+  const handleUploadFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    let imported = 0;
+    let failed = 0;
+    const promises = Array.from(fileList).map(file => {
+      return new Promise<void>(resolve => {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const content = ev.target?.result as string ?? '';
+          const destPath = `${currentPath}/${file.name}`;
+          const result = virtualFS.writeFile(destPath, content);
+          if (result.success) imported++;
+          else failed++;
+          resolve();
+        };
+        reader.onerror = () => { failed++; resolve(); };
+        reader.readAsText(file);
+      });
+    });
+    Promise.all(promises).then(() => {
+      refreshFiles();
+      flash(failed > 0
+        ? `Imported ${imported} file${imported !== 1 ? 's' : ''}, ${failed} failed`
+        : `Imported ${imported} file${imported !== 1 ? 's' : ''}`);
+    });
+    if (uploadInputRef.current) uploadInputRef.current.value = '';
+  }, [currentPath, refreshFiles]);
+
+  const handleDownload = useCallback((file: VirtualFile) => {
+    const result = virtualFS.readFile(file.path);
+    if (!result.success || result.content == null) { flash('Cannot read file for download'); return; }
+    const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    flash(`Downloaded "${file.name}"`);
+  }, []);
+
   const startRename = (file: VirtualFile) => {
     setRenamingPath(file.path);
     setRenameValue(file.name);
@@ -221,6 +266,15 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: colors.background, color: c, fontFamily: '"Courier New", monospace', overflow: 'hidden' }}>
 
+      {/* Hidden file input for upload */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleUploadFiles}
+      />
+
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 8px', borderBottom: `1px solid ${c}30`, background: `${c}06`, flexShrink: 0, flexWrap: 'wrap' }}>
         <button title="Up" onClick={() => navigateTo('..')} disabled={currentPath === '/'} style={{ ...toolBtnStyle, opacity: currentPath === '/' ? 0.4 : 1 }}><ArrowUp size={13} /></button>
@@ -237,6 +291,9 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
           </button>
         )}
 
+        <button title="Upload files from your computer" onClick={() => uploadInputRef.current?.click()} style={{ ...toolBtnStyle, color: accentColors.cyan, borderColor: `${accentColors.cyan}50` }}>
+          <Upload size={12} />UPLOAD
+        </button>
         <button title="New file" onClick={() => { setShowNewFile(!showNewFile); setShowNewFolder(false); }} style={{ ...toolBtnStyle, color: accentColors.green, borderColor: `${accentColors.green}50` }}>
           <Plus size={12} />FILE
         </button>
@@ -363,6 +420,13 @@ export function FileManagerApp({ windowId, onOpenFile, onOpenInWordProcessor }: 
                           style={{ background: 'transparent', border: `1px solid ${c}35`, color: `${c}70`,
                             padding: '2px 5px', cursor: 'pointer' }}>
                           <Copy size={10} />
+                        </button>
+                      )}
+                      {file.type === 'file' && (
+                        <button onClick={() => handleDownload(file)} title="Download to computer"
+                          style={{ background: `${accentColors.cyan}10`, border: `1px solid ${accentColors.cyan}35`,
+                            color: accentColors.cyan, padding: '2px 5px', cursor: 'pointer' }}>
+                          <Download size={10} />
                         </button>
                       )}
                       {file.permissions === 'write' && (
