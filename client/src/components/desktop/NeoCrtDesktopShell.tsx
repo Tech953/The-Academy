@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 import citationIconImg from '@assets/image_1773123805034.png';
+import notebookIconImg from '@assets/image_1773123912858.png';
 import { PostItWidget } from './widgets/PostItWidget';
 import { CalendarEventsWidget } from './widgets/CalendarEventsWidget';
 import { RssFeedWidget } from './widgets/RssFeedWidget';
@@ -244,7 +245,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   // Row 4 — Files & notebook
   { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 4 },
   { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 4 },
-  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 4 },
+  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 4, imageIcon: notebookIconImg },
   // Row 5 — Game & orientation
   { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 5 },
   { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 5 },
@@ -1014,6 +1015,7 @@ export default function NeoCrtDesktopShell() {
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
   const nextZIndexRef = useRef(100);
+  const windowSpawnCounterRef = useRef(0);
   const claimZ = () => { nextZIndexRef.current += 1; return nextZIndexRef.current; };
   const [selectedIcons, setSelectedIcons] = useState<Set<string>>(new Set());
   const [iconLabels, setIconLabels] = useState<Record<string, string>>(() => {
@@ -1629,6 +1631,43 @@ export default function NeoCrtDesktopShell() {
     }
   };
 
+  const computeSpawnPosition = useCallback((width: number, height: number, existingWindows: WindowState[]) => {
+    const sidebarWidth = 120;
+    const taskbarHeight = 80;
+    const availableWidth = viewport.width - sidebarWidth;
+    const availableHeight = viewport.height - taskbarHeight;
+    const centerX = sidebarWidth + (availableWidth - width) / 2;
+    const centerY = (availableHeight - height) / 2;
+
+    const step = 32;
+    const maxSteps = 8;
+    const counter = windowSpawnCounterRef.current;
+    windowSpawnCounterRef.current += 1;
+
+    const windowsOverlap = (ax: number, ay: number) =>
+      existingWindows.some(w => {
+        if (w.isMinimized) return false;
+        const overlapX = ax < w.x + w.width - 40 && ax + width - 40 > w.x;
+        const overlapY = ay < w.y + w.height - 30 && ay + height - 30 > w.y;
+        return overlapX && overlapY;
+      });
+
+    for (let attempt = 0; attempt < maxSteps; attempt++) {
+      const slot = (counter + attempt) % maxSteps;
+      const ox = slot * step;
+      const oy = slot * step;
+      const tx = Math.max(sidebarWidth + 10, Math.min(centerX + ox, viewport.width - width - 20));
+      const ty = Math.max(10, Math.min(centerY + oy, viewport.height - height - taskbarHeight - 20));
+      if (!windowsOverlap(tx, ty)) return { x: tx, y: ty };
+    }
+
+    const fallbackSlot = counter % maxSteps;
+    return {
+      x: Math.max(sidebarWidth + 10, Math.min(centerX + fallbackSlot * step, viewport.width - width - 20)),
+      y: Math.max(10, Math.min(centerY + fallbackSlot * step, viewport.height - height - taskbarHeight - 20)),
+    };
+  }, [viewport]);
+
   const openWindowWithParams = useCallback((windowId: string, appId: string, params: Record<string, unknown>) => {
     const existingWindow = windows.find(w => w.id === windowId);
     if (existingWindow) {
@@ -1641,23 +1680,14 @@ export default function NeoCrtDesktopShell() {
     }
     const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId, params);
     const iconConfig = [...DESKTOP_ICONS, ...TASKBAR_QUICK_APPS, ...HIDDEN_APPS].find(i => i.id === appId);
-    const sidebarWidth = 120;
-    const taskbarHeight = 80;
-    const availableWidth = viewport.width - sidebarWidth;
-    const availableHeight = viewport.height - taskbarHeight;
-    const centerX = sidebarWidth + (availableWidth - width) / 2;
-    const centerY = (availableHeight - height) / 2;
-    const offsetX = (windows.length % 5) * 25;
-    const offsetY = (windows.length % 5) * 25;
-    const x = Math.max(sidebarWidth + 10, Math.min(centerX + offsetX, viewport.width - width - 20));
-    const y = Math.max(10, Math.min(centerY + offsetY, viewport.height - height - taskbarHeight - 20));
+    const { x, y } = computeSpawnPosition(width, height, windows);
     const z = claimZ();
     setWindows(prev => [...prev, {
       id: windowId, title, iconType: iconConfig?.iconType || 'file', component,
       x, y, width, height, minWidth, minHeight, isMinimized: false, isMaximized: false, zIndex: z,
     }]);
     setFocusedWindowId(windowId);
-  }, [windows, viewport]);
+  }, [windows, viewport, computeSpawnPosition]);
 
   const openWindow = useCallback((appId: string) => {
     if (appId === 'academy') {
@@ -1679,21 +1709,7 @@ export default function NeoCrtDesktopShell() {
 
     const { component, title, width, height, minWidth, minHeight } = getAppComponent(appId);
     const iconConfig = [...DESKTOP_ICONS, ...TASKBAR_QUICK_APPS, ...HIDDEN_APPS].find(i => i.id === appId);
-    
-    const sidebarWidth = 120;
-    const taskbarHeight = 80;
-    const availableWidth = viewport.width - sidebarWidth;
-    const availableHeight = viewport.height - taskbarHeight;
-    
-    const centerX = sidebarWidth + (availableWidth - width) / 2;
-    const centerY = (availableHeight - height) / 2;
-    
-    const offsetX = (windows.length % 5) * 25;
-    const offsetY = (windows.length % 5) * 25;
-    
-    const x = Math.max(sidebarWidth + 10, Math.min(centerX + offsetX, viewport.width - width - 20));
-    const y = Math.max(10, Math.min(centerY + offsetY, viewport.height - height - taskbarHeight - 20));
-
+    const { x, y } = computeSpawnPosition(width, height, windows);
     const z = claimZ();
     const newWindow: WindowState = {
       id: appId,
@@ -1713,7 +1729,7 @@ export default function NeoCrtDesktopShell() {
 
     setWindows(prev => [...prev, newWindow]);
     setFocusedWindowId(appId);
-  }, [windows, viewport]);
+  }, [windows, viewport, computeSpawnPosition]);
 
   const closeWindow = useCallback((id: string) => {
     setWindows(prev => prev.filter(w => w.id !== id));
