@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface FeedItem {
   title: string;
@@ -28,12 +28,52 @@ const CACHE_KEY = 'academy-rss-cache';
 
 interface CacheEntry { node: string; items: FeedItem[]; ts: number; }
 
+function CopyUrlButton({ url, color }: { url: string; color: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={copied ? 'Copied!' : `Copy URL: ${url}`}
+      style={{
+        background: copied ? `${color}25` : 'none',
+        border: `1px solid ${copied ? color : color + '30'}`,
+        color: copied ? color : `${color}55`,
+        cursor: 'pointer',
+        padding: '1px 4px',
+        fontFamily: 'monospace',
+        fontSize: 7,
+        letterSpacing: 0.3,
+        borderRadius: 2,
+        flexShrink: 0,
+        lineHeight: 1.5,
+        transition: 'color 0.15s, border-color 0.15s, background 0.15s',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {copied ? '✓ COPIED' : 'URL'}
+    </button>
+  );
+}
+
 export function RssFeedWidget({ primaryColor, accentCyan, accentAmber }: RssFeedWidgetProps) {
   const [activeNode, setActiveNode] = useState<string>(() => localStorage.getItem(STORAGE_KEY) ?? 'nasa');
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSelector, setShowSelector] = useState(false);
+  const [expandedUrl, setExpandedUrl] = useState<number | null>(null);
 
   const node = FEED_NODES.find(f => f.id === activeNode) ?? FEED_NODES[0];
 
@@ -186,6 +226,7 @@ export function RssFeedWidget({ primaryColor, accentCyan, accentAmber }: RssFeed
                   fontFamily: 'monospace',
                   textDecoration: 'none',
                   lineHeight: 1.3,
+                  flex: 1,
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
@@ -194,10 +235,43 @@ export function RssFeedWidget({ primaryColor, accentCyan, accentAmber }: RssFeed
               >
                 {item.title}
               </a>
+              <CopyUrlButton url={item.link} color={primaryColor} />
             </div>
-            {item.pubDate && (
-              <div style={{ fontSize: 7, color: `${primaryColor}35`, marginTop: 1, marginLeft: 10 }}>
-                {new Date(item.pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {/* Toggleable URL preview strip */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, marginLeft: 10 }}>
+              {item.pubDate && (
+                <span style={{ fontSize: 7, color: `${primaryColor}35` }}>
+                  {new Date(item.pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); setExpandedUrl(expandedUrl === i ? null : i); }}
+                style={{ background: 'none', border: 'none', color: `${primaryColor}30`, fontSize: 7, cursor: 'pointer', padding: 0, fontFamily: 'monospace', letterSpacing: 0.3 }}
+                title={expandedUrl === i ? 'Hide URL' : 'Show URL'}
+              >
+                {expandedUrl === i ? '▲ hide' : '▾ link'}
+              </button>
+            </div>
+            {expandedUrl === i && (
+              <div style={{ marginTop: 3, marginLeft: 10, marginRight: 2 }}>
+                <div
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    background: `${primaryColor}08`,
+                    border: `1px solid ${primaryColor}20`,
+                    borderRadius: 2,
+                    padding: '3px 5px',
+                    fontSize: 7,
+                    color: accentCyan,
+                    fontFamily: 'monospace',
+                    wordBreak: 'break-all',
+                    lineHeight: 1.5,
+                    userSelect: 'text',
+                    cursor: 'text',
+                  }}
+                >
+                  {item.link}
+                </div>
               </div>
             )}
           </div>
