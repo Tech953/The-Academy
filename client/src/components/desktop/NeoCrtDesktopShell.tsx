@@ -92,7 +92,7 @@ const GRID_MARGIN_Y = 12;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 82;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v7';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v8';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -131,11 +131,13 @@ function pixelToGrid(x: number, y: number): { col: number; row: number } {
   };
 }
 
+// Align to 8px soft grid, clamp to viewport — no column constraint
 function snapPixelToGrid(x: number, y: number, vw: number, vh: number): { x: number; y: number } {
-  const { col, row } = pixelToGrid(x, y);
-  const maxCol = Math.max(0, Math.floor((vw - GRID_MARGIN_X) / GRID_CELL_W) - 1);
-  const maxRow = Math.max(0, Math.floor((vh - TASKBAR_RESERVE - GRID_MARGIN_Y) / GRID_CELL_H) - 1);
-  return gridToPixel(Math.min(col, maxCol), Math.min(row, maxRow));
+  const SNAP = 8;
+  return {
+    x: Math.max(4, Math.min(vw - ICON_W - 4, Math.round(x / SNAP) * SNAP)),
+    y: Math.max(4, Math.min(vh - ICON_H - TASKBAR_RESERVE, Math.round(y / SNAP) * SNAP)),
+  };
 }
 
 const COLLISION_GAP = 8;
@@ -180,28 +182,31 @@ function findNearestFreePosition(
     });
 
   if (isIcon) {
-    // Search outward through grid cells — always stay on the grid
-    const { col: startCol, row: startRow } = pixelToGrid(targetX, targetY);
-    const maxCol = Math.max(0, Math.floor((vw - GRID_MARGIN_X) / GRID_CELL_W) - 1);
-    const maxRow = Math.max(0, Math.floor((vh - TASKBAR_RESERVE - GRID_MARGIN_Y) / GRID_CELL_H) - 1);
+    // Free-form search: try the target first, then spiral outward in pixel steps
+    const STEP = ICON_W + COLLISION_GAP; // ~100px per search ring
+    const clampX = (px: number) => Math.max(4, Math.min(vw - w - 4, px));
+    const clampY = (py: number) => Math.max(4, Math.min(vh - h - TASKBAR_RESERVE, py));
+    const cx = clampX(targetX);
+    const cy = clampY(targetY);
+    if (!hasCollision(cx, cy)) return { x: cx, y: cy };
 
-    for (let ring = 0; ring <= 14; ring++) {
-      // Walk the perimeter of the ring in row-major order
-      for (let dr = -ring; dr <= ring; dr++) {
-        for (let dc = -ring; dc <= ring; dc++) {
-          if (Math.abs(dr) !== ring && Math.abs(dc) !== ring) continue;
-          const col = Math.max(0, Math.min(maxCol, startCol + dc));
-          const row = Math.max(0, Math.min(maxRow, startRow + dr));
-          const { x, y } = gridToPixel(col, row);
-          if (!hasCollision(x, y)) return { x, y };
+    for (let ring = 1; ring <= 10; ring++) {
+      const offsets: [number, number][] = [];
+      for (let i = -ring; i <= ring; i++) {
+        offsets.push([i * STEP, -ring * STEP]);
+        offsets.push([i * STEP,  ring * STEP]);
+        if (Math.abs(i) < ring) {
+          offsets.push([-ring * STEP, i * STEP]);
+          offsets.push([ ring * STEP, i * STEP]);
         }
       }
+      for (const [dx, dy] of offsets) {
+        const px = clampX(targetX + dx);
+        const py = clampY(targetY + dy);
+        if (!hasCollision(px, py)) return { x: px, y: py };
+      }
     }
-    // Fallback: return the snapped start position
-    return gridToPixel(
-      Math.max(0, Math.min(maxCol, startCol)),
-      Math.max(0, Math.min(maxRow, startRow)),
-    );
+    return { x: cx, y: cy };
   } else {
     // For widgets: simple clamp, no grid snapping needed
     const clamped = {
@@ -287,6 +292,13 @@ function getDefaultPositions(): Record<string, { x: number; y: number }> {
   return positions;
 }
 
+function clampPosition(x: number, y: number, vw: number, vh: number): { x: number; y: number } {
+  return {
+    x: Math.max(4, Math.min(vw - ICON_W - 4, x)),
+    y: Math.max(4, Math.min(vh - ICON_H - TASKBAR_RESERVE, y)),
+  };
+}
+
 function loadIconPositions(): Record<string, { x: number; y: number }> {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -294,20 +306,15 @@ function loadIconPositions(): Record<string, { x: number; y: number }> {
     const stored = localStorage.getItem(DESKTOP_POSITIONS_KEY);
     const defaults = getDefaultPositions();
     const raw = stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
-    // Snap every position to valid grid cells for the current viewport
-    const snapped: Record<string, { x: number; y: number }> = {};
+    // Only clamp to viewport — no grid re-snapping so saved positions are preserved exactly
+    const clamped: Record<string, { x: number; y: number }> = {};
     for (const [id, pos] of Object.entries(raw)) {
-      snapped[id] = snapPixelToGrid((pos as { x: number; y: number }).x, (pos as { x: number; y: number }).y, vw, vh);
+      const p = pos as { x: number; y: number };
+      clamped[id] = clampPosition(p.x, p.y, vw, vh);
     }
-    return snapped;
+    return clamped;
   } catch {/* ignore */}
-  // Fallback: snap defaults
-  const defaults = getDefaultPositions();
-  const snapped: Record<string, { x: number; y: number }> = {};
-  for (const [id, pos] of Object.entries(defaults)) {
-    snapped[id] = snapPixelToGrid(pos.x, pos.y, vw, vh);
-  }
-  return snapped;
+  return getDefaultPositions();
 }
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
