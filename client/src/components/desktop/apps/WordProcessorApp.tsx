@@ -533,6 +533,8 @@ const MARGIN_PRESETS: Record<string, { label: string; h: number; v: number }> = 
   moderate: { label: 'Moderate (0.75")',h: 54,  v: 54 },
 };
 
+type PageNumberPos = 'none' | 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
 interface DocFormat {
   fontFamily: string;
   fontSize: number;
@@ -540,6 +542,13 @@ interface DocFormat {
   marginPreset: string;
   spellCheck: boolean;
   orientation: 'portrait' | 'landscape';
+  headerEnabled: boolean;
+  footerEnabled: boolean;
+  headerText: string;
+  footerText: string;
+  pageNumberPos: PageNumberPos;
+  pageNumberStart: number;
+  differentFirstPage: boolean;
 }
 const DEFAULT_FMT: DocFormat = {
   fontFamily: "Georgia, 'Times New Roman', serif",
@@ -548,9 +557,96 @@ const DEFAULT_FMT: DocFormat = {
   marginPreset: 'normal',
   spellCheck: true,
   orientation: 'portrait',
+  headerEnabled: false,
+  footerEnabled: false,
+  headerText: '',
+  footerText: '',
+  pageNumberPos: 'none',
+  pageNumberStart: 1,
+  differentFirstPage: false,
 };
 
 // ─── Ribbon sub-components ──────────────────────────────────────────────────────
+
+const PAGE_NUM_OPTIONS: { label: string; val: PageNumberPos }[] = [
+  { label: '— None',          val: 'none' },
+  { label: '↖ Top Left',      val: 'top-left' },
+  { label: '↑ Top Center',    val: 'top-center' },
+  { label: '↗ Top Right',     val: 'top-right' },
+  { label: '↙ Bottom Left',   val: 'bottom-left' },
+  { label: '↓ Bottom Center', val: 'bottom-center' },
+  { label: '↘ Bottom Right',  val: 'bottom-right' },
+];
+
+function HeaderFooterGroup({ fmt, onFmt }: { fmt: DocFormat; onFmt: (u: Partial<DocFormat>) => void }) {
+  const [showPnMenu, setShowPnMenu] = useState(false);
+
+  const toggleHeader = () => {
+    const next = !fmt.headerEnabled;
+    onFmt({ headerEnabled: next });
+  };
+  const toggleFooter = () => {
+    const next = !fmt.footerEnabled;
+    onFmt({ footerEnabled: next });
+  };
+  const setPnPos = (val: PageNumberPos) => {
+    setShowPnMenu(false);
+    if (val.startsWith('top'))         onFmt({ pageNumberPos: val, headerEnabled: true });
+    else if (val.startsWith('bottom')) onFmt({ pageNumberPos: val, footerEnabled: true });
+    else                               onFmt({ pageNumberPos: val });
+  };
+
+  return (
+    <RibbonGroup label="Header & Footer">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Header + Footer toggle row */}
+        <div style={{ display: 'flex', gap: 3 }}>
+          <button onMouseDown={e => { e.preventDefault(); toggleHeader(); }}
+            title={fmt.headerEnabled ? 'Close Header' : 'Edit Header'}
+            style={{ ...(fmt.headerEnabled ? TBActive : TB), fontSize: 10, padding: '2px 9px', whiteSpace: 'nowrap' }}>
+            Header {fmt.headerEnabled ? '▲' : '▾'}
+          </button>
+          <button onMouseDown={e => { e.preventDefault(); toggleFooter(); }}
+            title={fmt.footerEnabled ? 'Close Footer' : 'Edit Footer'}
+            style={{ ...(fmt.footerEnabled ? TBActive : TB), fontSize: 10, padding: '2px 9px', whiteSpace: 'nowrap' }}>
+            Footer {fmt.footerEnabled ? '▲' : '▾'}
+          </button>
+        </div>
+        {/* Page Number dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button onMouseDown={e => { e.preventDefault(); setShowPnMenu(v => !v); }}
+            title="Insert page number"
+            style={{ ...(fmt.pageNumberPos !== 'none' ? TBActive : TB), fontSize: 10, padding: '2px 9px', whiteSpace: 'nowrap', width: '100%' }}>
+            Page # {fmt.pageNumberPos !== 'none' ? `(${fmt.pageNumberPos.replace('top-','↑').replace('bottom-','↓')})` : '▾'}
+          </button>
+          {showPnMenu && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 700, background: '#252525', border: '1px solid #444', minWidth: 170, boxShadow: '0 6px 18px rgba(0,0,0,0.5)', borderRadius: 4 }}>
+              {PAGE_NUM_OPTIONS.map(opt => (
+                <button key={opt.val} onMouseDown={e => { e.preventDefault(); setPnPos(opt.val); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', background: fmt.pageNumberPos === opt.val ? '#2e3c50' : 'transparent', border: 'none', borderBottom: '1px solid #333', color: fmt.pageNumberPos === opt.val ? '#7cb9e8' : '#ccc', fontFamily: 'system-ui', fontSize: 11, padding: '7px 12px', cursor: 'pointer' }}>
+                  {opt.label}
+                </button>
+              ))}
+              <div style={{ padding: '6px 12px', borderTop: '1px solid #333', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 9, color: '#888' }}>Start #</span>
+                <input type="number" min={0} max={999} value={fmt.pageNumberStart}
+                  onChange={e => onFmt({ pageNumberStart: Math.max(0, parseInt(e.target.value) || 1) })}
+                  style={{ width: 44, background: '#111', border: '1px solid #444', color: '#ccc', fontSize: 11, padding: '2px 5px', borderRadius: 3 }} />
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Different first page */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+          <input type="checkbox" checked={fmt.differentFirstPage}
+            onChange={e => onFmt({ differentFirstPage: e.target.checked })}
+            style={{ accentColor: D.accent }} />
+          <span style={{ fontSize: 9, color: D.textDim, whiteSpace: 'nowrap' }}>Diff. first page</span>
+        </label>
+      </div>
+    </RibbonGroup>
+  );
+}
 
 function RibbonGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -847,6 +943,9 @@ function RibbonBar({
             style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap', color: D.textDim }}>H. Rule</button>
         </div>
       </RibbonGroup>
+
+      {/* ── Header & Footer ── */}
+      <HeaderFooterGroup fmt={fmt} onFmt={onFmt} />
 
       <RibbonGroup label="Symbols">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, maxWidth: 160 }}>
@@ -1373,91 +1472,184 @@ export function WordProcessorApp() {
         {/* ── Page canvas ── */}
         <div style={{ flex: 1, overflowY: 'auto', background: D.paperBg, padding: '28px 32px 48px' }}>
 
-          {/* Paper sheet — dimensions + typography driven by fmt state */}
-          <div style={{
-            maxWidth: fmt.orientation === 'landscape' ? 1020 : 720,
-            margin: '0 auto',
-            background: D.paper,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.2)',
-            padding: `${MARGIN_PRESETS[fmt.marginPreset]?.v ?? 64}px ${MARGIN_PRESETS[fmt.marginPreset]?.h ?? 72}px`,
-            minHeight: fmt.orientation === 'landscape' ? 640 : 960,
-            position: 'relative',
-            fontFamily: fmt.fontFamily,
-            fontSize: fmt.fontSize,
-            lineHeight: fmt.lineSpacing,
-          }}>
+          {/* Paper sheet — flex column so header/footer zones sit outside body padding */}
+          {(() => {
+            const mH = MARGIN_PRESETS[fmt.marginPreset]?.h ?? 72;
+            const mV = MARGIN_PRESETS[fmt.marginPreset]?.v ?? 64;
+            const pageNum = fmt.pageNumberStart;
+            const pageNumStr = String(pageNum);
+            const pnPos = fmt.pageNumberPos;
+            const pnAlign = pnPos.endsWith('left') ? 'left' : pnPos.endsWith('right') ? 'right' : 'center';
+            const isTopPn    = pnPos.startsWith('top');
+            const isBottomPn = pnPos.startsWith('bottom');
 
-            {/* Document title */}
-            <input
-              value={doc.title}
-              onChange={e => {
-                const updated = { ...doc, title: e.target.value };
-                setDoc(updated);
-                queueSave(updated, currentPath);
-              }}
-              placeholder="Untitled Document"
-              style={{
-                display: 'block', width: '100%', background: 'transparent', border: 'none', outline: 'none',
-                fontSize: 28, fontWeight: '700', color: '#0a0a0a', marginBottom: 6,
-                fontFamily: "Georgia, 'Times New Roman', serif",
-                letterSpacing: -0.5,
-                borderBottom: '2px solid #e8e8e8', paddingBottom: 8,
-              }}
-            />
+            const zoneStyle: React.CSSProperties = {
+              position: 'relative', padding: `10px ${mH}px`,
+              fontFamily: fmt.fontFamily, fontSize: Math.max(10, fmt.fontSize - 2),
+            };
+            const pageNumEl = (pos: 'top' | 'bottom') => {
+              const active = (pos === 'top' && isTopPn) || (pos === 'bottom' && isBottomPn);
+              if (!active) return null;
+              return (
+                <div style={{
+                  textAlign: pnAlign as any, color: '#999', fontSize: 10,
+                  fontFamily: fmt.fontFamily, pointerEvents: 'none',
+                  position: 'absolute', left: mH, right: mH,
+                  ...(pos === 'top' ? { bottom: 10 } : { top: 10 }),
+                }}>
+                  {pageNumStr}
+                </div>
+              );
+            };
 
-            {/* Subject + Tags row */}
-            <div style={{ display: 'flex', gap: 20, marginBottom: 28, marginTop: 8 }}>
-              <input
-                value={doc.subject}
-                onChange={e => { const u = { ...doc, subject: e.target.value }; setDoc(u); queueSave(u, currentPath); }}
-                placeholder="Subject"
-                style={{ background: 'transparent', border: 'none', outline: 'none', borderBottom: '1px solid #e0e0e0',
-                  color: '#666', fontFamily: 'system-ui', fontSize: 11, padding: '2px 0', width: 140 }}
-              />
-              <input
-                value={doc.tags?.join(', ') ?? ''}
-                onChange={e => { const u = { ...doc, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }; setDoc(u); queueSave(u, currentPath); }}
-                placeholder="Tags (comma separated)"
-                style={{ background: 'transparent', border: 'none', outline: 'none', borderBottom: '1px solid #e0e0e0',
-                  color: '#888', fontFamily: 'system-ui', fontSize: 11, padding: '2px 0', flex: 1 }}
-              />
-            </div>
+            return (
+              <div style={{
+                maxWidth: fmt.orientation === 'landscape' ? 1020 : 720,
+                margin: '0 auto',
+                background: D.paper,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.2)',
+                minHeight: fmt.orientation === 'landscape' ? 640 : 960,
+                display: 'flex', flexDirection: 'column',
+                fontFamily: fmt.fontFamily, fontSize: fmt.fontSize, lineHeight: fmt.lineSpacing,
+              }}>
 
-            {/* Block list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {doc.blocks.map((block, idx) => (
-                <BlockRow
-                  key={block.id}
-                  block={block}
-                  focused={focusedId === block.id}
-                  onFocus={() => setFocusedId(block.id)}
-                  onChange={u => updateBlock(block.id, u)}
-                  onDelete={() => deleteBlock(block.id)}
-                  onNewBelow={() => addBlock(block.id)}
-                  onFocusPrev={() => focusPrev(block.id)}
-                  blockRef={el => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
-                  typeMenuOpen={typeMenuId === block.id}
-                  onToggleTypeMenu={() => setTypeMenuId(prev => prev === block.id ? null : block.id)}
-                  onCloseTypeMenu={() => setTypeMenuId(null)}
-                />
-              ))}
-            </div>
+                {/* ── Header zone ── */}
+                {fmt.headerEnabled && (
+                  <div style={{
+                    ...zoneStyle, borderBottom: '1px dashed #c8c8c8',
+                    minHeight: 52, display: 'flex', alignItems: 'center',
+                  }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <textarea
+                        rows={1}
+                        value={fmt.headerText}
+                        onChange={e => onFmt({ headerText: e.target.value })}
+                        placeholder="Type header text…"
+                        style={{
+                          display: 'block', width: '100%', background: 'transparent', border: 'none',
+                          outline: 'none', resize: 'none', overflow: 'hidden', color: '#555',
+                          fontFamily: fmt.fontFamily, fontSize: Math.max(10, fmt.fontSize - 2),
+                          lineHeight: 1.4, padding: 0,
+                        }}
+                        onInput={e => {
+                          const t = e.currentTarget;
+                          t.style.height = 'auto';
+                          t.style.height = t.scrollHeight + 'px';
+                        }}
+                      />
+                    </div>
+                    {pageNumEl('top')}
+                    <span style={{ position: 'absolute', top: 6, right: mH, fontSize: 8, color: '#ccc', letterSpacing: 1, fontFamily: 'system-ui', userSelect: 'none' }}>HEADER</span>
+                  </div>
+                )}
 
-            {/* Add block button */}
-            <button
-              onClick={() => addBlockAtEnd()}
-              style={{
-                display: 'block', width: '100%', marginTop: 20, background: 'transparent',
-                border: '1px dashed #d0d0d0', color: '#bbb', fontFamily: 'system-ui', fontSize: 11,
-                padding: '8px 0', cursor: 'pointer', borderRadius: 3,
-                transition: 'border-color 0.15s, color 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#aaa'; (e.currentTarget as HTMLButtonElement).style.color = '#888'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d0d0d0'; (e.currentTarget as HTMLButtonElement).style.color = '#bbb'; }}
-            >
-              + Add Block
-            </button>
-          </div>
+                {/* ── Body ── */}
+                <div style={{ flex: 1, padding: `${mV}px ${mH}px` }}>
+
+                  {/* Document title */}
+                  <input
+                    value={doc.title}
+                    onChange={e => {
+                      const updated = { ...doc, title: e.target.value };
+                      setDoc(updated);
+                      queueSave(updated, currentPath);
+                    }}
+                    placeholder="Untitled Document"
+                    style={{
+                      display: 'block', width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                      fontSize: 28, fontWeight: '700', color: '#0a0a0a', marginBottom: 6,
+                      fontFamily: "Georgia, 'Times New Roman', serif",
+                      letterSpacing: -0.5,
+                      borderBottom: '2px solid #e8e8e8', paddingBottom: 8,
+                    }}
+                  />
+
+                  {/* Subject + Tags row */}
+                  <div style={{ display: 'flex', gap: 20, marginBottom: 28, marginTop: 8 }}>
+                    <input
+                      value={doc.subject}
+                      onChange={e => { const u = { ...doc, subject: e.target.value }; setDoc(u); queueSave(u, currentPath); }}
+                      placeholder="Subject"
+                      style={{ background: 'transparent', border: 'none', outline: 'none', borderBottom: '1px solid #e0e0e0',
+                        color: '#666', fontFamily: 'system-ui', fontSize: 11, padding: '2px 0', width: 140 }}
+                    />
+                    <input
+                      value={doc.tags?.join(', ') ?? ''}
+                      onChange={e => { const u = { ...doc, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }; setDoc(u); queueSave(u, currentPath); }}
+                      placeholder="Tags (comma separated)"
+                      style={{ background: 'transparent', border: 'none', outline: 'none', borderBottom: '1px solid #e0e0e0',
+                        color: '#888', fontFamily: 'system-ui', fontSize: 11, padding: '2px 0', flex: 1 }}
+                    />
+                  </div>
+
+                  {/* Block list */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {doc.blocks.map((block) => (
+                      <BlockRow
+                        key={block.id}
+                        block={block}
+                        focused={focusedId === block.id}
+                        onFocus={() => setFocusedId(block.id)}
+                        onChange={u => updateBlock(block.id, u)}
+                        onDelete={() => deleteBlock(block.id)}
+                        onNewBelow={() => addBlock(block.id)}
+                        onFocusPrev={() => focusPrev(block.id)}
+                        blockRef={el => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
+                        typeMenuOpen={typeMenuId === block.id}
+                        onToggleTypeMenu={() => setTypeMenuId(prev => prev === block.id ? null : block.id)}
+                        onCloseTypeMenu={() => setTypeMenuId(null)}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Add block button */}
+                  <button
+                    onClick={() => addBlockAtEnd()}
+                    style={{
+                      display: 'block', width: '100%', marginTop: 20, background: 'transparent',
+                      border: '1px dashed #d0d0d0', color: '#bbb', fontFamily: 'system-ui', fontSize: 11,
+                      padding: '8px 0', cursor: 'pointer', borderRadius: 3,
+                      transition: 'border-color 0.15s, color 0.15s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#aaa'; (e.currentTarget as HTMLButtonElement).style.color = '#888'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d0d0d0'; (e.currentTarget as HTMLButtonElement).style.color = '#bbb'; }}
+                  >
+                    + Add Block
+                  </button>
+                </div>
+
+                {/* ── Footer zone ── */}
+                {fmt.footerEnabled && (
+                  <div style={{
+                    ...zoneStyle, borderTop: '1px dashed #c8c8c8',
+                    minHeight: 52, display: 'flex', alignItems: 'center',
+                  }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <textarea
+                        rows={1}
+                        value={fmt.footerText}
+                        onChange={e => onFmt({ footerText: e.target.value })}
+                        placeholder="Type footer text…"
+                        style={{
+                          display: 'block', width: '100%', background: 'transparent', border: 'none',
+                          outline: 'none', resize: 'none', overflow: 'hidden', color: '#555',
+                          fontFamily: fmt.fontFamily, fontSize: Math.max(10, fmt.fontSize - 2),
+                          lineHeight: 1.4, padding: 0,
+                        }}
+                        onInput={e => {
+                          const t = e.currentTarget;
+                          t.style.height = 'auto';
+                          t.style.height = t.scrollHeight + 'px';
+                        }}
+                      />
+                    </div>
+                    {pageNumEl('bottom')}
+                    <span style={{ position: 'absolute', bottom: 6, right: mH, fontSize: 8, color: '#ccc', letterSpacing: 1, fontFamily: 'system-ui', userSelect: 'none' }}>FOOTER</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── Status bar ── */}
