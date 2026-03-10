@@ -1,5 +1,5 @@
 # Overview
-"The Academy" is an interactive text-based RPG set in a mysterious private school. It blends nostalgic gameplay, interactive storytelling, and educational content, offering a personalized experience through AI within a "Academy OS" with a Neo-CRT aesthetic. The project aims to provide an immersive, educational, and engaging experience, targeting both gaming and educational technology markets, with a vision to become a leading platform for gamified learning.
+"The Academy" is an interactive text-based RPG set in a private school, offering a blend of nostalgic gameplay, interactive storytelling, and educational content. It provides a personalized experience through AI within an "Academy OS" featuring a Neo-CRT aesthetic. The project aims to deliver an immersive, educational, and engaging experience, targeting both gaming and educational technology markets, with a vision to become a leading platform for gamified learning.
 
 # User Preferences
 Preferred communication style: Simple, everyday language.
@@ -7,71 +7,52 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-The frontend is a React with TypeScript single-page application utilizing a "Neo-CRT Academy OS Wrapper" for a retro-modern design. It features responsive layouts, multi-window management, customizable sidebar and taskbar, and a terminal-first game window. Styling is handled by Tailwind CSS, shadcn/ui components, and Lucide React. Server state is managed with React Query. A Dual-Mode UI System allows switching between Legacy (terminal-first) and Student (clickable windows) modes. Core OS systems include a Linux-style Virtual Filesystem and an App Manifest System. State persistence is managed via `localStorage`.
+The frontend is a React with TypeScript single-page application, featuring a "Neo-CRT Academy OS Wrapper" for a retro-modern design. It includes responsive layouts, multi-window management, customizable UI elements, and a terminal-first game window. Styling uses Tailwind CSS, shadcn/ui components, and Lucide React. Server state is managed with React Query. A Dual-Mode UI System supports both Legacy (terminal-first) and Student (clickable windows) modes. Core OS systems include a Linux-style Virtual Filesystem and an App Manifest System. State persistence is managed via `localStorage`.
 
-## AI Description Engine — Education-Aware Narrative
-The text adventure's descriptive language is enhanced by a server-side OpenAI endpoint (`POST /api/ai/describe`). It operates in two modes:
-- **Location mode** (`LOOK` command): After the base location description renders, a 2–4 sentence AI-generated paragraph adds atmospheric, sensory, and educationally-inflected flavor text — connecting the room's physical details to themes of knowledge, study, and intellectual curiosity. Uses `gpt-4.1-mini` with a Neo-Gothic academic system prompt.
-- **Examine mode** (`EXAMINE` command): Replaces the previous hardcoded switch statement with AI-generated 2–3 sentence contextual descriptions for any interactable object. A `[ examining... ]` placeholder appears while the AI generates, then is replaced by the result.
-Both modes cache results client-side (per location + target) so repeat visits and examines don't re-call the API. A `'narrative'` terminal line type (rendered italic in soft purple) visually distinguishes AI flavor text from system output and base descriptions.
+## AI Description Engine
+A server-side OpenAI endpoint enhances the text adventure's descriptive language in two modes: "Location mode" for atmospheric flavor text and "Examine mode" for contextual object descriptions. Both modes utilize `gpt-4.1-mini` and cache results client-side.
 
 ## Radiant AI System
-This comprehensive NPC AI system provides autonomous behavior, procedural generation, and emergent social dynamics. NPCs have stats, personality, emotions, memory, and affiliations, managed by Goals, Relationships, and Schedule Systems. A Decision Engine processes information to output actions, and a Dialogue System enables autonomous, context-aware conversations. World Events and Event Chaining influence NPC behavior, leading to Adaptive Goal Evolution, an Emergent Faction System, and Procedural NPC Generation.
+This comprehensive NPC AI system provides autonomous behavior, procedural generation, and emergent social dynamics. NPCs have stats, personality, emotions, memory, and affiliations, managed by Goals, Relationships, and Schedule Systems. A Decision Engine and Dialogue System enable context-aware conversations. World Events influence behavior, leading to Adaptive Goal Evolution, an Emergent Faction System, and Procedural NPC Generation.
 
 ## NPC AI Dialogue System
-Every NPC conversation is powered by GPT-4.1-mini via `POST /api/npc-dialogue`. The system supports:
-- **Rich system prompt**: built from full RadiantAI NPC entity — personality (OCEAN traits), emotions, faction, specialty, quirks, backstory, goals, club, secret society, relationship type with player, known static topics (as lore anchors)
-- **Free-form conversation**: any typed input while in conversation is routed to the AI — no more "I don't know much about that"
-- **Thinking placeholder**: `[ NPC is thinking... ]` replaces itself with the AI response
-- **Player echo**: `You: "..."` appears before each NPC response for immersion
-- **Topic suggestions**: shown every 2nd exchange to guide conversation
+Every NPC conversation is powered by GPT-4.1-mini, utilizing rich system prompts based on NPC entities. It supports free-form conversation, thinking placeholders, player echoes, and topic suggestions to guide interaction.
 
-## NPC Persistent Memory System (`client/src/lib/npcMemoryStore.ts`)
-Full-playthrough NPC memory tracked in `localStorage` under key `academy-npc-mem-v1`. Structure: `{ [characterId]: { [npcId]: NPCMemoryLog } }`. Features:
-- **`NPCMemoryLog`**: stores all conversation entries with timestamps, topics, locations, session IDs, plus aggregate metadata (firstMet, lastInteraction, totalExchanges, sessionCount, topicsDiscussed, locations)
-- **Session detection**: each page load generates a new `sessionIdRef`, so the store can distinguish cross-session re-encounters and bump `sessionCount`
-- **`getMemorySummary()`**: generates a natural-language paragraph of relationship history (time since meeting, topics discussed, exchange count, memorable quotes) injected into the NPC system prompt
-- **`getConvHistoryForAI()`**: returns last 30 messages from all-time history as the OpenAI messages array (conversation memory within and across sessions)
-- **`getEncounterNote()`**: returns a terminal system line when an NPC is re-encountered (`[ Niardir recognises you — last spoke 2 days ago. ]`)
-- **RadiantAI integration**: each exchange also writes a `MemoryEntry` to the NPC's RadiantAI entity (type: `interaction`, with subject, description, importance score) via `addNPCMemory()` and `radiantAISingleton.updateNPC()`
-- **Fallback persistence**: static topic text is stored to memory even if AI is unavailable
+## NPC Persistent Memory System
+NPC memory is tracked in `localStorage` storing conversation entries with timestamps, topics, and locations. It supports session detection, generates natural-language relationship summaries for AI prompts, provides conversation history for AI, and displays re-encounter notes. This system integrates with RadiantAI for detailed interaction logging.
 
-## Resonance System (Physics-Based Narrative Engine)
-This system provides emergent narrative through energy transference, relational space, and quantum-inspired mechanics. Actions emit energy along multiple axes that propagates through a graph of nodes (NPCs, locations, concepts). Nodes transform energy based on their force types. Quantum-inspired mechanics (superposition, observation, phase evolution) and a Geometric Manifold System influence energy propagation. A Skill System tracks Excellence, Efficacy, and Perception, influenced by energy types.
-
-## NPC Social Network
-The `NPCDirectoryPanel` in ChatLink and Academy Email apps allows players to view, search, and filter RadiantAI NPCs. Affinity Gates determine interaction possibilities, modulating interaction quality based on NPC affinity.
+## Resonance System
+This system provides emergent narrative through energy transference and relational space. Actions emit energy across multiple axes, propagating through a graph of nodes (NPCs, locations, concepts). Quantum-inspired mechanics and a Geometric Manifold System influence energy propagation. A Skill System tracks Excellence, Efficacy, and Perception.
 
 ## Education OS — GED Curriculum System
-The Assignments Portal functions as a comprehensive Education OS. It includes:
-- **Curriculum Data**: 4 complete GED textbooks (RLA, Math, Social Studies, Science) aligned with Kaplan 2022–2023, featuring 25 chapters, 30+ lessons, and 100+ MCQ practice questions.
-- **Curriculum Progression Bridge**: Tracks quiz scores, awards XP, computes subject readiness, applies stat bonuses, and recommends lessons.
-- **Schema Extensions**: Defines types for `GEDLesson`, `GEDPracticeQuestion`, `StudentCurriculumProgress`, `LessonEcology`, `LearnerCognitiveModel`, and `CognitiveState`.
-- **GameStateContext Integration**: `curriculumProgress` is persisted, and `recordLessonQuiz` atomically applies various bonuses and ecology updates.
-- **Assignments Portal UI**: A multi-screen interface for curriculum navigation and in-portal quizzes, with tabs for GED PREP, LANGUAGES, and CONSTELLATION.
-- **Language Courses**: Procedurally generated courses for multiple languages.
+The Assignments Portal functions as a comprehensive Education OS, incorporating:
+- **Curriculum Data**: 4 complete GED textbooks with chapters and lessons aligned with Kaplan.
+- **Curriculum Progression Bridge**: Tracks quiz scores, awards XP, and recommends lessons.
+- **Schema Extensions**: Defines types for educational progress and cognitive models.
+- **GameStateContext Integration**: Persists curriculum progress and applies bonuses.
+- **Assignments Portal UI**: A multi-screen interface for navigation, quizzes, and language courses.
 
 ## Learner Reflection & Resonance System
-This system integrates reflection capture, resonance scoring to amplify mastery, commentary tracking for mentor insights, temporal drift indicators for lesson freshness, and cognitive state visualization (FRACTURED, INTEGRATING, INTERNALIZED, UNTOUCHED). It also includes a Knowledge Ecology tracking `stability`, `coherence`, and `strain`, and a `LearnerCognitiveModel` for tracking `persistence`, `abstractionComfort`, `integrationTendency`, and `recoveryVelocity`.
+This system captures learner reflection, scores resonance, tracks mentor commentary, and identifies temporal drift. It visualizes cognitive states (FRACTURED, INTEGRATING, INTERNALIZED, UNTOUCHED) and tracks Knowledge Ecology metrics (`stability`, `coherence`, `strain`) and a `LearnerCognitiveModel` (persistence, abstractionComfort, integrationTendency, recoveryVelocity).
 
 ## Constellation Interface — Spatial Knowledge Map
-A spatial knowledge map within the Assignments Portal (`✦ CONSTELLATION`) visually represents GED lessons as star nodes. It features a procedural layout with domain anchors, visual encoding for mastery, resonance, and cognitive state, and prerequisite lines. The interface is interactive with domain filter buttons, tooltips on hover, and direct navigation to lessons on click.
+A spatial knowledge map within the Assignments Portal (`✦ CONSTELLATION`) visually represents GED lessons as star nodes. It features a procedural layout, visual encoding for mastery, resonance, and cognitive state, prerequisite lines, and interactive elements for navigation and filtering.
 
 ## Academy Engine - Cognitive Infrastructure
 This four-phase learning system includes:
-- **Core Cognition**: Manages a skill graph (40 GED-aligned skill nodes), student journals, a procedural homework engine, and student profiles.
-- **Assessment Layer**: Extracts mastery signals, estimates confidence, and generates GED-class exams.
+- **Core Cognition**: Manages a skill graph, student journals, procedural homework, and student profiles.
+- **Assessment Layer**: Extracts mastery signals and generates exams.
 - **Governance**: Provides curriculum versioning and teacher authority.
-- **Lore/Narrative**: Offers narrative modes to wrap prompts, ensuring ethical AI practices.
+- **Lore/Narrative**: Offers narrative modes to ensure ethical AI practices.
 
 ## Backend Architecture
-The backend uses Express.js with TypeScript, providing a RESTful API for character management, game state, and data persistence. It utilizes a session-based architecture with in-memory storage and PostgreSQL as a fallback.
+The backend uses Express.js with TypeScript, providing a RESTful API for character management, game state, and data persistence. It employs a session-based architecture with in-memory storage and PostgreSQL as a fallback.
 
 ## Database Design
 PostgreSQL with Drizzle ORM is used for type-safe database interactions, storing data for Users, Characters, Locations, NPCs, Items, and Game Sessions.
 
 ## Game State Management
-Features include AI-driven character creation, location-based navigation, a three-tier reputation system, energy/health management, an inventory system, and a 17-stat system (Physical, Mental, Spiritual). The curriculum system offers 24 courses across 4 GED areas with auto-generated textbooks. Natural language processing interprets commands, and accessibility features include voice input and a command palette. Advanced systems include an Object Interaction Resolver, Research Notebook, and a Crisis Intervention System.
+Features include AI-driven character creation, location-based navigation, a three-tier reputation system, energy/health management, an inventory system, and a 17-stat system. It includes a curriculum system with auto-generated textbooks, natural language processing for commands, and accessibility features like voice input. Advanced systems include an Object Interaction Resolver, Research Notebook, and a Crisis Intervention System.
 
 ## Perk System
 Players select 2 perks from 11 categories (combat/social/academic/survival/mystical) on first boot, granting stat bonuses. The PerksViewer App displays available, active, locked, and starter perks, which are rarity-gated (common, uncommon, rare, legendary) and show effects.
@@ -79,30 +60,34 @@ Players select 2 perks from 11 categories (combat/social/academic/survival/mysti
 ## Academy Administrative OS — Institutional Monitor
 A four-tab administrative dashboard (`AcademyAdminApp.tsx`) provides:
 - **OVERVIEW**: Institutional metrics, domain stability, subject readiness, and alerts.
-- **ECOLOGY**: Interactive SVG Knowledge Ecology Map showing GED domains with cross-domain memory bleed lines and detailed metrics.
-- **EPOCHS**: Archival time-layer timeline showing learning sessions and accumulating artifacts.
-- **TRIALS**: Synthesis Trial Registry of pre-defined alignment events, unlocking based on domain mastery.
+- **ECOLOGY**: Interactive SVG Knowledge Ecology Map.
+- **EPOCHS**: Archival time-layer timeline of learning sessions.
+- **TRIALS**: Synthesis Trial Registry of alignment events.
+
+## Academic Citation Engine
+A full-featured client-side citation and academic style reference tool with four tabs:
+- **GENERATE**: Form-based citation builder for various source types, outputting formatted citations in APA, MLA, CMS, or ACS styles.
+- **VALIDATE**: Parses reference strings, auto-detects style, and provides an ICM Compliance Score, completeness score, and improvement suggestions.
+- **CONVERT**: Converts citations between supported styles.
+- **GUIDE**: Provides collapsible quick-reference cards for each style.
 
 ## Document System — Block-Based Word Processor
-A structured document authoring system built on the virtual filesystem. Documents are schema-versioned JSON stored as `.acd` files, supporting 9 block types (Paragraph, headings, code, quote, math, annotation, divider) with rich-text capabilities. The WordProcessorApp is a block-based editor with file management, toolbars, 4 document templates, debounced autosave, and Ctrl+S save.
+A structured document authoring system built on the virtual filesystem. Documents are schema-versioned JSON supporting 9 block types with rich-text capabilities. The WordProcessorApp is a block-based editor with file management, toolbars, templates, and autosave.
 
 ## Scientific Calculator
-A full TI-style scientific + graphing calculator with a CALC tab for expressions, scientific functions, and memory, and a GRAPH tab for function input, plotting, and adjustable ranges with SVG rendering.
+A full TI-style scientific and graphing calculator with a CALC tab for expressions and functions, and a GRAPH tab for plotting functions with adjustable ranges.
 
 ## File Manager
-A full VFS file manager with a toolbar for navigation, file/folder creation, upload/download, copy/paste, rename, delete, and a preview pane for metadata and content.
-
-## Desktop Geometric Grid Layout
-Icons are arranged in a 3-column, 6-row geometric grid for common applications. Settings and Recycle Bin are accessed via the taskbar.
+A full VFS file manager with a toolbar for navigation, file/folder operations, upload/download, and a preview pane.
 
 ## Orientation / Tutorial System
-`TutorialApp.tsx` contains 13 chapters, including practical guides on the text adventure command prompt, completing GED assignments, and engaging with NPCs.
+A tutorial system (`TutorialApp.tsx`) with 13 chapters, including practical guides on the text adventure command prompt, GED assignments, and NPC interaction.
 
 ## Mentor Commentary in Assignments Portal
-The `MentorCommentaryPanel` is injected at the top of `LessonView` in `AssignmentsPortal.tsx`, displaying subject-specific mentor quotes and reading focus prompts. It expands by default and collapses persistently, with specific mentors mapped to GED subjects.
+The `MentorCommentaryPanel` is injected into `LessonView` in `AssignmentsPortal.tsx`, displaying subject-specific mentor quotes and reading focus prompts, with specific mentors mapped to GED subjects.
 
 ## Desktop Wallpaper System
-Wallpapers are stored in `localStorage` and can be null (default), a preset, or a custom image. It includes 8 built-in presets, a right-click context menu for "Set Wallpaper" with a picker and custom image upload, and integration with the Settings app. Changes are synced across components.
+Wallpapers are stored in `localStorage` and can be null (default), a preset, or a custom image. It includes 8 built-in presets, a right-click context menu for "Set Wallpaper" with a picker and custom image upload, and integration with the Settings app.
 
 ## GED Graduation System
 The game features a complete GED preparation and graduation system. Skill progress is tracked via game flags, becoming "emerging" or "stable/mastered." Players need 3+ stable skills per domain to be GED ready. Upon readiness, the `GRADUATION CEREMONY` command initiates the Confluence Hall experience, a multi-node journey leading to different "Departure Vectors" influenced by player stats and faction interactions.
