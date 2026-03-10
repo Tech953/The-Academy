@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Copy, CheckCircle, BookOpen, FlaskConical, FileText, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, CheckCircle, BookOpen, FlaskConical, FileText, RefreshCw, ChevronDown, ChevronUp, Link, Loader } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
 // Color palette (Neo-CRT theme)
@@ -835,18 +835,149 @@ function GuideTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// URL IMPORT TAB
+// ─────────────────────────────────────────────────────────────────
+
+interface UrlMeta {
+  title: string;
+  author: string;
+  date: string;
+  publisher: string;
+  description: string;
+  url: string;
+  host: string;
+}
+
+function metaToCitation(m: UrlMeta): Citation {
+  const year = m.date ? (m.date.match(/\d{4}/)?.[0] ?? new Date().getFullYear().toString()) : new Date().getFullYear().toString();
+  const accessDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return {
+    ...EMPTY_CITATION,
+    authors: m.author ? [m.author] : [],
+    year,
+    title: m.title,
+    sourceType: 'website',
+    websiteTitle: m.publisher || m.host,
+    url: m.url,
+    accessDate,
+  };
+}
+
+function UrlImportTab() {
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [meta, setMeta] = useState<UrlMeta | null>(null);
+  const { copied, copy } = useClipboard();
+
+  const fetchMeta = async () => {
+    if (!url.trim()) return;
+    setLoading(true); setError(null); setMeta(null);
+    try {
+      const res = await fetch(`/api/fetch-url-meta?url=${encodeURIComponent(url.trim())}`);
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? res.statusText); }
+      const data: UrlMeta = await res.json();
+      setMeta(data);
+    } catch (e: unknown) {
+      setError((e as Error).message ?? 'Failed to fetch URL');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const citations = meta ? (() => {
+    const c = metaToCitation(meta);
+    return { APA: renderAPA(c), MLA: renderMLA(c), CMS: renderCMS(c), ACS: renderACS(c) } as Record<string, string>;
+  })() : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+      <div style={{ fontSize: 9, color: C.cyan, letterSpacing: 2, marginBottom: 4 }}>PASTE A URL — GENERATES CITATIONS IN ALL FORMATS</div>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        <input
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && fetchMeta()}
+          placeholder="https://www.example.com/article..."
+          style={{ ...FIELD_STYLE, flex: 1 }}
+        />
+        <button onClick={fetchMeta} disabled={loading || !url.trim()} style={{ background: `${C.cyan}18`, border: `1px solid ${C.cyan}50`, color: loading ? '#555' : C.cyan, cursor: loading ? 'wait' : 'pointer', padding: '0 16px', borderRadius: 4, fontFamily: 'monospace', fontSize: 10, letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+          {loading ? <Loader size={11} className="animate-spin" /> : <Link size={11} />}
+          {loading ? 'FETCHING...' : 'FETCH & CITE'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ background: '#100000', border: '1px solid #ff000030', borderRadius: 4, padding: 10, fontSize: 10, color: '#ff6666', fontFamily: 'monospace' }}>
+          SIGNAL LOST: {error}
+        </div>
+      )}
+
+      {meta && (
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Extracted metadata */}
+          <div style={{ background: '#080818', border: `1px solid ${C.cyan}25`, borderRadius: 4, padding: 12 }}>
+            <div style={{ fontSize: 9, color: C.cyan, letterSpacing: 2, marginBottom: 8 }}>EXTRACTED METADATA</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '5px 10px', fontSize: 10, fontFamily: 'monospace' }}>
+              {[['TITLE', meta.title], ['AUTHOR', meta.author || '(not found)'], ['DATE', meta.date || '(not found)'], ['PUBLISHER', meta.publisher || meta.host], ['URL', meta.url]].map(([label, val]) => (
+                <>
+                  <span key={label + 'l'} style={{ color: '#555', letterSpacing: 1 }}>{label}</span>
+                  <span key={label + 'v'} style={{ color: val.startsWith('(') ? '#444' : C.text, wordBreak: 'break-all' }}>{val}</span>
+                </>
+              ))}
+            </div>
+          </div>
+
+          {/* Generated citations */}
+          {citations && (
+            <div>
+              <div style={{ fontSize: 9, color: C.amber, letterSpacing: 2, marginBottom: 8 }}>GENERATED CITATIONS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(Object.entries(citations) as [string, string][]).map(([style, text]) => {
+                  const styleColor = STYLE_GUIDES[style as Style]?.color ?? C.text;
+                  return (
+                    <div key={style} style={{ background: '#0c0c0c', border: `1px solid ${styleColor}25`, borderRadius: 4, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: 9, color: styleColor, letterSpacing: 2, fontFamily: 'monospace' }}>{style}</span>
+                        <CopyBtn text={text} id={`url-${style}`} copied={copied} copy={copy} />
+                      </div>
+                      <p style={{ color: '#aaa', fontSize: 10, fontFamily: '"Courier New", monospace', lineHeight: 1.6, margin: 0, paddingLeft: 20, textIndent: -20 }}>
+                        {text || <em style={{ color: '#555' }}>Could not generate — missing required metadata</em>}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ background: '#060606', border: `1px solid ${C.border}`, borderRadius: 4, padding: 10 }}>
+            <div style={{ fontSize: 9, color: '#555', letterSpacing: 1, marginBottom: 4 }}>ACCURACY NOTE</div>
+            <p style={{ fontSize: 9, color: '#555', fontFamily: 'monospace', lineHeight: 1.6, margin: 0 }}>
+              Auto-extracted metadata may be incomplete. Verify author, date, and publisher fields. Use the GENERATE tab to edit fields manually for full accuracy.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Main app
 // ─────────────────────────────────────────────────────────────────
-type Tab = 'GENERATE' | 'VALIDATE' | 'CONVERT' | 'GUIDE';
+type Tab = 'GENERATE' | 'URL' | 'VALIDATE' | 'CONVERT' | 'GUIDE';
 
 export function CitationEngineApp() {
   const [activeTab, setActiveTab] = useState<Tab>('GENERATE');
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; color: string }[] = [
-    { id: 'GENERATE', label: 'GENERATE', icon: <FileText size={11} />, color: C.amber },
-    { id: 'VALIDATE', label: 'VALIDATE', icon: <CheckCircle size={11} />, color: C.cyan },
-    { id: 'CONVERT',  label: 'CONVERT',  icon: <RefreshCw size={11} />,  color: C.purple },
-    { id: 'GUIDE',    label: 'GUIDE',    icon: <BookOpen size={11} />,   color: C.green },
+    { id: 'GENERATE', label: 'GENERATE', icon: <FileText size={11} />,    color: C.amber },
+    { id: 'URL',      label: 'URL IMPORT', icon: <Link size={11} />,      color: C.cyan },
+    { id: 'VALIDATE', label: 'VALIDATE', icon: <CheckCircle size={11} />, color: C.pink },
+    { id: 'CONVERT',  label: 'CONVERT',  icon: <RefreshCw size={11} />,   color: C.purple },
+    { id: 'GUIDE',    label: 'GUIDE',    icon: <BookOpen size={11} />,    color: C.green },
   ];
 
   const activeColor = tabs.find(t => t.id === activeTab)?.color || C.amber;
@@ -888,6 +1019,7 @@ export function CitationEngineApp() {
       {/* Content */}
       <div style={{ flex: 1, padding: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {activeTab === 'GENERATE' && <GeneratorTab />}
+        {activeTab === 'URL' && <UrlImportTab />}
         {activeTab === 'VALIDATE' && <ValidatorTab />}
         {activeTab === 'CONVERT' && <ConverterTab />}
         {activeTab === 'GUIDE' && <GuideTab />}

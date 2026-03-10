@@ -24,6 +24,7 @@ import StarterPerkFlow from './apps/StarterPerkFlow';
 import PersonalFilesApp from './apps/PersonalFilesApp';
 import { TutorialApp } from './TutorialApp';
 import { WordProcessorApp } from './apps/WordProcessorApp';
+import { AcademyOfficeApp } from './apps/AcademyOfficeApp';
 import { AcademyAdminApp } from './apps/AcademyAdminApp';
 import { CitationEngineApp } from './apps/CitationEngineApp';
 import Home from '@/pages/Home';
@@ -39,7 +40,7 @@ import {
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
   BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
-  Monitor, Terminal, Network, BarChart3, Notebook, Award, Lock, GraduationCap, FilePen, Landmark, FlaskConical
+  Monitor, Terminal, Network, BarChart3, BarChart2, Notebook, Award, Lock, GraduationCap, FilePen, Landmark, FlaskConical
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 import citationIconImg from '@assets/image_1773123805034.png';
@@ -64,7 +65,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats' | 'tutorial' | 'wordproc' | 'institution' | 'citation';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats' | 'tutorial' | 'wordproc' | 'office' | 'institution' | 'citation';
 
 type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
 
@@ -237,7 +238,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   { id: 'institution',   iconType: 'institution',   labelKey: 'desktop.institution',   colorKey: 'green',  defaultCol: 2, defaultRow: 0 },
   { id: 'assignments',   iconType: 'assignments',   labelKey: 'desktop.assignments',   colorKey: 'amber',  defaultCol: 3, defaultRow: 0 },
   { id: 'schedule',      iconType: 'schedule',      labelKey: 'desktop.schedule',      colorKey: 'amber',  defaultCol: 4, defaultRow: 0 },
-  { id: 'wordproc',      iconType: 'wordproc',      labelKey: 'desktop.wordproc',      colorKey: 'amber',  defaultCol: 5, defaultRow: 0 },
+  { id: 'office',        iconType: 'office',        labelKey: 'desktop.office',        colorKey: 'amber',  defaultCol: 5, defaultRow: 0 },
   // Row 1 — Progress, Perks, Skills, Mystical, Character
   { id: 'progress',      iconType: 'progress',      labelKey: 'desktop.progress',      colorKey: 'green',  defaultCol: 0, defaultRow: 1 },
   { id: 'perks',         iconType: 'perks',         labelKey: 'desktop.perks',         colorKey: 'purple', defaultCol: 1, defaultRow: 1 },
@@ -365,6 +366,7 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'charstats': return <Award {...props} />;
     case 'tutorial':  return <GraduationCap {...props} />;
     case 'wordproc':    return <FilePen {...props} />;
+    case 'office':      return <BarChart2 {...props} />;
     case 'institution': return <Landmark {...props} />;
     case 'citation':    return <FlaskConical {...props} />;
     default: return <FileText {...props} />;
@@ -1607,6 +1609,15 @@ export default function NeoCrtDesktopShell() {
           height: Math.min(620, maxHeight),
           minWidth: 560,
           minHeight: 420,
+        };
+      case 'office':
+        return {
+          component: <AcademyOfficeApp />,
+          title: 'Academy Office Suite',
+          width: Math.min(1020, maxWidth),
+          height: Math.min(680, maxHeight),
+          minWidth: 640,
+          minHeight: 460,
         };
       case 'tutorial':
         return {

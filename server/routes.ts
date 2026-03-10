@@ -897,6 +897,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
     }
   });
 
+  await registerUrlMetaRoute(app);
+
   const httpServer = createServer(app);
 
   return httpServer;
@@ -1003,6 +1005,59 @@ function buildNpcSystemPrompt(npcName: string, npcTitle?: string, data?: any): s
   ];
 
   return parts.filter(Boolean).join('');
+}
+
+// ─── URL Metadata Route ──────────────────────────────────────────────────────
+// Called by the Citation Engine "URL Import" tab to extract page metadata
+
+async function registerUrlMetaRoute(app: Express) {
+  app.get('/api/fetch-url-meta', async (req, res) => {
+    const raw = (req.query.url as string) ?? '';
+    if (!raw || !/^https?:\/\//i.test(raw)) {
+      return res.status(400).json({ error: 'Invalid or missing URL parameter' });
+    }
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(raw, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AcademyCiteBot/1.0; +https://academy.app)' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const html = await response.text();
+
+      const getMeta = (...names: string[]): string => {
+        for (const name of names) {
+          const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const patterns = [
+            new RegExp(`<meta[^>]+(?:name|property)=["']${escaped}["'][^>]+content=["']([^"']{1,400})["']`, 'i'),
+            new RegExp(`<meta[^>]+content=["']([^"']{1,400})["'][^>]+(?:name|property)=["']${escaped}["']`, 'i'),
+          ];
+          for (const re of patterns) {
+            const m = html.match(re);
+            if (m?.[1]?.trim()) return m[1].trim();
+          }
+        }
+        return '';
+      };
+
+      const titleTag = html.match(/<title[^>]*>([^<]{1,300})<\/title>/i)?.[1]?.trim() ?? '';
+
+      const result = {
+        title:     getMeta('og:title', 'twitter:title', 'DC.title') || titleTag,
+        author:    getMeta('author', 'article:author', 'og:author', 'DC.creator', 'parsely-author'),
+        date:      getMeta('article:published_time', 'pubdate', 'DC.date', 'date', 'og:updated_time'),
+        publisher: getMeta('og:site_name', 'application-name', 'publisher'),
+        description: getMeta('description', 'og:description', 'twitter:description'),
+        url:       raw,
+        host:      new URL(raw).hostname.replace(/^www\./, ''),
+      };
+      res.json(result);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Fetch failed';
+      res.status(500).json({ error: `Could not retrieve URL: ${msg}` });
+    }
+  });
 }
 
 function getRandomFallbackResponse(npcName?: string): string {
