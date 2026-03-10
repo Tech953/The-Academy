@@ -1263,6 +1263,7 @@ function RGroup({ label, children }: { label: string; children: React.ReactNode 
 function RSep() { return <div style={{ width: 1, alignSelf: 'stretch', background: IR.groupBorder, margin: '2px 0' }} />; }
 
 interface PresentationRibbonProps {
+  onStartSlideshow: (fromIdx: number) => void;
   slides: Slide[];
   activeIdx: number;
   slide: Slide;
@@ -1307,13 +1308,14 @@ function PresentationRibbon({
   onApplyTransition, onSetTransitionDuration, onSetTransitionSound, onApplyToAll,
   onUpdateElement, onAddTextBox, onInsertDate, onInsertSlideNumber,
   onAddComment, onDeleteComment, onPrevComment, onNextComment,
-  onPreviewTransition, wordCount, commentCount,
+  onPreviewTransition, wordCount, commentCount, onStartSlideshow,
 }: PresentationRibbonProps) {
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
+  const [loopSlideshow, setLoopSlideshow] = useState(false);
   const selEl = slide?.elements.find(e => e.id === selectedElId) ?? null;
 
-  const TABS = ['Home', 'Insert', 'Design', 'Transitions', 'Animations', 'Review'];
+  const TABS = ['Home', 'Insert', 'Design', 'Transitions', 'Animations', 'Review', 'Slide Show'];
 
   return (
     <div style={{ background: IR.tab, borderBottom: `1px solid ${IR.groupBorder}`, flexShrink: 0 }}>
@@ -1620,6 +1622,63 @@ function PresentationRibbon({
             </div>
           </RGroup>
         </>)}
+
+        {/* ── SLIDE SHOW ────────────────────────────────── */}
+        {ribbonTab === 'Slide Show' && (<>
+          <RGroup label="Start Slide Show">
+            <RBtn onClick={() => onStartSlideshow(0)} title="Start from first slide">
+              <Play size={18} style={{ color: IR.accent }} />
+              <span style={{ fontSize: 8, whiteSpace: 'nowrap' }}>From<br/>Beginning</span>
+            </RBtn>
+            <RBtn onClick={() => onStartSlideshow(activeIdx)} title="Start from current slide">
+              <SkipBack size={16} style={{ color: IR.text }} />
+              <span style={{ fontSize: 8, whiteSpace: 'nowrap' }}>From<br/>Current Slide</span>
+            </RBtn>
+          </RGroup>
+          <RGroup label="Set Up">
+            <RBtn onClick={() => setLoopSlideshow(v => !v)} active={loopSlideshow} title="Loop continuously until Esc">
+              <Rewind size={14} /><span style={{fontSize:8}}>Loop</span>
+            </RBtn>
+            <RBtn onClick={onToggleNotes} active={showNotes} title="Show presenter notes panel">
+              <MessageSquare size={14} /><span style={{fontSize:8}}>Notes</span>
+            </RBtn>
+          </RGroup>
+          <RGroup label="Navigate">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 4px' }}>
+              <div style={{ fontSize: 9, color: IR.dim, fontFamily: 'monospace' }}>
+                <span style={{ color: IR.text }}>→ / Space</span> Next
+              </div>
+              <div style={{ fontSize: 9, color: IR.dim, fontFamily: 'monospace' }}>
+                <span style={{ color: IR.text }}>←</span> Previous
+              </div>
+              <div style={{ fontSize: 9, color: IR.dim, fontFamily: 'monospace' }}>
+                <span style={{ color: IR.text }}>Esc</span> Exit
+              </div>
+              <div style={{ fontSize: 9, color: IR.dim, fontFamily: 'monospace' }}>
+                <span style={{ color: IR.text }}>L</span> Laser pointer
+              </div>
+              <div style={{ fontSize: 9, color: IR.dim, fontFamily: 'monospace' }}>
+                <span style={{ color: IR.text }}>N</span> Speaker notes
+              </div>
+            </div>
+          </RGroup>
+          <RGroup label="Slide Info">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 6px' }}>
+              <span style={{fontSize:9,color:IR.dim}}>Slides: <span style={{color:IR.text}}>{slides.length}</span></span>
+              <span style={{fontSize:9,color:IR.dim}}>Current: <span style={{color:IR.accent}}>{activeIdx + 1}</span></span>
+              <span style={{fontSize:9,color:IR.dim}}>Transition: <span style={{color:IR.text}}>{slide?.transition ?? 'none'}</span></span>
+            </div>
+          </RGroup>
+          <RGroup label="Presenter Tools">
+            <RBtn onClick={() => onPreviewTransition()} title="Preview transition effect">
+              <Wind size={14} /><span style={{fontSize:8}}>Preview</span>
+            </RBtn>
+            <RBtn onClick={onToggleComments} active={showComments} title="Show comments overlay">
+              <MessageCircle size={14} /><span style={{fontSize:8}}>Comments</span>
+            </RBtn>
+          </RGroup>
+        </>)}
+
       </div>
     </div>
   );
@@ -1633,6 +1692,14 @@ const IMPRESS_STYLE = `
 @keyframes impress-float-in{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes impress-split{from{clip-path:inset(50% 0);opacity:0}to{clip-path:inset(0 0);opacity:1}}
 @keyframes impress-wipe{from{clip-path:inset(0 100% 0 0);opacity:0}to{clip-path:inset(0 0 0 0);opacity:1}}
+@keyframes impress-push-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes impress-push-in-rev{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes impress-cover-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes impress-uncover-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@keyframes impress-reveal-in{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes impress-shape-in{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(75% at 50% 50%)}}
+@keyframes impress-morph-in{from{transform:scale(0.85) rotate(-2deg);opacity:0}to{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes impress-bars-in{from{clip-path:polygon(0 0,0 0,0 100%,0 100%);opacity:0}to{clip-path:polygon(0 0,100% 0,100% 100%,0 100%);opacity:1}}
 .impress-appear{animation:impress-appear 0.2s ease both}
 .impress-fade{animation:impress-fade 0.6s ease both}
 .impress-fly-in{animation:impress-fly-in 0.5s cubic-bezier(.2,.8,.4,1) both}
@@ -1640,6 +1707,258 @@ const IMPRESS_STYLE = `
 .impress-split{animation:impress-split 0.5s ease both}
 .impress-wipe{animation:impress-wipe 0.5s ease both}
 `;
+
+// ── Slideshow helpers ─────────────────────────────────────────────
+function getSlideshowTransitionCSS(transId: string, dur: number, dir: 'next' | 'prev'): React.CSSProperties {
+  const d = `${dur}s`;
+  const easeIn = `cubic-bezier(.25,.46,.45,.94)`;
+  switch (transId) {
+    case 'fade':        return { animation: `impress-fade ${d} ease both` };
+    case 'push':        return { animation: `${dir==='next'?'impress-push-in':'impress-push-in-rev'} ${d} ${easeIn} both` };
+    case 'cover':       return { animation: `impress-cover-in ${d} ${easeIn} both` };
+    case 'wipe':
+    case 'reveal':      return { animation: `impress-reveal-in ${d} ease both` };
+    case 'split':       return { animation: `impress-split ${d} ease both` };
+    case 'shape':       return { animation: `impress-shape-in ${d} ease both` };
+    case 'morph':       return { animation: `impress-morph-in ${d} ease both` };
+    case 'random-bars': return { animation: `impress-bars-in ${d} ease both` };
+    case 'fly-in':      return { animation: `impress-fly-in ${d} cubic-bezier(.2,.8,.4,1) both` };
+    case 'cut':         return {}; // instant
+    default:            return {};
+  }
+}
+
+interface SlideshowOverlayProps {
+  slides: Slide[];
+  startIdx: number;
+  onExit: () => void;
+}
+
+function SlideshowOverlay({ slides, startIdx, onExit }: SlideshowOverlayProps) {
+  const [current, setCurrent]       = useState(startIdx);
+  const [transitioning, setTransitioning] = useState(false);
+  const [dir, setDir]               = useState<'next' | 'prev'>('next');
+  const [laserPos, setLaserPos]     = useState<{ x: number; y: number } | null>(null);
+  const [laserMode, setLaserMode]   = useState(false);
+  const [showUI, setShowUI]         = useState(true);
+  const [showNotes, setShowNotes]   = useState(false);
+  const [elapsed, setElapsed]       = useState(0);
+  const uiTimer  = useRef<ReturnType<typeof setTimeout>>();
+  const clockRef = useRef<ReturnType<typeof setInterval>>();
+  const slideRef = useRef<HTMLDivElement>(null);
+
+  const slide = slides[current] ?? slides[0];
+  const theme = THEMES.find(t => t.id === slide?.themeId) ?? THEMES[0];
+  const totalSlides = slides.length;
+
+  // Clock
+  useEffect(() => {
+    clockRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(clockRef.current);
+  }, []);
+
+  const formatTime = (s: number) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
+  const goTo = useCallback((idx: number, direction: 'next' | 'prev') => {
+    if (transitioning || idx < 0 || idx >= totalSlides) return;
+    const dur = slides[direction === 'next' ? idx : current]?.transitionDuration ?? 0.4;
+    const hasTrans = (slides[direction === 'next' ? idx : current]?.transition ?? 'none') !== 'none';
+    setDir(direction);
+    if (hasTrans) {
+      setTransitioning(true);
+      setTimeout(() => { setCurrent(idx); setTransitioning(false); }, Math.min(dur * 1000, 1200));
+    } else {
+      setCurrent(idx);
+    }
+  }, [transitioning, totalSlides, slides, current]);
+
+  const next = useCallback(() => goTo(current + 1, 'next'), [current, goTo]);
+  const prev = useCallback(() => goTo(current - 1, 'prev'), [current, goTo]);
+
+  // Keyboard handler
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape')        { e.preventDefault(); onExit(); }
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next(); }
+      else if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')  { e.preventDefault(); prev(); }
+      else if (e.key === 'l' || e.key === 'L') setLaserMode(v => !v);
+      else if (e.key === 'n' || e.key === 'N') setShowNotes(v => !v);
+      else if (e.key === 'Home') goTo(0, 'next');
+      else if (e.key === 'End')  goTo(totalSlides - 1, 'next');
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [next, prev, goTo, totalSlides, onExit]);
+
+  // Auto-hide UI
+  const revealUI = () => {
+    setShowUI(true);
+    clearTimeout(uiTimer.current);
+    uiTimer.current = setTimeout(() => setShowUI(false), 3000);
+  };
+  useEffect(() => { revealUI(); return () => clearTimeout(uiTimer.current); }, []);
+
+  // Transition style for the current slide
+  const transStyle = transitioning ? {} : (() => {
+    const tr = slides[current]?.transition ?? 'none';
+    const dur = slides[current]?.transitionDuration ?? 0.4;
+    return getSlideshowTransitionCSS(tr, Math.min(dur, 1.5), dir);
+  })();
+
+  const cursorStyle: React.CSSProperties = laserMode
+    ? { cursor: 'none' }
+    : { cursor: showUI ? 'default' : 'none' };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', flexDirection: 'column', userSelect: 'none', ...cursorStyle }}
+      onClick={e => { if (!laserMode) next(); }}
+      onMouseMove={e => {
+        revealUI();
+        if (laserMode) {
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          setLaserPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        }
+      }}
+    >
+      {/* Slide canvas */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: showNotes && slide?.notes ? '16px 16px 0' : 16, overflow: 'hidden' }}>
+        <div
+          ref={slideRef}
+          key={current}
+          style={{
+            width: '100%', maxWidth: '177.78vh', aspectRatio: '16/9',
+            background: theme.bg, position: 'relative', overflow: 'hidden',
+            borderRadius: 4, boxShadow: '0 16px 64px rgba(0,0,0,0.9)',
+            ...transStyle,
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Accent bar */}
+          <div style={{ height: 4, background: theme.accent, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 }} />
+
+          {/* Elements */}
+          {slide?.elements.map(el => {
+            const isTitle = el.type === 'title';
+            return (
+              <div key={el.id}
+                style={{ padding: isTitle ? '28px 40px 12px' : '12px 40px 28px', flex: isTitle ? '0 0 auto' : 1 }}>
+                <div style={{
+                  color: isTitle ? theme.title : theme.body,
+                  fontFamily: isTitle ? '"Segoe UI", system-ui, sans-serif' : 'system-ui, sans-serif',
+                  fontSize: el.fontSize ?? (isTitle ? 32 : 20),
+                  fontWeight: el.bold || isTitle ? 'bold' : 'normal',
+                  fontStyle: el.italic ? 'italic' : 'normal',
+                  textDecoration: [el.underline ? 'underline' : '', el.strikethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none',
+                  textAlign: el.align ?? 'left',
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                  letterSpacing: isTitle ? -0.5 : 0,
+                }}>
+                  {el.text}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Slide number */}
+          {slide?.showSlideNumber && (
+            <div style={{ position: 'absolute', bottom: 10, right: 16, fontSize: 11, color: `${theme.body}55`, fontFamily: 'monospace', zIndex: 2 }}>
+              {current + 1} / {totalSlides}
+            </div>
+          )}
+
+          {/* Progress bar */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: `${theme.accent}25`, zIndex: 2 }}>
+            <div style={{ height: '100%', width: `${((current + 1) / totalSlides) * 100}%`, background: theme.accent, transition: 'width 0.4s ease' }} />
+          </div>
+        </div>
+
+        {/* Laser pointer dot */}
+        {laserMode && laserPos && (
+          <div style={{ position: 'fixed', left: laserPos.x - 10, top: laserPos.y - 10, width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,0,0,0.85)', boxShadow: '0 0 12px 4px rgba(255,0,0,0.5)', pointerEvents: 'none', zIndex: 10000 }} />
+        )}
+      </div>
+
+      {/* Speaker notes */}
+      {showNotes && slide?.notes && (
+        <div style={{ background: 'rgba(0,0,0,0.85)', borderTop: '1px solid #333', padding: '10px 24px', maxHeight: '22%', overflowY: 'auto', flexShrink: 0 }}>
+          <div style={{ fontSize: 9, color: '#666', letterSpacing: 1, marginBottom: 4, fontFamily: 'monospace' }}>SPEAKER NOTES</div>
+          <div style={{ fontSize: 13, color: '#ccc', lineHeight: 1.6, fontFamily: 'system-ui', whiteSpace: 'pre-wrap' }}>{slide.notes}</div>
+        </div>
+      )}
+
+      {/* HUD overlay (auto-hides) */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 10001, transition: 'opacity 0.3s', opacity: showUI ? 1 : 0 }}>
+        {/* Top bar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', pointerEvents: 'auto' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: '#ccc', fontFamily: 'monospace' }}>{formatTime(elapsed)}</span>
+            <button onClick={e => { e.stopPropagation(); setLaserMode(v => !v); }}
+              title="Toggle laser pointer (L)"
+              style={{ background: laserMode ? 'rgba(255,0,0,0.3)' : 'rgba(255,255,255,0.1)', border: `1px solid ${laserMode ? 'rgba(255,80,80,0.7)' : 'rgba(255,255,255,0.25)'}`, color: laserMode ? '#ff6060' : '#ccc', cursor: 'pointer', padding: '3px 10px', borderRadius: 3, fontSize: 10 }}>
+              Laser
+            </button>
+            <button onClick={e => { e.stopPropagation(); setShowNotes(v => !v); }}
+              title="Toggle speaker notes (N)"
+              style={{ background: showNotes ? 'rgba(100,200,100,0.2)' : 'rgba(255,255,255,0.1)', border: `1px solid ${showNotes ? 'rgba(100,200,100,0.5)' : 'rgba(255,255,255,0.25)'}`, color: showNotes ? '#88ee88' : '#ccc', cursor: 'pointer', padding: '3px 10px', borderRadius: 3, fontSize: 10 }}>
+              Notes
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: '#888', fontFamily: 'monospace' }}>
+            Slide {current + 1} of {totalSlides}
+          </div>
+          <button onClick={e => { e.stopPropagation(); onExit(); }}
+            title="Exit presentation (Esc)"
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: '#ccc', cursor: 'pointer', padding: '4px 14px', borderRadius: 3, fontSize: 11 }}>
+            ✕ Exit
+          </button>
+        </div>
+
+        {/* Prev arrow */}
+        <button
+          onClick={e => { e.stopPropagation(); prev(); }}
+          title="Previous slide (←)"
+          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: current === 0 ? '#333' : '#aaa', cursor: current === 0 ? 'default' : 'pointer', width: 40, height: 64, borderRadius: 4, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto' }}
+          disabled={current === 0}>
+          ‹
+        </button>
+
+        {/* Next arrow */}
+        <button
+          onClick={e => { e.stopPropagation(); next(); }}
+          title="Next slide (→)"
+          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: current === totalSlides - 1 ? '#333' : '#aaa', cursor: current === totalSlides - 1 ? 'default' : 'pointer', width: 40, height: 64, borderRadius: 4, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto' }}
+          disabled={current === totalSlides - 1}>
+          ›
+        </button>
+
+        {/* Bottom bar — slide strip */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)', padding: '10px 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+          {slides.map((s, i) => {
+            const t = THEMES.find(th => th.id === s.themeId) ?? THEMES[0];
+            return (
+              <button
+                key={s.id}
+                onClick={e => { e.stopPropagation(); goTo(i, i > current ? 'next' : 'prev'); }}
+                title={`Go to slide ${i + 1}`}
+                style={{
+                  width: i === current ? 44 : 28,
+                  height: i === current ? 28 : 18,
+                  background: i === current ? t.bg : '#333',
+                  border: `1px solid ${i === current ? t.accent : '#555'}`,
+                  borderRadius: 2, cursor: 'pointer', padding: 2,
+                  transition: 'all 0.2s ease', flexShrink: 0, overflow: 'hidden',
+                }}>
+                <div style={{ width: '100%', height: '100%', background: t.accent, opacity: 0.3, borderRadius: 1 }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ImpressApp() {
   const [slides, setSlides]             = useState<Slide[]>(loadImpress);
@@ -1653,6 +1972,7 @@ function ImpressApp() {
   const [spellCheck, setSpellCheck]     = useState(true);
   const [previewing, setPreviewing]     = useState(false);
   const [commentInput, setCommentInput] = useState<string | null>(null);
+  const [slideshowStartIdx, setSlideshowStartIdx] = useState<number | null>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   const slide = slides[Math.min(activeIdx, slides.length - 1)];
@@ -1773,9 +2093,19 @@ function ImpressApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#111' }}>
+      {/* Slideshow fullscreen overlay */}
+      {slideshowStartIdx !== null && (
+        <SlideshowOverlay
+          slides={slides}
+          startIdx={slideshowStartIdx}
+          onExit={() => setSlideshowStartIdx(null)}
+        />
+      )}
+
       <PresentationRibbon
         slides={slides} activeIdx={activeIdx} slide={slide} selectedElId={selectedElId}
         ribbonTab={ribbonTab} onRibbonTab={setRibbonTab}
+        onStartSlideshow={(idx) => { commitEdit(); setSlideshowStartIdx(idx); setRibbonTab('Slide Show'); }}
         showNotes={showNotes} onToggleNotes={() => setShowNotes(v => !v)}
         showComments={showComments} onToggleComments={() => setShowComments(v => !v)}
         spellCheck={spellCheck} onToggleSpellCheck={() => setSpellCheck(v => !v)}
