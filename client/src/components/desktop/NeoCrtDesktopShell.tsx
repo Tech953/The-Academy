@@ -42,6 +42,7 @@ import {
   Monitor, Terminal, Network, BarChart3, Notebook, Award, Lock, GraduationCap, FilePen, Landmark, FlaskConical
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
+import citationIconImg from '@assets/image_1773123805034.png';
 import { PostItWidget } from './widgets/PostItWidget';
 import { CalendarEventsWidget } from './widgets/CalendarEventsWidget';
 import { RssFeedWidget } from './widgets/RssFeedWidget';
@@ -80,6 +81,7 @@ interface DesktopIconConfig {
   iconType: IconType;
   labelKey: string;
   colorKey: ColorKey;
+  imageIcon?: string;
 }
 
 const GRID_CELL_W = 104;
@@ -246,7 +248,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   // Row 5 — Game & orientation
   { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 0, defaultRow: 5 },
   { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 1, defaultRow: 5 },
-  { id: 'citation',      iconType: 'citation',      labelKey: 'desktop.citation',      colorKey: 'purple', defaultCol: 2, defaultRow: 5 },
+  { id: 'citation',      iconType: 'citation',      labelKey: 'desktop.citation',      colorKey: 'purple', defaultCol: 2, defaultRow: 5, imageIcon: citationIconImg },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
@@ -449,7 +451,14 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         transition: 'box-shadow 0.2s ease',
         animation: isAcademy ? 'academy-icon-pulse 2.5s ease-in-out infinite' : undefined,
       }}>
-        {getNeoCrtIcon(icon.iconType, 24, color)}
+        {icon.imageIcon ? (
+          <img
+            src={icon.imageIcon}
+            alt={icon.id}
+            style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, opacity: locked ? 0.4 : 1 }}
+            draggable={false}
+          />
+        ) : getNeoCrtIcon(icon.iconType, 24, color)}
         {!locked && badgeCount > 0 && (
           <div style={{
             position: 'absolute',
