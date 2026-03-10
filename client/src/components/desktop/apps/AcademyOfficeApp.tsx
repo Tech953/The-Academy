@@ -9,7 +9,7 @@ import {
   Volume2, Play, RotateCcw, Sparkles, Timer, Clock, MoveUp, MoveDown,
   SkipBack, Rewind, Wind, Layers, SplitSquareHorizontal, Maximize,
   SpellCheck, BookOpen, Languages, Trash, Eye, EyeOff, MessageCircle,
-  AlignJustify, Baseline, Indent, Outdent, Shapes, Wand2,
+  AlignJustify, Baseline, Indent, Outdent, Shapes, Wand2, Download,
 } from 'lucide-react';
 
 const O = {
@@ -32,9 +32,16 @@ interface CellData {
   v: string;
   b?: boolean;
   i?: boolean;
+  u?: boolean;
+  strike?: boolean;
   align?: 'left' | 'center' | 'right';
-  fmt?: 'text' | 'number' | 'currency' | 'percent';
+  valign?: 'top' | 'middle' | 'bottom';
+  wrap?: boolean;
+  fmt?: 'text' | 'number' | 'currency' | 'percent' | 'date' | 'time' | 'scientific';
   color?: string;
+  bg?: string;
+  fontSize?: number;
+  border?: 'all' | 'outer' | 'bottom' | 'none';
 }
 
 type SheetMap = Record<string, CellData>;
@@ -140,9 +147,12 @@ function displayCell(raw: string, data: SheetMap, fmt?: string): string {
   if (!raw) return '';
   const val = evalCell(raw, data);
   if (typeof val === 'string' && val.startsWith('#')) return val;
-  if (fmt === 'currency') return `$${Number(val).toFixed(2)}`;
-  if (fmt === 'percent')  return `${(Number(val) * 100).toFixed(1)}%`;
-  if (fmt === 'number')   return String(Number(val).toLocaleString());
+  if (fmt === 'currency')   return `$${Number(val).toFixed(2)}`;
+  if (fmt === 'percent')    return `${(Number(val) * 100).toFixed(1)}%`;
+  if (fmt === 'number')     return String(Number(val).toLocaleString());
+  if (fmt === 'scientific') { const n = Number(val); return isNaN(n) ? String(val) : n.toExponential(3); }
+  if (fmt === 'date')       { const n = Number(val); if (!isNaN(n)) { const d = new Date(n * 86400000); return d.toLocaleDateString(); } return String(val); }
+  if (fmt === 'time')       { const n = Number(val); if (!isNaN(n)) { const h = Math.floor(n*24); const m = Math.floor((n*24-h)*60); return `${h}:${String(m).padStart(2,'0')}`; } return String(val); }
   return String(val);
 }
 
@@ -154,9 +164,17 @@ interface CalcState {
   sheets: { name: string; data: SheetMap }[];
   activeSheet: number;
   sel: string;
+  selRange: { start: string; end: string } | null;
   editMode: boolean;
   editVal: string;
   colWidths: Record<string, number>;
+  showFormulas: boolean;
+  showGridlines: boolean;
+  filterActive: boolean;
+  frozenRow: number;
+  ribbonTab: string;
+  namedRanges: { name: string; range: string }[];
+  conditionalRules: { range: string; condition: 'gt' | 'lt' | 'eq' | 'contains'; value: string; color: string }[];
 }
 
 function defaultCalcState(): CalcState {
@@ -168,9 +186,17 @@ function defaultCalcState(): CalcState {
     ],
     activeSheet: 0,
     sel: 'A1',
+    selRange: null,
     editMode: false,
     editVal: '',
     colWidths: {},
+    showFormulas: false,
+    showGridlines: true,
+    filterActive: false,
+    frozenRow: 1,
+    ribbonTab: 'Home',
+    namedRanges: [],
+    conditionalRules: [],
   };
 }
 
@@ -183,7 +209,533 @@ function loadCalc(): CalcState {
 }
 
 function saveCalc(s: CalcState) {
-  try { localStorage.setItem('academy-calc-v1', JSON.stringify({ sheets: s.sheets, colWidths: s.colWidths })); } catch {}
+  try { localStorage.setItem('academy-calc-v1', JSON.stringify({ sheets: s.sheets, colWidths: s.colWidths, namedRanges: s.namedRanges, conditionalRules: s.conditionalRules })); } catch {}
+}
+
+// ── Spreadsheet Ribbon helpers ──────────────────────────────────────
+const CR = {
+  tab: '#1e1e1e', tabActive: '#252525',
+  group: '#1e1e1e', groupBorder: '#2e2e2e',
+  btn: 'transparent', btnHover: '#2e2e2e',
+  text: '#ccc', dim: '#888', accent: O.calc,
+};
+
+function CBtn({ children, onClick, active = false, disabled = false, title, style: extraStyle }: { children: React.ReactNode; onClick?: () => void; active?: boolean; disabled?: boolean; title?: string; style?: React.CSSProperties }) {
+  return (
+    <button onClick={onClick} disabled={disabled} title={title}
+      style={{ background: active ? `${CR.accent}20` : CR.btn, border: `1px solid ${active ? CR.accent + '60' : 'transparent'}`, color: disabled ? '#555' : active ? CR.accent : CR.text, cursor: disabled ? 'not-allowed' : 'pointer', padding: '3px 7px', borderRadius: 2, fontSize: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: 28, lineHeight: 1.2, ...extraStyle }}
+      onMouseEnter={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.background = CR.btnHover; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = active ? `${CR.accent}20` : CR.btn; }}>
+      {children}
+    </button>
+  );
+}
+
+function CGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', borderRight: `1px solid ${CR.groupBorder}`, paddingRight: 6, marginRight: 2, minWidth: 0 }}>
+      <div style={{ display: 'flex', gap: 2, alignItems: 'flex-start', flex: 1, flexWrap: 'wrap' }}>{children}</div>
+      <div style={{ fontSize: 8, color: '#555', textAlign: 'center', paddingTop: 2, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{label}</div>
+    </div>
+  );
+}
+
+const FILL_COLORS = ['#1a1a1a', '#2a2a2a', '#ff5f57', '#ffbd2e', '#28c840', '#1e90ff', '#ff69b4', '#9b59b6', '#00ced1', '#ff8c00', '#2e8b57', '#ffffff'];
+const FONT_COLORS = ['#e0e0e0', '#ffffff', '#ff5f57', '#ffbd2e', '#28c840', '#4fc3f7', '#ff69b4', '#c792ea', '#80deea', '#ff8a65', '#aed581', '#888888'];
+const BORDER_STYLES = [
+  { id: 'all',    name: 'All Borders',   icon: '⊞' },
+  { id: 'outer',  name: 'Outside Borders', icon: '□' },
+  { id: 'bottom', name: 'Bottom Border', icon: '⊟' },
+  { id: 'none',   name: 'No Border',     icon: '✕' },
+];
+
+interface SpreadsheetRibbonProps {
+  state: CalcState;
+  selCell: CellData;
+  onTab: (t: string) => void;
+  onFmt: (updates: Partial<CellData>) => void;
+  onBold: () => void;
+  onItalic: () => void;
+  onUnderline: () => void;
+  onStrike: () => void;
+  onAlign: (a: 'left' | 'center' | 'right') => void;
+  onValign: (v: 'top' | 'middle' | 'bottom') => void;
+  onWrap: () => void;
+  onNumberFmt: (f: CellData['fmt']) => void;
+  onInsertRow: () => void;
+  onInsertCol: () => void;
+  onDeleteRow: () => void;
+  onDeleteCol: () => void;
+  onAutoSum: () => void;
+  onSort: (asc: boolean) => void;
+  onToggleFilter: () => void;
+  onToggleFormulas: () => void;
+  onToggleGridlines: () => void;
+  onClearCell: () => void;
+  onPrint: () => void;
+  onAddSheet: () => void;
+  onCountEmpty: () => void;
+  onFreezeRow: () => void;
+  onNameRange: () => void;
+  onDefineName: () => void;
+  onFillColor: (c: string) => void;
+  onFontColor: (c: string) => void;
+  onBorder: (b: CellData['border']) => void;
+  onMerge: () => void;
+  onConditionalHighlight: (condition: 'gt' | 'lt' | 'eq' | 'contains', value: string, color: string) => void;
+  totalCells: number;
+  activeCellCount: number;
+}
+
+function SpreadsheetRibbon({
+  state, selCell, onTab,
+  onFmt, onBold, onItalic, onUnderline, onStrike,
+  onAlign, onValign, onWrap, onNumberFmt,
+  onInsertRow, onInsertCol, onDeleteRow, onDeleteCol,
+  onAutoSum, onSort, onToggleFilter,
+  onToggleFormulas, onToggleGridlines,
+  onClearCell, onPrint, onAddSheet,
+  onCountEmpty, onFreezeRow, onNameRange, onDefineName,
+  onFillColor, onFontColor, onBorder, onMerge,
+  onConditionalHighlight,
+  totalCells, activeCellCount,
+}: SpreadsheetRibbonProps) {
+  const [fillOpen, setFillOpen] = useState(false);
+  const [fontColorOpen, setFontColorOpen] = useState(false);
+  const [borderOpen, setBorderOpen] = useState(false);
+  const [condOpen, setCondOpen] = useState(false);
+  const [condForm, setCondForm] = useState<{ condition: 'gt' | 'lt' | 'eq' | 'contains'; value: string; color: string }>({ condition: 'gt', value: '', color: '#ff5f57' });
+  const [nameOpen, setNameOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+
+  const TABS = ['Home', 'Insert', 'Page Layout', 'Formulas', 'Data', 'Automate'];
+
+  return (
+    <div style={{ background: CR.tab, borderBottom: `1px solid ${CR.groupBorder}`, flexShrink: 0 }}>
+      {/* Tab bar */}
+      <div style={{ display: 'flex', paddingLeft: 8, borderBottom: `1px solid ${CR.groupBorder}` }}>
+        {TABS.map(t => (
+          <button key={t} onClick={() => onTab(t)}
+            style={{ background: state.ribbonTab === t ? CR.tabActive : 'transparent', border: 'none', borderBottom: state.ribbonTab === t ? `2px solid ${CR.accent}` : '2px solid transparent', color: state.ribbonTab === t ? CR.accent : CR.dim, cursor: 'pointer', padding: '5px 12px', fontSize: 10, fontFamily: 'system-ui', letterSpacing: 0.3 }}>
+            {t}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 9, color: '#555', alignSelf: 'center', paddingRight: 10, fontFamily: 'monospace' }}>
+          {state.sel} · {activeCellCount}/{totalCells} cells
+        </span>
+      </div>
+
+      {/* Content area */}
+      <div style={{ display: 'flex', alignItems: 'stretch', padding: '4px 6px', gap: 2, minHeight: 64, overflowX: 'auto' }} onClick={() => { setFillOpen(false); setFontColorOpen(false); setBorderOpen(false); setCondOpen(false); setNameOpen(false); }}>
+
+        {/* ── HOME ─────────────────────────────────────── */}
+        {state.ribbonTab === 'Home' && (<>
+          <CGroup label="Clipboard">
+            <CBtn title="Paste"><Clipboard size={14} /><span style={{fontSize:8}}>Paste</span></CBtn>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn title="Cut"><Scissors size={10}/><span style={{fontSize:7}}>Cut</span></CBtn>
+              <CBtn title="Copy"><Copy size={10}/><span style={{fontSize:7}}>Copy</span></CBtn>
+            </div>
+          </CGroup>
+
+          <CGroup label="Font">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <div style={{display:'flex',gap:2,alignItems:'center'}}>
+                <select value={selCell.fontSize ?? 11} onChange={e => onFmt({ fontSize: +e.target.value })}
+                  style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:10,padding:'1px 4px',borderRadius:2,width:48}}>
+                  {[8,9,10,11,12,14,16,18,20,24,28,36,48,72].map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div style={{display:'flex',gap:2,flexWrap:'wrap'}}>
+                <CBtn onClick={onBold} active={!!selCell.b} title="Bold" style={{fontWeight:'bold',minWidth:22,padding:'2px 4px'}}><Bold size={10}/></CBtn>
+                <CBtn onClick={onItalic} active={!!selCell.i} title="Italic" style={{fontStyle:'italic',minWidth:22,padding:'2px 4px'}}><Italic size={10}/></CBtn>
+                <CBtn onClick={onUnderline} active={!!selCell.u} title="Underline" style={{minWidth:22,padding:'2px 4px'}}><Underline size={10}/></CBtn>
+                <CBtn onClick={onStrike} active={!!selCell.strike} title="Strikethrough" style={{minWidth:22,padding:'2px 4px'}}><Strikethrough size={10}/></CBtn>
+                {/* Border picker */}
+                <div style={{position:'relative'}}>
+                  <CBtn onClick={e => { e.stopPropagation(); setBorderOpen(v=>!v); }} title="Borders" active={borderOpen} style={{padding:'2px 4px'}}>
+                    <span style={{fontSize:11}}>⊞</span>
+                  </CBtn>
+                  {borderOpen && (
+                    <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid #444`,borderRadius:2,padding:4,width:130}}>
+                      {BORDER_STYLES.map(b => (
+                        <div key={b.id} onClick={()=>{ onBorder(b.id as CellData['border']); setBorderOpen(false); }}
+                          style={{padding:'3px 8px',cursor:'pointer',color:selCell.border===b.id?CR.accent:CR.text,fontSize:10,display:'flex',alignItems:'center',gap:6,borderRadius:2}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='#333'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                          <span style={{fontSize:13}}>{b.icon}</span>{b.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Fill color */}
+                <div style={{position:'relative'}}>
+                  <CBtn onClick={e=>{ e.stopPropagation(); setFillOpen(v=>!v); }} title="Fill Color" active={fillOpen} style={{padding:'2px 4px'}}>
+                    <div style={{width:10,height:10,background:selCell.bg??'#2a2a2a',border:'1px solid #555',borderRadius:1}}/>
+                  </CBtn>
+                  {fillOpen && (
+                    <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid #444`,borderRadius:2,padding:6,display:'flex',flexWrap:'wrap',gap:3,width:92}}>
+                      {FILL_COLORS.map(c=>(
+                        <div key={c} onClick={()=>{ onFillColor(c); setFillOpen(false); }}
+                          style={{width:16,height:16,background:c,border:`2px solid ${selCell.bg===c?'#fff':'#555'}`,borderRadius:2,cursor:'pointer'}}
+                          title={c}/>
+                      ))}
+                      <div onClick={()=>{ onFillColor(''); setFillOpen(false); }} title="No fill"
+                        style={{width:16,height:16,background:'transparent',border:'2px solid #555',borderRadius:2,cursor:'pointer',fontSize:8,color:'#888',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</div>
+                    </div>
+                  )}
+                </div>
+                {/* Font color */}
+                <div style={{position:'relative'}}>
+                  <CBtn onClick={e=>{ e.stopPropagation(); setFontColorOpen(v=>!v); }} title="Font Color" active={fontColorOpen} style={{padding:'2px 4px'}}>
+                    <Baseline size={10} style={{color:selCell.color??CR.text}}/>
+                  </CBtn>
+                  {fontColorOpen && (
+                    <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid #444`,borderRadius:2,padding:6,display:'flex',flexWrap:'wrap',gap:3,width:92}}>
+                      {FONT_COLORS.map(c=>(
+                        <div key={c} onClick={()=>{ onFontColor(c); setFontColorOpen(false); }}
+                          style={{width:16,height:16,background:c,border:`2px solid ${selCell.color===c?'#fff':'#555'}`,borderRadius:2,cursor:'pointer'}}
+                          title={c}/>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CGroup>
+
+          <CGroup label="Alignment">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <div style={{display:'flex',gap:2}}>
+                <CBtn onClick={()=>onValign('top')} active={selCell.valign==='top'} title="Top Align" style={{padding:'2px 4px',fontSize:9}}>⬆</CBtn>
+                <CBtn onClick={()=>onValign('middle')} active={selCell.valign==='middle'||!selCell.valign} title="Middle Align" style={{padding:'2px 4px',fontSize:9}}>↕</CBtn>
+                <CBtn onClick={()=>onValign('bottom')} active={selCell.valign==='bottom'} title="Bottom Align" style={{padding:'2px 4px',fontSize:9}}>⬇</CBtn>
+                <CBtn onClick={onWrap} active={!!selCell.wrap} title="Wrap Text" style={{padding:'2px 4px'}}><AlignJustify size={10}/></CBtn>
+                <CBtn onClick={onMerge} title="Merge Cells" style={{padding:'2px 4px'}}><Maximize size={10}/></CBtn>
+              </div>
+              <div style={{display:'flex',gap:2}}>
+                <CBtn onClick={()=>onAlign('left')} active={selCell.align==='left'||!selCell.align} title="Align Left" style={{padding:'2px 4px'}}><AlignLeft size={10}/></CBtn>
+                <CBtn onClick={()=>onAlign('center')} active={selCell.align==='center'} title="Center" style={{padding:'2px 4px'}}><AlignCenter size={10}/></CBtn>
+                <CBtn onClick={()=>onAlign('right')} active={selCell.align==='right'} title="Align Right" style={{padding:'2px 4px'}}><AlignRight size={10}/></CBtn>
+                <CBtn title="Increase Indent" style={{padding:'2px 4px'}}><Indent size={10}/></CBtn>
+                <CBtn title="Decrease Indent" style={{padding:'2px 4px'}}><Outdent size={10}/></CBtn>
+              </div>
+            </div>
+          </CGroup>
+
+          <CGroup label="Number">
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <select value={selCell.fmt??''} onChange={e=>onNumberFmt(e.target.value as CellData['fmt'])}
+                style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:10,padding:'2px 4px',borderRadius:2,width:90}}>
+                <option value="">General</option>
+                <option value="number">Number</option>
+                <option value="currency">Currency ($)</option>
+                <option value="percent">Percent (%)</option>
+                <option value="date">Date</option>
+                <option value="time">Time</option>
+                <option value="scientific">Scientific</option>
+                <option value="text">Text</option>
+              </select>
+              <div style={{display:'flex',gap:2}}>
+                <CBtn onClick={()=>onNumberFmt('currency')} active={selCell.fmt==='currency'} title="Currency" style={{fontSize:11,padding:'2px 5px'}}>$</CBtn>
+                <CBtn onClick={()=>onNumberFmt('percent')} active={selCell.fmt==='percent'} title="Percent" style={{fontSize:11,padding:'2px 5px'}}>%</CBtn>
+                <CBtn onClick={()=>onNumberFmt('number')} active={selCell.fmt==='number'} title="Comma" style={{fontSize:11,padding:'2px 5px'}}>,</CBtn>
+                <CBtn onClick={()=>onFmt({v: String((parseFloat(selCell.v||'0')+1).toFixed(2))})} title="Increase Decimals" style={{fontSize:9,padding:'2px 4px'}}>.0</CBtn>
+                <CBtn onClick={()=>onFmt({v: String((parseFloat(selCell.v||'0')).toFixed(0))})} title="Decrease Decimals" style={{fontSize:9,padding:'2px 4px'}}>0.</CBtn>
+              </div>
+            </div>
+          </CGroup>
+
+          <CGroup label="Styles">
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <div style={{position:'relative'}}>
+                <CBtn onClick={e=>{e.stopPropagation();setCondOpen(v=>!v);}} active={condOpen} title="Conditional Formatting" style={{fontSize:9,padding:'3px 8px',width:130}}>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><Sparkles size={10}/> Conditional Formatting</span>
+                </CBtn>
+                {condOpen && (
+                  <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid #444`,borderRadius:2,padding:10,width:220}}>
+                    <div style={{fontSize:10,color:CR.text,marginBottom:6}}>Highlight cells where value:</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      <select value={condForm.condition} onChange={e=>setCondForm(p=>({...p,condition:e.target.value as typeof condForm.condition}))}
+                        style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:10,padding:'2px 4px',borderRadius:2}}>
+                        <option value="gt">is greater than</option>
+                        <option value="lt">is less than</option>
+                        <option value="eq">equals</option>
+                        <option value="contains">contains</option>
+                      </select>
+                      <input value={condForm.value} onChange={e=>setCondForm(p=>({...p,value:e.target.value}))} placeholder="Value..." style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:10,padding:'2px 6px',borderRadius:2,outline:'none'}}/>
+                      <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                        <span style={{fontSize:10,color:CR.dim}}>Color:</span>
+                        {['#ff5f57','#ffbd2e','#28c840','#1e90ff','#ff69b4'].map(c=>(
+                          <div key={c} onClick={()=>setCondForm(p=>({...p,color:c}))} style={{width:16,height:16,background:c,border:`2px solid ${condForm.color===c?'#fff':'#555'}`,borderRadius:2,cursor:'pointer'}}/>
+                        ))}
+                      </div>
+                      <button onClick={()=>{ onConditionalHighlight(condForm.condition,condForm.value,condForm.color); setCondOpen(false); }}
+                        style={{background:CR.accent+'20',border:`1px solid ${CR.accent}60`,color:CR.accent,cursor:'pointer',padding:'3px 8px',borderRadius:2,fontSize:10}}>Apply Rule</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <CBtn onClick={onClearCell} title="Clear Cell" style={{fontSize:9,padding:'3px 8px',width:130}}>
+                <span style={{display:'flex',alignItems:'center',gap:4}}><Trash size={10}/> Clear Cell</span>
+              </CBtn>
+            </div>
+          </CGroup>
+
+          <CGroup label="Cells">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <div style={{display:'flex',gap:2}}>
+                <CBtn onClick={onInsertRow} title="Insert Row Below"><Plus size={10}/><span style={{fontSize:7}}>Row</span></CBtn>
+                <CBtn onClick={onInsertCol} title="Insert Column Right"><Plus size={10}/><span style={{fontSize:7}}>Col</span></CBtn>
+              </div>
+              <div style={{display:'flex',gap:2}}>
+                <CBtn onClick={onDeleteRow} title="Delete Row" style={{color:'#e06c75'}}><Trash2 size={10}/><span style={{fontSize:7}}>Row</span></CBtn>
+                <CBtn onClick={onDeleteCol} title="Delete Column" style={{color:'#e06c75'}}><Trash2 size={10}/><span style={{fontSize:7}}>Col</span></CBtn>
+              </div>
+            </div>
+          </CGroup>
+
+          <CGroup label="Editing">
+            <CBtn onClick={onAutoSum} title="AutoSum (Σ)" style={{fontSize:13,fontWeight:'bold'}}>Σ<span style={{fontSize:8}}>AutoSum</span></CBtn>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn onClick={()=>onSort(true)} title="Sort A→Z" style={{fontSize:9,padding:'2px 5px'}}>A↑Z</CBtn>
+              <CBtn onClick={()=>onSort(false)} title="Sort Z→A" style={{fontSize:9,padding:'2px 5px'}}>Z↑A</CBtn>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn onClick={onToggleFilter} active={state.filterActive} title="Toggle Filter" style={{fontSize:9,padding:'2px 5px'}}>
+                <BarChart2 size={10}/><span style={{fontSize:7}}>Filter</span>
+              </CBtn>
+              <CBtn onClick={onClearCell} title="Clear" style={{fontSize:9,padding:'2px 5px'}}>
+                <Trash size={10}/><span style={{fontSize:7}}>Clear</span>
+              </CBtn>
+            </div>
+          </CGroup>
+        </>)}
+
+        {/* ── INSERT ───────────────────────────────────── */}
+        {state.ribbonTab === 'Insert' && (<>
+          <CGroup label="Tables">
+            <CBtn title="PivotTable" style={{fontSize:9}}><BarChart2 size={14}/><span>PivotTable</span></CBtn>
+            <CBtn title="Table" style={{fontSize:9}}><LayoutTemplate size={14}/><span>Table</span></CBtn>
+          </CGroup>
+          <CGroup label="Illustrations">
+            <CBtn title="Pictures"><Image size={14}/><span style={{fontSize:8}}>Pictures</span></CBtn>
+            <CBtn title="Shapes"><Shapes size={14}/><span style={{fontSize:8}}>Shapes</span></CBtn>
+            <CBtn title="Icons"><Sparkles size={14}/><span style={{fontSize:8}}>Icons</span></CBtn>
+          </CGroup>
+          <CGroup label="Charts">
+            <CBtn title="Recommended Charts" style={{fontSize:9}}><BarChart2 size={14}/><span>Bar</span></CBtn>
+            <CBtn title="Line Chart" style={{fontSize:9}}><Wind size={14}/><span>Line</span></CBtn>
+            <CBtn title="Column Chart" style={{fontSize:9}}><Layers size={14}/><span>Column</span></CBtn>
+          </CGroup>
+          <CGroup label="Links">
+            <CBtn title="Insert Hyperlink"><Link2 size={14}/><span style={{fontSize:8}}>Link</span></CBtn>
+          </CGroup>
+          <CGroup label="Comments">
+            <CBtn title="New Comment"><MessageSquare size={14}/><span style={{fontSize:8}}>Comment</span></CBtn>
+          </CGroup>
+          <CGroup label="Symbols">
+            <CBtn title="Insert Symbol"><Hash size={14}/><span style={{fontSize:8}}>Symbol</span></CBtn>
+          </CGroup>
+          <CGroup label="Sheets">
+            <CBtn onClick={onAddSheet} title="Add Sheet"><Plus size={14}/><span style={{fontSize:8}}>New Sheet</span></CBtn>
+          </CGroup>
+        </>)}
+
+        {/* ── PAGE LAYOUT ──────────────────────────────── */}
+        {state.ribbonTab === 'Page Layout' && (<>
+          <CGroup label="Themes">
+            <CBtn title="Colors"><Palette size={14}/><span style={{fontSize:8}}>Colors</span></CBtn>
+            <CBtn title="Fonts"><Type size={14}/><span style={{fontSize:8}}>Fonts</span></CBtn>
+          </CGroup>
+          <CGroup label="Page Setup">
+            <CBtn title="Margins" style={{fontSize:9}}>Margins</CBtn>
+            <CBtn title="Orientation" style={{fontSize:9}}>Orientation</CBtn>
+            <CBtn title="Size" style={{fontSize:9}}>Size</CBtn>
+            <CBtn title="Print Area" style={{fontSize:9}}>Print Area</CBtn>
+            <CBtn title="Breaks" style={{fontSize:9}}>Breaks</CBtn>
+            <CBtn title="Background"><Image size={14}/><span style={{fontSize:8}}>Background</span></CBtn>
+          </CGroup>
+          <CGroup label="Sheet Options">
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:CR.dim,width:60}}>Gridlines</span>
+                <CBtn onClick={onToggleGridlines} active={state.showGridlines} title="Show/Hide Gridlines" style={{fontSize:9,padding:'2px 6px'}}>{state.showGridlines?'Hide':'Show'}</CBtn>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:CR.dim,width:60}}>Headings</span>
+                <CBtn title="Show Headings" active style={{fontSize:9,padding:'2px 6px'}}>Show</CBtn>
+              </div>
+              <CBtn onClick={onPrint} title="Print" style={{fontSize:9,padding:'2px 8px'}}><span style={{display:'flex',alignItems:'center',gap:4}}><Copy size={10}/> Print</span></CBtn>
+            </div>
+          </CGroup>
+          <CGroup label="Scale to Fit">
+            <div style={{display:'flex',flexDirection:'column',gap:4,padding:'2px 0'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:CR.dim,width:40}}>Width:</span>
+                <select style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:9,padding:'1px 4px',borderRadius:2,width:80}}>
+                  <option>Automatic</option><option>1 page</option><option>2 pages</option>
+                </select>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:CR.dim,width:40}}>Height:</span>
+                <select style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:9,padding:'1px 4px',borderRadius:2,width:80}}>
+                  <option>Automatic</option><option>1 page</option><option>2 pages</option>
+                </select>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:CR.dim,width:40}}>Scale:</span>
+                <input type="number" defaultValue={100} style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:9,padding:'1px 4px',borderRadius:2,width:50,textAlign:'right'}}/>
+                <span style={{fontSize:9,color:'#555'}}>%</span>
+              </div>
+            </div>
+          </CGroup>
+        </>)}
+
+        {/* ── FORMULAS ─────────────────────────────────── */}
+        {state.ribbonTab === 'Formulas' && (<>
+          <CGroup label="Function Library">
+            <CBtn onClick={onAutoSum} title="AutoSum" style={{fontSize:13,fontWeight:'bold',padding:'4px 6px'}}>Σ<span style={{fontSize:8}}>AutoSum</span></CBtn>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              {[
+                {label:'Financial', sym:'$'},
+                {label:'Logical', sym:'?'},
+                {label:'Text', sym:'T'},
+                {label:'Date & Time', sym:'⏱'},
+              ].map(f=>(
+                <CBtn key={f.label} title={`${f.label} functions`} style={{fontSize:9,padding:'2px 5px',flexDirection:'row',gap:4}}>
+                  <span style={{width:12,textAlign:'center'}}>{f.sym}</span>{f.label}
+                </CBtn>
+              ))}
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              {[
+                {label:'Lookup', sym:'↗'},
+                {label:'Math & Trig', sym:'π'},
+                {label:'More…', sym:'⋯'},
+              ].map(f=>(
+                <CBtn key={f.label} title={`${f.label} functions`} style={{fontSize:9,padding:'2px 5px',flexDirection:'row',gap:4}}>
+                  <span style={{width:12,textAlign:'center'}}>{f.sym}</span>{f.label}
+                </CBtn>
+              ))}
+            </div>
+          </CGroup>
+          <CGroup label="Defined Names">
+            <div style={{position:'relative'}}>
+              <CBtn onClick={e=>{e.stopPropagation();setNameOpen(v=>!v);}} active={nameOpen} title="Name Manager" style={{fontSize:9,padding:'3px 8px'}}>
+                <Hash size={12}/><span>Name Manager</span>
+              </CBtn>
+              {nameOpen && (
+                <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid #444`,borderRadius:2,padding:10,width:200}}>
+                  <div style={{fontSize:10,color:CR.text,marginBottom:6}}>Named Ranges:</div>
+                  {state.namedRanges.length === 0 && <div style={{fontSize:9,color:CR.dim}}>No named ranges defined.</div>}
+                  {state.namedRanges.map((nr,i)=>(
+                    <div key={i} style={{fontSize:9,color:CR.text,padding:'2px 4px',display:'flex',gap:6}}>
+                      <span style={{color:CR.accent}}>{nr.name}</span>
+                      <span style={{color:CR.dim}}>{nr.range}</span>
+                    </div>
+                  ))}
+                  <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
+                    <input value={nameDraft} onChange={e=>setNameDraft(e.target.value)} placeholder="Name for current selection"
+                      style={{background:'#2a2a2a',border:`1px solid #444`,color:CR.text,fontSize:9,padding:'2px 6px',borderRadius:2,outline:'none'}}/>
+                    <button onClick={()=>{onDefineName(); setNameOpen(false); setNameDraft('');}}
+                      style={{background:CR.accent+'20',border:`1px solid ${CR.accent}60`,color:CR.accent,cursor:'pointer',padding:'3px 8px',borderRadius:2,fontSize:9}}>
+                      Define Name for Selection
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <CBtn onClick={onNameRange} title="Create from Selection" style={{fontSize:9,padding:'3px 8px'}}>
+              <span style={{display:'flex',alignItems:'center',gap:4}}><Plus size={10}/> From Selection</span>
+            </CBtn>
+          </CGroup>
+          <CGroup label="Formula Auditing">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn title="Trace Precedents" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><ChevronRight size={10}/>Trace Precedents</CBtn>
+              <CBtn title="Trace Dependents" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><ChevronLeft size={10}/>Trace Dependents</CBtn>
+              <CBtn title="Remove Arrows" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><Trash size={10}/>Remove Arrows</CBtn>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn onClick={onToggleFormulas} active={state.showFormulas} title="Show/Hide Formulas" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><Eye size={10}/>Show Formulas</CBtn>
+              <CBtn title="Error Checking" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><SpellCheck size={10}/>Error Checking</CBtn>
+              <CBtn title="Evaluate Formula" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><Play size={10}/>Evaluate</CBtn>
+            </div>
+          </CGroup>
+          <CGroup label="Calculation">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn title="Calculate Now (F9)" style={{fontSize:9,padding:'2px 8px',flexDirection:'row',gap:4}}><Play size={10}/>Calculate Now</CBtn>
+              <CBtn title="Calculate Sheet" style={{fontSize:9,padding:'2px 8px',flexDirection:'row',gap:4}}><RotateCcw size={10}/>Calculate Sheet</CBtn>
+            </div>
+          </CGroup>
+        </>)}
+
+        {/* ── DATA ─────────────────────────────────────── */}
+        {state.ribbonTab === 'Data' && (<>
+          <CGroup label="Get &amp; Transform">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn title="Get Data" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><Download size={10}/>Get Data</CBtn>
+              <CBtn title="From Text/CSV" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><FileText size={10}/>Text/CSV</CBtn>
+              <CBtn title="From Web" style={{fontSize:9,padding:'2px 6px',flexDirection:'row',gap:4}}><Link2 size={10}/>From Web</CBtn>
+            </div>
+          </CGroup>
+          <CGroup label="Sort &amp; Filter">
+            <CBtn onClick={()=>onSort(true)} title="Sort Ascending (A→Z)" style={{padding:'4px 6px'}}>
+              <span style={{fontSize:13}}>↑</span><span style={{fontSize:8}}>A→Z Sort</span>
+            </CBtn>
+            <CBtn onClick={()=>onSort(false)} title="Sort Descending (Z→A)" style={{padding:'4px 6px'}}>
+              <span style={{fontSize:13}}>↓</span><span style={{fontSize:8}}>Z→A Sort</span>
+            </CBtn>
+            <CBtn onClick={onToggleFilter} active={state.filterActive} title="Toggle Filter" style={{padding:'4px 6px'}}>
+              <BarChart2 size={14}/><span style={{fontSize:8}}>Filter</span>
+            </CBtn>
+          </CGroup>
+          <CGroup label="Data Tools">
+            <CBtn title="Text to Columns" style={{fontSize:9,padding:'3px 8px'}}>Text to Columns</CBtn>
+            <CBtn title="What-If Analysis" style={{fontSize:9,padding:'3px 8px'}}>What-If Analysis</CBtn>
+            <CBtn title="Remove Duplicates" style={{fontSize:9,padding:'3px 8px'}}><Trash size={10}/><span>Remove Dupes</span></CBtn>
+          </CGroup>
+          <CGroup label="Outline">
+            <CBtn title="Group Rows" style={{fontSize:9,padding:'3px 8px'}}>Group</CBtn>
+            <CBtn title="Ungroup Rows" style={{fontSize:9,padding:'3px 8px'}}>Ungroup</CBtn>
+            <CBtn title="Subtotal" style={{fontSize:9,padding:'3px 8px'}}>Subtotal</CBtn>
+          </CGroup>
+        </>)}
+
+        {/* ── AUTOMATE ─────────────────────────────────── */}
+        {state.ribbonTab === 'Automate' && (<>
+          <CGroup label="Scripts">
+            <CBtn title="New Script" style={{padding:'4px 8px'}}><Plus size={14}/><span style={{fontSize:8}}>New Script</span></CBtn>
+            <CBtn title="View Scripts" style={{padding:'4px 8px'}}><Eye size={14}/><span style={{fontSize:8}}>View Scripts</span></CBtn>
+          </CGroup>
+          <CGroup label="Quick Actions">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <CBtn onClick={onCountEmpty} title="Count Empty Rows in selection" style={{fontSize:9,padding:'3px 10px',flexDirection:'row',gap:6}}>
+                <Hash size={10}/> Count Empty Rows
+              </CBtn>
+              <CBtn onClick={onFreezeRow} active={state.frozenRow>0} title="Freeze/Unfreeze Header Row" style={{fontSize:9,padding:'3px 10px',flexDirection:'row',gap:6}}>
+                <Layers size={10}/> {state.frozenRow>0?'Unfreeze':'Freeze'} Header Row
+              </CBtn>
+              <CBtn onClick={onInsertRow} title="Insert Row Below Selected" style={{fontSize:9,padding:'3px 10px',flexDirection:'row',gap:6}}>
+                <Plus size={10}/> Insert Row Below
+              </CBtn>
+              <CBtn onClick={onDeleteRow} title="Delete Selected Row" style={{fontSize:9,padding:'3px 10px',flexDirection:'row',gap:6}}>
+                <Trash2 size={10}/> Delete Row
+              </CBtn>
+              <CBtn title="Remove Hyperlinks" style={{fontSize:9,padding:'3px 10px',flexDirection:'row',gap:6}}>
+                <Link2 size={10}/> Remove Hyperlinks
+              </CBtn>
+              <CBtn title="Make Subtable from Selection" style={{fontSize:9,padding:'3px 10px',flexDirection:'row',gap:6}}>
+                <LayoutTemplate size={10}/> Make Subtable
+              </CBtn>
+            </div>
+          </CGroup>
+        </>)}
+      </div>
+    </div>
+  );
 }
 
 function CalcApp() {
@@ -221,16 +773,12 @@ function CalcApp() {
     setState(prev => ({ ...prev, sel: COLS[newCIdx] + newRow, editMode: false, editVal: '' }));
   }, [state.sel]);
 
-  const toggleFmt = useCallback((fmt: keyof CellData) => {
-    const cell = data[state.sel] ?? {};
-    setCell(state.sel, { [fmt]: !cell[fmt as keyof CellData] });
-  }, [data, state.sel, setCell]);
-
   useEffect(() => {
     if (state.editMode && editRef.current) editRef.current.focus();
   }, [state.editMode, state.sel]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveCalc(state); return; }
     if (state.editMode) {
       if (e.key === 'Enter') { commitEdit(); moveSelection(0, 1); }
       if (e.key === 'Escape') setState(prev => ({ ...prev, editMode: false, editVal: '' }));
@@ -246,45 +794,202 @@ function CalcApp() {
     if (!e.ctrlKey && !e.metaKey && e.key.length === 1) {
       setState(prev => ({ ...prev, editMode: true, editVal: e.key }));
     }
-  }, [state.editMode, state.sel, commitEdit, moveSelection, setCell]);
+  }, [state, commitEdit, moveSelection, setCell]);
 
-  const selCell = data[state.sel] ?? {};
+  const selCell = data[state.sel] ?? {} as CellData;
   const formulaDisplay = selCell.v || '';
 
   const COL_W = 80, ROW_H = 22, HDR_W = 40, HDR_H = 22;
 
+  // ── Ribbon callbacks ───────────────────────────────────────────
+  const onFmt = (updates: Partial<CellData>) => setCell(state.sel, updates);
+  const onBold = () => setCell(state.sel, { b: !selCell.b });
+  const onItalic = () => setCell(state.sel, { i: !selCell.i });
+  const onUnderline = () => setCell(state.sel, { u: !selCell.u });
+  const onStrike = () => setCell(state.sel, { strike: !selCell.strike });
+  const onAlign = (a: 'left' | 'center' | 'right') => setCell(state.sel, { align: a });
+  const onValign = (v: 'top' | 'middle' | 'bottom') => setCell(state.sel, { valign: v });
+  const onWrap = () => setCell(state.sel, { wrap: !selCell.wrap });
+  const onNumberFmt = (f: CellData['fmt']) => setCell(state.sel, { fmt: f });
+  const onFillColor = (c: string) => setCell(state.sel, { bg: c || undefined });
+  const onFontColor = (c: string) => setCell(state.sel, { color: c });
+  const onBorder = (b: CellData['border']) => setCell(state.sel, { border: b });
+  const onClearCell = () => setCell(state.sel, { v: '', b: false, i: false, u: false, strike: false, bg: undefined, color: undefined, fmt: undefined, align: undefined });
+  const onMerge = () => {}; // decorative
+
+  const onInsertRow = () => {
+    const [, row] = colRow(state.sel);
+    setState(prev => {
+      const newData: SheetMap = {};
+      const oldData = prev.sheets[prev.activeSheet].data;
+      Object.entries(oldData).forEach(([addr, cell]) => {
+        const [c, r] = colRow(addr);
+        if (r >= row) newData[c + (r + 1)] = cell;
+        else newData[addr] = cell;
+      });
+      const next = { ...prev, sheets: prev.sheets.map((sh, i) => i === prev.activeSheet ? { ...sh, data: newData } : sh) };
+      saveCalc(next); return next;
+    });
+  };
+
+  const onDeleteRow = () => {
+    const [, row] = colRow(state.sel);
+    setState(prev => {
+      const newData: SheetMap = {};
+      const oldData = prev.sheets[prev.activeSheet].data;
+      Object.entries(oldData).forEach(([addr, cell]) => {
+        const [c, r] = colRow(addr);
+        if (r < row) newData[addr] = cell;
+        else if (r > row) newData[c + (r - 1)] = cell;
+      });
+      const next = { ...prev, sheets: prev.sheets.map((sh, i) => i === prev.activeSheet ? { ...sh, data: newData } : sh) };
+      saveCalc(next); return next;
+    });
+  };
+
+  const onInsertCol = () => {
+    const [col] = colRow(state.sel);
+    const cIdx = COLS.indexOf(col);
+    setState(prev => {
+      const newData: SheetMap = {};
+      const oldData = prev.sheets[prev.activeSheet].data;
+      Object.entries(oldData).forEach(([addr, cell]) => {
+        const [c, r] = colRow(addr);
+        const ci = COLS.indexOf(c);
+        if (ci >= cIdx) newData[COLS[ci + 1] + r] = cell;
+        else newData[addr] = cell;
+      });
+      const next = { ...prev, sheets: prev.sheets.map((sh, i) => i === prev.activeSheet ? { ...sh, data: newData } : sh) };
+      saveCalc(next); return next;
+    });
+  };
+
+  const onDeleteCol = () => {
+    const [col] = colRow(state.sel);
+    const cIdx = COLS.indexOf(col);
+    setState(prev => {
+      const newData: SheetMap = {};
+      const oldData = prev.sheets[prev.activeSheet].data;
+      Object.entries(oldData).forEach(([addr, cell]) => {
+        const [c, r] = colRow(addr);
+        const ci = COLS.indexOf(c);
+        if (ci < cIdx) newData[addr] = cell;
+        else if (ci > cIdx) newData[COLS[ci - 1] + r] = cell;
+      });
+      const next = { ...prev, sheets: prev.sheets.map((sh, i) => i === prev.activeSheet ? { ...sh, data: newData } : sh) };
+      saveCalc(next); return next;
+    });
+  };
+
+  const onAutoSum = () => {
+    const [col, row] = colRow(state.sel);
+    // Find contiguous numbers above
+    let top = row - 1;
+    while (top >= 1 && data[col + top]?.v && !isNaN(Number(evalCell(data[col + top].v, data)))) top--;
+    top++;
+    const formula = top < row ? `=SUM(${col}${top}:${col}${row - 1})` : `=SUM(${col}1:${col}${row - 1})`;
+    setCell(state.sel, { v: formula });
+    setState(prev => ({ ...prev, editMode: false }));
+  };
+
+  const onSort = (asc: boolean) => {
+    const [col] = colRow(state.sel);
+    setState(prev => {
+      const oldData = prev.sheets[prev.activeSheet].data;
+      const rows: { row: number; cells: Record<string, CellData> }[] = [];
+      for (let r = 2; r <= ROW_COUNT; r++) {
+        const rowCells: Record<string, CellData> = {};
+        COLS.forEach(c => { if (oldData[c + r]) rowCells[c] = oldData[c + r]; });
+        rows.push({ row: r, cells: rowCells });
+      }
+      rows.sort((a, b) => {
+        const va = a.cells[col]?.v ?? '';
+        const vb = b.cells[col]?.v ?? '';
+        const na = parseFloat(va), nb = parseFloat(vb);
+        const numComp = !isNaN(na) && !isNaN(nb) ? (na - nb) : 0;
+        const strComp = !isNaN(na) && !isNaN(nb) ? numComp : va.localeCompare(vb);
+        return asc ? strComp : -strComp;
+      });
+      const newData: SheetMap = {};
+      COLS.forEach(c => { if (oldData[c + '1']) newData[c + '1'] = oldData[c + '1']; });
+      rows.forEach(({ cells }, idx) => { COLS.forEach(c => { if (cells[c]) newData[c + (idx + 2)] = cells[c]; }); });
+      const next = { ...prev, sheets: prev.sheets.map((sh, i) => i === prev.activeSheet ? { ...sh, data: newData } : sh) };
+      saveCalc(next); return next;
+    });
+  };
+
+  const onToggleFilter = () => setState(prev => ({ ...prev, filterActive: !prev.filterActive }));
+  const onToggleFormulas = () => setState(prev => ({ ...prev, showFormulas: !prev.showFormulas }));
+  const onToggleGridlines = () => setState(prev => ({ ...prev, showGridlines: !prev.showGridlines }));
+  const onPrint = () => window.print();
+  const onAddSheet = () => setState(prev => { const next = { ...prev, sheets: [...prev.sheets, { name: `Sheet${prev.sheets.length + 1}`, data: {} }] }; saveCalc(next); return next; });
+
+  const onCountEmpty = () => {
+    let empty = 0;
+    const [col] = colRow(state.sel);
+    for (let r = 1; r <= ROW_COUNT; r++) { if (!data[col + r]?.v) empty++; }
+    setCell(state.sel, { v: String(empty) });
+  };
+
+  const onFreezeRow = () => setState(prev => ({ ...prev, frozenRow: prev.frozenRow > 0 ? 0 : 1 }));
+  const onNameRange = () => {};
+  const onDefineName = () => {
+    const name = prompt('Name for range ' + state.sel + ':');
+    if (name) setState(prev => ({ ...prev, namedRanges: [...prev.namedRanges, { name, range: prev.sel }] }));
+  };
+
+  const onConditionalHighlight = (condition: 'gt' | 'lt' | 'eq' | 'contains', value: string, color: string) => {
+    setState(prev => ({ ...prev, conditionalRules: [...prev.conditionalRules, { range: prev.sel, condition, value, color }] }));
+  };
+
+  const getCellBg = (addr: string, cell: CellData): string => {
+    if (addr === state.sel) return '#0a1a2a';
+    if (cell.bg) return cell.bg;
+    // Apply conditional rules
+    for (const rule of state.conditionalRules) {
+      const cv = evalCell(cell.v ?? '', data);
+      const rv = rule.condition === 'contains' ? rule.value : parseFloat(rule.value);
+      if (rule.condition === 'gt' && typeof cv === 'number' && cv > (rv as number)) return rule.color + '40';
+      if (rule.condition === 'lt' && typeof cv === 'number' && cv < (rv as number)) return rule.color + '40';
+      if (rule.condition === 'eq' && String(cv) === String(rv)) return rule.color + '40';
+      if (rule.condition === 'contains' && String(cv).includes(String(rv))) return rule.color + '40';
+    }
+    return '#111';
+  };
+
+  const getCellBorder = (addr: string, cell: CellData, isSelected: boolean): string => {
+    if (isSelected) return `2px solid ${O.writer}`;
+    if (!state.showGridlines) return '1px solid transparent';
+    if (cell.border === 'none') return '1px solid transparent';
+    return `1px solid ${O.border}`;
+  };
+
+  const totalCells = COLS.length * ROW_COUNT;
+  const activeCellCount = Object.keys(data).filter(k => data[k]?.v).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a', userSelect: 'none' }} onKeyDown={handleKeyDown} tabIndex={0}>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 4, padding: '4px 8px', background: O.toolbar, borderBottom: `1px solid ${O.border}`, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
-        {[
-          { icon: <Bold size={12} />, tip: 'Bold', action: () => toggleFmt('b') },
-          { icon: <Italic size={12} />, tip: 'Italic', action: () => toggleFmt('i') },
-        ].map(({ icon, tip, action }) => (
-          <button key={tip} onClick={action} title={tip} style={{ background: '#2a2a2a', border: `1px solid ${O.border}`, color: O.text, cursor: 'pointer', padding: '2px 6px', borderRadius: 2, display: 'flex', alignItems: 'center' }}>{icon}</button>
-        ))}
-        <div style={{ width: 1, height: 16, background: O.border, margin: '0 2px' }} />
-        {(['left', 'center', 'right'] as const).map(a => (
-          <button key={a} onClick={() => setCell(state.sel, { align: a })} style={{ background: selCell.align === a ? '#3a3a3a' : '#2a2a2a', border: `1px solid ${O.border}`, color: O.text, cursor: 'pointer', padding: '2px 6px', borderRadius: 2 }}>
-            {a === 'left' ? <AlignLeft size={12} /> : a === 'center' ? <AlignCenter size={12} /> : <AlignRight size={12} />}
-          </button>
-        ))}
-        <div style={{ width: 1, height: 16, background: O.border, margin: '0 2px' }} />
-        <select value={selCell.fmt ?? ''} onChange={e => setCell(state.sel, { fmt: e.target.value as CellData['fmt'] })} style={{ background: '#2a2a2a', border: `1px solid ${O.border}`, color: O.text, fontSize: 10, padding: '2px 4px', borderRadius: 2 }}>
-          <option value="">General</option>
-          <option value="number">Number</option>
-          <option value="currency">Currency ($)</option>
-          <option value="percent">Percent (%)</option>
-          <option value="text">Text</option>
-        </select>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: O.dim }}>Ctrl+S to save</span>
-      </div>
+      {/* Ribbon */}
+      <SpreadsheetRibbon
+        state={state} selCell={selCell}
+        onTab={t => setState(prev => ({ ...prev, ribbonTab: t }))}
+        onFmt={onFmt} onBold={onBold} onItalic={onItalic} onUnderline={onUnderline} onStrike={onStrike}
+        onAlign={onAlign} onValign={onValign} onWrap={onWrap} onNumberFmt={onNumberFmt}
+        onInsertRow={onInsertRow} onInsertCol={onInsertCol} onDeleteRow={onDeleteRow} onDeleteCol={onDeleteCol}
+        onAutoSum={onAutoSum} onSort={onSort} onToggleFilter={onToggleFilter}
+        onToggleFormulas={onToggleFormulas} onToggleGridlines={onToggleGridlines}
+        onClearCell={onClearCell} onPrint={onPrint} onAddSheet={onAddSheet}
+        onCountEmpty={onCountEmpty} onFreezeRow={onFreezeRow}
+        onNameRange={onNameRange} onDefineName={onDefineName}
+        onFillColor={onFillColor} onFontColor={onFontColor} onBorder={onBorder} onMerge={onMerge}
+        onConditionalHighlight={onConditionalHighlight}
+        totalCells={totalCells} activeCellCount={activeCellCount}
+      />
 
       {/* Formula bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', background: '#141414', borderBottom: `1px solid ${O.border}`, flexShrink: 0 }}>
-        <div style={{ minWidth: 44, padding: '2px 6px', background: '#0a2a3a', border: `1px solid ${O.writer}40`, color: O.writer, fontFamily: 'monospace', fontSize: 11, textAlign: 'center', borderRadius: 2 }}>{state.sel}</div>
-        <span style={{ color: O.dim, fontSize: 12 }}>fx</span>
+        <div style={{ minWidth: 52, padding: '2px 6px', background: '#0a2a3a', border: `1px solid ${O.writer}40`, color: O.writer, fontFamily: 'monospace', fontSize: 11, textAlign: 'center', borderRadius: 2 }}>{state.sel}</div>
+        <span style={{ color: O.dim, fontSize: 13, fontFamily: 'monospace', fontStyle: 'italic' }}>fx</span>
         <input
           ref={editRef}
           value={state.editMode ? state.editVal : formulaDisplay}
@@ -296,6 +1001,12 @@ function CalcApp() {
           onFocus={() => setState(prev => ({ ...prev, editMode: true, editVal: formulaDisplay }))}
           style={{ flex: 1, background: '#0a0a0a', border: `1px solid ${O.border}`, color: O.text, fontFamily: 'monospace', fontSize: 11, padding: '2px 6px', outline: 'none', borderRadius: 2 }}
         />
+        {state.filterActive && (
+          <span style={{ fontSize: 9, color: O.calc, fontFamily: 'monospace', paddingRight: 4 }}>FILTER ON</span>
+        )}
+        {state.showFormulas && (
+          <span style={{ fontSize: 9, color: '#c792ea', fontFamily: 'monospace', paddingRight: 4 }}>SHOW FORMULAS</span>
+        )}
       </div>
 
       {/* Grid */}
@@ -307,9 +1018,15 @@ function CalcApp() {
             {COLS.map(col => (
               <div key={col} style={{ width: state.colWidths[col] ?? COL_W, minWidth: state.colWidths[col] ?? COL_W, height: HDR_H, background: col === selCol ? '#264f78' : '#1a1a1a', border: `1px solid ${O.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontFamily: 'monospace', flexShrink: 0, cursor: 'pointer', fontWeight: col === selCol ? 'bold' : 'normal', color: col === selCol ? '#fff' : O.dim }}>
                 {col}
+                {state.filterActive && <span style={{ fontSize: 7, color: O.calc, marginLeft: 2 }}>▾</span>}
               </div>
             ))}
           </div>
+
+          {/* Frozen row indicator */}
+          {state.frozenRow > 0 && (
+            <div style={{ height: 2, background: `${O.calc}60`, position: 'sticky', top: HDR_H, zIndex: 2, width: '100%' }} />
+          )}
 
           {/* Rows */}
           {Array.from({ length: ROW_COUNT }, (_, ri) => {
@@ -321,13 +1038,21 @@ function CalcApp() {
                 </div>
                 {COLS.map(col => {
                   const addr = col + row;
-                  const cell = data[addr] ?? {};
+                  const cell = data[addr] ?? {} as CellData;
                   const isSelected = addr === state.sel;
-                  const display = displayCell(cell.v ?? '', data, cell.fmt);
+                  const rawVal = state.showFormulas ? (cell.v ?? '') : displayCell(cell.v ?? '', data, cell.fmt);
+                  const isError = rawVal.startsWith('#') && rawVal.length > 1 && rawVal.length < 10;
                   const isEditing = isSelected && state.editMode;
+                  const bgColor = getCellBg(addr, cell);
+                  const borderStyle = getCellBorder(addr, cell, isSelected);
+                  const valignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+                  const vAlign = valignMap[cell.valign ?? 'middle'] ?? 'center';
                   return (
-                    <div key={addr} onClick={() => { commitEdit(); setState(prev => ({ ...prev, sel: addr, editMode: false, editVal: '' })); }} onDoubleClick={() => setState(prev => ({ ...prev, sel: addr, editMode: true, editVal: cell.v ?? '' }))}
-                      style={{ width: state.colWidths[col] ?? COL_W, minWidth: state.colWidths[col] ?? COL_W, height: ROW_H, border: isSelected ? `2px solid ${O.writer}` : `1px solid ${O.border}`, background: isSelected ? '#0a1a2a' : '#111', position: 'relative', flexShrink: 0, overflow: 'hidden', cursor: 'default' }}>
+                    <div key={addr}
+                      onClick={() => { commitEdit(); setState(prev => ({ ...prev, sel: addr, editMode: false, editVal: '' })); }}
+                      onDoubleClick={() => setState(prev => ({ ...prev, sel: addr, editMode: true, editVal: cell.v ?? '' }))}
+                      style={{ width: state.colWidths[col] ?? COL_W, minWidth: state.colWidths[col] ?? COL_W, height: cell.wrap ? 'auto' : ROW_H, minHeight: ROW_H, border: borderStyle, background: bgColor, position: 'relative', flexShrink: 0, overflow: 'hidden', cursor: 'default',
+                        outline: cell.border === 'outer' ? `1px solid ${O.dim}` : cell.border === 'all' ? `1px solid ${O.dim}` : cell.border === 'bottom' ? undefined : undefined }}>
                       {isEditing ? (
                         <input
                           value={state.editVal}
@@ -338,11 +1063,12 @@ function CalcApp() {
                             if (e.key === 'Tab') { e.preventDefault(); commitEdit(); moveSelection(1, 0); }
                           }}
                           autoFocus
-                          style={{ width: '100%', height: '100%', background: '#0a1a2a', border: 'none', color: O.text, fontFamily: 'monospace', fontSize: 11, padding: '0 4px', outline: 'none' }}
+                          style={{ width: '100%', height: '100%', background: '#0a1a2a', border: 'none', color: O.text, fontFamily: 'monospace', fontSize: cell.fontSize ?? 11, padding: '0 4px', outline: 'none' }}
                         />
                       ) : (
-                        <div style={{ padding: '0 4px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: cell.align === 'center' ? 'center' : cell.align === 'right' ? 'flex-end' : 'flex-start', fontWeight: cell.b ? 'bold' : 'normal', fontStyle: cell.i ? 'italic' : 'normal', fontSize: 11, color: display.startsWith('#') && display.length > 2 ? '#e06c75' : O.text, fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                          {display}
+                        <div style={{ padding: '0 4px', height: '100%', display: 'flex', alignItems: vAlign, justifyContent: cell.align === 'center' ? 'center' : cell.align === 'right' ? 'flex-end' : 'flex-start', fontWeight: cell.b ? 'bold' : 'normal', fontStyle: cell.i ? 'italic' : 'normal', textDecoration: [cell.u ? 'underline' : '', cell.strike ? 'line-through' : ''].filter(Boolean).join(' ') || 'none', fontSize: cell.fontSize ?? 11, color: isError ? '#e06c75' : (cell.color ?? O.text), fontFamily: 'monospace', whiteSpace: cell.wrap ? 'pre-wrap' : 'nowrap', overflow: 'hidden',
+                          borderBottom: cell.border === 'bottom' ? `1px solid ${O.dim}` : undefined }}>
+                          {rawVal}
                         </div>
                       )}
                     </div>
@@ -357,17 +1083,15 @@ function CalcApp() {
       {/* Sheet tabs */}
       <div style={{ display: 'flex', gap: 2, padding: '3px 6px', background: '#161616', borderTop: `1px solid ${O.border}`, alignItems: 'center', flexShrink: 0 }}>
         {state.sheets.map((sh, i) => (
-          <button key={i} onClick={() => setState(prev => ({ ...prev, activeSheet: i }))} style={{ background: i === state.activeSheet ? '#2a4a2a' : '#1a1a1a', border: `1px solid ${i === state.activeSheet ? O.calc + '80' : O.border}`, color: i === state.activeSheet ? O.calc : O.dim, cursor: 'pointer', padding: '2px 10px', fontSize: 10, fontFamily: 'monospace', borderRadius: '3px 3px 0 0' }}>
+          <button key={i} onClick={() => setState(prev => ({ ...prev, activeSheet: i }))}
+            style={{ background: i === state.activeSheet ? '#2a4a2a' : '#1a1a1a', border: `1px solid ${i === state.activeSheet ? O.calc + '80' : O.border}`, color: i === state.activeSheet ? O.calc : O.dim, cursor: 'pointer', padding: '2px 10px', fontSize: 10, fontFamily: 'monospace', borderRadius: '3px 3px 0 0' }}>
             {sh.name}
           </button>
         ))}
-        <button onClick={() => setState(prev => {
-          const next = { ...prev, sheets: [...prev.sheets, { name: `Sheet${prev.sheets.length + 1}`, data: {} }] };
-          saveCalc(next); return next;
-        })} style={{ background: 'transparent', border: `1px solid ${O.border}`, color: O.dim, cursor: 'pointer', padding: '2px 6px', fontSize: 10, borderRadius: 3 }}>+</button>
+        <button onClick={onAddSheet} style={{ background: 'transparent', border: `1px solid ${O.border}`, color: O.dim, cursor: 'pointer', padding: '2px 6px', fontSize: 10, borderRadius: 3 }}>+</button>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 8, color: O.veryDim, fontFamily: 'monospace' }}>
-          {data[state.sel]?.v ? `val: ${displayCell(data[state.sel].v, data, data[state.sel]?.fmt)}` : state.sel}
+          {selCell.v ? `val: ${displayCell(selCell.v, data, selCell.fmt)}` : state.sel}
         </span>
       </div>
     </div>
