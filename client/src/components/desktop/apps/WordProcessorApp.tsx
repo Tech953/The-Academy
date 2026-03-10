@@ -1,34 +1,29 @@
 import { useState, useCallback, useRef, useEffect, KeyboardEvent } from 'react';
-import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import {
   academyDocs, newDoc, newBlock, docWordCount, docToPlainText,
   AcademyDoc, DocBlock, BlockType, DOCS_ROOT, DOC_EXT,
 } from '@/lib/academyDocuments';
 import { virtualFS } from '@/lib/virtualFilesystem';
 
-// ─── Block types ──────────────────────────────────────────────────────────────
+// ─── Block types ───────────────────────────────────────────────────────────────
 
 const BLOCK_TYPES: BlockType[] = [
   'paragraph', 'heading1', 'heading2', 'heading3', 'code', 'quote', 'math', 'annotation', 'divider',
 ];
-
 const BLOCK_TYPE_NAMES: Record<BlockType, string> = {
   paragraph: 'Paragraph', heading1: 'Heading 1', heading2: 'Heading 2', heading3: 'Heading 3',
-  code: 'Code Block', quote: 'Block Quote', math: 'Math / Formula', annotation: 'Annotation / Note', divider: 'Divider',
+  code: 'Code Block', quote: 'Block Quote', math: 'Math / Formula', annotation: 'Annotation', divider: 'Divider',
 };
-
 const BLOCK_SHORT: Record<BlockType, string> = {
   paragraph: 'P', heading1: 'H1', heading2: 'H2', heading3: 'H3',
   code: '<>', quote: '"', math: 'Σ', annotation: '†', divider: '—',
 };
-
 const RICH_TYPES: BlockType[] = ['paragraph', 'heading1', 'heading2', 'heading3', 'quote'];
 function isRich(t: BlockType) { return RICH_TYPES.includes(t); }
 
-// ─── Templates ────────────────────────────────────────────────────────────────
+// ─── Templates ─────────────────────────────────────────────────────────────────
 
 interface DocTemplate { name: string; subject: string; tags: string[]; blocks: Omit<DocBlock, 'id'>[] }
-
 const TEMPLATES: DocTemplate[] = [
   {
     name: 'Five-Paragraph Essay', subject: 'Writing', tags: ['essay', 'rla'],
@@ -121,7 +116,30 @@ const TEMPLATES: DocTemplate[] = [
   },
 ];
 
-// ─── Utility: auto-resize textarea ───────────────────────────────────────────
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+
+const D = {
+  chrome:   '#1f1f1f',
+  toolbar:  '#2b2b2b',
+  sidebar:  '#242424',
+  border:   '#3a3a3a',
+  text:     '#c8c8c8',
+  textDim:  '#707070',
+  textHi:   '#f0f0f0',
+  accent:   '#4a9eff',
+  paper:    '#ffffff',
+  paperBg:  '#3c3c3c',
+  paperText:'#1a1a1a',
+  paperDim: '#555555',
+  codeBg:   '#f3f4f6',
+  codeText: '#1a1a1a',
+  quoteBdr: '#c8c8c8',
+  annotBg:  '#fef9e7',
+  annotBdr: '#f0c040',
+  mathBg:   '#f0f4ff',
+};
+
+// ─── Utilities ─────────────────────────────────────────────────────────────────
 
 function autoResize(el: HTMLTextAreaElement | null) {
   if (!el) return;
@@ -131,15 +149,13 @@ function autoResize(el: HTMLTextAreaElement | null) {
 
 function estimateReadingTime(words: number): string {
   const mins = Math.ceil(words / 200);
-  return mins < 1 ? '< 1 min read' : `${mins} min read`;
+  return mins < 1 ? '< 1 min' : `~${mins} min read`;
 }
 
-// ─── RichBlock (contentEditable for formatted text) ──────────────────────────
+// ─── Rich block (contentEditable) ─────────────────────────────────────────────
 
 interface RichBlockProps {
   block: DocBlock;
-  color: string;
-  accent: { green: string; amber: string; cyan: string; purple: string; red: string; pink: string };
   focused: boolean;
   onFocus: () => void;
   onChange: (html: string) => void;
@@ -151,7 +167,7 @@ interface RichBlockProps {
   onCloseTypeMenu: () => void;
 }
 
-function RichBlock({ block, color, accent, focused, onFocus, onChange, onDelete, onNewBelow, onFocusPrev, typeMenuOpen, onToggleTypeMenu, onCloseTypeMenu }: RichBlockProps) {
+function RichBlock({ block, focused, onFocus, onChange, onDelete, onNewBelow, onFocusPrev, typeMenuOpen, onToggleTypeMenu, onCloseTypeMenu }: RichBlockProps) {
   const divRef = useRef<HTMLDivElement | null>(null);
   const lastContent = useRef(block.content);
 
@@ -164,37 +180,36 @@ function RichBlock({ block, color, accent, focused, onFocus, onChange, onDelete,
 
   const textStyle: React.CSSProperties = (() => {
     const base: React.CSSProperties = {
-      flex: 1, outline: 'none', minHeight: 26, lineHeight: 1.8,
-      wordBreak: 'break-word', color, fontFamily: '"Courier New", monospace', padding: '2px 0',
+      flex: 1, outline: 'none', minHeight: 26,
+      wordBreak: 'break-word', color: D.paperText, padding: '2px 0',
     };
     switch (block.type) {
-      case 'heading1': return { ...base, fontSize: 22, letterSpacing: 1.5, fontWeight: 'bold', lineHeight: 1.3, marginBottom: 4 };
-      case 'heading2': return { ...base, fontSize: 16, letterSpacing: 0.8, fontWeight: 'bold', lineHeight: 1.4, marginBottom: 2 };
-      case 'heading3': return { ...base, fontSize: 12, letterSpacing: 0.5, color: `${color}bb`, fontWeight: 'bold' };
-      case 'quote':    return { ...base, fontStyle: 'italic', color: `${color}cc`, paddingLeft: 12, borderLeft: `3px solid ${accent.amber}60` };
-      default:         return base;
+      case 'heading1': return { ...base, fontSize: 26, fontWeight: '700', fontFamily: "Georgia, 'Times New Roman', serif", lineHeight: 1.25, marginBottom: 2, color: '#0a0a0a', borderBottom: '1px solid #e0e0e0', paddingBottom: 6 };
+      case 'heading2': return { ...base, fontSize: 18, fontWeight: '600', fontFamily: "Georgia, 'Times New Roman', serif", lineHeight: 1.3, color: '#1a1a1a' };
+      case 'heading3': return { ...base, fontSize: 13, fontWeight: '600', fontFamily: "system-ui, sans-serif", letterSpacing: 0.6, color: '#444', textTransform: 'uppercase' };
+      case 'quote':    return { ...base, fontStyle: 'italic', color: '#555', fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 14, lineHeight: 1.75, paddingLeft: 14, borderLeft: `3px solid ${D.quoteBdr}`, background: '#fafafa' };
+      default:         return { ...base, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13, lineHeight: 1.85 };
     }
   })();
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '2px 0', position: 'relative' }}>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', padding: '2px 0', position: 'relative' }}>
       <button onMouseDown={e => { e.preventDefault(); onToggleTypeMenu(); }}
         title={`Block type: ${BLOCK_TYPE_NAMES[block.type]}`}
         style={{
-          background: focused ? `${color}12` : 'transparent',
-          border: `1px solid ${focused ? color + '45' : color + '15'}`,
-          color: focused ? `${color}90` : `${color}30`,
-          fontFamily: '"Courier New", monospace', fontSize: 8, padding: '3px 6px',
-          cursor: 'pointer', flexShrink: 0, marginTop: 5, minWidth: 30, textAlign: 'center',
-          borderRadius: 2, letterSpacing: 0.5,
+          background: 'transparent', border: `1px solid ${focused ? '#ccc' : 'transparent'}`,
+          color: focused ? '#aaa' : 'transparent',
+          fontFamily: '"Courier New", monospace', fontSize: 8, padding: '2px 4px',
+          cursor: 'pointer', flexShrink: 0, marginTop: 6, minWidth: 22, textAlign: 'center',
+          borderRadius: 2, transition: 'all 0.1s',
         }}>
         {BLOCK_SHORT[block.type]}
       </button>
       {typeMenuOpen && (
-        <BlockTypeMenu currentType={block.type} color={color}
+        <BlockTypeMenu currentType={block.type}
           onSelect={t => { if (!isRich(t)) onChange(divRef.current?.textContent ?? ''); onCloseTypeMenu(); }}
           onClose={onCloseTypeMenu}
-          onChange={updates => {}}
+          onChange={() => {}}
         />
       )}
       <div ref={divRef} contentEditable suppressContentEditableWarning style={textStyle}
@@ -209,20 +224,20 @@ function RichBlock({ block, color, accent, focused, onFocus, onChange, onDelete,
       />
       {focused && (
         <button onClick={onDelete} title="Delete block"
-          style={{ background: 'transparent', border: `1px solid ${accent.red}30`, color: `${accent.red}60`,
-            fontFamily: '"Courier New", monospace', fontSize: 10, padding: '2px 7px', cursor: 'pointer',
+          style={{ background: 'transparent', border: '1px solid #ddd', color: '#bbb',
+            fontFamily: 'system-ui', fontSize: 11, padding: '1px 6px', cursor: 'pointer',
             flexShrink: 0, marginTop: 5, borderRadius: 2 }}>
-          ✕
+          ×
         </button>
       )}
     </div>
   );
 }
 
-// ─── BlockTypeMenu ────────────────────────────────────────────────────────────
+// ─── Block type menu ───────────────────────────────────────────────────────────
 
-function BlockTypeMenu({ currentType, color, onSelect, onClose, onChange }: {
-  currentType: BlockType; color: string;
+function BlockTypeMenu({ currentType, onSelect, onClose, onChange }: {
+  currentType: BlockType;
   onSelect: (t: BlockType) => void;
   onClose: () => void;
   onChange: (u: Partial<DocBlock>) => void;
@@ -232,26 +247,26 @@ function BlockTypeMenu({ currentType, color, onSelect, onClose, onChange }: {
     { label: 'SPECIAL', types: ['quote', 'code', 'math', 'annotation', 'divider'] as BlockType[] },
   ];
   return (
-    <div style={{ position: 'absolute', left: 40, top: 0, zIndex: 200, background: '#0a0a0a',
-      border: `1px solid ${color}40`, minWidth: 180, boxShadow: `0 4px 16px rgba(0,0,0,0.8)` }}
+    <div style={{ position: 'absolute', left: 32, top: 0, zIndex: 400, background: '#fff',
+      border: '1px solid #ddd', minWidth: 190, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', borderRadius: 4 }}
       onMouseDown={e => e.stopPropagation()}>
       {sections.map(sec => (
         <div key={sec.label}>
-          <div style={{ padding: '5px 10px 2px', fontSize: 8, color: `${color}40`, letterSpacing: 1, fontFamily: '"Courier New", monospace' }}>
+          <div style={{ padding: '5px 12px 2px', fontSize: 9, color: '#999', letterSpacing: 1, fontFamily: 'system-ui' }}>
             {sec.label}
           </div>
           {sec.types.map(t => (
             <button key={t}
               onMouseDown={e => { e.preventDefault(); onChange({ type: t }); onSelect(t); }}
               style={{
-                background: currentType === t ? `${color}18` : 'transparent',
-                border: 'none', borderBottom: `1px solid ${color}08`,
-                color: currentType === t ? color : `${color}75`,
-                fontFamily: '"Courier New", monospace', fontSize: 10,
-                padding: '6px 12px', cursor: 'pointer', textAlign: 'left',
+                background: currentType === t ? '#f0f7ff' : 'transparent',
+                border: 'none', borderBottom: '1px solid #f0f0f0',
+                color: currentType === t ? '#1a6fd4' : '#333',
+                fontFamily: 'system-ui, sans-serif', fontSize: 12,
+                padding: '7px 14px', cursor: 'pointer', textAlign: 'left',
                 display: 'flex', gap: 10, alignItems: 'center', width: '100%',
               }}>
-              <span style={{ width: 22, fontSize: 9, color: currentType === t ? color : `${color}45`, flexShrink: 0, textAlign: 'center' }}>
+              <span style={{ width: 20, fontSize: 9, color: currentType === t ? '#1a6fd4' : '#999', flexShrink: 0, textAlign: 'center', fontFamily: '"Courier New", monospace' }}>
                 {BLOCK_SHORT[t]}
               </span>
               {BLOCK_TYPE_NAMES[t]}
@@ -260,21 +275,19 @@ function BlockTypeMenu({ currentType, color, onSelect, onClose, onChange }: {
         </div>
       ))}
       <button onMouseDown={e => { e.preventDefault(); onClose(); }}
-        style={{ background: 'transparent', border: 'none', borderTop: `1px solid ${color}15`,
-          color: `${color}35`, fontFamily: '"Courier New", monospace', fontSize: 9,
-          padding: '5px 12px', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+        style={{ background: 'transparent', border: 'none', borderTop: '1px solid #eee',
+          color: '#999', fontFamily: 'system-ui', fontSize: 11,
+          padding: '6px 14px', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
         Cancel
       </button>
     </div>
   );
 }
 
-// ─── BlockRow ─────────────────────────────────────────────────────────────────
+// ─── Block row ─────────────────────────────────────────────────────────────────
 
 interface BlockRowProps {
   block: DocBlock;
-  color: string;
-  accent: { green: string; amber: string; red: string; cyan: string; purple: string; pink: string };
   focused: boolean;
   onFocus: () => void;
   onChange: (u: Partial<DocBlock>) => void;
@@ -287,7 +300,7 @@ interface BlockRowProps {
   onCloseTypeMenu: () => void;
 }
 
-function BlockRow({ block, color, accent, focused, onFocus, onChange, onDelete, onNewBelow, onFocusPrev, blockRef, typeMenuOpen, onToggleTypeMenu, onCloseTypeMenu }: BlockRowProps) {
+function BlockRow({ block, focused, onFocus, onChange, onDelete, onNewBelow, onFocusPrev, blockRef, typeMenuOpen, onToggleTypeMenu, onCloseTypeMenu }: BlockRowProps) {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
   const setRef = (el: HTMLTextAreaElement | null) => {
@@ -299,7 +312,7 @@ function BlockRow({ block, color, accent, focused, onFocus, onChange, onDelete, 
 
   if (isRich(block.type)) {
     return (
-      <RichBlock block={block} color={color} accent={accent} focused={focused}
+      <RichBlock block={block} focused={focused}
         onFocus={onFocus}
         onChange={html => onChange({ content: html })}
         onDelete={onDelete} onNewBelow={onNewBelow} onFocusPrev={onFocusPrev}
@@ -310,65 +323,72 @@ function BlockRow({ block, color, accent, focused, onFocus, onChange, onDelete, 
 
   if (block.type === 'divider') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', position: 'relative', cursor: 'pointer' }}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', position: 'relative', cursor: 'pointer' }}
         onClick={onFocus}>
         <button onMouseDown={e => { e.preventDefault(); onToggleTypeMenu(); }}
-          style={{ background: 'transparent', border: `1px solid ${color}20`, color: `${color}50`,
-            fontFamily: '"Courier New", monospace', fontSize: 8, padding: '2px 5px', cursor: 'pointer', borderRadius: 2 }}>
+          style={{ background: 'transparent', border: focused ? '1px solid #ccc' : '1px solid transparent', color: '#aaa',
+            fontFamily: '"Courier New", monospace', fontSize: 8, padding: '2px 4px', cursor: 'pointer', borderRadius: 2 }}>
           {BLOCK_SHORT[block.type]}
         </button>
-        <div style={{ flex: 1, height: 1, background: `${color}25` }} />
+        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #d0d0d0', margin: 0 }} />
         {focused && (
           <button onClick={onDelete}
-            style={{ background: 'transparent', border: `1px solid ${accent.red}30`, color: `${accent.red}60`,
-              fontFamily: '"Courier New", monospace', fontSize: 10, padding: '2px 7px', cursor: 'pointer', borderRadius: 2 }}>
-            ✕
+            style={{ background: 'transparent', border: '1px solid #ddd', color: '#bbb',
+              fontSize: 11, padding: '1px 6px', cursor: 'pointer', borderRadius: 2 }}>
+            ×
           </button>
         )}
-        {typeMenuOpen && <BlockTypeMenu currentType={block.type} color={color} onSelect={() => {}} onClose={onCloseTypeMenu} onChange={u => onChange(u)} />}
+        {typeMenuOpen && <BlockTypeMenu currentType={block.type} onSelect={() => {}} onClose={onCloseTypeMenu} onChange={u => onChange(u)} />}
       </div>
     );
   }
 
-  const blockAccent = block.type === 'code' ? accent.green : block.type === 'math' ? accent.purple : block.type === 'annotation' ? accent.cyan : color;
-
-  const textStyle: React.CSSProperties = (() => {
+  const taStyle: React.CSSProperties = (() => {
     const base: React.CSSProperties = {
       flex: 1, background: 'transparent', border: 'none', outline: 'none',
-      color, fontFamily: '"Courier New", monospace', resize: 'none', overflow: 'hidden',
-      padding: '2px 0', width: '100%', minHeight: 26, lineHeight: 1.8,
+      resize: 'none', overflow: 'hidden', padding: '2px 0', width: '100%', minHeight: 26,
+      color: D.paperText,
     };
-    switch (block.type) {
-      case 'code':       return { ...base, fontSize: 11, color: accent.green, background: `${accent.green}06`, padding: '10px 14px', lineHeight: 1.6, fontFamily: '"Courier New", monospace' };
-      case 'math':       return { ...base, textAlign: 'center', color: accent.purple, letterSpacing: 1, fontSize: 13 };
-      case 'annotation': return { ...base, fontSize: 11, color: `${accent.cyan}dd`, background: `${accent.cyan}08`, padding: '8px 12px', fontStyle: 'italic' };
-      default:           return base;
-    }
+    if (block.type === 'code') return {
+      ...base, fontFamily: '"Fira Code", "Cascadia Code", "Courier New", monospace',
+      fontSize: 12, lineHeight: 1.65, background: D.codeBg, color: D.codeText,
+      padding: '12px 16px', borderRadius: 4, border: '1px solid #e0e0e0',
+    };
+    if (block.type === 'math') return {
+      ...base, textAlign: 'center', fontFamily: '"Courier New", monospace',
+      fontSize: 15, letterSpacing: 1.2, background: D.mathBg, padding: '10px 16px',
+      borderRadius: 4, border: '1px solid #cce0ff', color: '#1a3a6a',
+    };
+    if (block.type === 'annotation') return {
+      ...base, fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: 'italic',
+      fontSize: 12.5, color: '#7a6020', lineHeight: 1.7, background: D.annotBg,
+      padding: '8px 14px', borderLeft: `3px solid ${D.annotBdr}`, borderRadius: '0 4px 4px 0',
+    };
+    return base;
   })();
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '2px 0', position: 'relative' }}>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', padding: '2px 0', position: 'relative' }}>
       <button onMouseDown={e => { e.preventDefault(); onToggleTypeMenu(); }}
         title={`Block type: ${BLOCK_TYPE_NAMES[block.type]}`}
         style={{
-          background: focused ? `${blockAccent}12` : 'transparent',
-          border: `1px solid ${focused ? blockAccent + '45' : color + '15'}`,
-          color: focused ? `${blockAccent}90` : `${color}30`,
-          fontFamily: '"Courier New", monospace', fontSize: 8, padding: '3px 6px',
-          cursor: 'pointer', flexShrink: 0, marginTop: 5, minWidth: 30, textAlign: 'center', borderRadius: 2,
+          background: 'transparent', border: `1px solid ${focused ? '#ccc' : 'transparent'}`,
+          color: focused ? '#aaa' : 'transparent',
+          fontFamily: '"Courier New", monospace', fontSize: 8, padding: '2px 4px',
+          cursor: 'pointer', flexShrink: 0, marginTop: 5, minWidth: 22, textAlign: 'center', borderRadius: 2,
         }}>
         {BLOCK_SHORT[block.type]}
       </button>
-      {typeMenuOpen && <BlockTypeMenu currentType={block.type} color={color} onSelect={() => onCloseTypeMenu()} onClose={onCloseTypeMenu} onChange={u => { onChange(u); onCloseTypeMenu(); }} />}
+      {typeMenuOpen && <BlockTypeMenu currentType={block.type} onSelect={() => onCloseTypeMenu()} onClose={onCloseTypeMenu} onChange={u => { onChange(u); onCloseTypeMenu(); }} />}
 
       <div style={{ flex: 1, minWidth: 0 }}>
         {block.type === 'code' && (
-          <div style={{ fontSize: 9, color: `${accent.green}55`, fontFamily: '"Courier New", monospace',
-            letterSpacing: 1, marginBottom: 3, display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span>LANG:</span>
+          <div style={{ fontSize: 9, color: '#888', fontFamily: '"Courier New", monospace',
+            letterSpacing: 1, marginBottom: 4, display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span>LANG</span>
             <input value={block.lang ?? ''} onChange={e => onChange({ lang: e.target.value })}
               placeholder="text" style={{ background: 'transparent', border: 'none', outline: 'none',
-                color: accent.green, fontFamily: '"Courier New", monospace', fontSize: 9, width: 60 }} />
+                color: '#777', fontFamily: '"Courier New", monospace', fontSize: 9, width: 60 }} />
           </div>
         )}
         <textarea ref={setRef} value={block.content}
@@ -378,33 +398,30 @@ function BlockRow({ block, color, accent, focused, onFocus, onChange, onDelete, 
             if (e.key === 'Backspace' && block.content === '') { e.preventDefault(); onDelete(); onFocusPrev(); }
             if (e.key === 'Escape') onCloseTypeMenu();
           }}
-          onFocus={onFocus} style={textStyle} rows={1}
+          onFocus={onFocus} style={taStyle} rows={1}
           placeholder={`${BLOCK_TYPE_NAMES[block.type]}…`}
         />
         {block.type === 'annotation' && (
           <input value={block.citation ?? ''} onChange={e => onChange({ citation: e.target.value })}
             placeholder="Source / citation (optional)"
             style={{ display: 'block', background: 'transparent', border: 'none', outline: 'none',
-              color: `${accent.cyan}45`, fontFamily: '"Courier New", monospace', fontSize: 9, marginTop: 2, width: '100%' }} />
+              color: '#b08030', fontFamily: '"Courier New", monospace', fontSize: 9, marginTop: 3, width: '100%' }} />
         )}
       </div>
-
       {focused && (
         <button onClick={onDelete} title="Delete block"
-          style={{ background: 'transparent', border: `1px solid ${accent.red}30`, color: `${accent.red}60`,
-            fontFamily: '"Courier New", monospace', fontSize: 10, padding: '2px 7px', cursor: 'pointer',
-            flexShrink: 0, marginTop: 5, borderRadius: 2 }}>
-          ✕
+          style={{ background: 'transparent', border: '1px solid #ddd', color: '#bbb',
+            fontSize: 11, padding: '1px 6px', cursor: 'pointer', flexShrink: 0, marginTop: 5, borderRadius: 2 }}>
+          ×
         </button>
       )}
     </div>
   );
 }
 
-// ─── Find & Replace Panel ─────────────────────────────────────────────────────
+// ─── Find & Replace panel ──────────────────────────────────────────────────────
 
-function FindReplacePanel({ color, doc, onUpdateBlocks, onClose }: {
-  color: string;
+function FindReplacePanel({ doc, onUpdateBlocks, onClose }: {
   doc: AcademyDoc;
   onUpdateBlocks: (blocks: DocBlock[]) => void;
   onClose: () => void;
@@ -432,190 +449,175 @@ function FindReplacePanel({ color, doc, onUpdateBlocks, onClose }: {
     onUpdateBlocks(updated);
   };
 
-  const inp: React.CSSProperties = {
-    background: 'transparent', border: `1px solid ${color}30`, outline: 'none',
-    color, fontFamily: '"Courier New", monospace', fontSize: 10, padding: '4px 8px',
-    width: 160,
-  };
-  const btn: React.CSSProperties = {
-    background: 'transparent', border: `1px solid ${color}30`, color: `${color}80`,
-    fontFamily: '"Courier New", monospace', fontSize: 9, padding: '4px 10px', cursor: 'pointer',
-  };
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px',
-      borderBottom: `1px solid ${color}20`, background: `${color}05`, flexShrink: 0, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 9, color: `${color}60`, letterSpacing: 1, fontFamily: '"Courier New", monospace' }}>FIND</span>
-      <input value={find} onChange={e => setFind(e.target.value)} placeholder="Search text…" style={inp} autoFocus />
-      <span style={{ fontSize: 9, color: `${color}60`, letterSpacing: 1, fontFamily: '"Courier New", monospace' }}>REPLACE</span>
-      <input value={replace} onChange={e => setReplace(e.target.value)} placeholder="Replace with…" style={inp}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 14px',
+      borderBottom: `1px solid ${D.border}`, background: '#333', flexShrink: 0, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 10, color: D.textDim, fontFamily: 'system-ui' }}>Find</span>
+      <input value={find} onChange={e => setFind(e.target.value)} placeholder="Search…" autoFocus
+        style={{ background: '#fff', border: '1px solid #aaa', outline: 'none', color: '#111',
+          fontFamily: 'system-ui', fontSize: 12, padding: '3px 8px', borderRadius: 3, width: 160 }} />
+      <span style={{ fontSize: 10, color: D.textDim, fontFamily: 'system-ui' }}>Replace</span>
+      <input value={replace} onChange={e => setReplace(e.target.value)} placeholder="Replace with…"
+        style={{ background: '#fff', border: '1px solid #aaa', outline: 'none', color: '#111',
+          fontFamily: 'system-ui', fontSize: 12, padding: '3px 8px', borderRadius: 3, width: 160 }}
         onKeyDown={e => { if (e.key === 'Enter') doReplace(); }} />
-      <button onClick={doReplace} style={{ ...btn, color, borderColor: `${color}50` }}>Replace All</button>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: `${color}60`, cursor: 'pointer', fontFamily: '"Courier New", monospace' }}>
+      <button onClick={doReplace}
+        style={{ background: '#4a9eff', border: 'none', color: '#fff', fontFamily: 'system-ui', fontSize: 11, padding: '4px 12px', cursor: 'pointer', borderRadius: 3 }}>
+        Replace All
+      </button>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: D.textDim, cursor: 'pointer', fontFamily: 'system-ui' }}>
         <input type="checkbox" checked={caseSensitive} onChange={e => setCaseSensitive(e.target.checked)} style={{ cursor: 'pointer' }} />
         Case sensitive
       </label>
       {find.trim() && (
-        <span style={{ fontSize: 9, color: matchCount > 0 ? `${color}70` : `${color}40`, fontFamily: '"Courier New", monospace' }}>
+        <span style={{ fontSize: 10, color: matchCount > 0 ? '#a0c878' : D.textDim, fontFamily: 'system-ui' }}>
           {matchCount} match{matchCount !== 1 ? 'es' : ''}
         </span>
       )}
       <div style={{ flex: 1 }} />
-      <button onClick={onClose} style={{ ...btn, fontSize: 10 }}>✕</button>
+      <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: D.textDim, fontSize: 16, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
     </div>
   );
 }
 
-// ─── Formatting Toolbar ────────────────────────────────────────────────────────
+// ─── Toolbar button helpers ────────────────────────────────────────────────────
 
-function FormattingToolbar({ c, accent, showTemplates, onTemplate, onToggleTemplates }: {
-  c: string;
-  accent: { green: string; amber: string; cyan: string; purple: string; red: string; pink: string };
+const TB: React.CSSProperties = {
+  background: 'transparent',
+  border: `1px solid ${D.border}`,
+  color: D.text,
+  fontFamily: 'system-ui, sans-serif',
+  fontSize: 11,
+  padding: '2px 8px',
+  cursor: 'pointer',
+  lineHeight: '16px',
+  borderRadius: 2,
+  whiteSpace: 'nowrap',
+};
+
+const TBActive: React.CSSProperties = {
+  ...TB,
+  background: '#3a3a3a',
+  borderColor: '#5a5a5a',
+  color: D.textHi,
+};
+
+const TBAccent: React.CSSProperties = {
+  ...TB,
+  background: '#1a4a88',
+  borderColor: '#2a6aaa',
+  color: '#c8deff',
+};
+
+function Sep() {
+  return <div style={{ width: 1, height: 14, background: D.border, margin: '0 2px', flexShrink: 0 }} />;
+}
+
+// ─── Formatting toolbar ────────────────────────────────────────────────────────
+
+function FormattingToolbar({ showTemplates, onTemplate, onToggleTemplates }: {
   showTemplates: boolean;
   onTemplate: (t: DocTemplate) => void;
   onToggleTemplates: () => void;
 }) {
   const exec = (cmd: string, val?: string) => document.execCommand(cmd, false, val);
 
-  const sep = <div style={{ width: 1, height: 14, background: `${c}18`, margin: '0 3px', flexShrink: 0 }} />;
-
-  const fmtBtn = (label: string, cmd: string, val?: string, title?: string, style?: React.CSSProperties): React.ReactNode => (
+  const fBtn = (label: string, cmd: string, val?: string, title?: string, extraStyle?: React.CSSProperties) => (
     <button key={label}
       onMouseDown={e => { e.preventDefault(); exec(cmd, val); }}
       title={title ?? label}
-      style={{
-        background: 'transparent', border: `1px solid ${c}20`, color: `${c}75`,
-        fontFamily: '"Courier New", monospace', fontSize: 11, padding: '2px 7px',
-        cursor: 'pointer', lineHeight: 1, borderRadius: 2, ...style,
-      }}>
+      style={{ ...TB, ...extraStyle }}>
       {label}
     </button>
   );
 
-  const iconBtn = (content: string, onClick: () => void, title: string): React.ReactNode => (
-    <button key={title}
-      onMouseDown={e => { e.preventDefault(); onClick(); }}
-      title={title}
-      style={{
-        background: 'transparent', border: `1px solid ${c}20`, color: `${c}75`,
-        fontFamily: '"Courier New", monospace', fontSize: 12, padding: '2px 7px',
-        cursor: 'pointer', lineHeight: 1, borderRadius: 2,
-      }}>
-      {content}
-    </button>
-  );
-
-  const colorDots = [
-    { label: 'White',  val: '#e8e8e8' },
-    { label: 'Green',  val: accent.green },
-    { label: 'Amber',  val: accent.amber },
-    { label: 'Cyan',   val: accent.cyan },
-    { label: 'Purple', val: accent.purple },
-    { label: 'Red',    val: accent.red },
-    { label: 'Pink',   val: accent.pink },
+  const colorSwatches = [
+    { c: '#111111', name: 'Black' }, { c: '#1a4a88', name: 'Blue' }, { c: '#c0392b', name: 'Red' },
+    { c: '#27ae60', name: 'Green' }, { c: '#8e44ad', name: 'Purple' }, { c: '#d35400', name: 'Orange' },
+    { c: '#777777', name: 'Grey' },
+  ];
+  const highlights = [
+    { c: '#fffacd', name: 'Yellow' }, { c: '#d4f0ff', name: 'Blue' }, { c: '#d4ffd4', name: 'Green' },
   ];
 
-  const fontSizes = [['XS', '1'], ['S', '2'], ['M', '3'], ['L', '4'], ['XL', '5'], ['2X', '6']];
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 12px',
-      borderBottom: `1px solid ${c}12`, background: `${c}02`, flexShrink: 0, flexWrap: 'wrap', position: 'relative' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 12px',
+      borderBottom: `1px solid ${D.border}`, background: D.toolbar, flexShrink: 0, flexWrap: 'wrap', position: 'relative' }}>
 
-      {/* Text style */}
-      {fmtBtn('B', 'bold', undefined, 'Bold (Ctrl+B)', { fontWeight: 'bold' })}
-      {fmtBtn('I', 'italic', undefined, 'Italic (Ctrl+I)', { fontStyle: 'italic' })}
-      {fmtBtn('U', 'underline', undefined, 'Underline (Ctrl+U)', { textDecoration: 'underline' })}
-      {fmtBtn('S̶', 'strikeThrough', undefined, 'Strikethrough')}
+      {fBtn('B', 'bold', undefined, 'Bold (Ctrl+B)', { fontWeight: 'bold', width: 26, textAlign: 'center', padding: '2px 0' })}
+      {fBtn('I', 'italic', undefined, 'Italic (Ctrl+I)', { fontStyle: 'italic', width: 22, textAlign: 'center', padding: '2px 0' })}
+      {fBtn('U', 'underline', undefined, 'Underline (Ctrl+U)', { textDecoration: 'underline', width: 22, textAlign: 'center', padding: '2px 0' })}
+      {fBtn('S', 'strikeThrough', undefined, 'Strikethrough', { textDecoration: 'line-through', width: 22, textAlign: 'center', padding: '2px 0', color: D.textDim })}
 
-      {sep}
+      <Sep />
 
-      {/* Alignment */}
-      {iconBtn('≡', () => exec('justifyLeft'), 'Align Left')}
-      {iconBtn('≡', () => exec('justifyCenter'), 'Center')}
-      {iconBtn('≡', () => exec('justifyRight'), 'Align Right')}
-      {iconBtn('≡', () => exec('justifyFull'), 'Justify')}
+      {fBtn('≡←', 'justifyLeft', undefined, 'Align Left', { letterSpacing: 0 })}
+      {fBtn('≡', 'justifyCenter', undefined, 'Center', { letterSpacing: 2 })}
+      {fBtn('≡→', 'justifyRight', undefined, 'Align Right', { letterSpacing: 0 })}
+      {fBtn('≡=', 'justifyFull', undefined, 'Justify', { letterSpacing: 0 })}
 
-      {sep}
+      <Sep />
 
-      {/* Lists & Indent */}
-      {iconBtn('• —', () => exec('insertUnorderedList'), 'Bullet List')}
-      {iconBtn('1. —', () => exec('insertOrderedList'), 'Numbered List')}
-      {iconBtn('→', () => exec('indent'), 'Indent')}
-      {iconBtn('←', () => exec('outdent'), 'Outdent')}
+      {fBtn('• —', 'insertUnorderedList', undefined, 'Bullet List')}
+      {fBtn('1. —', 'insertOrderedList', undefined, 'Numbered List')}
+      {fBtn('→', 'indent', undefined, 'Indent')}
+      {fBtn('←', 'outdent', undefined, 'Outdent')}
 
-      {sep}
+      <Sep />
 
-      {/* Font size */}
-      {fontSizes.map(([label, sz]) => (
-        <button key={label}
+      {[['XS','1'],['S','2'],['M','3'],['L','4'],['XL','5'],['2X','6']].map(([lbl, sz]) => (
+        <button key={lbl}
           onMouseDown={e => { e.preventDefault(); exec('fontSize', sz); }}
-          title={`Font size: ${label}`}
-          style={{
-            background: 'transparent', border: `1px solid ${c}15`, color: `${c}60`,
-            fontFamily: '"Courier New", monospace', fontSize: 8, padding: '2px 5px',
-            cursor: 'pointer', lineHeight: 1, borderRadius: 2,
-          }}>
-          {label}
+          title={`Font size: ${lbl}`}
+          style={{ ...TB, fontSize: 9, padding: '2px 5px', color: D.textDim }}>
+          {lbl}
         </button>
       ))}
 
-      {sep}
+      <Sep />
 
-      {/* Color palette */}
-      {colorDots.map(col => (
-        <button key={col.label}
-          onMouseDown={e => { e.preventDefault(); exec('foreColor', col.val); }}
-          title={`Text: ${col.label}`}
-          style={{ width: 13, height: 13, background: col.val, border: `1px solid ${c}25`,
-            cursor: 'pointer', borderRadius: 2, padding: 0, flexShrink: 0 }}
+      {colorSwatches.map(s => (
+        <button key={s.c}
+          onMouseDown={e => { e.preventDefault(); exec('foreColor', s.c); }}
+          title={`Text: ${s.name}`}
+          style={{ width: 14, height: 14, background: s.c, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', borderRadius: 2, padding: 0, flexShrink: 0 }}
         />
       ))}
 
-      {sep}
+      <Sep />
 
-      {/* Highlight */}
-      {[accent.amber, accent.cyan, accent.green].map(hc => (
-        <button key={hc}
-          onMouseDown={e => { e.preventDefault(); exec('hiliteColor', hc + '44'); }}
-          title="Highlight"
-          style={{ width: 13, height: 13, background: `${hc}55`, border: `1px solid ${hc}60`,
-            cursor: 'pointer', borderRadius: 2, padding: 0, flexShrink: 0 }}
+      {highlights.map(h => (
+        <button key={h.c}
+          onMouseDown={e => { e.preventDefault(); exec('hiliteColor', h.c); }}
+          title={`Highlight: ${h.name}`}
+          style={{ width: 14, height: 14, background: h.c, border: '1px solid #ccc', cursor: 'pointer', borderRadius: 2, padding: 0, flexShrink: 0 }}
         />
       ))}
 
-      {sep}
+      <Sep />
 
-      {/* Clear formatting */}
-      {fmtBtn('CLR', 'removeFormat', undefined, 'Remove formatting', { fontSize: 8, color: `${c}50` })}
+      {fBtn('Clear', 'removeFormat', undefined, 'Remove formatting', { fontSize: 10, color: D.textDim })}
 
       <div style={{ flex: 1 }} />
 
-      {/* Templates */}
       <button onMouseDown={e => { e.preventDefault(); onToggleTemplates(); }}
-        style={{
-          background: showTemplates ? `${accent.amber}18` : 'transparent',
-          border: `1px solid ${showTemplates ? accent.amber + '60' : c + '20'}`,
-          color: showTemplates ? accent.amber : `${c}60`,
-          fontFamily: '"Courier New", monospace', fontSize: 8, padding: '3px 9px',
-          cursor: 'pointer', letterSpacing: 0.5, borderRadius: 2,
-        }}>
-        TEMPLATES
+        style={{ ...showTemplates ? TBActive : TB, fontSize: 10, letterSpacing: 0.3 }}>
+        Templates ▾
       </button>
 
       {showTemplates && (
-        <div style={{ position: 'absolute', top: '100%', right: 10, zIndex: 300,
-          background: '#0a0a0a', border: `1px solid ${c}40`, minWidth: 220,
-          boxShadow: `0 6px 20px rgba(0,0,0,0.9)` }}>
-          <div style={{ padding: '6px 12px 3px', fontSize: 8, color: `${c}40`, letterSpacing: 1, fontFamily: '"Courier New", monospace' }}>
-            SELECT TEMPLATE
+        <div style={{ position: 'absolute', top: '100%', right: 10, zIndex: 400,
+          background: '#fff', border: '1px solid #ccc', minWidth: 220, boxShadow: '0 6px 20px rgba(0,0,0,0.15)', borderRadius: 4 }}>
+          <div style={{ padding: '7px 14px 4px', fontSize: 9, color: '#999', letterSpacing: 1, fontFamily: 'system-ui', borderBottom: '1px solid #eee' }}>
+            DOCUMENT TEMPLATES
           </div>
           {TEMPLATES.map(t => (
             <button key={t.name} onMouseDown={e => { e.preventDefault(); onTemplate(t); }}
               style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent',
-                border: 'none', borderBottom: `1px solid ${c}08`, color: `${c}90`,
-                fontFamily: '"Courier New", monospace', fontSize: 10, padding: '8px 14px', cursor: 'pointer' }}>
-              <div style={{ color: c, marginBottom: 2 }}>{t.name}</div>
-              <div style={{ fontSize: 9, color: `${c}40` }}>{t.subject} · {t.tags.join(', ')}</div>
+                border: 'none', borderBottom: '1px solid #f0f0f0', color: '#333',
+                fontFamily: 'system-ui', fontSize: 12, padding: '9px 14px', cursor: 'pointer' }}>
+              <div style={{ fontWeight: 500, marginBottom: 2 }}>{t.name}</div>
+              <div style={{ fontSize: 10, color: '#999' }}>{t.subject} · {t.tags.join(', ')}</div>
             </button>
           ))}
         </div>
@@ -624,11 +626,9 @@ function FormattingToolbar({ c, accent, showTemplates, onTemplate, onToggleTempl
   );
 }
 
-// ─── File sidebar ─────────────────────────────────────────────────────────────
+// ─── File sidebar ──────────────────────────────────────────────────────────────
 
-function FileSidebar({ color, accent, currentPath, onOpen, onNew }: {
-  color: string;
-  accent: { red: string };
+function FileSidebar({ currentPath, onOpen, onNew }: {
   currentPath: string | null;
   onOpen: (path: string) => void;
   onNew: () => void;
@@ -656,31 +656,32 @@ function FileSidebar({ color, accent, currentPath, onOpen, onNew }: {
     : docs;
 
   return (
-    <div style={{ width: 176, flexShrink: 0, borderRight: `1px solid ${color}15`,
-      display: 'flex', flexDirection: 'column', overflow: 'hidden', background: `${color}02` }}>
-      <div style={{ padding: '10px 10px 6px', borderBottom: `1px solid ${color}12` }}>
-        <div style={{ fontSize: 8, color: `${color}40`, fontFamily: '"Courier New", monospace', letterSpacing: 1.5, marginBottom: 6 }}>
-          DOCUMENTS
+    <div style={{ width: 168, flexShrink: 0, borderRight: `1px solid ${D.border}`,
+      display: 'flex', flexDirection: 'column', overflow: 'hidden', background: D.sidebar }}>
+
+      <div style={{ padding: '10px 10px 8px', borderBottom: `1px solid ${D.border}` }}>
+        <div style={{ fontSize: 9, color: D.textDim, fontFamily: 'system-ui', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 7 }}>
+          Documents
         </div>
         <button onClick={onNew} style={{
-          width: '100%', background: `${color}10`, border: `1px solid ${color}35`,
-          color, fontFamily: '"Courier New", monospace', fontSize: 10, padding: '5px 0',
-          cursor: 'pointer', letterSpacing: 0.5, borderRadius: 2,
+          width: '100%', background: '#1a4a88', border: '1px solid #2a6aaa',
+          color: '#c8deff', fontFamily: 'system-ui', fontSize: 11, padding: '5px 0',
+          cursor: 'pointer', borderRadius: 3,
         }}>
           + New Document
         </button>
       </div>
 
-      <div style={{ padding: '6px 8px', borderBottom: `1px solid ${color}08` }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search documents…"
-          style={{ width: '100%', background: 'transparent', border: `1px solid ${color}20`, outline: 'none',
-            color, fontFamily: '"Courier New", monospace', fontSize: 9, padding: '4px 8px',
-            boxSizing: 'border-box', borderRadius: 2 }} />
+      <div style={{ padding: '6px 8px', borderBottom: `1px solid ${D.border}` }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+          style={{ width: '100%', background: '#1a1a1a', border: `1px solid ${D.border}`, outline: 'none',
+            color: D.text, fontFamily: 'system-ui', fontSize: 11, padding: '4px 8px',
+            boxSizing: 'border-box', borderRadius: 3 }} />
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {filtered.length === 0 && (
-          <div style={{ padding: 16, fontSize: 10, color: `${color}30`, fontFamily: '"Courier New", monospace', textAlign: 'center' }}>
+          <div style={{ padding: 16, fontSize: 11, color: D.textDim, fontFamily: 'system-ui', textAlign: 'center', lineHeight: 1.5 }}>
             {search ? 'No matches.' : 'No documents yet.'}
           </div>
         )}
@@ -689,56 +690,51 @@ function FileSidebar({ color, accent, currentPath, onOpen, onNew }: {
             <button onClick={() => onOpen(doc.path)}
               style={{
                 width: '100%', textAlign: 'left',
-                background: currentPath === doc.path ? `${color}12` : 'transparent',
-                border: 'none', borderBottom: `1px solid ${color}07`,
-                borderLeft: `2px solid ${currentPath === doc.path ? color : 'transparent'}`,
-                color: currentPath === doc.path ? color : `${color}65`,
-                fontFamily: '"Courier New", monospace', fontSize: 10,
-                padding: '8px 10px 8px 10px', cursor: 'pointer',
+                background: currentPath === doc.path ? '#2e3c50' : 'transparent',
+                border: 'none', borderBottom: `1px solid ${D.border}`,
+                borderLeft: `2px solid ${currentPath === doc.path ? D.accent : 'transparent'}`,
+                color: currentPath === doc.path ? '#c8deff' : D.text,
+                fontFamily: 'system-ui', fontSize: 11,
+                padding: '8px 10px', cursor: 'pointer',
               }}>
               <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 18 }}>
                 {doc.name}
               </div>
               {doc.preview && (
-                <div style={{ fontSize: 8, color: `${color}30`, marginTop: 2,
+                <div style={{ fontSize: 9, color: D.textDim, marginTop: 2,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {doc.preview}
                 </div>
               )}
             </button>
-            {/* Delete button */}
             <button
               onClick={e => { e.stopPropagation(); handleDelete(doc.path); }}
-              title={confirmDelete === doc.path ? 'Click again to confirm delete' : 'Delete document'}
+              title={confirmDelete === doc.path ? 'Confirm delete' : 'Delete'}
               style={{
                 position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: confirmDelete === doc.path ? accent.red : `${color}20`,
-                fontSize: 10, padding: '2px 4px', fontFamily: '"Courier New", monospace',
+                color: confirmDelete === doc.path ? '#e74c3c' : D.textDim,
+                fontSize: 12, padding: '2px 5px',
               }}>
-              {confirmDelete === doc.path ? '?' : '✕'}
+              {confirmDelete === doc.path ? '?' : '×'}
             </button>
           </div>
         ))}
       </div>
 
-      <div style={{ padding: '6px 10px', borderTop: `1px solid ${color}12`, fontSize: 8,
-        color: `${color}28`, fontFamily: '"Courier New", monospace' }}>
+      <div style={{ padding: '5px 10px', borderTop: `1px solid ${D.border}`, fontSize: 9,
+        color: D.textDim, fontFamily: 'system-ui' }}>
         {docs.length} doc{docs.length !== 1 ? 's' : ''}
       </div>
     </div>
   );
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+// ─── Main App ──────────────────────────────────────────────────────────────────
 
 type SaveStatus = 'saved' | 'unsaved' | 'saving';
 
 export function WordProcessorApp() {
-  const { colors, accentColors } = useCrtTheme();
-  const c = colors.primary;
-  const accent = accentColors;
-
   const [doc, setDoc] = useState<AcademyDoc>(() => { academyDocs.seedDefaults(); return newDoc(); });
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -746,7 +742,6 @@ export function WordProcessorApp() {
   const [typeMenuId, setTypeMenuId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showFind, setShowFind] = useState(false);
-  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
 
   const historyRef = useRef<DocBlock[][]>([]);
   const historyIdxRef = useRef(-1);
@@ -887,8 +882,7 @@ export function WordProcessorApp() {
   }, [doc, currentPath, pushHistory, queueSave]);
 
   const exportText = useCallback(() => {
-    const text = docToPlainText(doc);
-    navigator.clipboard.writeText(text).catch(() => {});
+    navigator.clipboard.writeText(docToPlainText(doc)).catch(() => {});
   }, [doc]);
 
   const downloadTxt = useCallback(() => {
@@ -906,7 +900,7 @@ export function WordProcessorApp() {
     const text = docToPlainText(doc);
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`<pre style="font-family:monospace;font-size:12pt;line-height:1.7;padding:40px;max-width:680px;margin:0 auto;">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+    win.document.write(`<!DOCTYPE html><html><head><title>${doc.title}</title><style>body{font-family:Georgia,serif;font-size:12pt;line-height:1.7;padding:60pt 80pt;max-width:none;color:#111;}h1{font-size:24pt;margin-bottom:16pt;}h2{font-size:18pt;}pre{font-size:10pt;background:#f5f5f5;padding:10pt;}</style></head><body><pre style="white-space:pre-wrap;font-family:inherit;">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre></body></html>`);
     win.document.close();
     win.focus();
     win.print();
@@ -929,45 +923,40 @@ export function WordProcessorApp() {
 
   const wordCount = docWordCount(doc);
   const charCount = doc.blocks.reduce((sum, b) => sum + (b.content?.replace(/<[^>]*>/g, '') ?? '').length, 0);
-  const statusColor = saveStatus === 'saved' ? accentColors.green : saveStatus === 'saving' ? accentColors.amber : `${c}55`;
-  const statusText  = saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved';
 
-  const toolBtn = (label: string, onClick: () => void, title?: string, active?: boolean): React.ReactNode => (
+  const statusDot = saveStatus === 'saved' ? '#4caf50' : saveStatus === 'saving' ? '#f0a030' : '#e74c3c';
+  const statusText = saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved';
+
+  const tbBtn = (label: string, onClick: () => void, title?: string, active?: boolean) => (
     <button key={label} onClick={onClick} title={title ?? label}
-      style={{
-        background: active ? `${c}15` : 'transparent',
-        border: `1px solid ${active ? c + '50' : c + '22'}`,
-        color: active ? c : `${c}75`,
-        fontFamily: '"Courier New", monospace', fontSize: 9, padding: '3px 10px',
-        cursor: 'pointer', letterSpacing: 0.5, borderRadius: 2,
-      }}>
+      style={active ? TBActive : TB}>
       {label}
     </button>
   );
 
-  const toolSep = <div style={{ width: 1, height: 16, background: `${c}15`, margin: '0 3px', flexShrink: 0 }} />;
+  const tbSep = <Sep />;
 
   return (
     <div
-      style={{ display: 'flex', height: '100%', background: '#050505', color: c, fontFamily: '"Courier New", monospace', overflow: 'hidden' }}
-      onClick={() => { setTypeMenuId(null); setShowTemplates(false); setInsertMenuOpen(false); }}>
+      style={{ display: 'flex', height: '100%', background: D.chrome, color: D.text, fontFamily: 'system-ui', overflow: 'hidden' }}
+      onClick={() => { setTypeMenuId(null); setShowTemplates(false); }}>
 
-      <FileSidebar color={c} accent={{ red: accentColors.red }} currentPath={currentPath} onOpen={openDoc} onNew={createNew} />
+      <FileSidebar currentPath={currentPath} onOpen={openDoc} onNew={createNew} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* ── File + Edit toolbar ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px',
-          borderBottom: `1px solid ${c}15`, background: `${c}03`, flexShrink: 0, flexWrap: 'wrap' }}>
+        {/* ── File toolbar ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
+          borderBottom: `1px solid ${D.border}`, background: D.toolbar, flexShrink: 0, flexWrap: 'wrap' }}>
 
-          {toolBtn('Save', saveNow, 'Save document (Ctrl+S)')}
-          {toolBtn('New', createNew, 'New document')}
-          {toolSep}
-          {toolBtn('Undo', undo, 'Undo (Ctrl+Z)')}
-          {toolBtn('Redo', redo, 'Redo (Ctrl+Y)')}
-          {toolSep}
-          {toolBtn('Find', () => setShowFind(s => !s), 'Find & Replace (Ctrl+F)', showFind)}
-          {toolSep}
+          {tbBtn('Save', saveNow, 'Save (Ctrl+S)', false)}
+          {tbBtn('New', createNew, 'New document')}
+          {tbSep}
+          {tbBtn('Undo', undo, 'Undo (Ctrl+Z)')}
+          {tbBtn('Redo', redo, 'Redo (Ctrl+Y)')}
+          {tbSep}
+          {tbBtn('Find…', () => setShowFind(s => !s), 'Find & Replace (Ctrl+F)', showFind)}
+          {tbSep}
 
           {/* Insert block type buttons */}
           {([
@@ -977,31 +966,27 @@ export function WordProcessorApp() {
             <button key={type}
               onClick={() => { if (focusedId) addBlock(focusedId, type); else addBlockAtEnd(type); }}
               title={`Insert ${BLOCK_TYPE_NAMES[type]}`}
-              style={{
-                background: 'transparent', border: `1px solid ${c}18`, color: `${c}55`,
-                fontFamily: '"Courier New", monospace', fontSize: 9, padding: '2px 7px',
-                cursor: 'pointer', letterSpacing: 0.3, borderRadius: 2,
-              }}>
+              style={{ ...TB, fontSize: 10, padding: '2px 6px', color: D.textDim }}>
               {label}
             </button>
           ))}
 
           <div style={{ flex: 1 }} />
 
-          {toolBtn('Copy Text', exportText, 'Copy document as plain text')}
-          {toolBtn('Download', downloadTxt, 'Download as .txt file')}
-          {toolBtn('Print', printDoc, 'Print document (Ctrl+P)')}
+          {tbBtn('Copy', exportText, 'Copy as plain text')}
+          {tbBtn('Download', downloadTxt, 'Download .txt')}
+          {tbBtn('Print', printDoc, 'Print (Ctrl+P)')}
 
           {currentPath && (
-            <span style={{ fontSize: 8, color: `${c}28`, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 4 }}>
+            <span style={{ fontSize: 9, color: D.textDim, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 4 }}>
               {currentPath.replace('/home/student', '~')}
             </span>
           )}
         </div>
 
-        {/* ── Rich text formatting toolbar ── */}
+        {/* ── Formatting toolbar ── */}
         <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-          <FormattingToolbar c={c} accent={accent}
+          <FormattingToolbar
             showTemplates={showTemplates}
             onTemplate={applyTemplate}
             onToggleTemplates={() => setShowTemplates(s => !s)}
@@ -1010,7 +995,7 @@ export function WordProcessorApp() {
 
         {/* ── Find & Replace ── */}
         {showFind && (
-          <FindReplacePanel color={c} doc={doc}
+          <FindReplacePanel doc={doc}
             onUpdateBlocks={blocks => {
               const updated = { ...doc, blocks };
               pushHistory(blocks);
@@ -1021,65 +1006,71 @@ export function WordProcessorApp() {
           />
         )}
 
-        {/* ── Document canvas ── */}
-        <div style={{ flex: 1, overflowY: 'auto', background: `${c}04`, padding: '28px 24px' }}>
-          {/* Paper */}
+        {/* ── Page canvas ── */}
+        <div style={{ flex: 1, overflowY: 'auto', background: D.paperBg, padding: '28px 32px 48px' }}>
+
+          {/* Paper sheet */}
           <div style={{
-            maxWidth: 720, margin: '0 auto',
-            background: '#0b0b0b',
-            border: `1px solid ${c}12`,
-            boxShadow: `0 2px 20px rgba(0,0,0,0.6)`,
-            padding: '40px 52px 52px',
-            minHeight: 700,
+            maxWidth: 720,
+            margin: '0 auto',
+            background: D.paper,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.2)',
+            padding: '64px 72px',
+            minHeight: 960,
+            position: 'relative',
           }}>
 
-            {/* Title */}
+            {/* Document title */}
             <input
               value={doc.title}
-              onChange={e => { const d = { ...doc, title: e.target.value }; setDoc(d); queueSave(d, currentPath); }}
-              placeholder="Document Title"
+              onChange={e => {
+                const updated = { ...doc, title: e.target.value };
+                setDoc(updated);
+                queueSave(updated, currentPath);
+              }}
+              placeholder="Untitled Document"
               style={{
-                display: 'block', width: '100%', background: 'transparent', border: 'none',
-                borderBottom: `1px solid ${c}18`, outline: 'none', color: c,
-                fontFamily: '"Courier New", monospace', fontSize: 22, fontWeight: 'bold',
-                letterSpacing: 1.5, padding: '2px 0 10px', marginBottom: 20,
-                boxSizing: 'border-box',
+                display: 'block', width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                fontSize: 28, fontWeight: '700', color: '#0a0a0a', marginBottom: 6,
+                fontFamily: "Georgia, 'Times New Roman', serif",
+                letterSpacing: -0.5,
+                borderBottom: '2px solid #e8e8e8', paddingBottom: 8,
               }}
             />
 
-            {/* Metadata row */}
-            <div style={{ display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 9, color: `${c}40`, letterSpacing: 1 }}>SUBJECT</span>
-                <input value={doc.subject}
-                  onChange={e => { const d = { ...doc, subject: e.target.value }; setDoc(d); queueSave(d, currentPath); }}
-                  placeholder="—"
-                  style={{ background: 'transparent', border: 'none', borderBottom: `1px solid ${c}15`,
-                    outline: 'none', color: `${c}90`, fontFamily: '"Courier New", monospace', fontSize: 10, width: 110 }} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 9, color: `${c}40`, letterSpacing: 1 }}>TAGS</span>
-                <input value={Array.isArray(doc.tags) ? doc.tags.join(', ') : (doc.tags as string)}
-                  onChange={e => { const d = { ...doc, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }; setDoc(d); queueSave(d, currentPath); }}
-                  placeholder="comma, separated"
-                  style={{ background: 'transparent', border: 'none', borderBottom: `1px solid ${c}15`,
-                    outline: 'none', color: `${c}90`, fontFamily: '"Courier New", monospace', fontSize: 10, width: 160 }} />
-              </div>
+            {/* Subject + Tags row */}
+            <div style={{ display: 'flex', gap: 20, marginBottom: 28, marginTop: 8 }}>
+              <input
+                value={doc.subject}
+                onChange={e => { const u = { ...doc, subject: e.target.value }; setDoc(u); queueSave(u, currentPath); }}
+                placeholder="Subject"
+                style={{ background: 'transparent', border: 'none', outline: 'none', borderBottom: '1px solid #e0e0e0',
+                  color: '#666', fontFamily: 'system-ui', fontSize: 11, padding: '2px 0', width: 140 }}
+              />
+              <input
+                value={doc.tags?.join(', ') ?? ''}
+                onChange={e => { const u = { ...doc, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }; setDoc(u); queueSave(u, currentPath); }}
+                placeholder="Tags (comma separated)"
+                style={{ background: 'transparent', border: 'none', outline: 'none', borderBottom: '1px solid #e0e0e0',
+                  color: '#888', fontFamily: 'system-ui', fontSize: 11, padding: '2px 0', flex: 1 }}
+              />
             </div>
 
-            <div style={{ borderTop: `1px solid ${c}10`, paddingTop: 16 }}>
-              {doc.blocks.map(block => (
+            {/* Block list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {doc.blocks.map((block, idx) => (
                 <BlockRow
-                  key={block.id} block={block} color={c} accent={accentColors}
+                  key={block.id}
+                  block={block}
                   focused={focusedId === block.id}
                   onFocus={() => setFocusedId(block.id)}
-                  onChange={updates => updateBlock(block.id, updates)}
+                  onChange={u => updateBlock(block.id, u)}
                   onDelete={() => deleteBlock(block.id)}
                   onNewBelow={() => addBlock(block.id)}
                   onFocusPrev={() => focusPrev(block.id)}
                   blockRef={el => { if (el) blockRefs.current.set(block.id, el); else blockRefs.current.delete(block.id); }}
                   typeMenuOpen={typeMenuId === block.id}
-                  onToggleTypeMenu={() => setTypeMenuId(typeMenuId === block.id ? null : block.id)}
+                  onToggleTypeMenu={() => setTypeMenuId(prev => prev === block.id ? null : block.id)}
                   onCloseTypeMenu={() => setTypeMenuId(null)}
                 />
               ))}
@@ -1088,52 +1079,37 @@ export function WordProcessorApp() {
             {/* Add block button */}
             <button
               onClick={() => addBlockAtEnd()}
-              style={{ marginTop: 20, background: 'transparent', border: `1px dashed ${c}15`,
-                color: `${c}25`, fontFamily: '"Courier New", monospace', fontSize: 10,
-                padding: '10px 0', cursor: 'pointer', width: '100%', letterSpacing: 1, borderRadius: 2 }}>
+              style={{
+                display: 'block', width: '100%', marginTop: 20, background: 'transparent',
+                border: '1px dashed #d0d0d0', color: '#bbb', fontFamily: 'system-ui', fontSize: 11,
+                padding: '8px 0', cursor: 'pointer', borderRadius: 3,
+                transition: 'border-color 0.15s, color 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#aaa'; (e.currentTarget as HTMLButtonElement).style.color = '#888'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d0d0d0'; (e.currentTarget as HTMLButtonElement).style.color = '#bbb'; }}
+            >
               + Add Block
             </button>
           </div>
         </div>
 
         {/* ── Status bar ── */}
-        <div style={{
-          padding: '5px 16px', borderTop: `1px solid ${c}15`, background: `${c}03`,
-          fontSize: 9, color: `${c}38`, display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', gap: 10,
-          fontFamily: '"Courier New", monospace',
-        }}>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <span>{doc.blocks.length} block{doc.blocks.length !== 1 ? 's' : ''}</span>
-            <span style={{ color: `${c}50` }}>{wordCount.toLocaleString()} words</span>
-            <span>{charCount.toLocaleString()} chars</span>
-            <span style={{ color: `${c}28` }}>{estimateReadingTime(wordCount)}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {currentPath && (
-              <span style={{ color: `${c}25`, fontSize: 8, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {currentPath.replace('/home/student', '~')}
-              </span>
-            )}
-            <span style={{ color: statusColor, letterSpacing: 0.5 }}>{statusText}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 14px',
+          borderTop: `1px solid ${D.border}`, background: '#1a1a1a', flexShrink: 0 }}>
+          <span style={{ fontSize: 9, color: D.textDim, fontFamily: 'system-ui' }}>
+            {currentPath ? currentPath.replace('/home/student', '~') : '— new document'}
+          </span>
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 9, color: D.textDim }}>{doc.blocks.length} block{doc.blocks.length !== 1 ? 's' : ''}</span>
+          <span style={{ fontSize: 9, color: D.textDim }}>{wordCount} words</span>
+          <span style={{ fontSize: 9, color: D.textDim }}>{charCount} chars</span>
+          <span style={{ fontSize: 9, color: D.textDim }}>{estimateReadingTime(wordCount)}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusDot }} />
+            <span style={{ fontSize: 9, color: statusDot, fontFamily: 'system-ui' }}>{statusText}</span>
           </div>
         </div>
       </div>
-
-      <style>{`
-        [contenteditable]:empty:before {
-          content: attr(data-placeholder);
-          color: ${c}25;
-          pointer-events: none;
-        }
-        [contenteditable] b, [contenteditable] strong { font-weight: bold; }
-        [contenteditable] i, [contenteditable] em { font-style: italic; }
-        [contenteditable] u { text-decoration: underline; }
-        [contenteditable] s, [contenteditable] strike { text-decoration: line-through; }
-        [contenteditable] ul { padding-left: 20px; margin: 4px 0; }
-        [contenteditable] ol { padding-left: 20px; margin: 4px 0; }
-        [contenteditable] li { margin: 2px 0; line-height: 1.8; }
-      `}</style>
     </div>
   );
 }
