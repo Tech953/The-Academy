@@ -92,7 +92,7 @@ const GRID_MARGIN_Y = 12;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 82;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v9';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v10';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -144,7 +144,7 @@ const COLLISION_GAP = 8;
 
 function getItemBounds(id: string): { w: number; h: number } {
   const WIDGET_SIZES: Record<string, { w: number; h: number }> = {
-    'w-note':   { w: 130, h: 120 },
+    'w-note':   { w: 130, h: 110 },
     'w-events': { w: 170, h: 180 },
     'w-rss':    { w: 210, h: 200 },
   };
@@ -273,9 +273,12 @@ const AMBIENT_WIDGETS: AmbientWidgetDef[] = [
   { id: 'w-calendar', widgetType: 'calendar',     defaultCol: 9,  defaultRow: 2 },
   { id: 'w-book',     widgetType: 'book-stack',   defaultCol: 9,  defaultRow: 1, unlockLevel: 3 },
   { id: 'w-badge',    widgetType: 'badge',        defaultCol: 11, defaultRow: 0 },
-  { id: 'w-note',     widgetType: 'post-it',      defaultCol: 7,  defaultRow: 0, widgetWidth: 130, widgetHeight: 120 },
-  { id: 'w-events',   widgetType: 'event-cal',    defaultCol: 7,  defaultRow: 2, widgetWidth: 170, widgetHeight: 180 },
-  { id: 'w-rss',      widgetType: 'rss-feed',     defaultCol: 8,  defaultRow: 0, widgetWidth: 210, widgetHeight: 200 },
+  // Note widget: sits just right of the 6-col icon grid (col 6 = x≈640), short enough to not overlap RSS below
+  { id: 'w-note',     widgetType: 'post-it',      defaultCol: 6,  defaultRow: 0, widgetWidth: 130, widgetHeight: 110 },
+  // Events: further right, off-screen in narrow viewports (intentional ambient)
+  { id: 'w-events',   widgetType: 'event-cal',    defaultCol: 8,  defaultRow: 0, widgetWidth: 170, widgetHeight: 180 },
+  // RSS: below the note, starts at row 2 so top is ~y=188, fully visible in 720px+ tall viewports
+  { id: 'w-rss',      widgetType: 'rss-feed',     defaultCol: 6,  defaultRow: 2, widgetWidth: 210, widgetHeight: 200 },
 ];
 
 function getDefaultPositions(): Record<string, { x: number; y: number }> {
@@ -447,10 +450,10 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 44,
-        height: 44,
+        width: icon.imageIcon ? 78 : 44,
+        height: icon.imageIcon ? 52 : 44,
         background: icon.imageIcon ? 'transparent' : (locked ? 'transparent' : `${color}12`),
-        borderRadius: '11px',
+        borderRadius: icon.imageIcon ? '13px' : '11px',
         border: locked ? 'none' : `1px solid ${color}${isAcademy ? '55' : '25'}`,
         boxShadow: locked ? 'none' : `0 0 ${isAcademy ? '18px' : '10px'} ${color}${isAcademy ? '55' : '30'}`,
         transition: 'box-shadow 0.2s ease',
@@ -461,7 +464,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
           <img
             src={icon.imageIcon}
             alt={icon.id}
-            style={{ width: 44, height: 44, objectFit: 'cover', opacity: locked ? 0.4 : 1, display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.4 : 1, display: 'block' }}
             draggable={false}
           />
         ) : getNeoCrtIcon(icon.iconType, 24, color)}
@@ -1054,7 +1057,8 @@ export default function NeoCrtDesktopShell() {
       const stored = localStorage.getItem('academy-hidden-widgets');
       if (stored !== null) return JSON.parse(stored);
     } catch {/* ignore */}
-    return AMBIENT_WIDGETS.map(w => w.id);
+    // By default show the note and RSS feed; hide decorative / unlock-gated widgets
+    return ['w-mascot', 'w-photo', 'w-sticker', 'w-calendar', 'w-book', 'w-badge'];
   });
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
     try {
@@ -1932,7 +1936,7 @@ export default function NeoCrtDesktopShell() {
         );
       })}
 
-      {uiMode === 'student' && viewport.width > 900 && AMBIENT_WIDGETS.map((widget) => {
+      {uiMode === 'student' && viewport.width > 700 && AMBIENT_WIDGETS.map((widget) => {
         if (widget.unlockLevel && widget.unlockLevel > characterLevel) return null;
         if (hiddenWidgets.includes(widget.id)) return null;
         const pos = iconPositions[widget.id] ?? gridToPixel(widget.defaultCol, widget.defaultRow);
