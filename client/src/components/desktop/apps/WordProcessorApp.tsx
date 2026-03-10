@@ -188,7 +188,7 @@ function RichBlock({ block, focused, onFocus, onChange, onDelete, onNewBelow, on
       case 'heading2': return { ...base, fontSize: 18, fontWeight: '600', fontFamily: "Georgia, 'Times New Roman', serif", lineHeight: 1.3, color: '#1a1a1a' };
       case 'heading3': return { ...base, fontSize: 13, fontWeight: '600', fontFamily: "system-ui, sans-serif", letterSpacing: 0.6, color: '#444', textTransform: 'uppercase' };
       case 'quote':    return { ...base, fontStyle: 'italic', color: '#555', fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 14, lineHeight: 1.75, paddingLeft: 14, borderLeft: `3px solid ${D.quoteBdr}`, background: '#fafafa' };
-      default:         return { ...base, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13, lineHeight: 1.85 };
+      default:         return { ...base, fontFamily: 'inherit', fontSize: 'inherit', lineHeight: 'inherit' };
     }
   })();
 
@@ -513,115 +513,504 @@ function Sep() {
   return <div style={{ width: 1, height: 14, background: D.border, margin: '0 2px', flexShrink: 0 }} />;
 }
 
-// ─── Formatting toolbar ────────────────────────────────────────────────────────
+// ─── Document format ───────────────────────────────────────────────────────────
 
-function FormattingToolbar({ showTemplates, onTemplate, onToggleTemplates }: {
+const FONT_FAMILIES = [
+  { label: 'Aptos (Body)',     value: "system-ui, 'Segoe UI', sans-serif" },
+  { label: 'Calibri',         value: "'Calibri', 'Gill Sans', sans-serif" },
+  { label: 'Arial',           value: "Arial, sans-serif" },
+  { label: 'Verdana',         value: "Verdana, Geneva, sans-serif" },
+  { label: 'Georgia (Serif)', value: "Georgia, 'Times New Roman', serif" },
+  { label: 'Times New Roman', value: "'Times New Roman', serif" },
+  { label: 'Garamond',        value: "Garamond, 'EB Garamond', serif" },
+  { label: 'Courier New',     value: "'Courier New', monospace" },
+];
+
+const MARGIN_PRESETS: Record<string, { label: string; h: number; v: number }> = {
+  normal:   { label: 'Normal (1")',     h: 72,  v: 64 },
+  narrow:   { label: 'Narrow (0.5")',   h: 36,  v: 36 },
+  wide:     { label: 'Wide (2")',       h: 144, v: 72 },
+  moderate: { label: 'Moderate (0.75")',h: 54,  v: 54 },
+};
+
+interface DocFormat {
+  fontFamily: string;
+  fontSize: number;
+  lineSpacing: number;
+  marginPreset: string;
+  spellCheck: boolean;
+  orientation: 'portrait' | 'landscape';
+}
+const DEFAULT_FMT: DocFormat = {
+  fontFamily: "Georgia, 'Times New Roman', serif",
+  fontSize: 13,
+  lineSpacing: 1.85,
+  marginPreset: 'normal',
+  spellCheck: true,
+  orientation: 'portrait',
+};
+
+// ─── Ribbon sub-components ──────────────────────────────────────────────────────
+
+function RibbonGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', flexShrink: 0, minWidth: 'max-content',
+      borderRight: `1px solid ${D.border}`, paddingRight: 8, marginRight: 2, paddingBottom: 0,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1, paddingBottom: 4, flexWrap: 'wrap' }}>
+        {children}
+      </div>
+      <div style={{ fontSize: 8, color: D.textDim, textAlign: 'center', letterSpacing: 0.5,
+        paddingTop: 2, borderTop: `1px solid ${D.border}40`, fontFamily: 'system-ui', userSelect: 'none' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+interface RibbonBarProps {
+  fmt: DocFormat;
+  onFmt: (u: Partial<DocFormat>) => void;
   showTemplates: boolean;
   onTemplate: (t: DocTemplate) => void;
   onToggleTemplates: () => void;
-}) {
-  const exec = (cmd: string, val?: string) => document.execCommand(cmd, false, val);
+  focusedId: string | null;
+  addBlock: (afterId: string, type: BlockType) => void;
+  addBlockAtEnd: (type?: BlockType) => void;
+  showFind: boolean;
+  onToggleFind: () => void;
+  wordCount: number;
+  charCount: number;
+  saveNow: () => void;
+  createNew: () => void;
+  undo: () => void;
+  redo: () => void;
+  exportText: () => void;
+  downloadTxt: () => void;
+  printDoc: () => void;
+  currentPath: string | null;
+  saveStatus: SaveStatus;
+}
 
-  const fBtn = (label: string, cmd: string, val?: string, title?: string, extraStyle?: React.CSSProperties) => (
-    <button key={label}
-      onMouseDown={e => { e.preventDefault(); exec(cmd, val); }}
-      title={title ?? label}
-      style={{ ...TB, ...extraStyle }}>
-      {label}
-    </button>
+function RibbonBar({
+  fmt, onFmt,
+  showTemplates, onTemplate, onToggleTemplates,
+  focusedId, addBlock, addBlockAtEnd,
+  showFind, onToggleFind,
+  wordCount, charCount,
+  saveNow, createNew, undo, redo,
+  exportText, downloadTxt, printDoc,
+  currentPath, saveStatus,
+}: RibbonBarProps) {
+  const [activeTab, setActiveTab] = useState<'Home' | 'Insert' | 'Layout' | 'Review'>('Home');
+  const [showColors,  setShowColors]  = useState<'fore' | 'hi' | null>(null);
+  const [showMargins, setShowMargins] = useState(false);
+  const [showSpacing, setShowSpacing] = useState(false);
+
+  const exec = (cmd: string, val?: string) => { try { document.execCommand(cmd, false, val ?? undefined); } catch { /* noop */ } };
+
+  const insertBlock = (type: BlockType) => {
+    if (focusedId) addBlock(focusedId, type);
+    else addBlockAtEnd(type);
+  };
+
+  const insertHyperlink = () => {
+    const url = window.prompt('Enter URL:', 'https://');
+    if (url) exec('createLink', url);
+  };
+
+  const insertDate = () => {
+    const d = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    exec('insertText', d);
+  };
+
+  const xb = (label: string, cmd: string, val?: string, title?: string, s?: React.CSSProperties) => (
+    <button key={label + cmd} onMouseDown={e => { e.preventDefault(); exec(cmd, val); }} title={title ?? label}
+      style={{ ...TB, ...s }}>{label}</button>
   );
 
-  const colorSwatches = [
-    { c: '#111111', name: 'Black' }, { c: '#1a4a88', name: 'Blue' }, { c: '#c0392b', name: 'Red' },
-    { c: '#27ae60', name: 'Green' }, { c: '#8e44ad', name: 'Purple' }, { c: '#d35400', name: 'Orange' },
-    { c: '#777777', name: 'Grey' },
-  ];
-  const highlights = [
-    { c: '#fffacd', name: 'Yellow' }, { c: '#d4f0ff', name: 'Blue' }, { c: '#d4ffd4', name: 'Green' },
-  ];
+  const COLORS = ['#111111','#1a4a88','#c0392b','#27ae60','#8e44ad','#d35400','#777777','#000080','#8B0000','#006400','#b8860b','#008080'];
+  const HI     = ['#ffff00','#00ff00','#00ffff','#ff00ff','#ff8800','#d4f0ff','#fffacd','#d4ffd4','#ffd4d4','#e8d4ff'];
 
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 12px',
-      borderBottom: `1px solid ${D.border}`, background: D.toolbar, flexShrink: 0, flexWrap: 'wrap', position: 'relative' }}>
+  const statusColor = saveStatus === 'saved' ? '#4caf50' : saveStatus === 'saving' ? '#f0a030' : '#e74c3c';
+  const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved';
 
-      {fBtn('B', 'bold', undefined, 'Bold (Ctrl+B)', { fontWeight: 'bold', width: 26, textAlign: 'center', padding: '2px 0' })}
-      {fBtn('I', 'italic', undefined, 'Italic (Ctrl+I)', { fontStyle: 'italic', width: 22, textAlign: 'center', padding: '2px 0' })}
-      {fBtn('U', 'underline', undefined, 'Underline (Ctrl+U)', { textDecoration: 'underline', width: 22, textAlign: 'center', padding: '2px 0' })}
-      {fBtn('S', 'strikeThrough', undefined, 'Strikethrough', { textDecoration: 'line-through', width: 22, textAlign: 'center', padding: '2px 0', color: D.textDim })}
-
+  // ── Quick-access bar ──────────────────────────────────────────────────────────
+  const quickBar = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 10px', background: '#252525', borderBottom: `1px solid ${D.border}`, flexShrink: 0 }}>
+      <button onClick={saveNow} title="Save (Ctrl+S)" style={{ ...TB, fontSize: 10, padding: '1px 7px' }}>Save</button>
+      <button onClick={createNew} title="New document" style={{ ...TB, fontSize: 10, padding: '1px 7px' }}>New</button>
       <Sep />
-
-      {fBtn('≡←', 'justifyLeft', undefined, 'Align Left', { letterSpacing: 0 })}
-      {fBtn('≡', 'justifyCenter', undefined, 'Center', { letterSpacing: 2 })}
-      {fBtn('≡→', 'justifyRight', undefined, 'Align Right', { letterSpacing: 0 })}
-      {fBtn('≡=', 'justifyFull', undefined, 'Justify', { letterSpacing: 0 })}
-
+      <button onMouseDown={e => { e.preventDefault(); undo(); }} title="Undo (Ctrl+Z)" style={{ ...TB, fontSize: 12, padding: '0 6px' }}>↩</button>
+      <button onMouseDown={e => { e.preventDefault(); redo(); }} title="Redo (Ctrl+Y)" style={{ ...TB, fontSize: 12, padding: '0 6px' }}>↪</button>
       <Sep />
-
-      {fBtn('• —', 'insertUnorderedList', undefined, 'Bullet List')}
-      {fBtn('1. —', 'insertOrderedList', undefined, 'Numbered List')}
-      {fBtn('→', 'indent', undefined, 'Indent')}
-      {fBtn('←', 'outdent', undefined, 'Outdent')}
-
-      <Sep />
-
-      {[['XS','1'],['S','2'],['M','3'],['L','4'],['XL','5'],['2X','6']].map(([lbl, sz]) => (
-        <button key={lbl}
-          onMouseDown={e => { e.preventDefault(); exec('fontSize', sz); }}
-          title={`Font size: ${lbl}`}
-          style={{ ...TB, fontSize: 9, padding: '2px 5px', color: D.textDim }}>
-          {lbl}
-        </button>
-      ))}
-
-      <Sep />
-
-      {colorSwatches.map(s => (
-        <button key={s.c}
-          onMouseDown={e => { e.preventDefault(); exec('foreColor', s.c); }}
-          title={`Text: ${s.name}`}
-          style={{ width: 14, height: 14, background: s.c, border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', borderRadius: 2, padding: 0, flexShrink: 0 }}
-        />
-      ))}
-
-      <Sep />
-
-      {highlights.map(h => (
-        <button key={h.c}
-          onMouseDown={e => { e.preventDefault(); exec('hiliteColor', h.c); }}
-          title={`Highlight: ${h.name}`}
-          style={{ width: 14, height: 14, background: h.c, border: '1px solid #ccc', cursor: 'pointer', borderRadius: 2, padding: 0, flexShrink: 0 }}
-        />
-      ))}
-
-      <Sep />
-
-      {fBtn('Clear', 'removeFormat', undefined, 'Remove formatting', { fontSize: 10, color: D.textDim })}
-
+      <button onClick={downloadTxt} title="Download .txt" style={{ ...TB, fontSize: 10, padding: '1px 7px' }}>Download</button>
+      <button onClick={printDoc} title="Print (Ctrl+P)" style={{ ...TB, fontSize: 10, padding: '1px 7px' }}>Print</button>
       <div style={{ flex: 1 }} />
+      {currentPath && (
+        <span style={{ fontSize: 9, color: D.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+          {currentPath.split('/').pop()}
+        </span>
+      )}
+      <span style={{ fontSize: 9, color: statusColor, whiteSpace: 'nowrap' }}>{statusLabel}</span>
+    </div>
+  );
 
-      <button onMouseDown={e => { e.preventDefault(); onToggleTemplates(); }}
-        style={{ ...showTemplates ? TBActive : TB, fontSize: 10, letterSpacing: 0.3 }}>
-        Templates ▾
-      </button>
+  // ── Tab strip ──────────────────────────────────────────────────────────────────
+  const tabStrip = (
+    <div style={{ display: 'flex', background: D.chrome, borderBottom: `1px solid ${D.border}`, paddingLeft: 6, flexShrink: 0 }}>
+      {(['Home','Insert','Layout','Review'] as const).map(tab => (
+        <button key={tab} onClick={() => setActiveTab(tab)} style={{
+          background: activeTab === tab ? D.toolbar : 'transparent',
+          border: 'none', borderBottom: activeTab === tab ? `2px solid ${D.accent}` : '2px solid transparent',
+          color: activeTab === tab ? D.textHi : D.textDim,
+          fontFamily: 'system-ui, sans-serif', fontSize: 11, padding: '5px 14px',
+          cursor: 'pointer', letterSpacing: 0.2, transition: 'color 0.1s',
+        }}>{tab}</button>
+      ))}
+    </div>
+  );
 
-      {showTemplates && (
-        <div style={{ position: 'absolute', top: '100%', right: 10, zIndex: 400,
-          background: '#fff', border: '1px solid #ccc', minWidth: 220, boxShadow: '0 6px 20px rgba(0,0,0,0.15)', borderRadius: 4 }}>
-          <div style={{ padding: '7px 14px 4px', fontSize: 9, color: '#999', letterSpacing: 1, fontFamily: 'system-ui', borderBottom: '1px solid #eee' }}>
-            DOCUMENT TEMPLATES
+  // ── HOME tab ──────────────────────────────────────────────────────────────────
+  const homeTab = (
+    <div style={{ display: 'flex', alignItems: 'stretch', padding: '5px 8px 2px', gap: 4, overflowX: 'auto', minHeight: 64 }}>
+
+      {/* Clipboard */}
+      <RibbonGroup label="Clipboard">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button onMouseDown={e => { e.preventDefault(); exec('paste'); }} title="Paste (Ctrl+V)"
+            style={{ ...TB, fontSize: 10, padding: '3px 10px', whiteSpace: 'nowrap', height: 28 }}>Paste</button>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button onMouseDown={e => { e.preventDefault(); exec('cut'); }} title="Cut (Ctrl+X)"
+              style={{ ...TB, fontSize: 10, flex: 1, padding: '1px 4px', whiteSpace: 'nowrap' }}>Cut</button>
+            <button onMouseDown={e => { e.preventDefault(); exec('copy'); }} title="Copy (Ctrl+C)"
+              style={{ ...TB, fontSize: 10, flex: 1, padding: '1px 4px', whiteSpace: 'nowrap' }}>Copy</button>
           </div>
-          {TEMPLATES.map(t => (
-            <button key={t.name} onMouseDown={e => { e.preventDefault(); onTemplate(t); }}
-              style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent',
-                border: 'none', borderBottom: '1px solid #f0f0f0', color: '#333',
-                fontFamily: 'system-ui', fontSize: 12, padding: '9px 14px', cursor: 'pointer' }}>
-              <div style={{ fontWeight: 500, marginBottom: 2 }}>{t.name}</div>
-              <div style={{ fontSize: 10, color: '#999' }}>{t.subject} · {t.tags.join(', ')}</div>
+        </div>
+      </RibbonGroup>
+
+      {/* Font */}
+      <RibbonGroup label="Font">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Row 1: family + size */}
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <select value={fmt.fontFamily} onChange={e => onFmt({ fontFamily: e.target.value })}
+              style={{ background: D.chrome, border: `1px solid ${D.border}`, color: D.text, fontFamily: 'system-ui', fontSize: 11, padding: '2px 4px', borderRadius: 2, width: 134, cursor: 'pointer' }}>
+              {FONT_FAMILIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
+            <input type="number" value={fmt.fontSize} min={6} max={96}
+              onChange={e => onFmt({ fontSize: Math.max(6, Math.min(96, parseInt(e.target.value) || 12)) })}
+              style={{ background: D.chrome, border: `1px solid ${D.border}`, color: D.text, fontFamily: 'system-ui', fontSize: 11, padding: '2px 4px', borderRadius: 2, width: 44, textAlign: 'center' }} />
+          </div>
+          {/* Row 2: Bold Italic Underline Strike | Sub Sup | Colors | Clear */}
+          <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            {xb('B', 'bold',        undefined, 'Bold (Ctrl+B)',      { fontWeight: 'bold', width: 24, textAlign: 'center', padding: '2px 0' })}
+            {xb('I', 'italic',      undefined, 'Italic (Ctrl+I)',    { fontStyle: 'italic', width: 22, textAlign: 'center', padding: '2px 0' })}
+            {xb('U', 'underline',   undefined, 'Underline (Ctrl+U)',  { textDecoration: 'underline', width: 22, textAlign: 'center', padding: '2px 0' })}
+            {xb('S', 'strikeThrough', undefined,'Strikethrough',     { textDecoration: 'line-through', width: 22, textAlign: 'center', padding: '2px 0', color: D.textDim })}
+            <Sep />
+            {xb('x₂','subscript',   undefined, 'Subscript',          { fontSize: 10, width: 24, textAlign: 'center', padding: '2px 0' })}
+            {xb('x²','superscript', undefined, 'Superscript',        { fontSize: 10, width: 24, textAlign: 'center', padding: '2px 0' })}
+            <Sep />
+            {/* Font color */}
+            <div style={{ position: 'relative' }}>
+              <button onMouseDown={e => { e.preventDefault(); setShowColors(c => c === 'fore' ? null : 'fore'); setShowMargins(false); setShowSpacing(false); }}
+                title="Font Color" style={{ ...TB, fontSize: 10, padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <span style={{ display: 'inline-block', fontWeight: 'bold', fontSize: 12, lineHeight: 1 }}>A</span>
+                <span style={{ display: 'inline-block', width: 14, height: 3, background: '#c0392b' }} />
+                <span style={{ fontSize: 8 }}>▾</span>
+              </button>
+              {showColors === 'fore' && (
+                <div onMouseDown={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 600, background: '#1e1e1e', border: `1px solid ${D.border}`, padding: 6, display: 'flex', flexWrap: 'wrap', gap: 3, width: 130, boxShadow: '0 4px 14px rgba(0,0,0,0.6)' }}>
+                  {COLORS.map(c => (
+                    <button key={c} onMouseDown={e => { e.preventDefault(); exec('foreColor', c); setShowColors(null); }}
+                      style={{ width: 17, height: 17, background: c, border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', borderRadius: 2, padding: 0 }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Highlight color */}
+            <div style={{ position: 'relative' }}>
+              <button onMouseDown={e => { e.preventDefault(); setShowColors(c => c === 'hi' ? null : 'hi'); setShowMargins(false); setShowSpacing(false); }}
+                title="Highlight Color" style={{ ...TB, fontSize: 10, padding: '1px 5px', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <span style={{ display: 'inline-block', width: 14, height: 11, background: '#ffff00', border: '1px solid #bbb' }} />
+                <span style={{ fontSize: 8 }}>▾</span>
+              </button>
+              {showColors === 'hi' && (
+                <div onMouseDown={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 600, background: '#1e1e1e', border: `1px solid ${D.border}`, padding: 6, display: 'flex', flexWrap: 'wrap', gap: 3, width: 120, boxShadow: '0 4px 14px rgba(0,0,0,0.6)' }}>
+                  {HI.map(c => (
+                    <button key={c} onMouseDown={e => { e.preventDefault(); exec('hiliteColor', c); setShowColors(null); }}
+                      style={{ width: 17, height: 17, background: c, border: '1px solid #999', cursor: 'pointer', borderRadius: 2, padding: 0 }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <Sep />
+            {xb('✕ Clear','removeFormat',undefined,'Clear Formatting',{ fontSize: 10, color: D.textDim, padding: '2px 6px', whiteSpace: 'nowrap' })}
+          </div>
+        </div>
+      </RibbonGroup>
+
+      {/* Paragraph */}
+      <RibbonGroup label="Paragraph">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {[['≡←','justifyLeft','Left'],['≡','justifyCenter','Center'],['≡→','justifyRight','Right'],['≡=','justifyFull','Justify']].map(
+              ([l,c,t]) => xb(l,c,undefined,`Align ${t}`,{ width: 26, textAlign: 'center', padding: '2px 0', fontSize: 12 })
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            {xb('• —','insertUnorderedList',undefined,'Bullet List',    { fontSize: 10, padding: '2px 6px', whiteSpace: 'nowrap' })}
+            {xb('1. —','insertOrderedList',undefined, 'Numbered List',   { fontSize: 10, padding: '2px 6px', whiteSpace: 'nowrap' })}
+            <Sep />
+            {xb('→','indent', undefined,'Indent',   { width: 22, textAlign: 'center', padding: '2px 0' })}
+            {xb('←','outdent',undefined,'Outdent',  { width: 22, textAlign: 'center', padding: '2px 0' })}
+          </div>
+        </div>
+      </RibbonGroup>
+
+      {/* Styles */}
+      <RibbonGroup label="Styles">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {(['paragraph','heading1','heading2','heading3'] as BlockType[]).map(t => (
+              <button key={t} onClick={() => insertBlock(t)} title={`Insert ${BLOCK_TYPE_NAMES[t]}`}
+                style={{ ...TB, fontSize: 10, width: 30, textAlign: 'center', padding: '2px 0', color: D.textDim, fontFamily: '"Courier New",monospace' }}>
+                {BLOCK_SHORT[t]}
+              </button>
+            ))}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <button onMouseDown={e => { e.preventDefault(); onToggleTemplates(); }}
+              style={{ ...(showTemplates ? TBActive : TB), fontSize: 10, padding: '2px 8px', width: '100%', whiteSpace: 'nowrap' }}>
+              Templates ▾
+            </button>
+            {showTemplates && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 600, background: '#fff', border: '1px solid #ccc', minWidth: 220, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', borderRadius: 4 }}>
+                <div style={{ padding: '7px 14px 4px', fontSize: 9, color: '#999', letterSpacing: 1, fontFamily: 'system-ui', borderBottom: '1px solid #eee' }}>DOCUMENT TEMPLATES</div>
+                {TEMPLATES.map(t => (
+                  <button key={t.name} onMouseDown={e => { e.preventDefault(); onTemplate(t); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: '1px solid #f0f0f0', color: '#333', fontFamily: 'system-ui', fontSize: 12, padding: '9px 14px', cursor: 'pointer' }}>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{t.name}</div>
+                    <div style={{ fontSize: 10, color: '#999' }}>{t.subject} · {t.tags.join(', ')}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </RibbonGroup>
+    </div>
+  );
+
+  // ── INSERT tab ────────────────────────────────────────────────────────────────
+  const insertTab = (
+    <div style={{ display: 'flex', alignItems: 'stretch', padding: '5px 8px 2px', gap: 4, overflowX: 'auto', minHeight: 64 }}>
+
+      <RibbonGroup label="Pages">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button onClick={() => insertBlock('divider')} title="Insert section break"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap' }}>— Page Break</button>
+          <button onClick={() => insertBlock('annotation')} title="Insert blank annotation"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap', color: D.textDim }}>Blank Section</button>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Content Blocks">
+        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', maxWidth: 240, alignItems: 'flex-start' }}>
+          {([['H1','heading1'],['H2','heading2'],['H3','heading3'],['"','quote'],['<>','code'],['Σ','math'],['†','annotation'],['—','divider']] as [string, BlockType][]).map(
+            ([label, type]) => (
+              <button key={type} onClick={() => insertBlock(type)} title={`Insert ${BLOCK_TYPE_NAMES[type]}`}
+                style={{ ...TB, fontSize: 10, padding: '3px 8px', color: D.textDim, fontFamily: '"Courier New",monospace' }}>
+                {label}
+              </button>
+            )
+          )}
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Links">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button onMouseDown={e => { e.preventDefault(); insertHyperlink(); }} title="Insert hyperlink"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap' }}>Link</button>
+          <button onMouseDown={e => { e.preventDefault(); exec('unlink'); }} title="Remove hyperlink"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap', color: D.textDim }}>Unlink</button>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Text">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button onMouseDown={e => { e.preventDefault(); insertDate(); }} title="Insert today's date"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap' }}>Date & Time</button>
+          <button onMouseDown={e => { e.preventDefault(); exec('insertHorizontalRule'); }} title="Insert horizontal rule"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap', color: D.textDim }}>H. Rule</button>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Symbols">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, maxWidth: 160 }}>
+          {[['©','©'],['®','®'],['™','™'],['°','°'],['±','±'],['≈','≈'],['≠','≠'],['÷','÷'],['×','×'],['½','½'],['¼','¼'],['¾','¾'],['…','…'],['—','—'],['–','–']].map(([sym, val]) => (
+            <button key={sym} onMouseDown={e => { e.preventDefault(); exec('insertText', val); }} title={sym}
+              style={{ ...TB, fontSize: 11, width: 24, textAlign: 'center', padding: '2px 0', fontFamily: 'serif' }}>
+              {sym}
             </button>
           ))}
         </div>
-      )}
+      </RibbonGroup>
+    </div>
+  );
+
+  // ── LAYOUT tab ────────────────────────────────────────────────────────────────
+  const layoutTab = (
+    <div style={{ display: 'flex', alignItems: 'stretch', padding: '5px 8px 2px', gap: 4, overflowX: 'auto', minHeight: 64 }}>
+
+      <RibbonGroup label="Page Setup">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: D.textDim, fontFamily: 'system-ui', whiteSpace: 'nowrap' }}>Margins:</span>
+            <div style={{ position: 'relative' }}>
+              <button onMouseDown={e => { e.preventDefault(); setShowMargins(s => !s); setShowColors(null); setShowSpacing(false); }}
+                style={{ ...TB, fontSize: 10, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                {MARGIN_PRESETS[fmt.marginPreset]?.label ?? 'Normal'} ▾
+              </button>
+              {showMargins && (
+                <div onMouseDown={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 600, background: '#1e1e1e', border: `1px solid ${D.border}`, minWidth: 150, boxShadow: '0 4px 14px rgba(0,0,0,0.6)' }}>
+                  {Object.entries(MARGIN_PRESETS).map(([key, val]) => (
+                    <button key={key} onMouseDown={e => { e.preventDefault(); onFmt({ marginPreset: key }); setShowMargins(false); }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', background: fmt.marginPreset === key ? '#2e3c50' : 'transparent', border: 'none', borderBottom: `1px solid ${D.border}`, color: fmt.marginPreset === key ? D.accent : D.text, fontFamily: 'system-ui', fontSize: 11, padding: '7px 12px', cursor: 'pointer' }}>
+                      {val.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: D.textDim, fontFamily: 'system-ui', whiteSpace: 'nowrap' }}>Orientation:</span>
+            <button onMouseDown={e => { e.preventDefault(); onFmt({ orientation: fmt.orientation === 'landscape' ? 'portrait' : 'landscape' }); }}
+              style={{ ...TB, fontSize: 10, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+              {fmt.orientation === 'landscape' ? 'Landscape' : 'Portrait'}
+            </button>
+          </div>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Paragraph">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: D.textDim, fontFamily: 'system-ui', whiteSpace: 'nowrap' }}>Line Spacing:</span>
+            <div style={{ position: 'relative' }}>
+              <button onMouseDown={e => { e.preventDefault(); setShowSpacing(s => !s); setShowColors(null); setShowMargins(false); }}
+                style={{ ...TB, fontSize: 10, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                {fmt.lineSpacing.toFixed(2)} ▾
+              </button>
+              {showSpacing && (
+                <div onMouseDown={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 600, background: '#1e1e1e', border: `1px solid ${D.border}`, minWidth: 80, boxShadow: '0 4px 14px rgba(0,0,0,0.6)' }}>
+                  {[1.0, 1.15, 1.5, 1.85, 2.0, 2.5, 3.0].map(n => (
+                    <button key={n} onMouseDown={e => { e.preventDefault(); onFmt({ lineSpacing: n }); setShowSpacing(false); }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', background: fmt.lineSpacing === n ? '#2e3c50' : 'transparent', border: 'none', borderBottom: `1px solid ${D.border}`, color: fmt.lineSpacing === n ? D.accent : D.text, fontFamily: 'system-ui', fontSize: 11, padding: '7px 12px', cursor: 'pointer' }}>
+                      {n.toFixed(2)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {xb('→ Indent','indent',  undefined,'Indent',  { fontSize: 10, padding: '2px 8px', whiteSpace: 'nowrap' })}
+            {xb('← Outdent','outdent',undefined,'Outdent', { fontSize: 10, padding: '2px 8px', whiteSpace: 'nowrap' })}
+          </div>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Font Size">
+        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', maxWidth: 180 }}>
+          {[['XS','1'],['S','2'],['M','3'],['L','4'],['XL','5'],['2X','6']].map(([lbl, sz]) => (
+            <button key={lbl} onMouseDown={e => { e.preventDefault(); exec('fontSize', sz); }} title={`Font size: ${lbl}`}
+              style={{ ...TB, fontSize: 9, padding: '3px 7px', color: D.textDim }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </RibbonGroup>
+    </div>
+  );
+
+  // ── REVIEW tab ────────────────────────────────────────────────────────────────
+  const reviewTab = (
+    <div style={{ display: 'flex', alignItems: 'stretch', padding: '5px 8px 2px', gap: 4, overflowX: 'auto', minHeight: 64 }}>
+
+      <RibbonGroup label="Proofing">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button onMouseDown={e => { e.preventDefault(); onFmt({ spellCheck: !fmt.spellCheck }); }}
+            style={{ ...(fmt.spellCheck ? TBActive : TB), fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap' }}>
+            Spelling {fmt.spellCheck ? 'ON' : 'OFF'}
+          </button>
+          <a href="https://www.merriam-webster.com/thesaurus" target="_blank" rel="noopener noreferrer"
+            style={{ ...TB as React.CSSProperties, fontSize: 10, padding: '2px 10px', textDecoration: 'none', color: D.textDim, display: 'block', textAlign: 'center', whiteSpace: 'nowrap' }}>
+            Thesaurus ↗
+          </a>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Language">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <a href="https://translate.google.com" target="_blank" rel="noopener noreferrer"
+            style={{ ...TB as React.CSSProperties, fontSize: 10, padding: '2px 10px', textDecoration: 'none', color: D.text, display: 'block', textAlign: 'center', whiteSpace: 'nowrap' }}>
+            Translate ↗
+          </a>
+          <a href="https://www.merriam-webster.com/dictionary" target="_blank" rel="noopener noreferrer"
+            style={{ ...TB as React.CSSProperties, fontSize: 10, padding: '2px 10px', textDecoration: 'none', color: D.textDim, display: 'block', textAlign: 'center', whiteSpace: 'nowrap' }}>
+            Dictionary ↗
+          </a>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Find">
+        <button onMouseDown={e => { e.preventDefault(); onToggleFind(); }}
+          style={{ ...(showFind ? TBActive : TB), fontSize: 10, padding: '4px 12px', whiteSpace: 'nowrap' }}>
+          Find & Replace
+        </button>
+      </RibbonGroup>
+
+      <RibbonGroup label="Comments">
+        <button onClick={() => insertBlock('annotation')} title="Insert new comment/annotation"
+          style={{ ...TB, fontSize: 10, padding: '4px 12px', whiteSpace: 'nowrap' }}>
+          New Comment
+        </button>
+      </RibbonGroup>
+
+      <RibbonGroup label="Statistics">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11, fontFamily: 'system-ui', color: D.text }}>
+          <span style={{ whiteSpace: 'nowrap' }}>Words: <strong style={{ color: D.textHi }}>{wordCount.toLocaleString()}</strong></span>
+          <span style={{ whiteSpace: 'nowrap' }}>Chars: <strong style={{ color: D.textHi }}>{charCount.toLocaleString()}</strong></span>
+        </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="Share">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button onClick={exportText} title="Copy as plain text"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap' }}>Copy Text</button>
+          <button onClick={downloadTxt} title="Download .txt"
+            style={{ ...TB, fontSize: 10, padding: '2px 10px', whiteSpace: 'nowrap', color: D.textDim }}>Download</button>
+        </div>
+      </RibbonGroup>
+    </div>
+  );
+
+  return (
+    <div style={{ flexShrink: 0, position: 'relative' }}
+      onClick={() => { setShowColors(null); setShowMargins(false); setShowSpacing(false); }}>
+      {quickBar}
+      {tabStrip}
+      <div style={{ background: D.toolbar, borderBottom: `1px solid ${D.border}` }}
+        onClick={e => e.stopPropagation()}>
+        {activeTab === 'Home'   && homeTab}
+        {activeTab === 'Insert' && insertTab}
+        {activeTab === 'Layout' && layoutTab}
+        {activeTab === 'Review' && reviewTab}
+      </div>
     </div>
   );
 }
@@ -742,6 +1131,17 @@ export function WordProcessorApp() {
   const [typeMenuId, setTypeMenuId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showFind, setShowFind] = useState(false);
+  const [fmt, setFmt] = useState<DocFormat>(() => {
+    try { return { ...DEFAULT_FMT, ...JSON.parse(localStorage.getItem('academy-wp-fmt') ?? 'null') }; }
+    catch { return DEFAULT_FMT; }
+  });
+  const onFmt = useCallback((updates: Partial<DocFormat>) => {
+    setFmt(prev => {
+      const next = { ...prev, ...updates };
+      localStorage.setItem('academy-wp-fmt', JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   const historyRef = useRef<DocBlock[][]>([]);
   const historyIdxRef = useRef(-1);
@@ -924,18 +1324,6 @@ export function WordProcessorApp() {
   const wordCount = docWordCount(doc);
   const charCount = doc.blocks.reduce((sum, b) => sum + (b.content?.replace(/<[^>]*>/g, '') ?? '').length, 0);
 
-  const statusDot = saveStatus === 'saved' ? '#4caf50' : saveStatus === 'saving' ? '#f0a030' : '#e74c3c';
-  const statusText = saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved';
-
-  const tbBtn = (label: string, onClick: () => void, title?: string, active?: boolean) => (
-    <button key={label} onClick={onClick} title={title ?? label}
-      style={active ? TBActive : TB}>
-      {label}
-    </button>
-  );
-
-  const tbSep = <Sep />;
-
   return (
     <div
       style={{ display: 'flex', height: '100%', background: D.chrome, color: D.text, fontFamily: 'system-ui', overflow: 'hidden' }}
@@ -945,53 +1333,29 @@ export function WordProcessorApp() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* ── File toolbar ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
-          borderBottom: `1px solid ${D.border}`, background: D.toolbar, flexShrink: 0, flexWrap: 'wrap' }}>
-
-          {tbBtn('Save', saveNow, 'Save (Ctrl+S)', false)}
-          {tbBtn('New', createNew, 'New document')}
-          {tbSep}
-          {tbBtn('Undo', undo, 'Undo (Ctrl+Z)')}
-          {tbBtn('Redo', redo, 'Redo (Ctrl+Y)')}
-          {tbSep}
-          {tbBtn('Find…', () => setShowFind(s => !s), 'Find & Replace (Ctrl+F)', showFind)}
-          {tbSep}
-
-          {/* Insert block type buttons */}
-          {([
-            ['H1', 'heading1'], ['H2', 'heading2'], ['H3', 'heading3'],
-            ['<>', 'code'], ['"', 'quote'], ['Σ', 'math'], ['†', 'annotation'], ['—', 'divider'],
-          ] as [string, BlockType][]).map(([label, type]) => (
-            <button key={type}
-              onClick={() => { if (focusedId) addBlock(focusedId, type); else addBlockAtEnd(type); }}
-              title={`Insert ${BLOCK_TYPE_NAMES[type]}`}
-              style={{ ...TB, fontSize: 10, padding: '2px 6px', color: D.textDim }}>
-              {label}
-            </button>
-          ))}
-
-          <div style={{ flex: 1 }} />
-
-          {tbBtn('Copy', exportText, 'Copy as plain text')}
-          {tbBtn('Download', downloadTxt, 'Download .txt')}
-          {tbBtn('Print', printDoc, 'Print (Ctrl+P)')}
-
-          {currentPath && (
-            <span style={{ fontSize: 9, color: D.textDim, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 4 }}>
-              {currentPath.replace('/home/student', '~')}
-            </span>
-          )}
-        </div>
-
-        {/* ── Formatting toolbar ── */}
-        <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-          <FormattingToolbar
-            showTemplates={showTemplates}
-            onTemplate={applyTemplate}
-            onToggleTemplates={() => setShowTemplates(s => !s)}
-          />
-        </div>
+        {/* ── Ribbon ── */}
+        <RibbonBar
+          fmt={fmt} onFmt={onFmt}
+          showTemplates={showTemplates}
+          onTemplate={applyTemplate}
+          onToggleTemplates={() => setShowTemplates(s => !s)}
+          focusedId={focusedId}
+          addBlock={addBlock}
+          addBlockAtEnd={addBlockAtEnd}
+          showFind={showFind}
+          onToggleFind={() => setShowFind(s => !s)}
+          wordCount={wordCount}
+          charCount={charCount}
+          saveNow={saveNow}
+          createNew={createNew}
+          undo={undo}
+          redo={redo}
+          exportText={exportText}
+          downloadTxt={downloadTxt}
+          printDoc={printDoc}
+          currentPath={currentPath}
+          saveStatus={saveStatus}
+        />
 
         {/* ── Find & Replace ── */}
         {showFind && (
@@ -1009,15 +1373,18 @@ export function WordProcessorApp() {
         {/* ── Page canvas ── */}
         <div style={{ flex: 1, overflowY: 'auto', background: D.paperBg, padding: '28px 32px 48px' }}>
 
-          {/* Paper sheet */}
+          {/* Paper sheet — dimensions + typography driven by fmt state */}
           <div style={{
-            maxWidth: 720,
+            maxWidth: fmt.orientation === 'landscape' ? 1020 : 720,
             margin: '0 auto',
             background: D.paper,
             boxShadow: '0 2px 8px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.2)',
-            padding: '64px 72px',
-            minHeight: 960,
+            padding: `${MARGIN_PRESETS[fmt.marginPreset]?.v ?? 64}px ${MARGIN_PRESETS[fmt.marginPreset]?.h ?? 72}px`,
+            minHeight: fmt.orientation === 'landscape' ? 640 : 960,
             position: 'relative',
+            fontFamily: fmt.fontFamily,
+            fontSize: fmt.fontSize,
+            lineHeight: fmt.lineSpacing,
           }}>
 
             {/* Document title */}
@@ -1105,8 +1472,10 @@ export function WordProcessorApp() {
           <span style={{ fontSize: 9, color: D.textDim }}>{charCount} chars</span>
           <span style={{ fontSize: 9, color: D.textDim }}>{estimateReadingTime(wordCount)}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusDot }} />
-            <span style={{ fontSize: 9, color: statusDot, fontFamily: 'system-ui' }}>{statusText}</span>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: saveStatus === 'saved' ? '#4caf50' : saveStatus === 'saving' ? '#f0a030' : '#e74c3c' }} />
+            <span style={{ fontSize: 9, color: saveStatus === 'saved' ? '#4caf50' : saveStatus === 'saving' ? '#f0a030' : '#e74c3c', fontFamily: 'system-ui' }}>
+              {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved'}
+            </span>
           </div>
         </div>
       </div>
