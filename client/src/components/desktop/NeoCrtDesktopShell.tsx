@@ -445,18 +445,19 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         justifyContent: 'center',
         width: 44,
         height: 44,
-        background: locked ? 'transparent' : `${color}12`,
+        background: icon.imageIcon ? 'transparent' : (locked ? 'transparent' : `${color}12`),
         borderRadius: '11px',
         border: locked ? 'none' : `1px solid ${color}${isAcademy ? '55' : '25'}`,
         boxShadow: locked ? 'none' : `0 0 ${isAcademy ? '18px' : '10px'} ${color}${isAcademy ? '55' : '30'}`,
         transition: 'box-shadow 0.2s ease',
         animation: isAcademy ? 'academy-icon-pulse 2.5s ease-in-out infinite' : undefined,
+        overflow: 'hidden',
       }}>
         {icon.imageIcon ? (
           <img
             src={icon.imageIcon}
             alt={icon.id}
-            style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, opacity: locked ? 0.4 : 1 }}
+            style={{ width: 44, height: 44, objectFit: 'cover', opacity: locked ? 0.4 : 1, display: 'block' }}
             draggable={false}
           />
         ) : getNeoCrtIcon(icon.iconType, 24, color)}
