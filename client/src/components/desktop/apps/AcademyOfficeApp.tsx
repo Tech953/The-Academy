@@ -3,7 +3,13 @@ import { WordProcessorApp } from './WordProcessorApp';
 import {
   FileText, Sheet, Presentation, Plus, Trash2, ChevronLeft,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  BarChart2, Type, Palette,
+  BarChart2, Type, Palette, Strikethrough, List, ListOrdered,
+  Copy, Scissors, Clipboard, LayoutTemplate, Image, Link2,
+  Calendar, Hash, MessageSquare, ChevronRight, ChevronDown,
+  Volume2, Play, RotateCcw, Sparkles, Timer, Clock, MoveUp, MoveDown,
+  SkipBack, Rewind, Wind, Layers, SplitSquareHorizontal, Maximize,
+  SpellCheck, BookOpen, Languages, Trash, Eye, EyeOff, MessageCircle,
+  AlignJustify, Baseline, Indent, Outdent, Shapes, Wand2,
 } from 'lucide-react';
 
 const O = {
@@ -378,26 +384,102 @@ const THEMES = [
   { id: 'midnight', name: 'Midnight', bg: '#0a0018', title: '#c792ea', body: '#d4c5f9', accent: '#ff6e40' },
   { id: 'ocean',    name: 'Ocean',    bg: '#001824', title: '#7fdbff', body: '#b0e8ff', accent: '#0074d9' },
   { id: 'carbon',   name: 'Carbon',   bg: '#161616', title: '#f0f0f0', body: '#cccccc', accent: '#ff5f57' },
+  { id: 'ember',    name: 'Ember',    bg: '#1a0800', title: '#ff9944', body: '#ffd0a0', accent: '#ff4400' },
+  { id: 'arctic',   name: 'Arctic',   bg: '#001020', title: '#80ddff', body: '#c0eeff', accent: '#00bbff' },
+  { id: 'forest',   name: 'Forest',   bg: '#001a08', title: '#66ff99', body: '#bbffcc', accent: '#00cc44' },
 ];
 
-interface SlideElement { id: string; type: 'title' | 'body' | 'note'; text: string; }
-interface Slide { id: string; elements: SlideElement[]; themeId: string; }
+const THEME_VARIANTS = [
+  { id: 'default', name: 'Default', mod: (t: typeof THEMES[0]) => t },
+  { id: 'muted',   name: 'Muted',   mod: (t: typeof THEMES[0]) => ({ ...t, title: `${t.title}cc`, body: `${t.body}99` }) },
+  { id: 'vibrant', name: 'Vibrant', mod: (t: typeof THEMES[0]) => ({ ...t, accent: t.title }) },
+  { id: 'mono',    name: 'Mono',    mod: (t: typeof THEMES[0]) => ({ ...t, title: '#ffffff', body: '#aaaaaa', accent: '#555555' }) },
+];
 
-function newSlide(themeId = 'dark', n = 1): Slide {
-  return {
-    id: crypto.randomUUID(),
-    themeId,
-    elements: [
+const SLIDE_LAYOUTS = [
+  { id: 'title-content', name: 'Title & Content' },
+  { id: 'title-only',    name: 'Title Only' },
+  { id: 'blank',         name: 'Blank' },
+  { id: 'two-column',    name: 'Two Column' },
+  { id: 'section',       name: 'Section Header' },
+];
+
+const TRANSITIONS = [
+  { id: 'none',        name: 'None',        icon: '○' },
+  { id: 'fade',        name: 'Fade',        icon: '◐' },
+  { id: 'push',        name: 'Push',        icon: '→' },
+  { id: 'wipe',        name: 'Wipe',        icon: '▶' },
+  { id: 'split',       name: 'Split',       icon: '⊕' },
+  { id: 'reveal',      name: 'Reveal',      icon: '◑' },
+  { id: 'cut',         name: 'Cut',         icon: '✂' },
+  { id: 'random-bars', name: 'Random Bars', icon: '▦' },
+  { id: 'shape',       name: 'Shape',       icon: '◎' },
+  { id: 'uncover',     name: 'Uncover',     icon: '◁' },
+  { id: 'cover',       name: 'Cover',       icon: '◀' },
+  { id: 'morph',       name: 'Morph',       icon: '⬡' },
+];
+
+const ANIMATIONS = [
+  { id: 'none',     name: 'None',     css: '' },
+  { id: 'appear',   name: 'Appear',   css: 'impress-appear' },
+  { id: 'fade',     name: 'Fade',     css: 'impress-fade' },
+  { id: 'fly-in',   name: 'Fly In',   css: 'impress-fly-in' },
+  { id: 'float-in', name: 'Float In', css: 'impress-float-in' },
+  { id: 'split',    name: 'Split',    css: 'impress-split' },
+  { id: 'wipe',     name: 'Wipe',     css: 'impress-wipe' },
+];
+
+const TRANSITION_SOUNDS = ['No Sound', 'Applause', 'Arrow', 'Bomb', 'Breeze', 'Camera', 'Chime', 'Click', 'Coin', 'Drum', 'Explosion', 'Laser', 'Push', 'Static', 'Voltage', 'Wind'];
+
+interface SlideComment { id: string; text: string; author: string; timestamp: string; }
+interface SlideElement {
+  id: string;
+  type: 'title' | 'body' | 'note' | 'textbox';
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  align?: 'left' | 'center' | 'right';
+  fontSize?: number;
+  animation?: string;
+  animStart?: 'on-click' | 'with-prev' | 'after-prev';
+  animDuration?: number;
+  animDelay?: number;
+}
+interface Slide {
+  id: string;
+  elements: SlideElement[];
+  themeId: string;
+  variant?: string;
+  layout?: string;
+  transition?: string;
+  transitionDuration?: number;
+  transitionSound?: string;
+  notes?: string;
+  comments?: SlideComment[];
+  showSlideNumber?: boolean;
+}
+
+function newSlide(themeId = 'dark', n = 1, layout = 'title-content'): Slide {
+  const elements: SlideElement[] = layout === 'blank' ? [] :
+    layout === 'title-only' ? [{ id: 'title', type: 'title', text: `Slide ${n} Title` }] :
+    layout === 'section' ? [
+      { id: 'title', type: 'title', text: `Section ${n}`, fontSize: 32, align: 'center' },
+    ] : [
       { id: 'title', type: 'title', text: `Slide ${n} Title` },
-      { id: 'body', type: 'body', text: '• Click to add content\n• Add bullet points here' },
-    ],
-  };
+      { id: 'body',  type: 'body',  text: '• Click to add content\n• Add bullet points here' },
+    ];
+  return { id: crypto.randomUUID(), themeId, variant: 'default', layout, elements, transition: 'none', transitionDuration: 2, transitionSound: 'No Sound', notes: '', comments: [], showSlideNumber: true };
 }
 
 function loadImpress(): Slide[] {
   try {
     const s = localStorage.getItem('academy-impress-v1');
-    if (s) return JSON.parse(s);
+    if (s) {
+      const parsed = JSON.parse(s);
+      return parsed.map((sl: Slide) => ({ transition: 'none', transitionDuration: 2, transitionSound: 'No Sound', notes: '', comments: [], variant: 'default', layout: 'title-content', showSlideNumber: true, ...sl }));
+    }
   } catch {}
   return [newSlide('dark', 1), newSlide('dark', 2)];
 }
@@ -406,52 +488,484 @@ function saveImpress(slides: Slide[]) {
   try { localStorage.setItem('academy-impress-v1', JSON.stringify(slides)); } catch {}
 }
 
-function SlideThumbnail({ slide, active, onClick }: { slide: Slide; active: boolean; onClick: () => void }) {
+function SlideThumbnail({ slide, index, active, onClick }: { slide: Slide; index: number; active: boolean; onClick: () => void }) {
   const theme = THEMES.find(t => t.id === slide.themeId) ?? THEMES[0];
   const title = slide.elements.find(e => e.type === 'title')?.text ?? '';
+  const hasTrans = slide.transition && slide.transition !== 'none';
   return (
     <div onClick={onClick} style={{ width: '100%', aspectRatio: '16/9', background: theme.bg, border: `2px solid ${active ? O.impress : O.border}`, borderRadius: 3, cursor: 'pointer', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: 4, boxSizing: 'border-box' }}>
+      <div style={{ height: 2, background: theme.accent, width: '100%', position: 'absolute', top: 0, left: 0 }} />
       <div style={{ fontSize: 7, color: theme.title, fontWeight: 'bold', textAlign: 'center', wordBreak: 'break-word', lineHeight: 1.2 }}>{title}</div>
+      {slide.showSlideNumber && (
+        <div style={{ position: 'absolute', bottom: 2, right: 3, fontSize: 5, color: `${theme.body}60` }}>{index + 1}</div>
+      )}
+      {hasTrans && (
+        <div style={{ position: 'absolute', bottom: 2, left: 3, fontSize: 5, color: `${theme.accent}cc` }}>
+          {TRANSITIONS.find(t => t.id === slide.transition)?.icon}
+        </div>
+      )}
     </div>
   );
 }
 
+// ── Ribbon button helpers ──────────────────────────────────────────
+const IR = {
+  tab: '#1e1e1e', tabActive: '#252525',
+  group: '#1e1e1e', groupBorder: '#2e2e2e',
+  btn: 'transparent', btnHover: '#2e2e2e', btnActive: '#383838',
+  text: '#ccc', dim: '#888', accent: O.impress,
+};
+
+function RBtn({ children, onClick, active = false, disabled = false, title, style: extraStyle }: { children: React.ReactNode; onClick?: () => void; active?: boolean; disabled?: boolean; title?: string; style?: React.CSSProperties }) {
+  return (
+    <button onClick={onClick} disabled={disabled} title={title}
+      style={{ background: active ? IR.btnActive : IR.btn, border: `1px solid ${active ? IR.accent + '60' : 'transparent'}`, color: disabled ? '#555' : active ? IR.accent : IR.text, cursor: disabled ? 'not-allowed' : 'pointer', padding: '3px 7px', borderRadius: 2, fontSize: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: 32, lineHeight: 1.2, ...extraStyle }}
+      onMouseEnter={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.background = IR.btnHover; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = active ? IR.btnActive : IR.btn; }}>
+      {children}
+    </button>
+  );
+}
+
+function RGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', borderRight: `1px solid ${IR.groupBorder}`, paddingRight: 6, marginRight: 2 }}>
+      <div style={{ display: 'flex', gap: 2, alignItems: 'flex-start', flex: 1 }}>{children}</div>
+      <div style={{ fontSize: 8, color: '#555', textAlign: 'center', paddingTop: 2, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{label}</div>
+    </div>
+  );
+}
+
+function RSep() { return <div style={{ width: 1, alignSelf: 'stretch', background: IR.groupBorder, margin: '2px 0' }} />; }
+
+interface PresentationRibbonProps {
+  slides: Slide[];
+  activeIdx: number;
+  slide: Slide;
+  selectedElId: string | null;
+  ribbonTab: string;
+  onRibbonTab: (t: string) => void;
+  showNotes: boolean;
+  onToggleNotes: () => void;
+  showComments: boolean;
+  onToggleComments: () => void;
+  spellCheck: boolean;
+  onToggleSpellCheck: () => void;
+  onAddSlide: (layout?: string) => void;
+  onDuplicateSlide: () => void;
+  onDeleteSlide: () => void;
+  onApplyTheme: (id: string) => void;
+  onApplyVariant: (id: string) => void;
+  onApplyLayout: (id: string) => void;
+  onApplyTransition: (id: string) => void;
+  onSetTransitionDuration: (d: number) => void;
+  onSetTransitionSound: (s: string) => void;
+  onApplyToAll: () => void;
+  onUpdateElement: (elId: string, patch: Partial<SlideElement>) => void;
+  onAddTextBox: () => void;
+  onInsertDate: () => void;
+  onInsertSlideNumber: () => void;
+  onAddComment: () => void;
+  onDeleteComment: (id: string) => void;
+  onPrevComment: () => void;
+  onNextComment: () => void;
+  onPreviewTransition: () => void;
+  wordCount: number;
+  commentCount: number;
+}
+
+function PresentationRibbon({
+  slides, activeIdx, slide, selectedElId, ribbonTab, onRibbonTab,
+  showNotes, onToggleNotes, showComments, onToggleComments,
+  spellCheck, onToggleSpellCheck,
+  onAddSlide, onDuplicateSlide, onDeleteSlide,
+  onApplyTheme, onApplyVariant, onApplyLayout,
+  onApplyTransition, onSetTransitionDuration, onSetTransitionSound, onApplyToAll,
+  onUpdateElement, onAddTextBox, onInsertDate, onInsertSlideNumber,
+  onAddComment, onDeleteComment, onPrevComment, onNextComment,
+  onPreviewTransition, wordCount, commentCount,
+}: PresentationRibbonProps) {
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
+  const selEl = slide?.elements.find(e => e.id === selectedElId) ?? null;
+
+  const TABS = ['Home', 'Insert', 'Design', 'Transitions', 'Animations', 'Review'];
+
+  return (
+    <div style={{ background: IR.tab, borderBottom: `1px solid ${IR.groupBorder}`, flexShrink: 0 }}>
+      {/* Tab bar */}
+      <div style={{ display: 'flex', paddingLeft: 8, borderBottom: `1px solid ${IR.groupBorder}` }}>
+        {TABS.map(t => (
+          <button key={t} onClick={() => onRibbonTab(t)}
+            style={{ background: ribbonTab === t ? IR.tabActive : 'transparent', border: 'none', borderBottom: ribbonTab === t ? `2px solid ${IR.accent}` : '2px solid transparent', color: ribbonTab === t ? IR.accent : IR.dim, cursor: 'pointer', padding: '5px 12px', fontSize: 10, fontFamily: 'system-ui', letterSpacing: 0.3 }}>
+            {t}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 9, color: '#555', alignSelf: 'center', paddingRight: 10, fontFamily: 'monospace' }}>
+          {activeIdx + 1}/{slides.length} slides · {wordCount} words
+        </span>
+      </div>
+
+      {/* Content area */}
+      <div style={{ display: 'flex', alignItems: 'stretch', padding: '4px 6px', gap: 2, minHeight: 64 }}>
+
+        {/* ── HOME ─────────────────────────────────────── */}
+        {ribbonTab === 'Home' && (<>
+          <RGroup label="Clipboard">
+            <RBtn title="Paste"><Clipboard size={14} /><span style={{fontSize:8}}>Paste</span></RBtn>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <RBtn title="Cut"><Scissors size={10} /><span style={{fontSize:7}}>Cut</span></RBtn>
+              <RBtn title="Copy"><Copy size={10} /><span style={{fontSize:7}}>Copy</span></RBtn>
+            </div>
+          </RGroup>
+
+          <RGroup label="Slides">
+            <RBtn onClick={() => onAddSlide()} title="New Slide"><Plus size={14} /><span style={{fontSize:8}}>New Slide</span></RBtn>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <RBtn onClick={onDuplicateSlide} title="Duplicate Slide"><Copy size={10} /><span style={{fontSize:7}}>Duplicate</span></RBtn>
+              <div style={{position:'relative'}}>
+                <RBtn onClick={() => setLayoutOpen(v => !v)} title="Layout" active={layoutOpen}><LayoutTemplate size={10} /><span style={{fontSize:7}}>Layout</span></RBtn>
+                {layoutOpen && (
+                  <div style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid ${IR.groupBorder}`,borderRadius:2,width:140,padding:4}}>
+                    {SLIDE_LAYOUTS.map(l => (
+                      <div key={l.id} onClick={() => { onApplyLayout(l.id); setLayoutOpen(false); }}
+                        style={{padding:'4px 8px',cursor:'pointer',color:slide?.layout===l.id?IR.accent:IR.text,fontSize:10,borderRadius:2,background:slide?.layout===l.id?`${IR.accent}15`:'transparent'}}
+                        onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='#333'}
+                        onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=slide?.layout===l.id?`${IR.accent}15`:'transparent'}>
+                        {l.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <RBtn onClick={onDeleteSlide} disabled={slides.length<=1} title="Delete Slide"><Trash2 size={10} /><span style={{fontSize:7}}>Delete</span></RBtn>
+            </div>
+          </RGroup>
+
+          <RGroup label="Font">
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <div style={{display:'flex',gap:3,alignItems:'center'}}>
+                <select value={selEl?.fontSize ?? 14} onChange={e => selEl && onUpdateElement(selEl.id, {fontSize:+e.target.value})}
+                  style={{background:'#2a2a2a',border:`1px solid #444`,color:IR.text,fontSize:10,padding:'1px 4px',borderRadius:2,width:52}}>
+                  {[10,12,14,18,24,28,32,36,40,48,54,60,72].map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div style={{display:'flex',gap:2}}>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{bold:!selEl.bold})} active={!!selEl?.bold} title="Bold" style={{fontWeight:'bold',minWidth:24}}><Bold size={10} /></RBtn>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{italic:!selEl.italic})} active={!!selEl?.italic} title="Italic" style={{fontStyle:'italic',minWidth:24}}><Italic size={10} /></RBtn>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{underline:!selEl.underline})} active={!!selEl?.underline} title="Underline" style={{minWidth:24}}><Underline size={10} /></RBtn>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{strikethrough:!selEl.strikethrough})} active={!!selEl?.strikethrough} title="Strikethrough" style={{minWidth:24}}><Strikethrough size={10} /></RBtn>
+              </div>
+            </div>
+          </RGroup>
+
+          <RGroup label="Paragraph">
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              <div style={{display:'flex',gap:2}}>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{align:'left'})} active={selEl?.align==='left'||!selEl?.align} title="Align Left"><AlignLeft size={10} /></RBtn>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{align:'center'})} active={selEl?.align==='center'} title="Center"><AlignCenter size={10} /></RBtn>
+                <RBtn onClick={()=>selEl&&onUpdateElement(selEl.id,{align:'right'})} active={selEl?.align==='right'} title="Align Right"><AlignRight size={10} /></RBtn>
+              </div>
+              <div style={{display:'flex',gap:2}}>
+                <RBtn title="Bullet List"><List size={10} /></RBtn>
+                <RBtn title="Numbered List"><ListOrdered size={10} /></RBtn>
+                <RBtn title="Indent"><Indent size={10} /></RBtn>
+                <RBtn title="Outdent"><Outdent size={10} /></RBtn>
+              </div>
+            </div>
+          </RGroup>
+
+          <RGroup label="Drawing">
+            <RBtn title="Shapes"><Shapes size={14} /><span style={{fontSize:8}}>Shapes</span></RBtn>
+            <RBtn title="Arrange"><Layers size={14} /><span style={{fontSize:8}}>Arrange</span></RBtn>
+            <RBtn title="Quick Styles"><Wand2 size={14} /><span style={{fontSize:8}}>Quick Styles</span></RBtn>
+          </RGroup>
+        </>)}
+
+        {/* ── INSERT ───────────────────────────────────── */}
+        {ribbonTab === 'Insert' && (<>
+          <RGroup label="Slides">
+            <RBtn onClick={()=>onAddSlide()} title="New Slide"><Plus size={14} /><span style={{fontSize:8}}>New Slide</span></RBtn>
+          </RGroup>
+          <RGroup label="Tables">
+            <RBtn title="Table"><BarChart2 size={14} /><span style={{fontSize:8}}>Table</span></RBtn>
+          </RGroup>
+          <RGroup label="Images">
+            <RBtn title="Pictures"><Image size={14} /><span style={{fontSize:8}}>Pictures</span></RBtn>
+          </RGroup>
+          <RGroup label="Illustrations">
+            <RBtn title="Shapes"><Shapes size={14} /><span style={{fontSize:8}}>Shapes</span></RBtn>
+            <RBtn title="Chart"><BarChart2 size={14} /><span style={{fontSize:8}}>Chart</span></RBtn>
+          </RGroup>
+          <RGroup label="Text">
+            <RBtn onClick={onAddTextBox} title="Text Box"><Type size={14} /><span style={{fontSize:8}}>Text Box</span></RBtn>
+            <RBtn title="Header &amp; Footer"><Baseline size={14} /><span style={{fontSize:8}}>Header</span></RBtn>
+            <RBtn title="Word Art"><Wand2 size={14} /><span style={{fontSize:8}}>WordArt</span></RBtn>
+          </RGroup>
+          <RGroup label="Symbols">
+            <RBtn onClick={onInsertDate} title="Date &amp; Time"><Calendar size={14} /><span style={{fontSize:8}}>Date &amp; Time</span></RBtn>
+            <RBtn onClick={onInsertSlideNumber} title="Slide Number"><Hash size={14} /><span style={{fontSize:8}}>Slide #</span></RBtn>
+          </RGroup>
+          <RGroup label="Links">
+            <RBtn title="Hyperlink"><Link2 size={14} /><span style={{fontSize:8}}>Link</span></RBtn>
+          </RGroup>
+          <RGroup label="Comments">
+            <RBtn onClick={onAddComment} title="Comment"><MessageSquare size={14} /><span style={{fontSize:8}}>Comment</span></RBtn>
+          </RGroup>
+        </>)}
+
+        {/* ── DESIGN ───────────────────────────────────── */}
+        {ribbonTab === 'Design' && (<>
+          <RGroup label="Themes">
+            <div style={{display:'flex',gap:4,alignItems:'center',padding:'4px 0'}}>
+              {THEMES.map(t => (
+                <button key={t.id} onClick={()=>onApplyTheme(t.id)} title={t.name}
+                  style={{width:38,height:28,background:t.bg,border:`2px solid ${slide?.themeId===t.id?IR.accent:IR.groupBorder}`,borderRadius:2,cursor:'pointer',position:'relative',overflow:'hidden',display:'flex',flexDirection:'column',justifyContent:'flex-end',padding:2}}>
+                  <div style={{height:3,background:t.accent,width:'100%'}} />
+                  <div style={{position:'absolute',top:4,left:3,fontSize:6,color:t.title,fontWeight:'bold'}}>Aa</div>
+                </button>
+              ))}
+            </div>
+          </RGroup>
+          <RGroup label="Variants">
+            <div style={{display:'flex',gap:4,alignItems:'center',padding:'4px 0'}}>
+              {THEME_VARIANTS.map(v => {
+                const baseTheme = THEMES.find(t=>t.id===slide?.themeId)??THEMES[0];
+                const mod = v.mod(baseTheme);
+                return (
+                  <button key={v.id} onClick={()=>onApplyVariant(v.id)} title={v.name}
+                    style={{width:28,height:28,background:mod.bg,border:`2px solid ${slide?.variant===v.id?IR.accent:IR.groupBorder}`,borderRadius:2,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <div style={{fontSize:8,color:mod.title,fontWeight:'bold'}}>Aa</div>
+                  </button>
+                );
+              })}
+            </div>
+          </RGroup>
+          <RGroup label="Customize">
+            <div style={{display:'flex',flexDirection:'column',gap:3,padding:'2px 0'}}>
+              <RBtn title="Slide Size"><Maximize size={10} /><span style={{fontSize:8}}>Slide Size</span></RBtn>
+              <RBtn title="Format Background"><Palette size={10} /><span style={{fontSize:8}}>Background</span></RBtn>
+            </div>
+          </RGroup>
+          <RGroup label="Edit">
+            <RBtn title="Design Suggestions"><Sparkles size={14} /><span style={{fontSize:8}}>Suggestions</span></RBtn>
+          </RGroup>
+        </>)}
+
+        {/* ── TRANSITIONS ──────────────────────────────── */}
+        {ribbonTab === 'Transitions' && (<>
+          <RGroup label="Preview">
+            <RBtn onClick={onPreviewTransition} title="Preview"><Play size={14} /><span style={{fontSize:8}}>Preview</span></RBtn>
+          </RGroup>
+          <RGroup label="Transition to This Slide">
+            <div style={{display:'flex',gap:3,flexWrap:'wrap',alignItems:'center',maxWidth:380,padding:'2px 0'}}>
+              {TRANSITIONS.map(tr => (
+                <button key={tr.id} onClick={()=>onApplyTransition(tr.id)} title={tr.name}
+                  style={{background:slide?.transition===tr.id?`${IR.accent}20`:IR.btn,border:`1px solid ${slide?.transition===tr.id?IR.accent:IR.groupBorder}`,color:slide?.transition===tr.id?IR.accent:IR.text,cursor:'pointer',padding:'3px 6px',borderRadius:2,fontSize:9,display:'flex',flexDirection:'column',alignItems:'center',gap:1,minWidth:36}}
+                  onMouseEnter={e=>{if(slide?.transition!==tr.id)(e.currentTarget as HTMLElement).style.background=IR.btnHover;}}
+                  onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=slide?.transition===tr.id?`${IR.accent}20`:IR.btn;}}>
+                  <span style={{fontSize:13}}>{tr.icon}</span>
+                  <span style={{fontSize:7}}>{tr.name}</span>
+                </button>
+              ))}
+            </div>
+          </RGroup>
+          <RGroup label="Timing">
+            <div style={{display:'flex',flexDirection:'column',gap:4,padding:'2px 0'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <div style={{position:'relative'}}>
+                  <button onClick={()=>setSoundOpen(v=>!v)}
+                    style={{background:'#2a2a2a',border:`1px solid #444`,color:IR.text,fontSize:9,padding:'2px 6px',borderRadius:2,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                    <Volume2 size={9}/> {slide?.transitionSound ?? 'No Sound'} <ChevronDown size={8}/>
+                  </button>
+                  {soundOpen && (
+                    <div style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#222',border:`1px solid #444`,borderRadius:2,width:120,maxHeight:160,overflow:'auto',padding:2}}>
+                      {TRANSITION_SOUNDS.map(s=>(
+                        <div key={s} onClick={()=>{onSetTransitionSound(s);setSoundOpen(false);}}
+                          style={{padding:'3px 8px',cursor:'pointer',color:slide?.transitionSound===s?IR.accent:IR.text,fontSize:9,borderRadius:2}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='#333'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                          {s}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:IR.dim,width:50}}>Duration:</span>
+                <input type="number" min={0.25} max={10} step={0.25}
+                  value={slide?.transitionDuration ?? 2}
+                  onChange={e=>onSetTransitionDuration(+e.target.value)}
+                  style={{background:'#2a2a2a',border:`1px solid #444`,color:IR.text,fontSize:9,padding:'2px 4px',borderRadius:2,width:50,textAlign:'right'}} />
+                <span style={{fontSize:9,color:'#555'}}>s</span>
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <RBtn onClick={onApplyToAll} title="Apply to All Slides" style={{fontSize:8}}>Apply To All</RBtn>
+              </div>
+            </div>
+          </RGroup>
+        </>)}
+
+        {/* ── ANIMATIONS ───────────────────────────────── */}
+        {ribbonTab === 'Animations' && (<>
+          <RGroup label="Preview">
+            <RBtn title="Preview"><Play size={14} /><span style={{fontSize:8}}>Preview</span></RBtn>
+          </RGroup>
+          <RGroup label="Animation">
+            <div style={{display:'flex',gap:3,alignItems:'center',padding:'2px 0'}}>
+              {ANIMATIONS.map(an => (
+                <button key={an.id} onClick={()=>selEl&&onUpdateElement(selEl.id,{animation:an.id})} title={an.name}
+                  style={{background:selEl?.animation===an.id?`${IR.accent}20`:IR.btn,border:`1px solid ${selEl?.animation===an.id?IR.accent:IR.groupBorder}`,color:selEl?.animation===an.id?IR.accent:IR.text,cursor:'pointer',padding:'4px 5px',borderRadius:2,fontSize:9,display:'flex',flexDirection:'column',alignItems:'center',gap:2,minWidth:44}}
+                  onMouseEnter={e=>{if(selEl?.animation!==an.id)(e.currentTarget as HTMLElement).style.background=IR.btnHover;}}
+                  onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=selEl?.animation===an.id?`${IR.accent}20`:IR.btn;}}>
+                  <span style={{fontSize:12,opacity:an.id==='none'?0.4:1}}>
+                    {an.id==='none'?'○':an.id==='appear'?'◉':an.id==='fade'?'◐':an.id==='fly-in'?'↑':an.id==='float-in'?'↟':an.id==='split'?'⊕':'▶'}
+                  </span>
+                  <span style={{fontSize:7}}>{an.name}</span>
+                </button>
+              ))}
+            </div>
+          </RGroup>
+          <RGroup label="Advanced Animation">
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <RBtn title="Add Animation"><Sparkles size={10} /><span style={{fontSize:8}}>Add Animation</span></RBtn>
+              <RBtn title="Animation Pane"><SplitSquareHorizontal size={10} /><span style={{fontSize:8}}>Animation Pane</span></RBtn>
+            </div>
+          </RGroup>
+          <RGroup label="Timing">
+            <div style={{display:'flex',flexDirection:'column',gap:4,padding:'2px 0'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:IR.dim,width:36}}>Start:</span>
+                <select value={selEl?.animStart??'on-click'} onChange={e=>selEl&&onUpdateElement(selEl.id,{animStart:e.target.value as 'on-click'|'with-prev'|'after-prev'})}
+                  style={{background:'#2a2a2a',border:`1px solid #444`,color:IR.text,fontSize:9,padding:'2px 4px',borderRadius:2}}>
+                  <option value="on-click">On Click</option>
+                  <option value="with-prev">With Previous</option>
+                  <option value="after-prev">After Previous</option>
+                </select>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:IR.dim,width:36}}>Duration:</span>
+                <input type="number" min={0.1} max={10} step={0.1} value={selEl?.animDuration??1}
+                  onChange={e=>selEl&&onUpdateElement(selEl.id,{animDuration:+e.target.value})}
+                  style={{background:'#2a2a2a',border:`1px solid #444`,color:IR.text,fontSize:9,padding:'2px 4px',borderRadius:2,width:48,textAlign:'right'}} />
+                <span style={{fontSize:9,color:'#555'}}>s</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,color:IR.dim,width:36}}>Delay:</span>
+                <input type="number" min={0} max={30} step={0.5} value={selEl?.animDelay??0}
+                  onChange={e=>selEl&&onUpdateElement(selEl.id,{animDelay:+e.target.value})}
+                  style={{background:'#2a2a2a',border:`1px solid #444`,color:IR.text,fontSize:9,padding:'2px 4px',borderRadius:2,width:48,textAlign:'right'}} />
+                <span style={{fontSize:9,color:'#555'}}>s</span>
+              </div>
+            </div>
+          </RGroup>
+          <RGroup label="Reorder">
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              <RBtn title="Move Earlier"><MoveUp size={10} /><span style={{fontSize:7}}>Earlier</span></RBtn>
+              <RBtn title="Move Later"><MoveDown size={10} /><span style={{fontSize:7}}>Later</span></RBtn>
+            </div>
+          </RGroup>
+        </>)}
+
+        {/* ── REVIEW ───────────────────────────────────── */}
+        {ribbonTab === 'Review' && (<>
+          <RGroup label="Proofing">
+            <RBtn onClick={onToggleSpellCheck} active={spellCheck} title="Spell Check"><SpellCheck size={14} /><span style={{fontSize:8}}>Spelling</span></RBtn>
+            <RBtn onClick={()=>window.open('https://www.merriam-webster.com/thesaurus','_blank')} title="Thesaurus"><BookOpen size={14} /><span style={{fontSize:8}}>Thesaurus</span></RBtn>
+          </RGroup>
+          <RGroup label="Language">
+            <RBtn onClick={()=>window.open('https://translate.google.com','_blank')} title="Translate"><Languages size={14} /><span style={{fontSize:8}}>Translate</span></RBtn>
+          </RGroup>
+          <RGroup label="Comments">
+            <RBtn onClick={onAddComment} title="New Comment"><MessageCircle size={14} /><span style={{fontSize:8}}>New Comment</span></RBtn>
+            <RBtn onClick={()=>{ if(slide?.comments?.[0]) onDeleteComment(slide.comments[0].id); }} disabled={!commentCount} title="Delete Comment"><Trash size={14} /><span style={{fontSize:8}}>Delete</span></RBtn>
+            <RBtn onClick={onPrevComment} disabled={!commentCount} title="Previous Comment"><ChevronLeft size={14} /><span style={{fontSize:8}}>Previous</span></RBtn>
+            <RBtn onClick={onNextComment} disabled={!commentCount} title="Next Comment"><ChevronRight size={14} /><span style={{fontSize:8}}>Next</span></RBtn>
+            <RBtn onClick={onToggleComments} active={showComments} title="Show/Hide Comments"><Eye size={14} /><span style={{fontSize:8}}>{showComments?'Hide':'Show'} Comments</span></RBtn>
+          </RGroup>
+          <RGroup label="Notes">
+            <RBtn onClick={onToggleNotes} active={showNotes} title="Speaker Notes"><MessageSquare size={14} /><span style={{fontSize:8}}>Notes</span></RBtn>
+          </RGroup>
+          <RGroup label="Statistics">
+            <div style={{display:'flex',flexDirection:'column',padding:'4px 6px',gap:2}}>
+              <span style={{fontSize:9,color:IR.dim}}>Slides: <span style={{color:IR.text}}>{slides.length}</span></span>
+              <span style={{fontSize:9,color:IR.dim}}>Words: <span style={{color:IR.text}}>{wordCount}</span></span>
+              <span style={{fontSize:9,color:IR.dim}}>Comments: <span style={{color:IR.text}}>{slides.reduce((a,s)=>a+(s.comments?.length??0),0)}</span></span>
+            </div>
+          </RGroup>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+// ── CSS animations injected once ──────────────────────────────────
+const IMPRESS_STYLE = `
+@keyframes impress-appear{from{opacity:0}to{opacity:1}}
+@keyframes impress-fade{from{opacity:0}to{opacity:1}}
+@keyframes impress-fly-in{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes impress-float-in{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes impress-split{from{clip-path:inset(50% 0);opacity:0}to{clip-path:inset(0 0);opacity:1}}
+@keyframes impress-wipe{from{clip-path:inset(0 100% 0 0);opacity:0}to{clip-path:inset(0 0 0 0);opacity:1}}
+.impress-appear{animation:impress-appear 0.2s ease both}
+.impress-fade{animation:impress-fade 0.6s ease both}
+.impress-fly-in{animation:impress-fly-in 0.5s cubic-bezier(.2,.8,.4,1) both}
+.impress-float-in{animation:impress-float-in 0.7s ease both}
+.impress-split{animation:impress-split 0.5s ease both}
+.impress-wipe{animation:impress-wipe 0.5s ease both}
+`;
+
 function ImpressApp() {
-  const [slides, setSlides] = useState<Slide[]>(loadImpress);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [editingEl, setEditingEl] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
-  const [currentTheme, setCurrentTheme] = useState('dark');
+  const [slides, setSlides]             = useState<Slide[]>(loadImpress);
+  const [activeIdx, setActiveIdx]       = useState(0);
+  const [editingEl, setEditingEl]       = useState<string | null>(null);
+  const [selectedElId, setSelectedElId] = useState<string | null>(null);
+  const [editText, setEditText]         = useState('');
+  const [ribbonTab, setRibbonTab]       = useState('Home');
+  const [showNotes, setShowNotes]       = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [spellCheck, setSpellCheck]     = useState(true);
+  const [previewing, setPreviewing]     = useState(false);
+  const [commentInput, setCommentInput] = useState<string | null>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   const slide = slides[Math.min(activeIdx, slides.length - 1)];
   const theme = THEMES.find(t => t.id === slide?.themeId) ?? THEMES[0];
+  const wordCount = slides.reduce((a, s) => a + s.elements.reduce((b, e) => b + (e.text?.trim().split(/\s+/).filter(Boolean).length ?? 0), 0), 0);
+  const commentCount = slide?.comments?.length ?? 0;
 
+  useEffect(() => { if (!document.getElementById('impress-anim-style')) { const s = document.createElement('style'); s.id = 'impress-anim-style'; s.textContent = IMPRESS_STYLE; document.head.appendChild(s); } }, []);
   useEffect(() => { saveImpress(slides); }, [slides]);
   useEffect(() => { if (editingEl && textRef.current) textRef.current.focus(); }, [editingEl]);
 
-  const updateElement = (elId: string, text: string) => {
+  const updateElement = useCallback((elId: string, patch: Partial<SlideElement>) => {
     setSlides(prev => prev.map((s, i) => i === activeIdx ? {
-      ...s,
-      elements: s.elements.map(e => e.id === elId ? { ...e, text } : e),
+      ...s, elements: s.elements.map(e => e.id === elId ? { ...e, ...patch } : e),
     } : s));
-  };
+  }, [activeIdx]);
 
-  const startEdit = (el: SlideElement) => {
-    setEditingEl(el.id);
-    setEditText(el.text);
-  };
+  const updateSlide = useCallback((patch: Partial<Slide>) => {
+    setSlides(prev => prev.map((s, i) => i === activeIdx ? { ...s, ...patch } : s));
+  }, [activeIdx]);
 
   const commitEdit = () => {
-    if (editingEl) updateElement(editingEl, editText);
+    if (editingEl) updateElement(editingEl, { text: editText });
     setEditingEl(null);
     setEditText('');
   };
 
-  const addSlide = () => {
-    const ns = newSlide(currentTheme, slides.length + 1);
+  const addSlide = (layout = 'title-content') => {
+    const ns = newSlide(slide?.themeId ?? 'dark', slides.length + 1, layout);
     setSlides(prev => [...prev, ns]);
     setActiveIdx(slides.length);
+  };
+
+  const duplicateSlide = () => {
+    const dup = { ...slide, id: crypto.randomUUID(), elements: slide.elements.map(e => ({ ...e, id: e.id + '-dup' })) };
+    setSlides(prev => [...prev.slice(0, activeIdx + 1), dup, ...prev.slice(activeIdx + 1)]);
+    setActiveIdx(activeIdx + 1);
   };
 
   const deleteSlide = () => {
@@ -460,78 +974,208 @@ function ImpressApp() {
     setActiveIdx(Math.max(0, activeIdx - 1));
   };
 
-  const applyTheme = (themeId: string) => {
-    setCurrentTheme(themeId);
-    setSlides(prev => prev.map((s, i) => i === activeIdx ? { ...s, themeId } : s));
+  const applyToAll = () => {
+    setSlides(prev => prev.map(s => ({ ...s, transition: slide.transition, transitionDuration: slide.transitionDuration, transitionSound: slide.transitionSound })));
+  };
+
+  const addTextBox = () => {
+    const id = crypto.randomUUID();
+    updateSlide({ elements: [...(slide?.elements ?? []), { id, type: 'textbox', text: 'Text box', align: 'left', fontSize: 14 }] });
+    setSelectedElId(id);
+    setEditingEl(id);
+    setEditText('Text box');
+  };
+
+  const insertDate = () => {
+    if (!selectedElId) return;
+    const dateStr = new Date().toLocaleDateString();
+    const el = slide.elements.find(e => e.id === selectedElId);
+    if (el) updateElement(selectedElId, { text: el.text + ' ' + dateStr });
+  };
+
+  const insertSlideNumber = () => {
+    updateSlide({ showSlideNumber: !slide?.showSlideNumber });
+  };
+
+  const addComment = () => {
+    setCommentInput('');
+  };
+
+  const submitComment = () => {
+    if (commentInput === null) return;
+    const comment: SlideComment = { id: crypto.randomUUID(), text: commentInput, author: 'Student', timestamp: new Date().toLocaleString() };
+    updateSlide({ comments: [...(slide?.comments ?? []), comment] });
+    setCommentInput(null);
+    setShowComments(true);
+  };
+
+  const deleteComment = (id: string) => {
+    updateSlide({ comments: slide.comments?.filter(c => c.id !== id) ?? [] });
+  };
+
+  const previewTransition = () => {
+    setPreviewing(true);
+    setTimeout(() => setPreviewing(false), (slide?.transitionDuration ?? 2) * 1000 + 200);
+  };
+
+  const getTransitionStyle = (): React.CSSProperties => {
+    if (!previewing) return {};
+    const t = slide?.transition ?? 'none';
+    const dur = slide?.transitionDuration ?? 2;
+    if (t === 'fade') return { animation: `impress-fade ${dur}s ease both` };
+    if (t === 'fly-in' || t === 'push') return { animation: `impress-fly-in ${dur * 0.5}s cubic-bezier(.2,.8,.4,1) both` };
+    if (t === 'wipe' || t === 'reveal' || t === 'uncover' || t === 'cover') return { animation: `impress-wipe ${dur * 0.5}s ease both` };
+    if (t === 'split') return { animation: `impress-split ${dur * 0.5}s ease both` };
+    return {};
+  };
+
+  const getElementStyle = (el: SlideElement, isTitle: boolean): React.CSSProperties => {
+    const anim = ANIMATIONS.find(a => a.id === (el.animation ?? 'none'));
+    return {
+      color: isTitle ? theme.title : theme.body,
+      fontFamily: isTitle ? '"Segoe UI", system-ui, sans-serif' : '"Courier New", monospace',
+      fontSize: el.fontSize ?? (isTitle ? 22 : 13),
+      fontWeight: el.bold || isTitle ? 'bold' : 'normal',
+      fontStyle: el.italic ? 'italic' : 'normal',
+      textDecoration: [el.underline ? 'underline' : '', el.strikethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none',
+      textAlign: el.align ?? (isTitle ? 'left' : 'left'),
+      lineHeight: 1.6,
+      whiteSpace: 'pre-wrap',
+      opacity: el.text ? 1 : 0.3,
+      animationDuration: `${el.animDuration ?? 1}s`,
+      animationDelay: `${el.animDelay ?? 0}s`,
+    };
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#111' }}>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 6, padding: '4px 8px', background: O.toolbar, borderBottom: `1px solid ${O.border}`, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-        <button onClick={addSlide} style={{ background: '#2a1a1a', border: `1px solid ${O.impress}60`, color: O.impress, cursor: 'pointer', padding: '3px 10px', borderRadius: 2, fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Plus size={10} /> Add Slide
-        </button>
-        <button onClick={deleteSlide} style={{ background: '#2a0a0a', border: `1px solid ${O.border}`, color: '#e06c75', cursor: 'pointer', padding: '3px 8px', borderRadius: 2, fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }} disabled={slides.length <= 1}>
-          <Trash2 size={10} />
-        </button>
-        <div style={{ width: 1, height: 16, background: O.border }} />
-        <span style={{ fontSize: 9, color: O.dim, display: 'flex', alignItems: 'center', gap: 3 }}><Palette size={10} /> Theme:</span>
-        {THEMES.map(t => (
-          <button key={t.id} onClick={() => applyTheme(t.id)} title={t.name} style={{ width: 18, height: 18, background: t.bg, border: `2px solid ${t.id === slide?.themeId ? O.impress : O.border}`, borderRadius: 3, cursor: 'pointer', flexShrink: 0 }} />
-        ))}
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: O.dim, fontFamily: 'monospace' }}>
-          Slide {activeIdx + 1} / {slides.length} — double-click to edit
-        </span>
-      </div>
+      <PresentationRibbon
+        slides={slides} activeIdx={activeIdx} slide={slide} selectedElId={selectedElId}
+        ribbonTab={ribbonTab} onRibbonTab={setRibbonTab}
+        showNotes={showNotes} onToggleNotes={() => setShowNotes(v => !v)}
+        showComments={showComments} onToggleComments={() => setShowComments(v => !v)}
+        spellCheck={spellCheck} onToggleSpellCheck={() => setSpellCheck(v => !v)}
+        onAddSlide={addSlide} onDuplicateSlide={duplicateSlide} onDeleteSlide={deleteSlide}
+        onApplyTheme={(id) => updateSlide({ themeId: id })}
+        onApplyVariant={(id) => updateSlide({ variant: id })}
+        onApplyLayout={(id) => updateSlide({ layout: id })}
+        onApplyTransition={(id) => updateSlide({ transition: id })}
+        onSetTransitionDuration={(d) => updateSlide({ transitionDuration: d })}
+        onSetTransitionSound={(s) => updateSlide({ transitionSound: s })}
+        onApplyToAll={applyToAll}
+        onUpdateElement={updateElement}
+        onAddTextBox={addTextBox}
+        onInsertDate={insertDate}
+        onInsertSlideNumber={insertSlideNumber}
+        onAddComment={addComment} onDeleteComment={deleteComment}
+        onPrevComment={() => {}} onNextComment={() => {}}
+        onPreviewTransition={previewTransition}
+        wordCount={wordCount} commentCount={commentCount}
+      />
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Slides panel */}
-        <div style={{ width: 140, background: '#0d0d0d', borderRight: `1px solid ${O.border}`, overflow: 'auto', padding: 6, display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
+        <div style={{ width: 148, background: '#0d0d0d', borderRight: `1px solid ${O.border}`, overflow: 'auto', padding: '6px 5px', display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
           {slides.map((s, i) => (
             <div key={s.id} style={{ position: 'relative' }}>
               <div style={{ fontSize: 8, color: O.veryDim, fontFamily: 'monospace', marginBottom: 2, textAlign: 'center' }}>{i + 1}</div>
-              <SlideThumbnail slide={s} active={i === activeIdx} onClick={() => { commitEdit(); setActiveIdx(i); }} />
+              <SlideThumbnail slide={s} index={i} active={i === activeIdx} onClick={() => { commitEdit(); setActiveIdx(i); setSelectedElId(null); }} />
             </div>
           ))}
+          <button onClick={() => addSlide()}
+            style={{ background: 'transparent', border: `1px dashed ${O.impress}50`, color: `${O.impress}80`, cursor: 'pointer', borderRadius: 2, padding: '4px 0', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+            <Plus size={9} /> Add
+          </button>
         </div>
 
-        {/* Canvas area */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1a1a', overflow: 'hidden', padding: 20 }}>
-          {slide && (
-            <div style={{ width: '100%', maxWidth: 720, aspectRatio: '16/9', background: theme.bg, borderRadius: 4, position: 'relative', boxShadow: '0 8px 40px rgba(0,0,0,0.8)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {/* Accent bar */}
-              <div style={{ height: 4, background: theme.accent, flexShrink: 0 }} />
+        {/* Main area */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-              {slide.elements.map(el => {
-                const isTitle = el.type === 'title';
-                const isEditing = editingEl === el.id;
-                return (
-                  <div key={el.id} onDoubleClick={() => startEdit(el)} style={{ padding: isTitle ? '20px 30px 10px' : '10px 30px 20px', flex: isTitle ? '0 0 auto' : 1, position: 'relative', cursor: 'default' }}>
-                    {isEditing ? (
-                      <textarea
-                        ref={el.id === editingEl ? textRef : undefined}
-                        value={editText}
-                        onChange={e => setEditText(e.target.value)}
-                        onBlur={commitEdit}
-                        onKeyDown={e => { if (e.key === 'Escape') commitEdit(); }}
-                        style={{ width: '100%', height: isTitle ? 60 : 160, background: 'transparent', border: `1px dashed ${theme.accent}60`, color: isTitle ? theme.title : theme.body, fontFamily: isTitle ? '"Segoe UI", system-ui' : '"Courier New", monospace', fontSize: isTitle ? 22 : 14, fontWeight: isTitle ? 'bold' : 'normal', resize: 'none', outline: 'none', lineHeight: 1.5, padding: 4 }}
-                      />
-                    ) : (
-                      <div style={{ color: isTitle ? theme.title : theme.body, fontFamily: isTitle ? '"Segoe UI", system-ui' : '"Courier New", monospace', fontSize: isTitle ? 22 : 13, fontWeight: isTitle ? 'bold' : 'normal', lineHeight: 1.6, whiteSpace: 'pre-wrap', opacity: el.text ? 1 : 0.3 }}>
-                        {el.text || (isTitle ? 'Double-click to add title' : 'Double-click to add content')}
-                      </div>
-                    )}
+          {/* Canvas area */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1a1a', overflow: 'hidden', padding: 20 }}>
+            {slide && (
+              <div style={{ width: '100%', maxWidth: 720, aspectRatio: '16/9', background: theme.bg, borderRadius: 4, position: 'relative', boxShadow: '0 8px 40px rgba(0,0,0,0.8)', overflow: 'hidden', display: 'flex', flexDirection: 'column', ...getTransitionStyle() }}>
+                {/* Accent bar */}
+                <div style={{ height: 4, background: theme.accent, flexShrink: 0 }} />
+
+                {slide.elements.map(el => {
+                  const isTitle = el.type === 'title';
+                  const isEditing = editingEl === el.id;
+                  const isSelected = selectedElId === el.id;
+                  const animCss = ANIMATIONS.find(a => a.id === (el.animation ?? 'none'))?.css ?? '';
+                  return (
+                    <div key={el.id}
+                      onClick={() => setSelectedElId(el.id)}
+                      onDoubleClick={() => { setEditingEl(el.id); setEditText(el.text); setSelectedElId(el.id); }}
+                      style={{ padding: isTitle ? '20px 30px 10px' : '10px 30px 20px', flex: isTitle ? '0 0 auto' : 1, position: 'relative', cursor: 'default', outline: isSelected && !isEditing ? `1px dashed ${theme.accent}60` : 'none', outlineOffset: -2 }}>
+                      {isEditing ? (
+                        <textarea
+                          ref={el.id === editingEl ? textRef : undefined}
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          onBlur={commitEdit}
+                          spellCheck={spellCheck}
+                          onKeyDown={e => { if (e.key === 'Escape') commitEdit(); }}
+                          style={{ width: '100%', height: isTitle ? 60 : 160, background: 'transparent', border: `1px dashed ${theme.accent}60`, color: isTitle ? theme.title : theme.body, fontFamily: isTitle ? '"Segoe UI", system-ui' : '"Courier New", monospace', fontSize: el.fontSize ?? (isTitle ? 22 : 14), fontWeight: el.bold || isTitle ? 'bold' : 'normal', fontStyle: el.italic ? 'italic' : 'normal', textDecoration: el.underline ? 'underline' : 'none', resize: 'none', outline: 'none', lineHeight: 1.5, padding: 4, textAlign: el.align ?? 'left' }}
+                        />
+                      ) : (
+                        <div className={animCss} style={getElementStyle(el, isTitle)}>
+                          {el.text || (isTitle ? 'Double-click to add title' : 'Double-click to add content')}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Slide number */}
+                {slide.showSlideNumber && (
+                  <div style={{ position: 'absolute', bottom: 8, right: 12, fontSize: 9, color: `${theme.body}50`, fontFamily: 'monospace' }}>
+                    {activeIdx + 1}
                   </div>
-                );
-              })}
+                )}
 
-              {/* Slide number */}
-              <div style={{ position: 'absolute', bottom: 8, right: 12, fontSize: 9, color: `${theme.body}50`, fontFamily: 'monospace' }}>
-                {activeIdx + 1}
+                {/* Comments badge */}
+                {showComments && (slide.comments?.length ?? 0) > 0 && (
+                  <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {slide.comments!.map(c => (
+                      <div key={c.id} style={{ background: '#2a2a00', border: '1px solid #666600', borderRadius: 3, padding: '4px 8px', fontSize: 9, color: '#ffff88', maxWidth: 180, lineHeight: 1.4 }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: 2, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span>{c.author}</span>
+                          <button onClick={() => deleteComment(c.id)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: 0, fontSize: 9 }}>✕</button>
+                        </div>
+                        <div>{c.text}</div>
+                        <div style={{ color: '#888', fontSize: 7, marginTop: 2 }}>{c.timestamp}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            )}
+          </div>
+
+          {/* Comment input */}
+          {commentInput !== null && (
+            <div style={{ background: '#1a1a00', borderTop: `1px solid #444400`, padding: '6px 12px', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+              <MessageCircle size={12} style={{ color: '#aaaa00' }} />
+              <span style={{ fontSize: 10, color: '#888', minWidth: 50 }}>Comment:</span>
+              <input autoFocus value={commentInput} onChange={e => setCommentInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submitComment(); if (e.key === 'Escape') setCommentInput(null); }}
+                placeholder="Type comment and press Enter…"
+                style={{ flex: 1, background: '#222', border: '1px solid #444', color: '#ddd', padding: '3px 8px', fontSize: 10, borderRadius: 2, outline: 'none' }} />
+              <button onClick={submitComment} style={{ background: '#333300', border: '1px solid #666600', color: '#ffff88', cursor: 'pointer', padding: '2px 10px', borderRadius: 2, fontSize: 10 }}>Add</button>
+              <button onClick={() => setCommentInput(null)} style={{ background: 'transparent', border: '1px solid #444', color: '#888', cursor: 'pointer', padding: '2px 8px', borderRadius: 2, fontSize: 10 }}>Cancel</button>
+            </div>
+          )}
+
+          {/* Notes panel */}
+          {showNotes && (
+            <div style={{ height: 100, borderTop: `1px solid ${O.border}`, background: '#141414', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: 9, color: '#555', padding: '3px 10px', borderBottom: `1px solid ${O.border}`, fontFamily: 'monospace' }}>SPEAKER NOTES — Slide {activeIdx + 1}</div>
+              <textarea value={slide?.notes ?? ''} onChange={e => updateSlide({ notes: e.target.value })}
+                spellCheck={spellCheck}
+                placeholder="Click to add notes…"
+                style={{ flex: 1, background: 'transparent', border: 'none', color: '#bbb', fontFamily: 'monospace', fontSize: 11, padding: '6px 12px', resize: 'none', outline: 'none', lineHeight: 1.6 }} />
             </div>
           )}
         </div>
