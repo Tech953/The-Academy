@@ -18,6 +18,20 @@ This comprehensive NPC AI system provides autonomous behavior, procedural genera
 ## NPC AI Dialogue System
 Every NPC conversation is powered by GPT-4.1-mini, utilizing rich system prompts based on NPC entities. It supports free-form conversation, thinking placeholders, player echoes, and topic suggestions to guide interaction.
 
+## Offline Content Engine — Phase 1 & 2 (in progress)
+Four-ring offline architecture implementation. Phase 1 (Seed Engine) and Phase 2 (Template Library) are complete.
+
+### Phase 1: Seeded PRNG Engine (`client/src/lib/seededRandom.ts`)
+Mulberry32 PRNG providing fully deterministic world generation. Same seed = same world, always. Key exports: `SeededRandom` class, `entitySeed()`, `temporalSeed()`, `conversationSeed()`, `hashString()`, `fillTemplate()`. `WORLD_SEED = 12345`.
+
+### Phase 2: Template Library
+- **`dialogueTemplates.ts`**: 10 personality archetypes × 8 emotion states × 6 relationship tiers = rich NPC dialogue without AI. Archetypes: scholar, rebel, leader, nurturer, perfectionist, socialite, loner, optimist, cynic, mentor.
+- **`eventTemplates.ts`**: 8 event categories × 25 templates = 200 world events. RSS tag-matching for real-world headline integration. Categories: academic, social, crisis, discovery, competition, institutional, seasonal, mystery.
+- **`studyTemplates.ts`**: 4 GED subjects × 14+ questions each = offline GED prep. Includes multiple choice, fill-blank, true/false, short answer, and study prompts.
+- **`offlineContentEngine.ts`**: Unified orchestration layer. Key functions: `generateOfflineConversation()`, `generateNPCLine()`, `generateDailyEvents()`, `generateQuizSet()`, `generateContentPack()`, `matchEventsToHeadlines()`, `inferEmotionState()`, `scoreToRelationshipTier()`.
+
+The NPC dialogue fallback in `GameStateContext.tsx` now uses the offline engine (archetype derived from name hash, emotion varies daily) instead of static placeholder text.
+
 ## NPC Persistent Memory System
 NPC memory is tracked in `localStorage` storing conversation entries with timestamps, topics, and locations. It supports session detection, generates natural-language relationship summaries for AI prompts, provides conversation history for AI, and displays re-encounter notes. This system integrates with RadiantAI for detailed interaction logging.
 

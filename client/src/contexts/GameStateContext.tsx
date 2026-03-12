@@ -5,6 +5,9 @@ import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
 import type { StudentCurriculumProgress, GEDSubjectKey, LessonProgress } from '@shared/schema';
 import { emptyProgress, recordQuizAttempt, SUBJECT_STAT_MAP } from '@/lib/gedCurriculum';
 import { LANGUAGE_STAT_MAP } from '@/lib/languageCourseGenerator';
+import { generateNPCLine, inferEmotionState } from '@/lib/offlineContentEngine';
+import { SeededRandom, hashString } from '@/lib/seededRandom';
+import type { Archetype } from '@/lib/dialogueTemplates';
 
 export interface Email {
   id: string;
@@ -473,37 +476,33 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getFallbackNpcResponse = (participantName: string): string => {
-    const responses: Record<string, string[]> = {
-      'Cub': [
-        "That's a great question! I'll look into it for you.",
-        "I'm here to help! Let me know what else you need.",
-        "Interesting! I'll keep that in mind.",
-        "Thanks for sharing! I'm always learning.",
-        "You're doing great! Keep up the good work.",
-      ],
-      'Professor Chen': [
-        "An insightful question. I recommend reviewing Chapter 3 of your mathematics textbook.",
-        "Excellent curiosity! Mathematical thinking requires practice and patience.",
-        "Please see me during office hours to discuss this further.",
-        "I appreciate your dedication to learning. Keep asking questions.",
-        "Remember, understanding the fundamentals is key to mastery.",
-      ],
-      'Alex Rivera': [
-        "Yeah, I totally get that! This place takes some getting used to.",
-        "Haha, nice! Let me know if you want to study together sometime.",
-        "For real though, the cafeteria food is actually not bad on Thursdays.",
-        "Oh cool! I'm heading to the library later if you want to come.",
-        "That's what I thought too at first! You'll figure it out.",
-      ],
-    };
-    const defaultResponses = [
-      "Thank you for your message. I'll get back to you soon.",
-      "Interesting point! Let me think about that.",
-      "I appreciate you reaching out.",
-      "That's good to know. Talk soon!",
-    ];
-    const pool = responses[participantName] || defaultResponses;
-    return pool[Math.floor(Math.random() * pool.length)];
+    try {
+      // Derive a deterministic archetype from the NPC name
+      const archetypes: Archetype[] = [
+        'scholar', 'rebel', 'leader', 'nurturer', 'perfectionist',
+        'socialite', 'loner', 'optimist', 'cynic', 'mentor'
+      ];
+      const rng = new SeededRandom(hashString(participantName));
+      const archetype = rng.pick(archetypes);
+
+      // Time-varied emotion: changes daily, mostly neutral
+      const dayOffset = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+      const emotions = ['neutral', 'neutral', 'neutral', 'happy', 'focused', 'anxious'] as const;
+      const emotionRng = new SeededRandom(hashString(participantName) ^ (dayOffset * 0x9e3779b9));
+      const emotionState = emotionRng.pick(emotions);
+
+      return generateNPCLine({
+        npcId: participantName.toLowerCase().replace(/\s+/g, '-'),
+        npcName: participantName,
+        archetype,
+        emotionState,
+        lineType: 'response',
+        playerName: state.character?.name ?? 'you',
+        dayOffset,
+      });
+    } catch {
+      return "That's worth thinking about. Come find me when you have more.";
+    }
   };
 
   const getAiNpcResponse = async (
