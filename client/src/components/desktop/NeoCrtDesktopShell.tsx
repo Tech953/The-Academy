@@ -27,6 +27,7 @@ import { WordProcessorApp } from './apps/WordProcessorApp';
 import { AcademyOfficeApp } from './apps/AcademyOfficeApp';
 import { AcademyAdminApp } from './apps/AcademyAdminApp';
 import { CitationEngineApp } from './apps/CitationEngineApp';
+import { WorldEventsFeed } from './apps/WorldEventsFeed';
 import Home from '@/pages/Home';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
@@ -40,7 +41,7 @@ import {
   User, Mail, MessageCircle, FolderOpen, Search, Settings, 
   Calendar, Gamepad2, FileText, Calculator as CalcIcon, Trash2, Power,
   BookOpen, Star, Activity, Clock, Heart, Camera, Bell, FolderArchive, FolderHeart,
-  Monitor, Terminal, Network, BarChart3, BarChart2, Notebook, Award, Lock, GraduationCap, FilePen, Landmark, FlaskConical
+  Monitor, Terminal, Network, BarChart3, BarChart2, Notebook, Award, Lock, GraduationCap, FilePen, Landmark, FlaskConical, Rss
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
 import citationIconImg from '@assets/image_1773123805034.png';
@@ -253,6 +254,7 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 3, defaultRow: 2 },
   { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 4, defaultRow: 2 },
   { id: 'citation',      iconType: 'citation',      labelKey: 'desktop.citation',      colorKey: 'purple', defaultCol: 5, defaultRow: 2, imageIcon: citationIconImg },
+  { id: 'worldevents',   iconType: 'worldevents',   labelKey: 'desktop.worldevents',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 3 },
 ];
 
 type WidgetType = 'cub-mascot' | 'photo' | 'sticker' | 'calendar' | 'book-stack' | 'badge' | 'post-it' | 'event-cal' | 'rss-feed';
@@ -369,6 +371,7 @@ export function getNeoCrtIcon(iconType: IconType, size: number = 24, color: stri
     case 'office':      return <BarChart2 {...props} />;
     case 'institution': return <Landmark {...props} />;
     case 'citation':    return <FlaskConical {...props} />;
+    case 'worldevents': return <Rss {...props} />;
     default: return <FileText {...props} />;
   }
 }
@@ -1636,6 +1639,15 @@ export default function NeoCrtDesktopShell() {
           height: Math.min(580, maxHeight),
           minWidth: 600,
           minHeight: 440,
+        };
+      case 'worldevents':
+        return {
+          component: <WorldEventsFeed />,
+          title: 'World Events Feed',
+          width: Math.min(700, maxWidth),
+          height: Math.min(520, maxHeight),
+          minWidth: 480,
+          minHeight: 360,
         };
       case 'notifications':
         return { 

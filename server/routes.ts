@@ -7,11 +7,247 @@ import { processNaturalLanguage, type GameContext } from "./nlp/commandProcessor
 import { calculateGPA, gradeAssignment, getAcademicStanding, numericToLetterGrade, letterGradeToPoints } from "./utils/academicUtils";
 import { generatePhysicalQuestions } from "./ai/characterQuestions";
 import OpenAI from "openai";
+import type { ContentPack } from "@shared/contentPack";
+import { PACK_TTL_MS, currentWeekKey, isPackFresh } from "@shared/contentPack";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+// ─────────────────────────────────────────────────────────────────
+// CONTENT PACK — In-memory cache + weekly generation
+// ─────────────────────────────────────────────────────────────────
+
+let cachedContentPack: ContentPack | null = null;
+
+const WEEKLY_THEMES = [
+  "A week of unexpected alliances and shifting loyalties",
+  "The weight of unfinished work and approaching deadlines",
+  "A wave of curiosity sweeps through the Academy",
+  "Tensions rise between tradition and the desire to change",
+  "A series of small discoveries that together mean something large",
+  "The Academy holds its breath — something is about to break",
+  "Old conflicts resurface, demanding resolution",
+  "An unusual quietness, and what hides inside it",
+  "Momentum builds toward something no one quite expected",
+  "The gap between what is taught and what is true",
+];
+
+const EVENT_CATEGORIES = ['academic', 'social', 'discovery', 'mystery', 'competition', 'crisis', 'institutional'];
+
+// ─── RSS Headline Fetcher (Phase 4: RSS → World Pipeline) ────────
+const RSS_FEEDS = [
+  'https://www.nasa.gov/rss/dyn/breaking_news.rss',
+  'https://www.sciencedaily.com/rss/all.xml',
+  'https://phys.org/rss-feed/',
+];
+
+async function fetchRSSHeadlines(): Promise<string[]> {
+  const headlines: string[] = [];
+  for (const url of RSS_FEEDS) {
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'AcademyOS/1.0 RSS Pipeline', 'Accept': 'application/rss+xml, application/xml, text/xml' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!resp.ok) continue;
+      const xml = await resp.text();
+      const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
+      const extract = (block: string, tag: string) => {
+        const m = block.match(new RegExp(`<${tag}(?:[^>]*)>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`, 'i'));
+        return m ? m[1].trim() : undefined;
+      };
+      let m: RegExpExecArray | null;
+      let count = 0;
+      while ((m = itemRx.exec(xml)) !== null && count < 4) {
+        const title = extract(m[1], 'title');
+        if (title) { headlines.push(title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')); count++; }
+      }
+    } catch {
+      // silently skip unreachable feeds
+    }
+  }
+  return headlines.slice(0, 10);
+}
+
+async function generateWeeklyContentPack(): Promise<ContentPack> {
+  const weekKey = currentWeekKey();
+  const now = Date.now();
+
+  // Deterministic week seed for reproducible fallback
+  const weekNum = parseInt(weekKey.split('-W')[1], 10);
+  const themeIndex = weekNum % WEEKLY_THEMES.length;
+  const weeklyTheme = WEEKLY_THEMES[themeIndex];
+
+  // Phase 4: Fetch real-world RSS headlines to seed event generation
+  const rssHeadlines = await fetchRSSHeadlines();
+  const headlineSection = rssHeadlines.length > 0
+    ? `\nReal-world inspiration headlines (loosely translate into Academy context — do NOT reference the real world directly):\n${rssHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n')}\n`
+    : '';
+
+  try {
+    const prompt = `You are the narrative engine for "The Academy," an educational RPG set in a private school.
+Generate a weekly content pack in JSON. The week's theme is: "${weeklyTheme}"
+${headlineSection}
+Return exactly this JSON structure (no markdown, no extra keys):
+{
+  "themeContext": "2-3 sentences setting the Academy's mood for the week",
+  "activeEvents": [
+    {
+      "id": "unique-kebab-id",
+      "title": "Short event title",
+      "description": "2-3 sentence atmospheric description of what is happening",
+      "npcReaction": "One NPC quote (1-2 sentences) about the event",
+      "playerHook": "One sentence describing how the player can engage",
+      "category": "academic|social|discovery|mystery|competition|crisis|institutional",
+      "durationDays": 3,
+      "tags": ["tag1", "tag2"]
+    }
+  ],
+  "npcMoodShifts": [
+    { "npcId": "npc-name-kebab", "npcName": "Full Name", "emotionState": "excited|anxious|focused|sad|angry|happy|neutral", "reason": "short flavor reason" }
+  ],
+  "gedFocusAreas": [
+    { "subject": "math|language_arts|science|social_studies", "topic": "specific topic", "whyNow": "one sentence connecting it to the theme" }
+  ]
+}
+
+Rules:
+- Exactly 3 activeEvents
+- Exactly 4 npcMoodShifts (use generic names like "The Scholar", "The Rebel", "The Mentor", "The Optimist")
+- Exactly 2 gedFocusAreas
+- Academy tone: literary, atmospheric, slightly mysterious, educational
+- Keep all text concise and evocative
+- Never reference real news sources, real people, or the real world directly`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 1600,
+      temperature: 0.75,
+      response_format: { type: "json_object" },
+    });
+
+    const choice = completion.choices[0];
+    if (choice?.finish_reason === 'length') {
+      console.warn('[ContentPack] Response was truncated (finish_reason=length), using fallback');
+      throw new Error('Response truncated');
+    }
+    const raw = JSON.parse(choice?.message?.content ?? '{}');
+
+    const pack: ContentPack = {
+      version: `pack-${weekKey}`,
+      generatedAt: now,
+      expiresAt: now + PACK_TTL_MS,
+      worldSeed: 12345,
+      weeklyTheme,
+      themeContext: raw.themeContext ?? `The Academy settles into the rhythm of "${weeklyTheme}."`,
+      activeEvents: (raw.activeEvents ?? []).map((e: any) => ({
+        id: e.id ?? 'event-unknown',
+        title: e.title ?? 'Academy Event',
+        description: e.description ?? '',
+        npcReaction: e.npcReaction ?? '',
+        playerHook: e.playerHook ?? '',
+        category: EVENT_CATEGORIES.includes(e.category) ? e.category : 'academic',
+        durationDays: Number(e.durationDays) || 3,
+        tags: Array.isArray(e.tags) ? e.tags : [],
+      })),
+      npcMoodShifts: (raw.npcMoodShifts ?? []).map((m: any) => ({
+        npcId: m.npcId ?? 'unknown',
+        npcName: m.npcName ?? 'Unknown',
+        emotionState: m.emotionState ?? 'neutral',
+        reason: m.reason ?? '',
+      })),
+      gedFocusAreas: (raw.gedFocusAreas ?? []).map((f: any) => ({
+        subject: f.subject ?? 'math',
+        topic: f.topic ?? '',
+        whyNow: f.whyNow ?? '',
+      })),
+      generatedBy: 'gpt',
+      rssHeadlines: rssHeadlines.length > 0 ? rssHeadlines : undefined,
+    };
+
+    cachedContentPack = pack;
+    console.log(`[ContentPack] Generated fresh pack ${weekKey} via GPT (${completion.usage?.total_tokens ?? '?'} tokens)`);
+    return pack;
+
+  } catch (err) {
+    console.warn('[ContentPack] GPT generation failed, using deterministic fallback:', err);
+    return generateDeterministicPack(weekKey, weeklyTheme, now);
+  }
+}
+
+function generateDeterministicPack(weekKey: string, weeklyTheme: string, now: number): ContentPack {
+  const pack: ContentPack = {
+    version: `pack-${weekKey}`,
+    generatedAt: now,
+    expiresAt: now + PACK_TTL_MS,
+    worldSeed: 12345,
+    weeklyTheme,
+    themeContext: `The Academy carries the weight of "${weeklyTheme}" through its corridors this week. Pay attention to what people say when they think no one is listening.`,
+    activeEvents: [
+      {
+        id: 'lib-archive-accessible',
+        title: 'Restricted Archive Temporarily Accessible',
+        description: 'A cataloguing error has left the restricted section of the library open. This will not last long. Whatever is in there has been there longer than the current administration.',
+        npcReaction: 'I found something in there last night. Go now — before they fix it.',
+        playerHook: 'Access restricted materials and recover hidden lore before the window closes.',
+        category: 'discovery',
+        durationDays: 2,
+        tags: ['library', 'archive', 'discovery', 'knowledge'],
+      },
+      {
+        id: 'faculty-debate-week',
+        title: 'Public Faculty Debate',
+        description: 'Two senior faculty members have agreed to a formal public debate on a contested academic question. The Academy has divided into camps before the first word is spoken.',
+        npcReaction: 'The real question isn\'t what they\'re debating. It\'s who benefits from the answer.',
+        playerHook: 'Attend, ask a question, or discover what both sides are hiding from the audience.',
+        category: 'academic',
+        durationDays: 3,
+        tags: ['debate', 'faculty', 'knowledge', 'conflict'],
+      },
+      {
+        id: 'rumor-cascade-week',
+        title: 'A Rumor Takes Hold',
+        description: 'Something was said — or perhaps misheard. Either way it has spread, and the truth is losing ground to the telling.',
+        npcReaction: 'You know how it is. Half of it is true and nobody knows which half.',
+        playerHook: 'Trace the rumor to its source, correct the record, or leverage the confusion.',
+        category: 'social',
+        durationDays: 5,
+        tags: ['rumor', 'social', 'reputation', 'information'],
+      },
+    ],
+    npcMoodShifts: [
+      { npcId: 'the-scholar', npcName: 'The Scholar', emotionState: 'excited', reason: 'a breakthrough in their research' },
+      { npcId: 'the-rebel', npcName: 'The Rebel', emotionState: 'anxious', reason: 'consequences catching up to recent choices' },
+      { npcId: 'the-mentor', npcName: 'The Mentor', emotionState: 'focused', reason: 'preparing someone for an important moment' },
+      { npcId: 'the-optimist', npcName: 'The Optimist', emotionState: 'happy', reason: 'genuine good news they haven\'t shared yet' },
+    ],
+    gedFocusAreas: [
+      { subject: 'language_arts', topic: 'Evidence and Claims', whyNow: 'A week of rumors demands the ability to evaluate what counts as proof.' },
+      { subject: 'science', topic: 'Scientific Method', whyNow: 'When the archive opens, knowing how to analyze what you find matters.' },
+    ],
+    generatedBy: 'deterministic',
+  };
+  cachedContentPack = pack;
+  return pack;
+}
+
+/** Schedule a silent weekly regeneration — called once on server start */
+function scheduleWeeklyPackRefresh() {
+  const refreshIfStale = async () => {
+    if (!cachedContentPack || !isPackFresh(cachedContentPack)) {
+      await generateWeeklyContentPack();
+    }
+  };
+
+  // Immediate check on startup
+  refreshIfStale().catch(console.error);
+
+  // Re-check every 6 hours (cron approximation in long-running server)
+  setInterval(refreshIfStale, 6 * 60 * 60 * 1000);
+}
 
 // Character update validation schema
 const characterUpdateSchema = z.object({
@@ -44,6 +280,8 @@ const characterUpdateSchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Start the weekly content pack refresh cycle
+  scheduleWeeklyPackRefresh();
   // Character management routes
   app.get("/api/characters/:id", async (req, res) => {
     try {
@@ -898,6 +1136,33 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   await registerUrlMetaRoute(app);
+
+  // ── Content Pack endpoints ───────────────────────────────────
+  // GET: return current pack (or generate if stale)
+  app.get('/api/content-pack', async (_req, res) => {
+    try {
+      if (cachedContentPack && isPackFresh(cachedContentPack)) {
+        return res.json(cachedContentPack);
+      }
+      const pack = await generateWeeklyContentPack();
+      res.json(pack);
+    } catch (err) {
+      console.error('[ContentPack] Endpoint error:', err);
+      res.status(500).json({ error: 'Content pack generation failed' });
+    }
+  });
+
+  // POST: force a fresh pack generation (admin use)
+  app.post('/api/content-pack/refresh', async (_req, res) => {
+    try {
+      cachedContentPack = null;
+      const pack = await generateWeeklyContentPack();
+      res.json({ message: `Pack refreshed: ${pack.version}`, generatedBy: pack.generatedBy });
+    } catch (err) {
+      console.error('[ContentPack] Refresh error:', err);
+      res.status(500).json({ error: 'Refresh failed' });
+    }
+  });
 
   // Financial report — open in browser, then Ctrl+P → Save as PDF
   app.get('/financial-report', (_req, res) => {

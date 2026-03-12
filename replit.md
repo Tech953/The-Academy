@@ -18,8 +18,8 @@ This comprehensive NPC AI system provides autonomous behavior, procedural genera
 ## NPC AI Dialogue System
 Every NPC conversation is powered by GPT-4.1-mini, utilizing rich system prompts based on NPC entities. It supports free-form conversation, thinking placeholders, player echoes, and topic suggestions to guide interaction.
 
-## Offline Content Engine — Phase 1 & 2 (in progress)
-Four-ring offline architecture implementation. Phase 1 (Seed Engine) and Phase 2 (Template Library) are complete.
+## Offline Content Engine — Phases 1–4 (COMPLETE)
+Four-ring offline architecture. All four phases are now operational.
 
 ### Phase 1: Seeded PRNG Engine (`client/src/lib/seededRandom.ts`)
 Mulberry32 PRNG providing fully deterministic world generation. Same seed = same world, always. Key exports: `SeededRandom` class, `entitySeed()`, `temporalSeed()`, `conversationSeed()`, `hashString()`, `fillTemplate()`. `WORLD_SEED = 12345`.
@@ -31,6 +31,15 @@ Mulberry32 PRNG providing fully deterministic world generation. Same seed = same
 - **`offlineContentEngine.ts`**: Unified orchestration layer. Key functions: `generateOfflineConversation()`, `generateNPCLine()`, `generateDailyEvents()`, `generateQuizSet()`, `generateContentPack()`, `matchEventsToHeadlines()`, `inferEmotionState()`, `scoreToRelationshipTier()`.
 
 The NPC dialogue fallback in `GameStateContext.tsx` now uses the offline engine (archetype derived from name hash, emotion varies daily) instead of static placeholder text.
+
+### Phase 3: Content Pack Server (`server/routes.ts`, `shared/contentPack.ts`, `client/src/hooks/useContentPack.ts`)
+Weekly GPT-generated content packs with 7-day in-memory cache. Endpoints: `GET /api/content-pack`, `POST /api/content-pack/refresh`. Schema: `ContentPack` with `PackWorldEvent`, `PackNpcMood`, `PackGEDFocus`. Generates exactly 3 events, 4 NPC mood shifts, 2 GED focus areas per pack. `scheduleWeeklyPackRefresh()` runs on startup. Client hook (`useContentPack.ts`) tries localStorage cache → server → deterministic offline fallback. Cost: ~$2.07/year.
+
+### Phase 4: RSS → World Pipeline (COMPLETE)
+Server fetches real headlines from NASA, ScienceDaily, and phys.org feeds at content-pack generation time. Headlines are anonymized and injected into the GPT prompt as "inspiration seeds." The actual headlines are stored in `contentPack.rssHeadlines` and displayed in the `WorldEventsFeed` UI under "Real-world seeds." No real-world names/organizations leak into the Academy narrative — only thematic inspiration.
+
+## World Events Feed Desktop App (`client/src/components/desktop/apps/WorldEventsFeed.tsx`)
+A three-tab desktop app (WORLD EVENTS icon, cyan, row 3 col 0) displaying the weekly content pack: Events tab (active events with expandable cards + RSS seed credits), Mood tab (NPC emotional state shifts), Study tab (GED focus areas). Connects via `useContentPack` hook, shows online/offline status, supports manual refresh.
 
 ## NPC Persistent Memory System
 NPC memory is tracked in `localStorage` storing conversation entries with timestamps, topics, and locations. It supports session detection, generates natural-language relationship summaries for AI prompts, provides conversation history for AI, and displays re-encounter notes. This system integrates with RadiantAI for detailed interaction logging.
