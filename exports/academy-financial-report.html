@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Academy — Financial Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0d0d14;
+    --card: #13131f;
+    --border: #1e2035;
+    --accent: #4fc3f7;
+    --green: #00ff88;
+    --amber: #ffaa00;
+    --red: #ef5350;
+    --purple: #c792ea;
+    --text: #e0e0e0;
+    --dim: #888;
+    --vdim: #444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 32px 40px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  /* ── HEADER ── */
+  .report-header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .report-header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .report-header .subtitle {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .report-header .meta {
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--vdim);
+    line-height: 1.8;
+  }
+  .report-header .meta span { color: var(--dim); }
+
+  /* ── SECTION ── */
+  .section {
+    margin-bottom: 28px;
+    page-break-inside: avoid;
+  }
+  .section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+  }
+  .section-title .tag {
+    float: right;
+    background: var(--accent);
+    color: var(--bg);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+  .section-title .tag.green { background: var(--green); }
+  .section-title .tag.amber { background: var(--amber); }
+  .section-title .tag.purple { background: var(--purple); }
+
+  /* ── CARDS ── */
+  .card-row {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .card-row.cols-2 { grid-template-columns: 1fr 1fr; }
+  .card-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 14px;
+  }
+  .card.accent-border { border-left: 3px solid var(--accent); }
+  .card.green-border  { border-left: 3px solid var(--green); }
+  .card.amber-border  { border-left: 3px solid var(--amber); }
+  .card.red-border    { border-left: 3px solid var(--red); }
+  .card.purple-border { border-left: 3px solid var(--purple); }
+
+  .card-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .card-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
+  .card-value.green  { color: var(--green); }
+  .card-value.amber  { color: var(--amber); }
+  .card-value.red    { color: var(--red); }
+  .card-value.purple { color: var(--purple); }
+  .card-sub {
+    font-size: 9px;
+    color: var(--dim);
+    margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ── TABLES ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 14px;
+  }
+  thead th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--dim);
+    background: #0a0a10;
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th.right { text-align: right; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #16161f; }
+  tbody td {
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  tbody td.right { text-align: right; }
+  tbody td.mono { font-family: 'IBM Plex Mono', monospace; }
+  tbody td.dim { color: var(--dim); }
+  tbody td.accent { color: var(--accent); font-weight: 600; }
+  tbody td.green { color: var(--green); font-weight: 600; }
+  tbody td.amber { color: var(--amber); font-weight: 600; }
+  tbody td.red { color: var(--red); }
+  tbody td.purple { color: var(--purple); }
+  .highlight-row td { background: #1a1a28; color: var(--accent); font-weight: 700; }
+  .highlight-row.green td { background: #0a1a10; color: var(--green); }
+  .highlight-row.amber td { background: #1a1400; color: var(--amber); }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+  .badge.blue { background: rgba(79,195,247,0.15); color: var(--accent); border: 1px solid rgba(79,195,247,0.3); }
+  .badge.green { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.25); }
+  .badge.amber { background: rgba(255,170,0,0.12); color: var(--amber); border: 1px solid rgba(255,170,0,0.25); }
+  .badge.red { background: rgba(239,83,80,0.12); color: var(--red); border: 1px solid rgba(239,83,80,0.25); }
+  .badge.purple { background: rgba(199,146,234,0.12); color: var(--purple); border: 1px solid rgba(199,146,234,0.25); }
+
+  /* ── NOTE / CALLOUT ── */
+  .note {
+    background: rgba(79,195,247,0.07);
+    border: 1px solid rgba(79,195,247,0.2);
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-size: 10px;
+    color: #aad4e8;
+    margin-bottom: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .note.green { background: rgba(0,255,136,0.05); border-color: rgba(0,255,136,0.2); color: #88ddaa; }
+  .note.amber { background: rgba(255,170,0,0.05); border-color: rgba(255,170,0,0.2); color: #ddbb66; }
+  .note strong { font-weight: 700; color: var(--accent); }
+  .note.green strong { color: var(--green); }
+  .note.amber strong { color: var(--amber); }
+
+  /* ── PAGE BREAK ── */
+  .page-break { page-break-before: always; padding-top: 28px; }
+
+  /* ── FOOTER ── */
+  .report-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 32px;
+    display: flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--vdim);
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: #fff; color: #111; padding: 20px; }
+    :root { --bg: #fff; --card: #f5f5f5; --border: #ddd; --accent: #0077aa; --green: #006633; --amber: #886600; --red: #cc3300; --purple: #660099; --text: #111; --dim: #555; --vdim: #999; }
+    .card-value { font-size: 16px; }
+    a { text-decoration: none; color: inherit; }
+    thead th { background: #eee; }
+    .note { border-width: 1px; }
+  }
+
+  h2.sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  p.desc {
+    font-size: 10px;
+    color: var(--dim);
+    margin-bottom: 12px;
+    line-height: 1.7;
+  }
+  .ring-diagram {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .ring {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .ring-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--vdim);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .ring-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+  }
+  .ring-desc { font-size: 9px; color: var(--dim); line-height: 1.5; }
+  .ring-cost { font-family: 'IBM Plex Mono', monospace; font-size: 9px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<div class="report-header">
+  <div>
+    <h1>◈ THE ACADEMY — FINANCIAL REPORT</h1>
+    <div class="subtitle">AI Generation Cost Analysis · Offline Architecture · Revenue Pathways</div>
+  </div>
+  <div class="meta">
+    <span>DATE:</span> March 12, 2026<br>
+    <span>VERSION:</span> V1 Playtest / Offline Planning<br>
+    <span>MODEL:</span> gpt-4.1-mini<br>
+    <span>STATUS:</span> PUBLISHED · PLAYTESTING
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 1 — MODEL PRICING BASIS
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">01 · Model Pricing Basis <span class="tag">REFERENCE</span></div>
+
+  <div class="card-row cols-4">
+    <div class="card accent-border">
+      <div class="card-label">Model</div>
+      <div class="card-value" style="font-size:14px">gpt-4.1-mini</div>
+      <div class="card-sub">Primary engine</div>
+    </div>
+    <div class="card accent-border">
+      <div class="card-label">Input tokens</div>
+      <div class="card-value">$0.40</div>
+      <div class="card-sub">per 1M tokens</div>
+    </div>
+    <div class="card accent-border">
+      <div class="card-label">Output tokens</div>
+      <div class="card-value">$1.60</div>
+      <div class="card-sub">per 1M tokens</div>
+    </div>
+    <div class="card amber-border">
+      <div class="card-label">DALL-E 3</div>
+      <div class="card-value amber">$0.040</div>
+      <div class="card-sub">per 1024×1024 image</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 2 — PER-CALL COST BREAKDOWN
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">02 · Per API Call Cost (Exact, From Codebase) <span class="tag">CURRENT SYSTEM</span></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Endpoint</th>
+        <th>Trigger</th>
+        <th class="right">Max Output</th>
+        <th class="right">Est. Input</th>
+        <th class="right">Est. Output</th>
+        <th class="right">Cost / Call</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="accent">/api/ai/describe</td>
+        <td class="dim">Room entry · EXAMINE command</td>
+        <td class="right">180 tok</td>
+        <td class="right">350 tok</td>
+        <td class="right">150 tok</td>
+        <td class="right accent">$0.000380</td>
+      </tr>
+      <tr>
+        <td class="accent">/api/ai/npc-dialogue</td>
+        <td class="dim">Each NPC conversation exchange</td>
+        <td class="right">220 tok</td>
+        <td class="right">800 tok</td>
+        <td class="right">180 tok</td>
+        <td class="right accent">$0.000608</td>
+      </tr>
+      <tr>
+        <td class="accent">/api/character-creation/…</td>
+        <td class="dim">New character creation (once)</td>
+        <td class="right">800 tok</td>
+        <td class="right">500 tok</td>
+        <td class="right">650 tok</td>
+        <td class="right accent">$0.001240</td>
+      </tr>
+      <tr>
+        <td class="accent">/api/nlp/process</td>
+        <td class="dim">Every typed game command</td>
+        <td class="right">300 tok</td>
+        <td class="right">415 tok</td>
+        <td class="right">200 tok</td>
+        <td class="right accent">$0.000486</td>
+      </tr>
+      <tr class="highlight-row amber">
+        <td>DALL-E 3 Portrait</td>
+        <td>New character (once, cached)</td>
+        <td class="right">1 image</td>
+        <td class="right">—</td>
+        <td class="right">—</td>
+        <td class="right">$0.040000</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 3 — PER-SESSION COST
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">03 · Cost Per Player Session <span class="tag">USAGE MODEL</span></div>
+
+  <div class="card-row cols-2">
+    <div>
+      <h2 class="sub">Casual Session (45 min)</h2>
+      <table>
+        <thead><tr><th>Activity</th><th class="right">Calls</th><th class="right">Cost</th></tr></thead>
+        <tbody>
+          <tr><td>NLP command parsing</td><td class="right">20</td><td class="right">$0.00972</td></tr>
+          <tr><td>Location descriptions</td><td class="right">5</td><td class="right">$0.00190</td></tr>
+          <tr><td>NPC dialogue exchanges</td><td class="right">6</td><td class="right">$0.00365</td></tr>
+          <tr><td>Character creation (amortized)</td><td class="right">0.05</td><td class="right">$0.00006</td></tr>
+          <tr class="highlight-row"><td>Session total</td><td class="right">—</td><td class="right">$0.0153</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h2 class="sub">Heavy Session (2–3 hours)</h2>
+      <table>
+        <thead><tr><th>Activity</th><th class="right">Calls</th><th class="right">Cost</th></tr></thead>
+        <tbody>
+          <tr><td>NLP command parsing</td><td class="right">60</td><td class="right">$0.02916</td></tr>
+          <tr><td>Location descriptions</td><td class="right">15</td><td class="right">$0.00570</td></tr>
+          <tr><td>NPC dialogue exchanges</td><td class="right">20</td><td class="right">$0.01216</td></tr>
+          <tr><td>Character creation (amortized)</td><td class="right">0.05</td><td class="right">$0.00006</td></tr>
+          <tr class="highlight-row"><td>Session total</td><td class="right">—</td><td class="right">$0.0471</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card-row cols-3">
+    <div class="card green-border">
+      <div class="card-label">Per player / month (20 sessions)</div>
+      <div class="card-value green">$0.31</div>
+      <div class="card-sub">Casual · no DALL-E amortized</div>
+    </div>
+    <div class="card amber-border">
+      <div class="card-label">Per player / month (20 sessions)</div>
+      <div class="card-value amber">$0.38</div>
+      <div class="card-sub">With DALL-E portrait (÷3 months)</div>
+    </div>
+    <div class="card accent-border">
+      <div class="card-label">Per player / month (heavy)</div>
+      <div class="card-value">$0.94</div>
+      <div class="card-sub">20 heavy sessions</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 4 — SCALE PROJECTIONS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+  <div class="section-title">04 · Scale Projections — Current Architecture <span class="tag">SERVER-SIDE AI</span></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Active Players</th>
+        <th class="right">Monthly AI Cost</th>
+        <th class="right">+ Content Pack</th>
+        <th class="right">With 80% Local LLM</th>
+        <th class="right">Breakeven @ $2.99/mo</th>
+        <th class="right">Breakeven @ $4.99/mo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>10</td><td class="right">$3.80</td><td class="right dim">+$0.17</td><td class="right green">$0.76</td><td class="right accent">$1.33 min</td><td class="right accent">$0.80 min</td></tr>
+      <tr><td>50</td><td class="right">$19.00</td><td class="right dim">+$0.17</td><td class="right green">$3.80</td><td class="right accent">$6.39 min</td><td class="right accent">$3.83 min</td></tr>
+      <tr><td>100</td><td class="right">$38.00</td><td class="right dim">+$0.17</td><td class="right green">$7.60</td><td class="right accent">$12.72 min</td><td class="right accent">$7.62 min</td></tr>
+      <tr><td>500</td><td class="right">$190.00</td><td class="right dim">+$0.17</td><td class="right green">$38.00</td><td class="right accent">$63.55 min</td><td class="right accent">$38.11 min</td></tr>
+      <tr class="highlight-row">
+        <td>1,000</td><td class="right">$380.00</td><td class="right">+$0.17</td><td class="right">$76.00</td><td class="right">$127.09 min</td><td class="right">$76.21 min</td>
+      </tr>
+      <tr><td>5,000</td><td class="right">$1,900.00</td><td class="right dim">+$0.17</td><td class="right green">$380.00</td><td class="right accent">$635.45 min</td><td class="right accent">$381.07 min</td></tr>
+      <tr><td>10,000</td><td class="right">$3,800.00</td><td class="right dim">+$0.17</td><td class="right green">$760.00</td><td class="right accent">$1,270 min</td><td class="right accent">$762 min</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>Key insight:</strong> At $4.99/month subscription, you maintain a 13× margin at every scale. The ratio never degrades because AI cost ($0.38/player) and subscription price ($4.99/player) both scale linearly.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 5 — OFFLINE GENERATION SYSTEM COSTS
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">05 · Offline Generation System — Build &amp; Runtime Costs <span class="tag green">OFFLINE PLAN</span></div>
+
+  <p class="desc">
+    The offline generation system consists of four concentric rings. Only the server-side rings (3 &amp; 4)
+    consume OpenAI tokens. Rings 1 &amp; 2 run entirely locally at zero API cost.
+  </p>
+
+  <div class="ring-diagram">
+    <div class="ring">
+      <div class="ring-num" style="color:#333">1</div>
+      <div>
+        <div class="ring-title">DETERMINISTIC SEED ENGINE</div>
+        <div class="ring-desc">Seeded PRNG replaces Math.random(). NPC behavior, events, quiz ordering are reproducible without any AI call.</div>
+        <div class="ring-cost" style="color:#00ff88">API COST: $0.00 / always offline</div>
+      </div>
+    </div>
+    <div class="ring">
+      <div class="ring-num" style="color:#333">2</div>
+      <div>
+        <div class="ring-title">TEMPLATE ENGINE</div>
+        <div class="ring-desc">576 dialogue contexts, 200 event templates, 250 GED question templates. All client-side, no API.</div>
+        <div class="ring-cost" style="color:#00ff88">API COST: $0.00 / always offline</div>
+      </div>
+    </div>
+    <div class="ring">
+      <div class="ring-num" style="color:#4fc3f7">3</div>
+      <div>
+        <div class="ring-title">CONTENT PACK SERVER</div>
+        <div class="ring-desc">Weekly GPT generation of NPC packs, study variants, RSS events. Distributed to all installs.</div>
+        <div class="ring-cost" style="color:#4fc3f7">API COST: $0.043/week · $2.07/year · flat</div>
+      </div>
+    </div>
+    <div class="ring">
+      <div class="ring-num" style="color:#ffaa00">4</div>
+      <div>
+        <div class="ring-title">RSS → WORLD PIPELINE</div>
+        <div class="ring-desc">7 RSS feeds parsed into world events, NPC dialogue topics, contextual GED examples.</div>
+        <div class="ring-cost" style="color:#ffaa00">API COST: Included in Ring 3 pack generation</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 6 — ONE-TIME BUILD COSTS
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">06 · One-Time World Generation Costs (Build Phase) <span class="tag purple">SETUP</span></div>
+
+  <p class="desc">
+    Before shipping the offline app, a one-time batch generation run pre-populates the world cache.
+    This runs once on the server and the output ships inside the app bundle.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Generation Task</th>
+        <th class="right">Count</th>
+        <th class="right">Input / Item</th>
+        <th class="right">Output / Item</th>
+        <th class="right">Cost / Item</th>
+        <th class="right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>NPC enhanced backstories</td><td class="right">100</td><td class="right">400 tok</td><td class="right">300 tok</td><td class="right dim">$0.000640</td><td class="right accent">$0.0640</td></tr>
+      <tr><td>Location atmospheric descriptions</td><td class="right">120</td><td class="right">350 tok</td><td class="right">200 tok</td><td class="right dim">$0.000460</td><td class="right accent">$0.0552</td></tr>
+      <tr><td>NPC dialogue template sets</td><td class="right">200</td><td class="right">600 tok</td><td class="right">300 tok</td><td class="right dim">$0.000720</td><td class="right accent">$0.1440</td></tr>
+      <tr><td>GED question variants (5 subjects × 50)</td><td class="right">250</td><td class="right">450 tok</td><td class="right">250 tok</td><td class="right dim">$0.000580</td><td class="right accent">$0.1450</td></tr>
+      <tr><td>World event template library</td><td class="right">200</td><td class="right">300 tok</td><td class="right">200 tok</td><td class="right dim">$0.000440</td><td class="right accent">$0.0880</td></tr>
+      <tr><td>Course lecture summaries</td><td class="right">288</td><td class="right">500 tok</td><td class="right">350 tok</td><td class="right dim">$0.000760</td><td class="right accent">$0.2189</td></tr>
+      <tr class="highlight-row green">
+        <td>Total one-time generation</td><td class="right">1,158</td><td class="right">—</td><td class="right">—><td class="right">—</td><td class="right">$0.7151</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note green">
+    <strong>One-time world build: under $0.72.</strong> This generates the entire offline content corpus — 1,158 AI completions covering every NPC, location, course, and event template in the game. Runs once. Ships in the app. Never charged again.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 7 — ONGOING OFFLINE OPERATIONAL COSTS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+  <div class="section-title">07 · Ongoing Operational Costs — Offline Architecture <span class="tag green">OFFLINE PLAN</span></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cost Component</th>
+        <th>Frequency</th>
+        <th class="right">Per Run</th>
+        <th class="right">Monthly</th>
+        <th class="right">Annual</th>
+        <th>Scales With Players?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="accent">Content pack generation (GPT)</td>
+        <td>Weekly</td>
+        <td class="right">$0.043</td>
+        <td class="right">$0.172</td>
+        <td class="right green">$2.07</td>
+        <td class="green">NO — flat forever</td>
+      </tr>
+      <tr>
+        <td>RSS fetch &amp; parse</td>
+        <td>Weekly</td>
+        <td class="right">$0.000</td>
+        <td class="right">$0.000</td>
+        <td class="right green">$0.00</td>
+        <td class="green">NO — included in pack</td>
+      </tr>
+      <tr>
+        <td>Quarterly world refresh (NPC drift)</td>
+        <td>Quarterly</td>
+        <td class="right">$0.120</td>
+        <td class="right">$0.040</td>
+        <td class="right green">$0.48</td>
+        <td class="green">NO — flat forever</td>
+      </tr>
+      <tr>
+        <td class="dim">Community echo processing (optional)</td>
+        <td>Daily</td>
+        <td class="right dim">$0.065</td>
+        <td class="right dim">$2.00</td>
+        <td class="right dim">$24.00</td>
+        <td class="dim">Partial (1% of players)</td>
+      </tr>
+      <tr>
+        <td class="dim">Replit server hosting (current plan)</td>
+        <td>Monthly</td>
+        <td class="right dim">—</td>
+        <td class="right dim">$0–25</td>
+        <td class="right dim">$0–300</td>
+        <td class="dim">No (fixed plan)</td>
+      </tr>
+      <tr class="highlight-row green">
+        <td>Minimum viable (packs + refresh only)</td>
+        <td>—</td>
+        <td class="right">—</td>
+        <td class="right">$0.21</td>
+        <td class="right">$2.55</td>
+        <td>NO</td>
+      </tr>
+      <tr class="highlight-row">
+        <td>Full system (packs + refresh + echoes)</td>
+        <td>—</td>
+        <td class="right">—</td>
+        <td class="right">$2.21</td>
+        <td class="right">$26.55</td>
+        <td>Marginally</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note green">
+    <strong>Core insight:</strong> The offline architecture decouples cost from player count. Whether you have 10 players or 100,000 players, the content pack system costs $2.55/year. This is the financial advantage of pre-generation over on-demand generation.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 8 — THREE FINANCIAL PATHWAYS
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">08 · Financial Pathways <span class="tag">REVENUE MODEL</span></div>
+
+  <div class="card-row cols-3">
+    <div class="card green-border">
+      <div class="card-label">Path A · Local-First</div>
+      <div class="card-value green" style="font-size:14px">$2.55/yr</div>
+      <div class="card-sub" style="margin-top:8px">All AI local (Ollama/WebLLM)<br>Server: content packs only<br>Revenue: $15–25 one-time purchase<br>1,000 sales = ~$20,000 total<br>AI cost: $2.55/year forever</div>
+    </div>
+    <div class="card accent-border">
+      <div class="card-label">Path B · Hybrid Freemium</div>
+      <div class="card-value" style="font-size:14px">13× margin</div>
+      <div class="card-sub" style="margin-top:8px">Free: local AI + content packs<br>Premium: $4.99/mo server AI<br>500 subscribers: $2,495/mo<br>AI cost: $190/mo<br>Net: $2,305/mo</div>
+    </div>
+    <div class="card purple-border">
+      <div class="card-label">Path C · Full Subscription</div>
+      <div class="card-value purple" style="font-size:14px">8–26× margin</div>
+      <div class="card-sub" style="margin-top:8px">All AI server-side<br>Pricing: $2.99–$9.99/mo<br>1,000 players: $380/mo cost<br>At $4.99: $4,990/mo revenue<br>Net: $4,610/mo</div>
+    </div>
+  </div>
+
+  <table style="margin-top:14px">
+    <thead>
+      <tr>
+        <th>Scenario</th>
+        <th class="right">Monthly AI Cost</th>
+        <th class="right">Revenue @ $4.99/mo</th>
+        <th class="right">Revenue @ $15 one-time</th>
+        <th class="right">Net Margin</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>V1 Playtest (free, 50 players)</td><td class="right">$0.21</td><td class="right dim">—</td><td class="right dim">—</td><td class="right dim">-$0.21</td></tr>
+      <tr><td>Offline launch, 200 buyers</td><td class="right">$0.21</td><td class="right dim">—</td><td class="right green">$3,000 total</td><td class="right green">$3,000 (one-time)</td></tr>
+      <tr><td>100 subscribers (Path B)</td><td class="right">$38.17</td><td class="right green">$499/mo</td><td class="right dim">—</td><td class="right green">$460/mo</td></tr>
+      <tr class="highlight-row">
+        <td>1,000 subscribers (Path B)</td><td class="right">$380.21</td><td class="right">$4,990/mo</td><td class="right dim">—</td><td class="right">$4,610/mo</td>
+      </tr>
+      <tr><td>5,000 subscribers (Path B)</td><td class="right">$1,900.21</td><td class="right green">$24,950/mo</td><td class="right dim">—</td><td class="right green">$23,050/mo</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 9 — DALL-E & SPECIAL CASES
+════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">09 · DALL-E &amp; Special Cost Variables <span class="tag amber">WATCH LIST</span></div>
+
+  <div class="card-row cols-2">
+    <div>
+      <table>
+        <thead><tr><th>New players/month</th><th class="right">DALL-E cost</th><th class="right">With caching</th></tr></thead>
+        <tbody>
+          <tr><td>100</td><td class="right amber">$4.00</td><td class="right green">$0 (cached)</td></tr>
+          <tr><td>1,000</td><td class="right amber">$40.00</td><td class="right green">$0 (cached)</td></tr>
+          <tr><td>10,000</td><td class="right red">$400.00</td><td class="right green">$0 (cached)</td></tr>
+          <tr><td>Viral growth: 100K</td><td class="right red">$4,000.00</td><td class="right green">$0 (cached)</td></tr>
+        </tbody>
+      </table>
+      <div class="note amber" style="margin-top:10px">
+        <strong>Recommendation:</strong> Cache portraits permanently. Each player creates one portrait once. At 1,000 total users (not per month), DALL-E cost is $40 — never charged again.
+      </div>
+    </div>
+    <div class="card" style="background:#0a0a10">
+      <div class="card-label">Offline Path: Replace DALL-E</div>
+      <div style="font-size:10px; color: var(--dim); line-height:1.8; margin-top:8px; font-family: 'IBM Plex Mono', monospace;">
+        Option A: Stable Diffusion local<br>
+        → Cost: $0.00 (runs on GPU)<br><br>
+        Option B: Pre-generated portraits<br>
+        → Generate 500 diverse portraits<br>
+        → One batch: 500 × $0.04 = $20.00<br>
+        → Players pick from gallery<br>
+        → Zero ongoing cost<br><br>
+        Option C: ASCII art generator<br>
+        → No image cost, on-theme aesthetic<br>
+        → Cost: $0.00
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SECTION 10 — BUILD PHASE SUMMARY
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+  <div class="section-title">10 · Offline Build Phase — Total AI Cost Summary <span class="tag green">OFFLINE PLAN</span></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Description</th>
+        <th class="right">One-Time Cost</th>
+        <th class="right">Monthly Ongoing</th>
+        <th class="right">Annual Ongoing</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="accent">Phase 1</td>
+        <td>Seeded PRNG engine (code only)</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 2</td>
+        <td>Template library generation (1,158 calls)</td>
+        <td class="right amber">$0.72</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 3</td>
+        <td>Content pack server (weekly cron)</td>
+        <td class="right green">$0.00</td>
+        <td class="right accent">$0.17</td>
+        <td class="right accent">$2.07</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 4</td>
+        <td>RSS → world pipeline (included in packs)</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 5</td>
+        <td>Client sync engine (code only)</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 6</td>
+        <td>PWA service worker (code only)</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 7</td>
+        <td>Electron packaging (code only)</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 8</td>
+        <td>Ollama / WebLLM (local, zero API cost)</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr>
+        <td class="accent">Phase 9</td>
+        <td>Community echo processing</td>
+        <td class="right green">$0.00</td>
+        <td class="right dim">$2.00</td>
+        <td class="right dim">$24.00</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="font-weight:700; color:#00ff88; font-family:'IBM Plex Mono',monospace">Portrait cache (one-time, 500 portraits)</td>
+        <td class="right amber">$20.00</td>
+        <td class="right green">$0.00</td>
+        <td class="right green">$0.00</td>
+      </tr>
+      <tr class="highlight-row green">
+        <td colspan="2">TOTAL (minimum viable offline system)</td>
+        <td class="right">$0.72</td>
+        <td class="right">$0.17</td>
+        <td class="right">$2.07</td>
+      </tr>
+      <tr class="highlight-row">
+        <td colspan="2">TOTAL (full system incl. portraits + echoes)</td>
+        <td class="right">$20.72</td>
+        <td class="right">$2.17</td>
+        <td class="right">$26.07</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note green">
+    <strong>Total to build and run the complete offline generation system for one full year: $46.79</strong><br>
+    This covers: one-time world build ($0.72) + portrait cache ($20.00) + 12 months of content packs ($2.07) + 12 months of community echoes ($24.00).
+    A single $4.99/month subscriber covers 2.3 years of the entire system's operating cost.
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════════ -->
+<div class="report-footer">
+  <div>THE ACADEMY — CONFIDENTIAL FINANCIAL REPORT · V1</div>
+  <div>Generated March 12, 2026 · gpt-4.1-mini · $0.40/1M input · $1.60/1M output</div>
+  <div>All figures are estimates based on observed codebase token usage</div>
+</div>
+
+</body>
+</html>

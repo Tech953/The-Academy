@@ -899,6 +899,19 @@ Write a 2–3 sentence examine description for this object that is immersive and
 
   await registerUrlMetaRoute(app);
 
+  // Financial report — open in browser, then Ctrl+P → Save as PDF
+  app.get('/financial-report', (_req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const reportPath = path.join(process.cwd(), 'exports', 'academy-financial-report.html');
+    if (fs.existsSync(reportPath)) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(fs.readFileSync(reportPath, 'utf8'));
+    } else {
+      res.status(404).send('Report not found. Run the export script first.');
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
