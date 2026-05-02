@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4EpQREttPHEZ8tc4JYI_A"
+uri = "file://DEVELOPER.md"
+type = "text"
+title = "The Academy — Developer Guide"
