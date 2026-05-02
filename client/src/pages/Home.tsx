@@ -36,6 +36,8 @@ import {
   ContradictionMap,
   DepartureVector as ConfluenceDepartureVector
 } from '@/lib/confluenceHall';
+import { useAcademicHandlers } from '@/hooks/useAcademicHandlers';
+import { useNPCHandlers } from '@/hooks/useNPCHandlers';
 
 interface HomeProps {
   onExit?: () => void;
@@ -112,6 +114,17 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     };
     setTerminalLines(prev => [...prev, newLine]);
   };
+
+  // Handler bundles — factory functions (not React hooks) that encapsulate
+  // academic and NPC command logic, keeping Home.tsx as a lean dispatcher.
+  const academic = useAcademicHandlers({
+    gameState, character, addTerminalLine, setGameState,
+    addEnrolledCourse, updateCharacter, addExperience, addEmail,
+  });
+  const npcH = useNPCHandlers({
+    gameState, character, addTerminalLine, setTerminalLines,
+    radiantAI, lastTalkedNpcRef, sessionIdRef, addMessage,
+  });
 
   const generateLocationDescription = async (gameStateData: GameState): Promise<TerminalLine[]> => {
     const lines: TerminalLine[] = [];
@@ -926,7 +939,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
           );
           if (directTopicMatch) {
             addTerminalLine(`[ Continuing conversation with ${lastTalkedNpcRef.current.name.split(' ')[0]} — topic: ${directTopicMatch.replace(/_/g, ' ').toUpperCase()} ]`, 'system');
-            await handleTalkTopic(lastTalkedNpcRef.current.name, directTopicMatch);
+            await npcH.talkTopic(lastTalkedNpcRef.current.name, directTopicMatch);
             return;
           }
         }
@@ -959,12 +972,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
             });
             if (nearMatch) {
               addTerminalLine(`[ Continuing conversation with ${lastTalkedNpcRef.current.name.split(' ')[0]} — topic: ${nearMatch.replace(/_/g, ' ').toUpperCase()} ]`, 'system');
-              await handleTalkTopic(lastTalkedNpcRef.current.name, nearMatch);
+              await npcH.talkTopic(lastTalkedNpcRef.current.name, nearMatch);
               return;
             }
             // 4. Free-form AI conversation — route unrecognized input to AI
             addTerminalLine(`[ Asking ${lastTalkedNpcRef.current.name.split(' ')[0]} about "${target}" ]`, 'system');
-            await handleTalkTopic(lastTalkedNpcRef.current.name, target, true);
+            await npcH.talkTopic(lastTalkedNpcRef.current.name, target, true);
             return;
           }
           personName = targetParts[0];
@@ -973,30 +986,30 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       }
 
       if (topic) {
-        await handleTalkTopic(personName, topic);
+        await npcH.talkTopic(personName, topic);
       } else {
-        await handleTalk(personName);
+        await npcH.talk(personName);
       }
     } else if (action === 'inventory') {
       handleInventory();
     } else if (action === 'status') {
       handleStatus();
     } else if (action === 'grades') {
-      await handleGrades();
+      await academic.grades();
     } else if (action === 'transcript') {
-      await handleTranscript();
+      await academic.transcript();
     } else if (action === 'schedule') {
-      await handleSchedule();
+      await academic.schedule();
     } else if (action === 'gpa') {
-      await handleGPA();
+      await academic.gpa();
     } else if (action === 'read') {
-      await handleRead(target);
+      await academic.read(target);
     } else if (action === 'chapter') {
-      await handleChapter(target);
+      await academic.chapter(target);
     } else if (action === 'lecture') {
-      await handleLecture(target);
+      await academic.lecture(target);
     } else if (action === 'attend') {
-      await handleAttend(target);
+      await academic.attend(target);
     } else if (action === 'save') {
       await handleSave();
     } else if (action === 'load') {
@@ -1007,21 +1020,21 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
     } else if (action === 'score') {
       handleScore();
     } else if (action === 'note' || action === 'notes') {
-      handleNotes(target);
+      academic.notes(target);
     } else if (action === 'notebook') {
-      handleNotebook();
+      academic.notebook();
     } else if (action === 'study') {
-      handleStudyRecommendations();
+      academic.studyRecommendations();
     } else if (action === 'progress') {
-      handleProgress();
+      academic.progress();
     } else if (action === 'enroll') {
-      handleEnroll(target);
+      await academic.enroll(target);
     } else if (action === 'courses') {
-      handleCourses();
+      await academic.courses();
     } else if (action === 'assignments' || action === 'homework') {
-      handleAssignments();
+      await academic.assignments();
     } else if (action === 'textbook') {
-      handleTextbook(target);
+      await academic.textbook(target);
     } else if (action === 'graduation' || action === 'graduate' || action === 'ged') {
       handleGraduation(target);
     } else if (action === 'quit' || action === 'exit') {
@@ -1043,7 +1056,7 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
       // Free-form input while in an active NPC conversation → route to AI
       if (lastTalkedNpcRef.current) {
         addTerminalLine(`[ Asking ${lastTalkedNpcRef.current.name.split(' ')[0]} about "${originalAction}" ]`, 'system');
-        await handleTalkTopic(lastTalkedNpcRef.current.name, originalAction, true);
+        await npcH.talkTopic(lastTalkedNpcRef.current.name, originalAction, true);
       } else {
         addTerminalLine('');
         const suggestions = getCommandSuggestions(originalAction);
@@ -1271,12 +1284,12 @@ export default function Home({ onExit, isFullscreen = false, onToggleFullscreen 
         if (topicMatch) {
           // Auto-correct: this is a topic, not a person name
           addTerminalLine(`[ "${target}" looks like a topic — talking to ${lastNpc.name.split(' ')[0]} about ${topicMatch.replace(/_/g, ' ').toUpperCase()} ]`, 'system');
-          await handleTalkTopic(lastNpc.name, topicMatch);
+          await npcH.talkTopic(lastNpc.name, topicMatch);
           return;
         }
         // Free-form: not a person name and not a known topic — ask the NPC anyway via AI
         addTerminalLine(`[ Asking ${lastNpc.name.split(' ')[0]} about "${target}" ]`, 'system');
-        await handleTalkTopic(lastNpc.name, target, true);
+        await npcH.talkTopic(lastNpc.name, target, true);
       } else {
         addTerminalLine(`You don't see anyone named "${target}" here.`, 'error');
         addTerminalLine('Type LIST to see who is present, or LOOK to check your surroundings.', 'system');

@@ -9,6 +9,7 @@ import { generatePhysicalQuestions } from "./ai/characterQuestions";
 import OpenAI from "openai";
 import type { ContentPack } from "@shared/contentPack";
 import { PACK_TTL_MS, currentWeekKey, isPackFresh } from "@shared/contentPack";
+import { aiLimiter, contentPackLimiter } from "./middleware/security";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -450,7 +451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Natural Language Processing route
-  app.post("/api/nlp/process", async (req, res) => {
+  app.post("/api/nlp/process", aiLimiter, async (req, res) => {
     try {
       const { input, context } = req.body;
       
@@ -489,7 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI-enhanced description engine — education-aware narrative flavor
-  app.post("/api/ai/describe", async (req, res) => {
+  app.post("/api/ai/describe", aiLimiter, async (req, res) => {
     try {
       const {
         type,           // 'location' | 'examine'
@@ -574,7 +575,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   // Character creation AI - Generate physical characteristic questions
-  app.post("/api/character-creation/generate-questions", async (req, res) => {
+  app.post("/api/character-creation/generate-questions", aiLimiter, async (req, res) => {
     try {
       const { characterSummary } = req.body;
       
@@ -1014,7 +1015,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   // NPC Dialogue endpoint - AI-powered contextual responses
-  app.post("/api/npc-dialogue", async (req, res) => {
+  app.post("/api/npc-dialogue", aiLimiter, async (req, res) => {
     try {
       const {
         npcName, npcTitle, playerMessage, conversationHistory,
@@ -1067,7 +1068,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
     }
   });
 
-  app.post("/api/memories/visualize", async (req, res) => {
+  app.post("/api/memories/visualize", aiLimiter, async (req, res) => {
     try {
       const { memoryId, prompt } = req.body;
       if (!prompt || typeof prompt !== 'string') {
@@ -1153,7 +1154,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   // POST: force a fresh pack generation (admin use)
-  app.post('/api/content-pack/refresh', async (_req, res) => {
+  app.post('/api/content-pack/refresh', contentPackLimiter, async (_req, res) => {
     try {
       cachedContentPack = null;
       const pack = await generateWeeklyContentPack();

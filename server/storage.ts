@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { persistentStore } from "./persistentStore";
 import { 
   User, 
   InsertUser, 
@@ -150,7 +151,16 @@ export class MemStorage implements IStorage {
 
   // Character methods
   async getCharacter(id: string): Promise<Character | undefined> {
-    return this.characters.get(id);
+    const inMemory = this.characters.get(id);
+    if (inMemory) return inMemory;
+    if (persistentStore.isActive) {
+      const fromDisk = persistentStore.getCharacter(id);
+      if (fromDisk) {
+        this.characters.set(id, fromDisk);
+        return fromDisk;
+      }
+    }
+    return undefined;
   }
 
   async getCharactersByUser(userId: string): Promise<Character[]> {
@@ -181,11 +191,18 @@ export class MemStorage implements IStorage {
       lastPlayed: now
     };
     this.characters.set(id, character);
+    if (persistentStore.isActive) {
+      persistentStore.setCharacter(id, character);
+    }
     return character;
   }
 
   async updateCharacter(id: string, updates: Partial<Character>): Promise<Character | undefined> {
-    const character = this.characters.get(id);
+    let character = this.characters.get(id);
+    if (!character && persistentStore.isActive) {
+      character = persistentStore.getCharacter(id);
+      if (character) this.characters.set(id, character);
+    }
     if (!character) return undefined;
     
     const updatedCharacter = { 
@@ -194,11 +211,18 @@ export class MemStorage implements IStorage {
       lastPlayed: new Date() 
     };
     this.characters.set(id, updatedCharacter);
+    if (persistentStore.isActive) {
+      persistentStore.setCharacter(id, updatedCharacter);
+    }
     return updatedCharacter;
   }
 
   async deleteCharacter(id: string): Promise<boolean> {
-    return this.characters.delete(id);
+    const result = this.characters.delete(id);
+    if (persistentStore.isActive) {
+      persistentStore.deleteCharacter(id);
+    }
+    return result;
   }
 
   // Location methods
@@ -241,17 +265,28 @@ export class MemStorage implements IStorage {
       id,
       characterId,
       sessionData,
+      savedAt: new Date(),
       timestamp: new Date()
-    };
+    } as any;
     this.gameSessions.set(id, session);
+    if (persistentStore.isActive) {
+      persistentStore.addSession(characterId, session);
+    }
     return session;
   }
 
   async getLatestGameSession(characterId: string): Promise<GameSession | undefined> {
+    if (persistentStore.isActive) {
+      const fromDisk = persistentStore.getLatestSession(characterId);
+      if (fromDisk) return fromDisk;
+    }
     const sessions = Array.from(this.gameSessions.values())
       .filter(session => session.characterId === characterId)
-      .sort((a, b) => b.timestamp!.getTime() - a.timestamp!.getTime());
-    
+      .sort((a, b) => {
+        const aTime = (a as any).savedAt || a.timestamp;
+        const bTime = (b as any).savedAt || b.timestamp;
+        return new Date(bTime!).getTime() - new Date(aTime!).getTime();
+      });
     return sessions[0];
   }
 
