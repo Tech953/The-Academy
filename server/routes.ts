@@ -55,8 +55,10 @@ async function fetchRSSHeadlines(): Promise<string[]> {
       if (!resp.ok) continue;
       const xml = await resp.text();
       const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
+      const reEscTag = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const extract = (block: string, tag: string) => {
-        const m = block.match(new RegExp(`<${tag}(?:[^>]*)>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`, 'i'));
+        const t = reEscTag(tag);
+        const m = block.match(new RegExp(`<${t}(?:[^>]*)>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${t}>`, 'i'));
         return m ? m[1].trim() : undefined;
       };
       let m: RegExpExecArray | null;
@@ -1117,8 +1119,10 @@ Write a 2–3 sentence examine description for this object that is immersive and
       const xml = await resp.text();
       const items: { title: string; link: string; pubDate?: string; description?: string }[] = [];
       const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
+      const reEscTag2 = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const extract = (block: string, tag: string) => {
-        const m = block.match(new RegExp(`<${tag}(?:[^>]*)>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`, 'i'));
+        const t = reEscTag2(tag);
+        const m = block.match(new RegExp(`<${t}(?:[^>]*)>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${t}>`, 'i'));
         return m ? m[1].trim() : undefined;
       };
       let m: RegExpExecArray | null;

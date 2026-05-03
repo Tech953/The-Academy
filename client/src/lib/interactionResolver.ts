@@ -414,12 +414,15 @@ export function evaluateCondition(
       allStats[key.charAt(0).toUpperCase() + key.slice(1)] = value || 0;
     });
     
+    // Escape special regex characters so game-state keys never break RegExp construction
+    const reEsc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // Sort keys by length (longest first) to avoid partial replacements
     const sortedStatKeys = Object.keys(allStats).sort((a, b) => b.length - a.length);
     
     // Replace all stat references
     sortedStatKeys.forEach(key => {
-      const regex = new RegExp(`\\b${key}\\b`, 'gi');
+      const regex = new RegExp(`\\b${reEsc(key)}\\b`, 'gi');
       expr = expr.replace(regex, allStats[key]?.toString() || '0');
     });
     
@@ -428,18 +431,18 @@ export function evaluateCondition(
     
     // Replace faction tensions
     Object.entries(world.factionTension).forEach(([key, value]) => {
-      expr = expr.replace(new RegExp(`factionTension\\.${key}`, 'gi'), value?.toString() || '0');
+      expr = expr.replace(new RegExp(`factionTension\\.${reEsc(key)}`, 'gi'), value?.toString() || '0');
     });
     expr = expr.replace(/\bfactionFear\b/gi, (world.factionTension.faculty || 0).toString());
     
     // Replace mythic flags
     Object.entries(world.activeMythicFlags).forEach(([key, value]) => {
       expr = expr.replace(
-        new RegExp(`activeMythicFlags\\['${key}'\\]`, 'gi'), 
+        new RegExp(`activeMythicFlags\\['${reEsc(key)}'\\]`, 'gi'), 
         value?.toString() || 'false'
       );
       expr = expr.replace(
-        new RegExp(`mythicFlag\\s*==\\s*'${key}'`, 'gi'),
+        new RegExp(`mythicFlag\\s*==\\s*'${reEsc(key)}'`, 'gi'),
         value?.toString() || 'false'
       );
     });
@@ -447,7 +450,7 @@ export function evaluateCondition(
     // Replace context values (case-insensitive)
     const sortedContextKeys = Object.keys(context).sort((a, b) => b.length - a.length);
     sortedContextKeys.forEach(key => {
-      const regex = new RegExp(`\\b${key}\\b`, 'gi');
+      const regex = new RegExp(`\\b${reEsc(key)}\\b`, 'gi');
       expr = expr.replace(regex, 
         typeof context[key] === 'string' ? `'${context[key]}'` : context[key]?.toString() || 'false'
       );

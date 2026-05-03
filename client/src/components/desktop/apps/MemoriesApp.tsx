@@ -227,24 +227,53 @@ function MemoryDetailPanel({
                   if (parent && !parent.querySelector('.img-fallback')) {
                     const fb = document.createElement('div');
                     fb.className = 'img-fallback';
-                    fb.style.cssText = `
-                      position:absolute;inset:0;display:flex;flex-direction:column;
-                      align-items:center;justify-content:center;gap:8px;
-                      background:linear-gradient(135deg,#0a0a0a 0%,#0f0f0f 100%);
-                    `;
-                    fb.innerHTML = `
-                      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                        <circle cx="24" cy="24" r="22" stroke="${rarityColor}40" stroke-width="1"/>
-                        <circle cx="24" cy="24" r="16" stroke="${rarityColor}25" stroke-width="1" stroke-dasharray="4 2"/>
-                        <circle cx="24" cy="24" r="4" fill="${rarityColor}60"/>
-                        <line x1="24" y1="2" x2="24" y2="8" stroke="${rarityColor}40" stroke-width="1"/>
-                        <line x1="24" y1="40" x2="24" y2="46" stroke="${rarityColor}40" stroke-width="1"/>
-                        <line x1="2" y1="24" x2="8" y2="24" stroke="${rarityColor}40" stroke-width="1"/>
-                        <line x1="40" y1="24" x2="46" y2="24" stroke="${rarityColor}40" stroke-width="1"/>
-                      </svg>
-                      <span style="font-family:'Courier New',monospace;font-size:10px;color:${rarityColor}60;letter-spacing:1px;text-transform:uppercase">ACADEMY ARCHIVE</span>
-                      <span style="font-family:'Courier New',monospace;font-size:9px;color:#ffffff25;letter-spacing:0.5px">${entry.title}</span>
-                    `;
+                    Object.assign(fb.style, {
+                      position: 'absolute', inset: '0', display: 'flex',
+                      flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: '8px', background: 'linear-gradient(135deg,#0a0a0a 0%,#0f0f0f 100%)',
+                    });
+
+                    // Build SVG via DOM API — no innerHTML, no XSS risk
+                    const NS = 'http://www.w3.org/2000/svg';
+                    const svg = document.createElementNS(NS, 'svg');
+                    svg.setAttribute('width', '48'); svg.setAttribute('height', '48');
+                    svg.setAttribute('viewBox', '0 0 48 48'); svg.setAttribute('fill', 'none');
+                    const circles: [number, string, string, string?][] = [
+                      [22, `${rarityColor}40`, '1', undefined],
+                      [16, `${rarityColor}25`, '1', '4 2'],
+                      [4,  `${rarityColor}60`, '0', undefined],
+                    ];
+                    circles.forEach(([r, stroke, sw, dash]) => {
+                      const c = document.createElementNS(NS, r === 4 ? 'circle' : 'circle');
+                      c.setAttribute('cx', '24'); c.setAttribute('cy', '24'); c.setAttribute('r', String(r));
+                      if (r === 4) { c.setAttribute('fill', stroke); }
+                      else { c.setAttribute('stroke', stroke); c.setAttribute('stroke-width', sw); }
+                      if (dash) c.setAttribute('stroke-dasharray', dash);
+                      svg.appendChild(c);
+                    });
+                    const lines: [string,string,string,string][] = [
+                      ['24','2','24','8'], ['24','40','24','46'],
+                      ['2','24','8','24'], ['40','24','46','24'],
+                    ];
+                    lines.forEach(([x1,y1,x2,y2]) => {
+                      const l = document.createElementNS(NS, 'line');
+                      l.setAttribute('x1',x1); l.setAttribute('y1',y1);
+                      l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+                      l.setAttribute('stroke', `${rarityColor}40`); l.setAttribute('stroke-width','1');
+                      svg.appendChild(l);
+                    });
+                    fb.appendChild(svg);
+
+                    const label = document.createElement('span');
+                    label.textContent = 'ACADEMY ARCHIVE';
+                    Object.assign(label.style, { fontFamily: "'Courier New',monospace", fontSize: '10px', color: `${rarityColor}60`, letterSpacing: '1px', textTransform: 'uppercase' });
+                    fb.appendChild(label);
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.textContent = entry.title;
+                    Object.assign(titleSpan.style, { fontFamily: "'Courier New',monospace", fontSize: '9px', color: '#ffffff25', letterSpacing: '0.5px' });
+                    fb.appendChild(titleSpan);
+
                     parent.appendChild(fb);
                   }
                 }}
