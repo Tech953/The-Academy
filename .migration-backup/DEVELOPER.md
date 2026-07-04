@@ -42,7 +42,7 @@ The game wraps everything in a simulated desktop OS (Academy OS) built as a Reac
 | State | React Context + localStorage |
 | Server | Express.js + TypeScript |
 | Database | PostgreSQL via Neon (Drizzle ORM) |
-| AI | OpenAI `gpt-4.1-mini` via Replit AI Integrations |
+| AI | OpenAI `gpt-5-mini` via Replit AI Integrations |
 | Build | Vite (frontend) + ESBuild (backend) |
 | Icons | Lucide React |
 
@@ -440,7 +440,7 @@ Courses are generated in `server/procedural/courseGenerator.ts`. To add a new co
 ```
 Ring 4: RSS Headlines (NASA, ScienceDaily, phys.org)
          ↓ injected as inspiration seeds
-Ring 3: GPT Content Pack (gpt-4.1-mini, weekly, ~$2/year)
+Ring 3: GPT Content Pack (gpt-5-mini, weekly, ~$2/year)
          ↓ fallback if AI unavailable
 Ring 2: Template Library (deterministic, always available)
          ↓ fallback if templates fail

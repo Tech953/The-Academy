@@ -193,13 +193,13 @@ Respond ONLY with valid JSON:
 }`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'gpt-5-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userInput }
       ],
-      temperature: 0.2,
-      max_tokens: 300,
+      max_completion_tokens: 600,
+      reasoning_effort: "low",
     });
 
     const content = response.choices[0]?.message?.content;

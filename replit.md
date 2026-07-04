@@ -13,6 +13,9 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Stack
 
+## AI Description Engine
+A server-side OpenAI endpoint enhances the text adventure's descriptive language in two modes: "Location mode" for atmospheric flavor text and "Examine mode" for contextual object descriptions. Both modes utilize `gpt-5-mini` and cache results client-side.
+
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM

@@ -1,0 +1,1 @@
+- [GPT-5 family chat completions params](gpt5-chat-completions-params.md) — reasoning models need max_completion_tokens + reasoning_effort, not max_tokens/temperature.

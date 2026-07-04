@@ -42,13 +42,13 @@ Return ONLY valid JSON in this exact format:
 Generate 4-6 contextual questions about this character's physical traits and appearance. Make the questions and suggested answers specific to their background.`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'gpt-5-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.8,
-      max_tokens: 800,
+      max_completion_tokens: 1500,
+      reasoning_effort: "low",
     });
 
     const content = response.choices[0]?.message?.content;

@@ -125,10 +125,10 @@ Rules:
 - Never reference real news sources, real people, or the real world directly`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-5-mini",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1600,
-      temperature: 0.75,
+      max_completion_tokens: 3000,
+      reasoning_effort: "low",
       response_format: { type: "json_object" },
     });
 
@@ -557,13 +557,13 @@ Write a 2–3 sentence examine description for this object that is immersive and
       }
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-5-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.75,
-        max_tokens: 180,
+        max_completion_tokens: 500,
+        reasoning_effort: "low",
       });
 
       const description = response.choices[0]?.message?.content?.trim();
@@ -1053,10 +1053,10 @@ Write a 2–3 sentence examine description for this object that is immersive and
       messages.push({ role: 'user', content: playerMessage });
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-5-mini",
         messages,
-        max_tokens: 220,
-        temperature: 0.82,
+        max_completion_tokens: 500,
+        reasoning_effort: "low",
       });
       
       const response = completion.choices[0]?.message?.content?.trim() || "...";
