@@ -1,0 +1,21 @@
+﻿BASE DESKTOP (Student Perspective)
+This is what the player sees when sitting down at "their laptop":
+✔ Desktop Icons
+* Academy Email
+* Messenger / Chatlink
+* Assignments Portal
+* Perks Viewer
+* Resonance Dashboard
+* Class Schedule
+* Folder: School Files
+* Folder: Personal Files
+* Cub Companion Link
+* Settings / Accessibility Tools
+Optional:
+* on-screen Polaroid area that stores memories
+* a Taskbar with:
+o Clock
+o Notifications
+o Quick-access apps
+Everything here feels like a retro, green CRT hybrid machine, with a little bit of grit and terminal charm.
+

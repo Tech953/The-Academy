@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "The Academy"
+version = "1.0.0"
+id = "artifacts/academy"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18540
+
+[services.development]
+run = "pnpm --filter @workspace/academy run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/academy", "run", "build" ]
+publicDir = "artifacts/academy/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18540"
+BASE_PATH = "/"

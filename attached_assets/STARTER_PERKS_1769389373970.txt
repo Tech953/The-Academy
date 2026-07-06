@@ -1,0 +1,14 @@
+﻿Starter Perks
+- "I'm blind without them." - Buffed mental stats from glasses, or debuff without. Glasses are fragile and must be replaced/upgraded at nurses stations.
+- Jocked - Physical stats increase faster, though certain factions have an established dislike for your character.
+- Well Aligned - When your reputation is symmetrical between factions, you receive bonuses. Otherwise, you suffer an overall penalty.
+- The Marked One - You are given a random nickname that affects your interactions with everyone! You also have added speech bonus from others with nicknames.
+- "Mondays" - Mondays are literally the worst day ever. Increased bonus on all other days.
+- Three of a Kind - Good, and bad things usually (always) come in threes.
+- Nerd Aura - There are few people who won't immediately assume that all your mannerisms, actions, and appearance is nerdy.
+- Midlife Crisis - Despite being in high school, you randomly have additional actions and conversation choices to reflect a torn psyche.
+- Stereotyped - The academy takes one characteristic of yours, and either makes it socially positive or negative. You are able to verbally debate judgement, however.
+- Slow Burn - Your academic investment yields higher long-term benefits or penalties, additionally reflected by your graduation in college.
+- Burnout Vengeance - Increased stats when affected by lack of sleep, or general exhaustion.
+
+

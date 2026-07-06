@@ -1,0 +1,57 @@
+﻿Perks 
+
+- Ambidextrous (Tiers?) - Dual Hand Proficiency - Stat Bonuses
+- Enlightenment - Faction Bonus - Random Information/Neurological Activity
+- Augmentation - Opens Market -> Introduces New NPC(s)
+- Hive Mentality - Alignment Bonus with Insect Lovers
+- So-Duh - Bonuses from Drinking Soda - Conversation Options
+- Mr. Electric - Tune into Biological Frequencies (Tiers)
+- Geometry Divination - Interpretation of Divine Shapes
+- "I was an academic..." - Choose Bonus from Category
+- Wood-Walker -Sensory Interpretation of Living/Dead Wood
+- Vegan - Spiritual Bonus/Meal Restrictions
+- Vegetarian - Spiritual Bonus/Meal Restrictions
+- Etherian - Chosen by Animal Form - Conversation Options
+- Hall Monitor - Role Request - Reputation (+/-)
+- Teacher's Aide - Role Request - Reputation (+/-)
+- Premonition - Receive Specific Information about Future Event
+- Billy-Bob's Ranch - Unlocks Location (Horses/Alpacas/Kangaroos)
+- Divine Intervention - Random Associated Entity Changes Circumstance
+- Harmonics - Resonance Bonus
+- Chess-Mate - Conversation Options
+- Peaked - Reputation (+/-) - Dependent on Audience
+- Aura Farmer - Generate Presence (+/~/-)
+- Power Hungry - Exp. (+) for Hunger (-)
+- Weathervane - Storm Perception - Attracts Lightning 
+- Snack Sense - Barter Bonus/Food Bonus
+- Karma Banker - Higher Stat vs. Lower Impact 
+- Wizardry - (Tiers?) - Spell based off Stat
+- High-Life - Levitation Enchantment (Tiers?)
+- "You know what they say..." - Grants Neutral Conversation Topic
+- Build Different - Alternative Dietary Choices Provide Resonance Bonus
+- Quick-Grab - 100% Chance in Object Retrieval (Cooldown)
+- Booked - Bonus Stat Increase from Reading - Time Dilation
+- Mission Op - Alternate Pathways Yield Higher Exp.
+- Funsies - When you level up, an added amount of dollar bills appears in your dorm room
+- Tralueses - Every time you step down, you break a law of physics
+- Extreme Math Extender - Every time you find an unopened crate - (+) math/logic - Lvl up (+1)
+- The Art of Boredom - Idle-Time increases Creativity Stat
+- Liar Liar - Lying or Withholding information provides exp bonus (if successful)
+- Honor and Glory - Accepting penalties and presiding by truth provide tiers of rank. This could change, based off decisions.
+- Attuned Hearing - Increased Hering (Cooldown)
+- Shelf Centered - Sharp Increase in Mental Stats for each Trophy, lowered spiritual stats
+- Tile by Tile - Player is able to measure resonance impact, tile by tile (Cooldown)
+- Natural Consequence - Nature prioritizes involvement during spiritual stat decline
+- Cool Coordinated - Matching colors with your outfits, the environment, and others yields resonance bonus. The opposite occurs if opposite/clashing colors.
+- Netfix - Additional conversation options for TV show viewership. Additional reputation interactions. (Tiers)
+- "Candy is Good?" - Candy provides higher physical bonuses. No candy lowers fortitude. 
+- Blade of Arcana - Utility bonus with Tools, otherwise lower luck stat.
+- Familiar of the Void - Acquire Void Companion (Tiers), feeding requirement or random stat penalty.
+- Blessing of the Cherry Blossom - Faith bonus directly Affects Stamina
+- Strayed from the Faith - Possessed by a Memetic device (Random), you reap associative penalties and benefits. (Development Cycle)
+- Hunter's Refuge - Your dorm room offers additional healing (Energy), and study bonus.
+- Treasure Hunter - Finding equipment and currency yields higher stacked chance of finding key items
+- "Pro-Gamer" - Additional conversation options for playing games - Additional reputation bonus
+- Spiritually Inclined - Bonus from Spiritual attributes, and from engaging in Ritual
+- Polar Cub Advent - You are able to channel the school's animal mascot during key moments.
+- Puzzle Peer - Increased reputation Experience when completing puzzles around other people.

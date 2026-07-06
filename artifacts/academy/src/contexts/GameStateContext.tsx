@@ -1,0 +1,692 @@
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
+import { earnMemory } from '@/lib/memoriesStore';
+import { FullCharacterStats, DEFAULT_STATS } from '@shared/stats';
+import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
+import type { StudentCurriculumProgress, GEDSubjectKey, LessonProgress } from '@shared/schema';
+import { emptyProgress, recordQuizAttempt, SUBJECT_STAT_MAP } from '@/lib/gedCurriculum';
+import { LANGUAGE_STAT_MAP } from '@/lib/languageCourseGenerator';
+import { generateNPCLine, inferEmotionState } from '@/lib/offlineContentEngine';
+import { SeededRandom, hashString } from '@/lib/seededRandom';
+import type { Archetype } from '@/lib/dialogueTemplates';
+
+export interface Email {
+  id: string;
+  from: string;
+  subject: string;
+  body: string;
+  timestamp: Date;
+  read: boolean;
+  category: 'academic' | 'faction' | 'personal' | 'system';
+}
+
+export interface DirectMessage {
+  id: string;
+  from: string;
+  fromTitle?: string;
+  content: string;
+  timestamp: Date;
+  read: boolean;
+  avatar?: string;
+  isFromPlayer?: boolean;
+  conversationId?: string;
+}
+
+export interface Conversation {
+  id: string;
+  participantName: string;
+  participantTitle?: string;
+  messages: DirectMessage[];
+  lastActivity: Date;
+}
+
+export interface GameCharacter {
+  name: string;
+  level: number;
+  experience: number;
+  experienceToNextLevel: number;
+  stats: FullCharacterStats;
+  starterPerks: string[];
+  unlockedPerks: string[];
+  faction?: string;
+  resonanceState: 'stable' | 'unstable' | 'critical';
+  energy: number;
+  maxEnergy: number;
+  currentLocation: string;
+}
+
+interface GameStateContextType {
+  character: GameCharacter;
+  emails: Email[];
+  messages: DirectMessage[];
+  conversations: Conversation[];
+  cubAffection: number;
+  unreadEmailCount: number;
+  unreadMessageCount: number;
+  enrolledCourses: string[];
+  isEnrolled: boolean;
+  isGameActive: boolean;
+  updateCharacter: (updates: Partial<GameCharacter>) => void;
+  addExperience: (amount: number) => void;
+  setCubAffection: (value: number | ((prev: number) => number)) => void;
+  addEmail: (email: Omit<Email, 'id' | 'timestamp' | 'read'>) => void;
+  markEmailRead: (id: string) => void;
+  addMessage: (message: Omit<DirectMessage, 'id' | 'timestamp' | 'read'>) => void;
+  markMessageRead: (id: string) => void;
+  sendMessage: (conversationId: string, content: string) => void;
+  getConversation: (participantName: string) => Conversation | undefined;
+  unlockPerk: (perkId: string) => void;
+  chooseStarterPerks: (perkIds: string[]) => void;
+  setResonanceState: (state: 'stable' | 'unstable' | 'critical') => void;
+  addEnrolledCourse: (courseId: string) => void;
+  setIsGameActive: (active: boolean) => void;
+  curriculumProgress: StudentCurriculumProgress;
+  recordLessonQuiz: (lessonCode: string, scorePercent: number, subject: string) => { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> };
+  recordReflection: (lessonCode: string, text: string) => void;
+  markCommentaryRead: (lessonCode: string) => void;
+  markLessonAccessed: (lessonCode: string) => void;
+}
+
+const STORAGE_KEY = 'academy-game-state';
+
+function getDefaultCharacter(): GameCharacter {
+  return {
+    name: 'New Student',
+    level: 1,
+    experience: 0,
+    experienceToNextLevel: 100,
+    stats: { ...DEFAULT_STATS },
+    starterPerks: [],
+    unlockedPerks: [],
+    resonanceState: 'stable',
+    energy: 100,
+    maxEnergy: 100,
+    currentLocation: 'dormitory',
+  };
+}
+
+function getDefaultEmails(): Email[] {
+  return [
+    {
+      id: 'email-welcome',
+      from: 'Academy Administration',
+      subject: 'Welcome to The Academy',
+      body: 'Dear Student,\n\nWelcome to The Academy. Your journey of discovery begins now. Please report to the Main Hall for orientation.\n\nRemember: Knowledge is power, but wisdom is knowing how to use it.\n\nBest regards,\nThe Headmaster',
+      timestamp: new Date(),
+      read: false,
+      category: 'system',
+    },
+    {
+      id: 'email-schedule',
+      from: 'Academic Affairs',
+      subject: 'Your Class Schedule',
+      body: 'Your class schedule has been finalized for this semester. Please check the Schedule app for details.\n\nClasses begin at 8:00 AM sharp. Tardiness affects your academic reputation.',
+      timestamp: new Date(Date.now() - 3600000),
+      read: false,
+      category: 'academic',
+    },
+    {
+      id: 'email-faction',
+      from: 'Censorium Representative',
+      subject: 'An Invitation',
+      body: 'We have been watching your progress with interest. The Censorium values those who seek truth through discipline.\n\nShould you wish to learn more about our philosophy, visit the Censorium Hall in the East Wing.\n\n- The Censorium',
+      timestamp: new Date(Date.now() - 7200000),
+      read: false,
+      category: 'faction',
+    },
+  ];
+}
+
+function getDefaultMessages(): DirectMessage[] {
+  return [
+    {
+      id: 'msg-cub',
+      from: 'Cub',
+      fromTitle: 'Your Companion',
+      content: 'Hello! I\'m so excited to be your study companion. Let me know if you need any help!',
+      timestamp: new Date(),
+      read: false,
+    },
+    {
+      id: 'msg-mentor',
+      from: 'Professor Chen',
+      fromTitle: 'Mathematics Faculty',
+      content: 'Welcome to The Academy. I look forward to helping you develop your mathematical reasoning skills. My office hours are posted on the schedule.',
+      timestamp: new Date(Date.now() - 1800000),
+      read: false,
+    },
+    {
+      id: 'msg-student',
+      from: 'Alex Rivera',
+      fromTitle: 'Fellow Student',
+      content: 'Hey! Saw you at orientation. If you need any tips about navigating this place, let me know. The library is a good place to start.',
+      timestamp: new Date(Date.now() - 5400000),
+      read: false,
+    },
+  ];
+}
+
+function loadGameState(): { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[]; curriculumProgress: StudentCurriculumProgress } {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        character: { ...getDefaultCharacter(), ...parsed.character },
+        emails: (parsed.emails || getDefaultEmails()).map((e: Email) => ({ ...e, timestamp: new Date(e.timestamp) })),
+        messages: (parsed.messages || getDefaultMessages()).map((m: DirectMessage) => ({ ...m, timestamp: new Date(m.timestamp) })),
+        cubAffection: parsed.cubAffection ?? 50,
+        enrolledCourses: parsed.enrolledCourses ?? [],
+        curriculumProgress: parsed.curriculumProgress ?? emptyProgress(),
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load game state:', e);
+  }
+  return {
+    character: getDefaultCharacter(),
+    emails: getDefaultEmails(),
+    messages: getDefaultMessages(),
+    cubAffection: 50,
+    enrolledCourses: [],
+    curriculumProgress: emptyProgress(),
+  };
+}
+
+function saveGameState(state: { character: GameCharacter; emails: Email[]; messages: DirectMessage[]; cubAffection: number; enrolledCourses: string[]; curriculumProgress: StudentCurriculumProgress }): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('Failed to save game state:', e);
+  }
+}
+
+const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
+
+export function GameStateProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState(() => loadGameState());
+  const [isGameActive, setIsGameActive] = useState(false);
+
+  useEffect(() => {
+    saveGameState(state);
+  }, [state]);
+
+  const updateCharacter = useCallback((updates: Partial<GameCharacter>) => {
+    setState(prev => ({
+      ...prev,
+      character: { ...prev.character, ...updates },
+    }));
+  }, []);
+
+  const addExperience = useCallback((amount: number) => {
+    setState(prev => {
+      let newExp = prev.character.experience + amount;
+      let newLevel = prev.character.level;
+      let expToNext = prev.character.experienceToNextLevel;
+      
+      while (newExp >= expToNext) {
+        newExp -= expToNext;
+        newLevel++;
+        expToNext = Math.floor(expToNext * 1.5);
+      }
+      
+      return {
+        ...prev,
+        character: {
+          ...prev.character,
+          experience: newExp,
+          level: newLevel,
+          experienceToNextLevel: expToNext,
+        },
+      };
+    });
+  }, []);
+
+  const setCubAffection = useCallback((value: number | ((prev: number) => number)) => {
+    setState(prev => ({
+      ...prev,
+      cubAffection: typeof value === 'function' ? value(prev.cubAffection) : value,
+    }));
+  }, []);
+
+  const addEnrolledCourse = useCallback((courseId: string) => {
+    setState(prev => ({
+      ...prev,
+      enrolledCourses: prev.enrolledCourses.includes(courseId)
+        ? prev.enrolledCourses
+        : [...prev.enrolledCourses, courseId],
+    }));
+  }, []);
+
+  const recordLessonQuiz = useCallback((
+    lessonCode: string, scorePercent: number, subject: string
+  ): { xpEarned: number; passed: boolean; statBonuses: Array<{ stat: string; gain: number }> } => {
+    let result = { xpEarned: 0, passed: false, statBonuses: [] as Array<{ stat: string; gain: number }> };
+    const isLangSubject = subject.startsWith('Language: ');
+    setState(prev => {
+      const progressCopy: StudentCurriculumProgress = {
+        ...prev.curriculumProgress,
+        lessonProgress: { ...prev.curriculumProgress.lessonProgress },
+        chapterProgress: { ...prev.curriculumProgress.chapterProgress },
+      };
+
+      // ── Resonance & ecology pre-read bonus ──────────────────────────────
+      const existingLp = progressCopy.lessonProgress[lessonCode];
+      const resonanceBonus = Math.min(20, (existingLp?.resonanceScore ?? 0) * 0.2);
+      const commentaryBonus = existingLp?.preReadCommentary ? 5 : 0;
+      const boostedScore = Math.min(100, scorePercent + resonanceBonus + commentaryBonus);
+
+      // ── Apply ecology update post-quiz ─────────────────────────────────
+      const applyEcologyUpdate = (lp: LessonProgress, success: boolean) => {
+        const ecol = lp.ecology ?? { stability: 0, coherence: 0, strain: 0, lastInteraction: null };
+        if (success) {
+          ecol.stability = Math.min(100, ecol.stability + 15);
+          ecol.strain = ecol.strain * 0.5;
+          ecol.coherence = Math.min(100, ecol.coherence + 5);
+        } else {
+          ecol.strain = Math.min(100, ecol.strain + 10);
+          ecol.stability = Math.max(0, ecol.stability - 5);
+        }
+        ecol.lastInteraction = new Date().toISOString();
+        lp.ecology = ecol;
+        lp.lastAccessed = new Date().toISOString();
+      };
+
+      if (isLangSubject) {
+        const lp = { ...(progressCopy.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
+        const passed = boostedScore >= 60;
+        const wasComplete = lp.completed;
+        let xp = 0;
+        const bonuses: Array<{ stat: string; gain: number }> = [];
+        lp.attempts += 1;
+        lp.lastAttemptAt = new Date().toISOString();
+        if (!wasComplete) { xp += 25; lp.completed = true; }
+        if (passed && (!lp.quizScore || boostedScore > lp.quizScore)) {
+          if (!lp.quizScore || lp.quizScore < 60) {
+            xp += 50;
+            const rawCode = subject === 'Language: Spanish' ? 'es' : subject === 'Language: French' ? 'fr' : subject === 'Language: German' ? 'de' : subject === 'Language: Chinese' ? 'zh' : null;
+            if (rawCode) {
+              const statMap = LANGUAGE_STAT_MAP[rawCode as keyof typeof LANGUAGE_STAT_MAP] ?? [];
+              statMap.forEach((b) => bonuses.push({ stat: b.stat, gain: Math.ceil(b.bonus * (boostedScore / 100)) }));
+            }
+          }
+          lp.quizScore = Math.max(lp.quizScore ?? 0, boostedScore);
+        }
+        applyEcologyUpdate(lp, passed);
+        progressCopy.lessonProgress[lessonCode] = lp;
+        progressCopy.totalXpEarned = (progressCopy.totalXpEarned ?? 0) + xp;
+        progressCopy.lastStudiedAt = new Date().toISOString();
+        result = { xpEarned: xp, passed, statBonuses: bonuses };
+      } else {
+        result = recordQuizAttempt(progressCopy, lessonCode, boostedScore, subject as GEDSubjectKey);
+        const gedLp = progressCopy.lessonProgress[lessonCode];
+        if (gedLp) applyEcologyUpdate(gedLp, result.passed);
+      }
+
+      const statUpdates: Partial<FullCharacterStats> = {};
+      result.statBonuses.forEach(b => {
+        const current = (prev.character.stats as any)[b.stat] ?? 0;
+        (statUpdates as any)[b.stat] = Math.min(100, current + b.gain);
+      });
+      let newExp = prev.character.experience + result.xpEarned;
+      let newLevel = prev.character.level;
+      let expToNext = prev.character.experienceToNextLevel;
+      while (newExp >= expToNext) {
+        newExp -= expToNext;
+        newLevel++;
+        expToNext = Math.floor(expToNext * 1.5);
+      }
+      return {
+        ...prev,
+        curriculumProgress: progressCopy,
+        character: {
+          ...prev.character,
+          experience: newExp,
+          level: newLevel,
+          experienceToNextLevel: expToNext,
+          stats: { ...prev.character.stats, ...statUpdates },
+        },
+      };
+    });
+    return result;
+  }, []);
+
+  const markLessonAccessed = useCallback((lessonCode: string) => {
+    setState(prev => {
+      const lp = { ...(prev.curriculumProgress.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
+      lp.lastAccessed = new Date().toISOString();
+      return {
+        ...prev,
+        curriculumProgress: {
+          ...prev.curriculumProgress,
+          lessonProgress: { ...prev.curriculumProgress.lessonProgress, [lessonCode]: lp },
+        },
+      };
+    });
+  }, []);
+
+  const markCommentaryRead = useCallback((lessonCode: string) => {
+    setState(prev => {
+      const existing = prev.curriculumProgress.lessonProgress[lessonCode];
+      if (existing?.preReadCommentary) return prev;
+      const lp = { ...(existing ?? { lessonCode, completed: false, attempts: 0 }), preReadCommentary: true };
+      return {
+        ...prev,
+        curriculumProgress: {
+          ...prev.curriculumProgress,
+          lessonProgress: { ...prev.curriculumProgress.lessonProgress, [lessonCode]: lp },
+        },
+      };
+    });
+  }, []);
+
+  const recordReflection = useCallback((lessonCode: string, text: string) => {
+    setState(prev => {
+      const lp = { ...(prev.curriculumProgress.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
+      lp.reflectionText = text;
+      let resonanceDelta = 0;
+      if (text.length > 80) resonanceDelta = 15;
+      else if (text.length > 20) resonanceDelta = 5;
+      const prevResonance = lp.resonanceScore ?? 0;
+      lp.resonanceScore = Math.min(100, prevResonance + resonanceDelta);
+      const ecol = lp.ecology ?? { stability: 0, coherence: 0, strain: 0, lastInteraction: null };
+      lp.ecology = { ...ecol, stability: Math.min(100, ecol.stability + resonanceDelta * 0.5), lastInteraction: new Date().toISOString() };
+      return {
+        ...prev,
+        curriculumProgress: {
+          ...prev.curriculumProgress,
+          lessonProgress: { ...prev.curriculumProgress.lessonProgress, [lessonCode]: lp },
+        },
+      };
+    });
+  }, []);
+
+  const addEmail = useCallback((email: Omit<Email, 'id' | 'timestamp' | 'read'>) => {
+    const newEmail: Email = {
+      ...email,
+      id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date(),
+      read: false,
+    };
+    setState(prev => {
+      if (prev.enrolledCourses.length === 0) return prev;
+      return {
+        ...prev,
+        emails: [newEmail, ...prev.emails],
+      };
+    });
+  }, []);
+
+  const markEmailRead = useCallback((id: string) => {
+    setState(prev => ({
+      ...prev,
+      emails: prev.emails.map(e => e.id === id ? { ...e, read: true } : e),
+    }));
+  }, []);
+
+  const addMessage = useCallback((message: Omit<DirectMessage, 'id' | 'timestamp' | 'read'>) => {
+    const newMessage: DirectMessage = {
+      ...message,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date(),
+      read: false,
+    };
+    setState(prev => {
+      if (prev.enrolledCourses.length === 0) return prev;
+      return {
+        ...prev,
+        messages: [newMessage, ...prev.messages],
+      };
+    });
+  }, []);
+
+  const markMessageRead = useCallback((id: string) => {
+    setState(prev => ({
+      ...prev,
+      messages: prev.messages.map(m => m.id === id ? { ...m, read: true } : m),
+    }));
+  }, []);
+
+  const unlockPerk = useCallback((perkId: string) => {
+    setState(prev => ({
+      ...prev,
+      character: {
+        ...prev.character,
+        unlockedPerks: prev.character.unlockedPerks.includes(perkId) 
+          ? prev.character.unlockedPerks 
+          : [...prev.character.unlockedPerks, perkId],
+      },
+    }));
+  }, []);
+
+  const chooseStarterPerks = useCallback((perkIds: string[]) => {
+    setState(prev => ({
+      ...prev,
+      character: {
+        ...prev.character,
+        starterPerks: perkIds,
+      },
+    }));
+  }, []);
+
+  const setResonanceState = useCallback((resonanceState: 'stable' | 'unstable' | 'critical') => {
+    setState(prev => ({
+      ...prev,
+      character: { ...prev.character, resonanceState },
+    }));
+  }, []);
+
+  const getFallbackNpcResponse = (participantName: string): string => {
+    try {
+      // Derive a deterministic archetype from the NPC name
+      const archetypes: Archetype[] = [
+        'scholar', 'rebel', 'leader', 'nurturer', 'perfectionist',
+        'socialite', 'loner', 'optimist', 'cynic', 'mentor'
+      ];
+      const rng = new SeededRandom(hashString(participantName));
+      const archetype = rng.pick(archetypes);
+
+      // Time-varied emotion: changes daily, mostly neutral
+      const dayOffset = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+      const emotions = ['neutral', 'neutral', 'neutral', 'happy', 'focused', 'anxious'] as const;
+      const emotionRng = new SeededRandom(hashString(participantName) ^ (dayOffset * 0x9e3779b9));
+      const emotionState = emotionRng.pick(emotions);
+
+      return generateNPCLine({
+        npcId: participantName.toLowerCase().replace(/\s+/g, '-'),
+        npcName: participantName,
+        archetype,
+        emotionState,
+        lineType: 'response',
+        playerName: state.character?.name ?? 'you',
+        dayOffset,
+      });
+    } catch {
+      return "That's worth thinking about. Come find me when you have more.";
+    }
+  };
+
+  const getAiNpcResponse = async (
+    participantName: string,
+    participantTitle: string | undefined,
+    playerMessage: string,
+    conversationHistory: DirectMessage[]
+  ): Promise<string> => {
+    try {
+      const response = await fetch('/api/npc-dialogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          npcName: participantName,
+          npcTitle: participantTitle,
+          playerMessage,
+          conversationHistory: conversationHistory.slice(-10).map(m => ({
+            content: m.content,
+            isFromPlayer: m.isFromPlayer
+          }))
+        })
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        return data.fallback || getFallbackNpcResponse(participantName);
+      }
+      
+      const data = await response.json();
+      return data.response || getFallbackNpcResponse(participantName);
+    } catch (error) {
+      console.warn('AI NPC dialogue failed, using fallback:', error);
+      return getFallbackNpcResponse(participantName);
+    }
+  };
+
+  const sendMessage = useCallback((conversationId: string, content: string) => {
+    if (!content.trim()) return;
+    
+    const existingMsg = state.messages.find(m => m.from === conversationId || m.id.includes(conversationId.toLowerCase()));
+    const participantName = conversationId;
+    const participantTitle = existingMsg?.fromTitle;
+    
+    const playerMessage: DirectMessage = {
+      id: `msg-player-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      from: state.character.name,
+      fromTitle: 'You',
+      content: content.trim(),
+      timestamp: new Date(),
+      read: true,
+      isFromPlayer: true,
+      conversationId: participantName,
+    };
+
+    setState(prev => ({
+      ...prev,
+      messages: [playerMessage, ...prev.messages],
+    }));
+
+    const relatedMessages = state.messages.filter(
+      m => m.from === participantName || m.conversationId === participantName
+    );
+    
+    setTimeout(async () => {
+      const aiResponse = await getAiNpcResponse(participantName, participantTitle, content, relatedMessages);
+      const npcResponse: DirectMessage = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        from: participantName,
+        fromTitle: participantTitle,
+        content: aiResponse,
+        timestamp: new Date(),
+        read: false,
+        conversationId: participantName,
+      };
+      setState(prev => ({
+        ...prev,
+        messages: [npcResponse, ...prev.messages],
+      }));
+    }, 1000 + Math.random() * 1500);
+  }, [state.messages, state.character.name]);
+
+  const getConversation = useCallback((participantName: string): Conversation | undefined => {
+    const relatedMessages = state.messages.filter(
+      m => m.from === participantName || m.conversationId === participantName
+    ).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    
+    if (relatedMessages.length === 0) return undefined;
+    
+    const firstMsg = relatedMessages.find(m => m.from === participantName);
+    return {
+      id: participantName,
+      participantName,
+      participantTitle: firstMsg?.fromTitle,
+      messages: relatedMessages,
+      lastActivity: relatedMessages[relatedMessages.length - 1]?.timestamp || new Date(),
+    };
+  }, [state.messages]);
+
+  const conversations: Conversation[] = useMemo(() => {
+    const participantNames = new Set<string>();
+    state.messages.forEach(m => {
+      if (!m.isFromPlayer) {
+        participantNames.add(m.from);
+      }
+    });
+    return Array.from(participantNames).map(name => getConversation(name)!).filter(Boolean);
+  }, [state.messages, getConversation]);
+
+  const unreadEmailCount = state.emails.filter(e => !e.read).length;
+  const unreadMessageCount = state.messages.filter(m => !m.read && !m.isFromPlayer).length;
+
+  const isEnrolled = state.enrolledCourses.length > 0;
+
+  useEffect(() => {
+    earnMemory('first_boot');
+  }, []);
+
+  useEffect(() => {
+    const name = state.character.name;
+    if (name && name !== 'New Student' && name !== '') {
+      earnMemory('character_created');
+    }
+  }, [state.character.name]);
+
+  useEffect(() => {
+    const n = state.enrolledCourses.length;
+    if (n >= 1) earnMemory('first_enroll');
+    if (n >= 3) earnMemory('three_courses');
+    if (n >= 5) earnMemory('five_courses');
+  }, [state.enrolledCourses.length]);
+
+  useEffect(() => {
+    if (state.character.level >= 5) earnMemory('level_5');
+  }, [state.character.level]);
+
+  useEffect(() => {
+    if (state.cubAffection >= 100) earnMemory('cub_bond');
+  }, [state.cubAffection]);
+
+  const value: GameStateContextType = {
+    character: state.character,
+    emails: state.emails,
+    messages: state.messages,
+    conversations,
+    cubAffection: state.cubAffection,
+    unreadEmailCount: isEnrolled ? unreadEmailCount : 0,
+    unreadMessageCount: isEnrolled ? unreadMessageCount : 0,
+    enrolledCourses: state.enrolledCourses,
+    isEnrolled,
+    isGameActive,
+    updateCharacter,
+    addExperience,
+    setCubAffection,
+    addEmail,
+    markEmailRead,
+    addMessage,
+    markMessageRead,
+    sendMessage,
+    getConversation,
+    unlockPerk,
+    chooseStarterPerks,
+    setResonanceState,
+    addEnrolledCourse,
+    setIsGameActive,
+    curriculumProgress: state.curriculumProgress,
+    recordLessonQuiz,
+    recordReflection,
+    markCommentaryRead,
+    markLessonAccessed,
+  };
+
+  return (
+    <GameStateContext.Provider value={value}>
+      {children}
+    </GameStateContext.Provider>
+  );
+}
+
+export function useGameState(): GameStateContextType {
+  const context = useContext(GameStateContext);
+  if (!context) {
+    throw new Error('useGameState must be used within a GameStateProvider');
+  }
+  return context;
+}
+
+export { GameStateContext };

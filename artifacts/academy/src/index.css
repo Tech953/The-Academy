@@ -1,0 +1,1041 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LIGHT MODE */
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+
+  /* Automatic computation of border around primary / danger buttons */
+  --opaque-button-border-intensity: -8; /* In terms of percentages */
+
+  /* Backgrounds applied on top of other backgrounds when hovered/active */
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+
+  --background: 210 5% 97%;
+  --foreground: 210 10% 15%;
+  --border: 210 8% 90%;
+  --card: 210 5% 95%;
+  --card-foreground: 210 10% 15%;
+  --card-border: 210 8% 88%;
+  --sidebar: 210 5% 93%;
+  --sidebar-foreground: 210 10% 15%;
+  --sidebar-border: 210 8% 86%;
+  --sidebar-primary: 280 60% 45%;
+  --sidebar-primary-foreground: 280 60% 95%;
+  --sidebar-accent: 210 5% 88%;
+  --sidebar-accent-foreground: 210 10% 20%;
+  --sidebar-ring: 280 60% 45%;
+  --popover: 210 5% 90%;
+  --popover-foreground: 210 10% 15%;
+  --popover-border: 210 8% 83%;
+  --primary: 280 60% 45%;
+  --primary-foreground: 280 60% 95%;
+  --secondary: 210 5% 85%;
+  --secondary-foreground: 210 10% 20%;
+  --muted: 210 5% 88%;
+  --muted-foreground: 210 10% 40%;
+  --accent: 180 25% 80%;
+  --accent-foreground: 180 25% 25%;
+  --destructive: 0 75% 50%;
+  --destructive-foreground: 0 75% 95%;
+  --input: 210 15% 75%;
+  --ring: 280 60% 45%;
+  --chart-1: 280 60% 45%;
+  --chart-2: 180 40% 45%;
+  --chart-3: 210 60% 45%;
+  --chart-4: 45 60% 45%;
+  --chart-5: 330 60% 45%;
+
+  --font-sans: 'Architects Daughter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: .5rem; /* 8px */
+  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
+
+  /* Fallback for older browsers */
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+.dark {
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .05);
+
+  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+
+  /* Backgrounds applied on top of other backgrounds when hovered/active */
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
+
+  --background: 0 0% 0%;
+  --foreground: 120 100% 50%;
+  --terminal-glow: 120 100% 50%;
+  --terminal-bg: 0 0% 0%;
+  --border: 120 100% 50%;
+  --card: 0 0% 0%;
+  --card-foreground: 120 100% 50%;
+  --card-border: 120 100% 50%;
+  --sidebar: 0 0% 0%;
+  --sidebar-foreground: 120 100% 50%;
+  --sidebar-border: 120 100% 50%;
+  --sidebar-primary: 120 100% 50%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 0 0% 0%;
+  --sidebar-accent-foreground: 120 100% 50%;
+  --sidebar-ring: 120 100% 50%;
+  --popover: 0 0% 0%;
+  --popover-foreground: 120 100% 50%;
+  --popover-border: 120 100% 50%;
+  --primary: 120 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 0%;
+  --secondary-foreground: 120 100% 50%;
+  --muted: 0 0% 0%;
+  --muted-foreground: 0 0% 70%;
+  --accent: 60 100% 50%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 0%;
+  --input: 0 0% 0%;
+  --ring: 120 100% 50%;
+  --chart-1: 280 60% 75%;
+  --chart-2: 180 50% 75%;
+  --chart-3: 210 60% 75%;
+  --chart-4: 45 60% 75%;
+  --chart-5: 330 60% 75%;
+
+  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Enable hardware acceleration and crisp text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  body {
+    @apply font-mono antialiased bg-background text-foreground;
+    /* High contrast terminal colors for better visual acuity */
+    background: hsl(0, 0%, 0%);
+    color: hsl(120, 100%, 50%);
+    /* GPU acceleration for smooth scrolling */
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* Accessibility: High Contrast Mode */
+  body.high-contrast {
+    --background: 0 0% 0%;
+    --foreground: 120 100% 50%;
+    filter: contrast(1.2);
+  }
+
+  /* Accessibility: Reduced Motion */
+  body.reduced-motion,
+  body.reduced-motion * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Accessibility: Dyslexia-Friendly Font */
+  body.dyslexia-font {
+    font-family: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
+    letter-spacing: 0.05em;
+    word-spacing: 0.1em;
+  }
+
+  /* Accessibility: Screen Reader Mode */
+  body.screen-reader-mode {
+    /* Ensure focus states are highly visible */
+  }
+  body.screen-reader-mode *:focus {
+    outline: 3px solid hsl(120, 100%, 50%);
+    outline-offset: 2px;
+  }
+
+  /* Accessibility: Large Cursor */
+  body.cursor-large {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M0 0 L0 24 L6 18 L12 28 L16 26 L10 16 L18 16 Z' fill='white' stroke='black' stroke-width='1'/%3E%3C/svg%3E"), auto;
+  }
+  body.cursor-xlarge {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cpath d='M0 0 L0 36 L9 27 L18 42 L24 39 L15 24 L27 24 Z' fill='white' stroke='black' stroke-width='2'/%3E%3C/svg%3E"), auto;
+  }
+
+  /* Accessibility: Color Blind Modes */
+  body.colorblind-protanopia {
+    filter: url('#protanopia-filter');
+  }
+  body.colorblind-deuteranopia {
+    filter: url('#deuteranopia-filter');
+  }
+  body.colorblind-tritanopia {
+    filter: url('#tritanopia-filter');
+  }
+
+  /* Accessibility: CSS custom properties */
+  :root {
+    --a11y-font-size: 16px;
+    --a11y-line-spacing: 1.5;
+  }
+}
+
+/**
+ * Using the elevate system.
+ * Automatic contrast adjustment.
+ *
+ * <element className="hover-elevate" />
+ * <element className="active-elevate-2" />
+ *
+ * // Using the tailwind utility when a data attribute is "on"
+ * <element className="toggle-elevate data-[state=on]:toggle-elevated" />
+ * // Or manually controlling the toggle state
+ * <element className="toggle-elevate toggle-elevated" />
+ *
+ * Elevation systems have to handle many states.
+ * - not-hovered, vs. hovered vs. active  (three mutually exclusive states)
+ * - toggled or not
+ * - focused or not (this is not handled with these utilities)
+ *
+ * Even without handling focused or not, this is six possible combinations that
+ * need to be distinguished from eachother visually.
+ */
+@layer utilities {
+
+  /* Hide ugly search cancel button in Chrome until we can style it properly */
+  input[type="search"]::-webkit-search-cancel-button {
+    @apply hidden;
+  }
+
+  /* Placeholder styling for contentEditable div */
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+
+  /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of
+   * buttons/badges can remove the automatic brightness adjustment on interactions
+   * and program their own. */
+  .no-default-hover-elevate {}
+
+  .no-default-active-elevate {}
+
+
+  /**
+   * Toggleable backgrounds go behind the content. Hoverable/active goes on top.
+   * This way they can stack/compound. Both will overlap the parent's borders!
+   * So borders will be automatically adjusted both on toggle, and hover/active,
+   * and they will be compounded.
+   */
+  .toggle-elevate::before,
+  .toggle-elevate-2::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    /*border-radius: inherit;   match rounded corners */
+    border-radius: inherit;
+    z-index: -1;
+    /* sits behind content but above backdrop */
+  }
+
+  .toggle-elevate.toggle-elevated::before {
+    background-color: var(--elevate-2);
+  }
+
+  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
+  .border.toggle-elevate::before {
+    inset: -1px;
+  }
+
+  /* Does not work on elements with overflow:hidden! */
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative;
+    z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    /*border-radius: inherit;   match rounded corners */
+    border-radius: inherit;
+    z-index: 999;
+    /* sits in front of content */
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-1);
+  }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-2);
+  }
+
+  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+    inset: -1px;
+  }
+
+  /* High-performance terminal effects */
+  .terminal-container {
+    /* GPU acceleration for smooth scrolling */
+    will-change: scroll-position;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    
+    /* Crisp text rendering */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .terminal-text {
+    /* Enhanced text clarity */
+    text-shadow: 0 0 1px hsl(var(--terminal-glow));
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+
+  /* Optional CRT scanline effect - static overlay for subtle retro feel without flickering */
+  .crt-effect::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0%,
+      rgba(0, 255, 0, 0.015) 50%,
+      transparent 100%
+    );
+    background-size: 100% 3px;
+    z-index: 1;
+  }
+
+  /* Smooth cursor blink */
+  .terminal-cursor {
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* High-performance scrolling */
+  .smooth-scroll {
+    overflow-anchor: none;
+    -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+    overscroll-behavior: contain; /* Prevent scroll chaining */
+    scroll-behavior: auto; /* Allow JS-controlled smooth scrolling */
+  }
+  
+  /* Custom scrollbar styling for terminal */
+  .smooth-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .smooth-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .smooth-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--terminal-glow) / 0.3);
+    border-radius: 4px;
+    transition: background 0.15s ease;
+  }
+  
+  .smooth-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--terminal-glow) / 0.5);
+  }
+  
+  /* Firefox scrollbar styling */
+  .smooth-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--terminal-glow) / 0.3) transparent;
+  }
+  
+  /* Screen reader only - visually hidden but accessible */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  /* Line clamp utility for transcript overflow */
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Focus ring styling for accessibility */
+  .focus-visible-ring:focus-visible {
+    outline: 2px solid hsl(var(--terminal-glow));
+    outline-offset: 2px;
+  }
+  
+  /* Floating button container - prevents layout interference */
+  .floating-controls {
+    pointer-events: none;
+  }
+  
+  .floating-controls > * {
+    pointer-events: auto;
+  }
+
+  /* ============================================
+     THEMNION OS BOOT SCREEN STYLES
+     ============================================ */
+
+  /* Boot screen container with phosphor glow */
+  .boot-screen {
+    font-family: 'Courier New', Courier, monospace;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: none;
+    image-rendering: pixelated;
+  }
+
+  /* Boot text with phosphor afterglow effect */
+  .boot-text {
+    text-shadow: 
+      0 0 2px hsl(var(--terminal-glow)),
+      0 0 4px hsl(var(--terminal-glow) / 0.5);
+  }
+
+  /* Individual boot line with fade-in */
+  .boot-line {
+    animation: bootLineIn 0.15s ease-out forwards;
+    opacity: 0;
+    transform: translateX(-2px);
+  }
+
+  @keyframes bootLineIn {
+    0% {
+      opacity: 0;
+      transform: translateX(-2px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Glitch text effect for mysterious/warning lines */
+  .glitch-text {
+    position: relative;
+    animation: glitchFlicker 0.3s ease-in-out;
+  }
+
+  @keyframes glitchFlicker {
+    0%, 100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    10% {
+      opacity: 0.8;
+      transform: translateX(-2px);
+    }
+    20% {
+      opacity: 1;
+      transform: translateX(1px);
+    }
+    30% {
+      opacity: 0.9;
+      transform: translateX(-1px);
+      filter: hue-rotate(90deg);
+    }
+    40% {
+      opacity: 1;
+      transform: translateX(0);
+      filter: none;
+    }
+    50% {
+      opacity: 0.7;
+      transform: translateX(2px);
+    }
+    60% {
+      opacity: 1;
+      transform: translateX(-1px);
+    }
+  }
+
+  /* CRT vignette effect for boot screen */
+  .boot-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      transparent 60%,
+      rgba(0, 0, 0, 0.3) 100%
+    );
+    z-index: 2;
+  }
+
+  /* Scanline overlay for boot screen */
+  .boot-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0%,
+      rgba(0, 255, 0, 0.02) 50%,
+      transparent 100%
+    );
+    background-size: 100% 3px;
+    z-index: 3;
+  }
+
+  /* Progress bar animation for loading */
+  .boot-progress {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--terminal-glow)) 0%,
+      hsl(var(--terminal-glow) / 0.7) 100%
+    );
+    box-shadow: 0 0 8px hsl(var(--terminal-glow) / 0.5);
+  }
+
+  /* Ambient glow pulse for dramatic effect */
+  .ambient-glow {
+    animation: ambientPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes ambientPulse {
+    0%, 100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.05);
+    }
+  }
+
+  /* Text flicker for retro CRT feel - very subtle */
+  .crt-flicker {
+    animation: subtleFlicker 8s linear infinite;
+  }
+
+  @keyframes subtleFlicker {
+    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+      opacity: 1;
+    }
+    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+      opacity: 0.97;
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px var(--crt-primary-glow, rgba(0, 255, 0, 0.25)), inset 0 0 10px var(--crt-primary-glow, rgba(0, 255, 0, 0.06));
+    }
+    50% {
+      box-shadow: 0 0 30px var(--crt-primary-glow, rgba(0, 255, 0, 0.45)), inset 0 0 15px var(--crt-primary-glow, rgba(0, 255, 0, 0.12));
+    }
+  }
+
+  /* ===== NEO-CRT ENHANCED EFFECTS ===== */
+
+  /* Cursor pulse animation - soft rhythmic glow */
+  .cursor-pulse {
+    animation: cursorPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes cursorPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Screen bloom effect when windows open */
+  .screen-bloom {
+    animation: screenBloom 0.4s ease-out forwards;
+  }
+
+  @keyframes screenBloom {
+    0% {
+      transform: scale(0.95);
+      opacity: 0;
+      filter: brightness(1.5) blur(4px);
+    }
+    50% {
+      filter: brightness(1.2) blur(1px);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+      filter: brightness(1) blur(0);
+    }
+  }
+
+  /* Window minimize bloom effect */
+  .window-minimize {
+    animation: windowMinimize 0.3s ease-in forwards;
+  }
+
+  @keyframes windowMinimize {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.8) translateY(50px);
+      opacity: 0;
+    }
+  }
+
+  /* Resonance distortion effects based on emotional state */
+  .resonance-unstable {
+    animation: resonanceUnstable 3s ease-in-out infinite;
+  }
+
+  @keyframes resonanceUnstable {
+    0%, 100% { filter: brightness(1); transform: none; }
+    25% { filter: brightness(1.05); }
+    50% { filter: brightness(0.98); transform: translateX(1px); }
+    75% { filter: brightness(1.02); }
+  }
+
+  .resonance-critical {
+    animation: resonanceCritical 2s ease-in-out infinite;
+  }
+
+  @keyframes resonanceCritical {
+    0%, 100% { filter: brightness(1) hue-rotate(0deg); }
+    25% { filter: brightness(1.1) hue-rotate(5deg); transform: translateX(2px); }
+    50% { filter: brightness(0.95) hue-rotate(-5deg); }
+    75% { filter: brightness(1.05) hue-rotate(3deg); transform: translateX(-1px); }
+  }
+
+  /* Scanline drift effect */
+  .scanline-drift::before {
+    animation: scanlineDrift 15s linear infinite;
+  }
+
+  @keyframes scanlineDrift {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100%; }
+  }
+
+  /* Icon wobble for alerts */
+  .icon-wobble {
+    animation: iconWobble 0.5s ease-in-out;
+  }
+
+  @keyframes iconWobble {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+  }
+
+  /* Fuzzy bubble notification style */
+  .fuzzy-bubble {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.1) 0%, rgba(0, 255, 0, 0.05) 100%);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    border-radius: 12px;
+    box-shadow: 
+      0 0 20px rgba(0, 255, 0, 0.15),
+      inset 0 0 10px rgba(0, 255, 0, 0.05);
+    backdrop-filter: blur(4px);
+  }
+
+  .fuzzy-bubble::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0, 255, 0, 0.2) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  /* Paper terminal aesthetic for assignments */
+  .paper-terminal {
+    background: linear-gradient(180deg, 
+      #f5f5dc 0%, 
+      #faf8ef 50%, 
+      #f0ead6 100%
+    );
+    border: none;
+    box-shadow: 
+      2px 2px 8px rgba(0, 0, 0, 0.3),
+      inset 0 0 20px rgba(139, 119, 101, 0.1);
+    position: relative;
+  }
+
+  .paper-terminal::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 100, 100, 0.3);
+    pointer-events: none;
+  }
+
+  .paper-terminal::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 25px;
+    height: 100%;
+    background: 
+      radial-gradient(circle at 12px 20px, transparent 6px, rgba(200, 180, 160, 0.2) 6px, rgba(200, 180, 160, 0.2) 8px, transparent 8px),
+      radial-gradient(circle at 12px 50px, transparent 6px, rgba(200, 180, 160, 0.2) 6px, rgba(200, 180, 160, 0.2) 8px, transparent 8px),
+      radial-gradient(circle at 12px 80px, transparent 6px, rgba(200, 180, 160, 0.2) 6px, rgba(200, 180, 160, 0.2) 8px, transparent 8px);
+    background-repeat: repeat-y;
+    background-size: 25px 100px;
+    pointer-events: none;
+  }
+
+  /* Paper terminal dark mode variant */
+  .paper-terminal-dark {
+    background: linear-gradient(180deg, 
+      #1a1a1a 0%, 
+      #222 50%, 
+      #1a1a1a 100%
+    );
+    color: #00ff00;
+    border: 1px solid rgba(0, 255, 0, 0.2);
+  }
+
+  .paper-terminal-dark::before {
+    background: rgba(0, 255, 0, 0.2);
+  }
+
+  .paper-terminal-dark::after {
+    background: 
+      radial-gradient(circle at 12px 20px, transparent 6px, rgba(0, 255, 0, 0.1) 6px, rgba(0, 255, 0, 0.1) 8px, transparent 8px),
+      radial-gradient(circle at 12px 50px, transparent 6px, rgba(0, 255, 0, 0.1) 6px, rgba(0, 255, 0, 0.1) 8px, transparent 8px),
+      radial-gradient(circle at 12px 80px, transparent 6px, rgba(0, 255, 0, 0.1) 6px, rgba(0, 255, 0, 0.1) 8px, transparent 8px);
+    background-repeat: repeat-y;
+    background-size: 25px 100px;
+  }
+
+  /* Context-aware cursor states */
+  .cursor-typing { cursor: text; }
+  .cursor-pointer { cursor: pointer; }
+  .cursor-scanning { cursor: crosshair; }
+  .cursor-waiting { cursor: wait; }
+  .cursor-help { cursor: help; }
+
+  /* Neon color utility classes */
+  .neon-green { color: #00ff00; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5); }
+  .neon-cyan { color: #00ffff; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5); }
+  .neon-amber { color: #ffaa00; text-shadow: 0 0 10px rgba(255, 170, 0, 0.5); }
+  .neon-purple { color: #cc66ff; text-shadow: 0 0 10px rgba(204, 102, 255, 0.5); }
+  .neon-pink { color: #ff66cc; text-shadow: 0 0 10px rgba(255, 102, 204, 0.5); }
+  .neon-red { color: #ff3366; text-shadow: 0 0 10px rgba(255, 51, 102, 0.5); }
+  .neon-gold { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+
+  /* Ambient desktop object animations */
+  .ambient-float {
+    animation: ambientFloat 6s ease-in-out infinite;
+  }
+
+  @keyframes ambientFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  .ambient-sway {
+    animation: ambientSway 8s ease-in-out infinite;
+  }
+
+  @keyframes ambientSway {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+
+  /* Command autocomplete dropdown styling */
+  .command-autocomplete {
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 0, 0.1);
+    backdrop-filter: blur(8px);
+  }
+
+  .command-autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border-left: 2px solid transparent;
+  }
+
+  .command-autocomplete-item:hover,
+  .command-autocomplete-item.selected {
+    background: rgba(0, 255, 0, 0.1);
+    border-left-color: #00ff00;
+  }
+
+  /* Window snap zone indicators */
+  .snap-zone {
+    position: fixed;
+    background: rgba(0, 255, 0, 0.1);
+    border: 2px dashed rgba(0, 255, 0, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 9998;
+  }
+
+  .snap-zone.visible {
+    opacity: 1;
+  }
+
+  .snap-zone-left {
+    left: 0;
+    top: 0;
+    width: 50%;
+    height: 100%;
+  }
+
+  .snap-zone-right {
+    right: 0;
+    top: 0;
+    width: 50%;
+    height: 100%;
+  }
+
+  .snap-zone-full {
+    inset: 0;
+  }
+
+  /* Dual mode toggle styling */
+  .mode-toggle {
+    position: relative;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    border-radius: 20px;
+    padding: 4px;
+    display: inline-flex;
+    gap: 4px;
+  }
+
+  .mode-toggle-option {
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: transparent;
+    border: none;
+    color: rgba(0, 255, 0, 0.5);
+  }
+
+  .mode-toggle-option.active {
+    background: rgba(0, 255, 0, 0.2);
+    color: #00ff00;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  }
+
+  /* Mechanical toggle switch */
+  .mech-toggle {
+    position: relative;
+    width: 50px;
+    height: 26px;
+    background: linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 100%);
+    border: 2px solid rgba(0, 255, 0, 0.3);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .mech-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(180deg, #444 0%, #333 100%);
+    border-radius: 50%;
+    border: 1px solid rgba(0, 255, 0, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .mech-toggle.active {
+    border-color: rgba(0, 255, 0, 0.6);
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+  }
+
+  .mech-toggle.active::after {
+    left: calc(100% - 22px);
+    background: linear-gradient(180deg, #00aa00 0%, #008800 100%);
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+  }
+
+  /* Cub companion widget corner */
+  .cub-widget {
+    position: fixed;
+    bottom: 60px;
+    right: 20px;
+    width: 80px;
+    height: 80px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
+
+  .cub-widget:hover {
+    transform: scale(1.1);
+  }
+
+  .cub-widget.alert {
+    animation: cubAlert 0.5s ease-in-out infinite;
+  }
+
+  @keyframes cubAlert {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  /* Smooth transitions for theme mode changes */
+  .theme-transition * {
+    transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease !important;
+  }
+}
+
+/* Performance Tier System - Auto-adjusts visual effects based on hardware */
+.perf-tier-low {
+  /* Disable all animations and effects for low-end hardware */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .crt-scanlines,
+  .crt-vignette,
+  .ambient-float,
+  .ambient-sway,
+  .fuzzy-bubble {
+    display: none !important;
+  }
+  
+  .neo-crt-window {
+    box-shadow: none !important;
+  }
+}
+
+.perf-tier-mid {
+  /* Enable basic animations, disable glow effects */
+  .crt-vignette {
+    opacity: 0.3;
+  }
+  
+  .neo-crt-window {
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.1) !important;
+  }
+  
+  .screen-bloom {
+    animation: none !important;
+  }
+  
+  .cursor-pulse {
+    animation-duration: 2s !important;
+  }
+}
+
+.perf-tier-high {
+  /* Full visual effects enabled */
+  .crt-scanlines {
+    opacity: 1;
+  }
+  
+  .crt-vignette {
+    opacity: 0.6;
+  }
+}
+
+@keyframes academy-icon-pulse {
+  0%, 100% { box-shadow: 0 0 14px #00ff0045, 0 0 4px #00ff0030; }
+  50%       { box-shadow: 0 0 26px #00ff0070, 0 0 8px #00ff0050; }
+}

@@ -1,6 +1,6 @@
-# [Project name]
+# The Academy
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A GED-focused academic RPG with a retro CRT desktop metaphor: players pick starter traits, then study and progress through a simulated 1980s-style institutional operating system. Being ported into a pnpm multi-artifact workspace so an Android/Expo app can be built alongside the web app.
 
 ## Run & Operate
 
@@ -25,15 +25,20 @@ A server-side OpenAI endpoint enhances the text adventure's descriptive language
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/academy/` — the web frontend (React + Vite + wouter), mounted at base path `/`. UI entry is `src/App.tsx` → `RetroBootScreen` → `NeoCrtDesktopShell`.
+- `artifacts/api-server/` — the Express backend (kind=api), served at `/api`. Routes in `src/routes/routes.ts` (declared with absolute `/api/...` paths); `registerRoutes(app)` is wired in `src/app.ts`.
+- `lib/db/src/schema/schema.ts` — Drizzle DB schema (source of truth for the server).
+- `artifacts/academy/src/shared/` — shared game modules (`schema.ts`, `perks.ts`, `stats.ts`, `curriculum.ts`, `contentPack.ts`) imported in the frontend via the `@shared/*` alias.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Port, not rewrite.** Legacy app (`.migration-backup/`) was moved into the multi-artifact workspace with behavior/visual parity as the goal; strict typecheck compliance and pre-existing bugs are intentionally out of scope. Vite/esbuild transpile despite legacy strict-TS errors.
+- **Frontend keeps its own fetch layer.** OpenAPI codegen was skipped for the large legacy frontend; `src/lib/queryClient.ts` uses same-origin relative `/api/...` requests with `credentials: "include"`, which route correctly through the shared proxy since the frontend is at `/` and the API at `/api`.
+- **`@shared` is copied into the frontend** (`src/shared/`) rather than shared via a lib, to preserve the legacy import structure. `drizzle-orm`/`drizzle-zod` are frontend deps only because `shared/schema.ts` imports them.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+A GED-focused academic RPG. Players choose starter perks/traits, then navigate a retro CRT "desktop OS" (windows, apps, taskbar) to study, take assignments, view character stats, and progress. An AI description engine enriches flavor text.
 
 ## User preferences
 
@@ -41,7 +46,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run apps via workflows (`restart_workflow "artifacts/academy: web"` / `"artifacts/api-server: API Server"`), never root-level `pnpm dev`/`build`.
+- The frontend `@shared/schema` duplicates `lib/db/src/schema/schema.ts` — if the DB schema's shared types change, keep both in sync.
 
 ## Pointers
 
