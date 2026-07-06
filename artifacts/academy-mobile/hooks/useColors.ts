@@ -6,17 +6,12 @@ import colors from "@/constants/colors";
  * Returns the design tokens for the current color scheme.
  *
  * The returned object contains all color tokens for the active palette
- * plus scheme-independent values like `radius`.
- *
- * Falls back to the light palette when no dark key is defined in
- * constants/colors.ts (the scaffold ships light-only by default).
- * When a sibling web artifact's dark tokens are synced into a `dark`
- * key, this hook will automatically switch palettes based on the
- * device's appearance setting.
+ * plus scheme-independent values like `radius`. The Academy is a CRT
+ * terminal aesthetic that stays identical in light/dark system modes,
+ * so `light` and `dark` are the same palette in constants/colors.ts.
  */
 export function useColors() {
   const scheme = useColorScheme();
-  const dark = (colors as { dark?: typeof colors.light }).dark;
-  const palette = scheme === "dark" && dark ? dark : colors.light;
+  const palette = scheme === "dark" ? colors.dark : colors.light;
   return { ...palette, radius: colors.radius };
 }

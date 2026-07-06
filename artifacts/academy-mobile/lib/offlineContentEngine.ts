@@ -37,6 +37,8 @@ import {
   EventCategory,
 } from './eventTemplates';
 
+import type { ContentPack, ContentPackEvent } from './api';
+
 import {
   STUDY_QUESTIONS,
   ALL_QUESTIONS,
@@ -406,6 +408,66 @@ export function scoreToRelationshipTier(score: number): RelationshipTier {
   if (score >= 30) return 'friendly';
   if (score >= 10) return 'acquaintance';
   return 'stranger';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// OFFLINE CONTENT PACK (mirrors the server's `/content-pack` shape)
+// ─────────────────────────────────────────────────────────────────
+
+const WEEKLY_THEMES = [
+  'Midterm Momentum',
+  'Campus Renewal Week',
+  'Finals Countdown',
+  'New Semester Energy',
+  'Community Outreach Drive',
+];
+
+/**
+ * Deterministically builds a `ContentPack` on-device from the bundled event
+ * template library so the Campus Bulletin has something to show even when
+ * there is no backend reachable. Changes once per in-game day.
+ */
+export function generateOfflineContentPack(day: number): ContentPack {
+  const rng = new SeededRandom(temporalSeed('content-pack', day));
+  const theme = rng.pick(WEEKLY_THEMES);
+
+  const categories = Object.keys(EVENT_TEMPLATES) as EventCategory[];
+  const activeEvents: ContentPackEvent[] = [];
+  const usedIds = new Set<string>();
+  for (let i = 0; i < 3; i++) {
+    const category = rng.pick(categories);
+    const pool = EVENT_TEMPLATES[category];
+    const template = rng.pick(pool);
+    if (usedIds.has(template.id)) continue;
+    usedIds.add(template.id);
+    activeEvents.push({
+      id: template.id,
+      title: template.title,
+      description: template.description,
+      npcReaction: rng.pick(template.npcReactions),
+      playerHook: rng.pick(template.playerHooks),
+      category: template.category,
+      durationDays: template.duration === 'hours' ? 1 : template.duration === 'days' ? 3 : 7,
+      tags: template.tags,
+    });
+  }
+
+  const now = Date.now();
+  return {
+    version: 'offline-1',
+    generatedAt: now,
+    expiresAt: now + 24 * 60 * 60 * 1000,
+    worldSeed: hashString(`content-pack-${day}`),
+    weeklyTheme: theme,
+    themeContext: `The campus is buzzing this week: ${theme.toLowerCase()}. Faculty and students alike are feeling the shift.`,
+    activeEvents,
+    npcMoodShifts: [],
+    gedFocusAreas: [
+      { subject: 'Math Reasoning', topic: 'Ratios & Proportions', whyNow: 'Comes up often on the practice exam this week.' },
+      { subject: 'Language Arts', topic: 'Reading for Argument', whyNow: 'Ties into this week\'s campus events.' },
+    ],
+    generatedBy: 'deterministic',
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────
