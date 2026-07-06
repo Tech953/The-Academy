@@ -1,2 +1,1 @@
-- [GPT-5 family chat completions params](gpt5-chat-completions-params.md) — reasoning models need max_completion_tokens + reasoning_effort, not max_tokens/temperature.
-- [Porting legacy → workspace](porting-legacy-to-workspace.md) — parity not rewrite; skip codegen for big frontends, copy shared/ + @shared alias, tailwind v3 postcss, Playwright "intercepted" clicks are test artifacts
+- [Academy mobile artifact](academy-mobile.md) — Expo companion: offline-first engine, workflow name, font/color conventions, gotchas.
