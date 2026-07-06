@@ -15,3 +15,9 @@ Offline-first GED academic RPG companion to the web app, retro CRT terminal look
 **Offline-first design (explicit user requirement):** app must be fully usable with no network. `lib/api.ts` does online→offline fallback for describe/npcReply and tags each result with `source: "online" | "offline"`. Study is fully local (`generateQuizSet`). Sync (content packs) is additive-only enrichment cached in AsyncStorage. Never make a core flow require the network.
 
 - Backend already exists (web api-server); mobile calls it via direct fetch — DO NOT add DB/OpenAPI codegen for the mobile artifact.
+
+## APK / EAS build
+- `eas.json` has a `preview` profile that produces an APK (`android.buildType: "apk"`, internal distribution); `production` makes an app-bundle. android package id = `com.theacademy.mobile`.
+- `metro.config.js` is monorepo-aware (watchFolders = workspace root, nodeModulesPaths includes root) so EAS cloud can resolve pnpm-hoisted deps. Default single-package metro config works for dev here but is risky for EAS.
+- `EXPO_PUBLIC_DOMAIN` is baked at build time and controls online API base. Empty in eas.json profiles → APK is offline-only (still fully playable). For online enrichment, set it to the published deployment domain in the profile's `env` before building.
+- Build is run by the user with their own Expo account: `cd artifacts/academy-mobile && npx eas-cli login && npx eas-cli init && npx eas-cli build -p android --profile preview`. Cannot be run agent-side (needs their account + Expo cloud).
