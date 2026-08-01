@@ -11,7 +11,8 @@ import { useColors } from "@/hooks/useColors";
 
 export default function StatsScreen() {
   const colors = useColors();
-  const { isOnline, playerName, day, xp, stats, inventory, visitedLocationIds, resetGame } = useGame();
+  const { isOnline, playerName, day, week, xp, stats, inventory, visitedLocationIds, examinedIds, resetGame } =
+    useGame();
 
   const confirmReset = () => {
     Alert.alert(
@@ -38,7 +39,10 @@ export default function StatsScreen() {
             {playerName || "Recruit"}
           </Text>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            DAY {day} · {xp} XP · {visitedLocationIds.length} SECTORS EXPLORED
+            WEEK {week} · DAY {day} · {xp} XP
+          </Text>
+          <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+            {visitedLocationIds.length} SECTORS EXPLORED · {examinedIds.length} OBJECTS EXAMINED
           </Text>
         </View>
 

@@ -411,6 +411,57 @@ export function scoreToRelationshipTier(score: number): RelationshipTier {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// DIALOGUE TONE ANALYSIS
+// ─────────────────────────────────────────────────────────────────
+
+export type DialogueSentiment = 'warm' | 'hostile' | 'curious' | 'neutral';
+
+export interface DialogueTone {
+  /** Signed relationship-score delta to apply for this line. */
+  delta: number;
+  /** Emotion the NPC shifts toward in reaction to the player's tone. */
+  emotion: EmotionState;
+  sentiment: DialogueSentiment;
+}
+
+const WARM_WORDS = [
+  'thank', 'thanks', 'please', 'appreciate', 'grateful', 'glad', 'happy',
+  'love', 'great', 'agree', 'help', 'friend', 'sorry', 'congrat', 'nice',
+  'kind', 'respect', 'trust', 'good', 'wonderful', 'care', 'proud', 'welcome',
+];
+
+const HOSTILE_WORDS = [
+  'hate', 'stupid', 'idiot', 'shut up', 'useless', 'liar', 'angry', 'threat',
+  'kill', 'worst', 'terrible', 'awful', 'disgust', 'coward', 'fraud',
+  'pathetic', 'fool', 'annoying', 'dumb', 'ugly', 'enemy', 'shut',
+];
+
+/**
+ * Deterministically read the tone of a player's dialogue line so relationships
+ * can rise AND fall. Warm language builds rapport, hostile language erodes it,
+ * genuine questions earn a little engagement credit, and neutral chatter drifts
+ * up very slightly. Fully offline — pure string inspection, no network.
+ */
+export function analyzeDialogueTone(message: string): DialogueTone {
+  const text = message.toLowerCase();
+  let warm = 0;
+  let hostile = 0;
+  for (const w of WARM_WORDS) if (text.includes(w)) warm += 1;
+  for (const w of HOSTILE_WORDS) if (text.includes(w)) hostile += 1;
+
+  if (hostile > warm) {
+    return { delta: -(3 * (hostile - warm) + 1), emotion: 'angry', sentiment: 'hostile' };
+  }
+  if (warm > hostile) {
+    return { delta: 2 * (warm - hostile) + 2, emotion: 'happy', sentiment: 'warm' };
+  }
+  if (text.trim().endsWith('?')) {
+    return { delta: 2, emotion: 'focused', sentiment: 'curious' };
+  }
+  return { delta: 1, emotion: 'neutral', sentiment: 'neutral' };
+}
+
+// ─────────────────────────────────────────────────────────────────
 // OFFLINE CONTENT PACK (mirrors the server's `/content-pack` shape)
 // ─────────────────────────────────────────────────────────────────
 
@@ -422,14 +473,44 @@ const WEEKLY_THEMES = [
   'Community Outreach Drive',
 ];
 
+const WEEKLY_FOCUS_AREAS: Array<ContentPack['gedFocusAreas']> = [
+  [
+    { subject: 'Math Reasoning', topic: 'Ratios & Proportions', whyNow: 'Comes up often on the practice exam this week.' },
+    { subject: 'Language Arts', topic: 'Reading for Argument', whyNow: "Ties into this week's campus events." },
+  ],
+  [
+    { subject: 'Science', topic: 'Interpreting Data Tables', whyNow: 'The labs are running experiments students can follow along with.' },
+    { subject: 'Math Reasoning', topic: 'Linear Equations', whyNow: 'A recurring stumbling block on recent quizzes.' },
+  ],
+  [
+    { subject: 'Social Studies', topic: 'Reading Primary Sources', whyNow: 'History faculty are leaning into the archives this week.' },
+    { subject: 'Language Arts', topic: 'Editing for Clarity', whyNow: 'Written responses are being graded harder right now.' },
+  ],
+  [
+    { subject: 'Math Reasoning', topic: 'Geometry & Area', whyNow: 'The renovation projects make the shapes feel real.' },
+    { subject: 'Science', topic: 'Cause & Effect', whyNow: 'Ties into the discoveries circulating on campus.' },
+  ],
+];
+
+/** Convert an in-game day (1-indexed) into a 1-indexed week number. */
+export function dayToWeek(day: number): number {
+  return Math.floor((Math.max(1, day) - 1) / 7) + 1;
+}
+
 /**
  * Deterministically builds a `ContentPack` on-device from the bundled event
  * template library so the Campus Bulletin has something to show even when
- * there is no backend reachable. Changes once per in-game day.
+ * there is no backend reachable. The weekly theme and GED focus areas are
+ * keyed to the in-game *week* (so they stay stable as the day/week counter
+ * advances within a week), while the active events rotate each *day*.
  */
 export function generateOfflineContentPack(day: number): ContentPack {
+  const week = dayToWeek(day);
+  const weekRng = new SeededRandom(temporalSeed('content-pack-week', week));
+  const theme = weekRng.pick(WEEKLY_THEMES);
+  const gedFocusAreas = WEEKLY_FOCUS_AREAS[(week - 1) % WEEKLY_FOCUS_AREAS.length];
+
   const rng = new SeededRandom(temporalSeed('content-pack', day));
-  const theme = rng.pick(WEEKLY_THEMES);
 
   const categories = Object.keys(EVENT_TEMPLATES) as EventCategory[];
   const activeEvents: ContentPackEvent[] = [];
@@ -454,18 +535,15 @@ export function generateOfflineContentPack(day: number): ContentPack {
 
   const now = Date.now();
   return {
-    version: 'offline-1',
+    version: `offline-w${week}`,
     generatedAt: now,
     expiresAt: now + 24 * 60 * 60 * 1000,
     worldSeed: hashString(`content-pack-${day}`),
     weeklyTheme: theme,
-    themeContext: `The campus is buzzing this week: ${theme.toLowerCase()}. Faculty and students alike are feeling the shift.`,
+    themeContext: `Week ${week} at the Academy: ${theme.toLowerCase()}. Faculty and students alike are feeling the shift.`,
     activeEvents,
     npcMoodShifts: [],
-    gedFocusAreas: [
-      { subject: 'Math Reasoning', topic: 'Ratios & Proportions', whyNow: 'Comes up often on the practice exam this week.' },
-      { subject: 'Language Arts', topic: 'Reading for Argument', whyNow: 'Ties into this week\'s campus events.' },
-    ],
+    gedFocusAreas,
     generatedBy: 'deterministic',
   };
 }

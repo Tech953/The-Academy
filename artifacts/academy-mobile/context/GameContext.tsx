@@ -20,6 +20,8 @@ import {
   type ContentPack,
 } from "@/lib/api";
 import {
+  analyzeDialogueTone,
+  dayToWeek,
   generateNPCLine,
   generateOfflineConversation,
   generateOfflineContentPack,
@@ -167,6 +169,7 @@ interface GameContextValue {
   stats: Record<StatKey, number>;
   xp: number;
   day: number;
+  week: number;
   relationships: Record<string, RelationshipState>;
   dialogueHistory: Record<string, DialogueMessage[]>;
   studyProgress: Record<GEDSubjectKey, StudyProgress>;
@@ -177,6 +180,7 @@ interface GameContextValue {
   contentPack: ContentPack | null;
   contentPackLoading: boolean;
   startGame: (name: string) => void;
+  advanceDay: () => Promise<void>;
   travelTo: (locationId: LocationId) => Promise<void>;
   refreshLocationDescription: () => Promise<void>;
   examine: (interactableId: string) => Promise<void>;
@@ -297,6 +301,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     await runLocationEnrichment(state.currentLocationId);
   }, [runLocationEnrichment, state.currentLocationId]);
 
+  const advanceDay = useCallback(async () => {
+    const targetLocation = state.currentLocationId;
+    setState((prev) => {
+      const nextDay = prev.day + 1;
+      const crossedWeek = dayToWeek(nextDay) > dayToWeek(prev.day);
+      return {
+        ...prev,
+        day: nextDay,
+        log: [
+          ...prev.log,
+          {
+            id: nextId("log"),
+            type: "system" as const,
+            text: crossedWeek
+              ? `You rest. A new week begins — Week ${dayToWeek(nextDay)}, Day ${nextDay}. The campus bulletin refreshes.`
+              : `You rest. Day ${nextDay} at the Academy begins.`,
+            timestamp: Date.now(),
+          },
+        ].slice(-200) as LogEntry[],
+      };
+    });
+    // Let the current location re-narrate for the new day so the world feels
+    // like it advanced, and allow every location to re-enrich on next visit.
+    hasEnrichedLocation.current.clear();
+    hasEnrichedLocation.current.add(targetLocation);
+    await runLocationEnrichment(targetLocation);
+  }, [runLocationEnrichment, state.currentLocationId]);
+
   useEffect(() => {
     if (!ready || !state.hasStarted) return;
     if (hasEnrichedLocation.current.has(state.currentLocationId)) return;
@@ -373,6 +405,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const location = LOCATIONS[npc.locationId];
       const relationship = getRelationship(state.relationships, npcId);
       const history = state.dialogueHistory[npcId] ?? [];
+      // Read the player's tone so the relationship can rise AND fall, and so
+      // the NPC's mood shifts to match how they were spoken to.
+      const tone = analyzeDialogueTone(message);
+      const reactedEmotion = tone.emotion === "neutral" ? relationship.emotion : tone.emotion;
+
+      const applyRelationship = (prev: PersistedState): Record<string, RelationshipState> => {
+        const prevScore = getRelationship(prev.relationships, npcId).score;
+        const nextScore = Math.max(0, Math.min(100, prevScore + tone.delta));
+        return {
+          ...prev.relationships,
+          [npcId]: {
+            score: nextScore,
+            tier: scoreToRelationshipTier(nextScore),
+            emotion: reactedEmotion,
+          },
+        };
+      };
 
       const playerMsg: DialogueMessage = { role: "player", text: message.trim(), timestamp: Date.now() };
       setState((prev) => ({
@@ -405,53 +454,33 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           throw new Error("offline");
         }
         const reply: DialogueMessage = { role: "npc", text: replyText, timestamp: Date.now() };
-        setState((prev) => {
-          const nextScore = Math.min(100, getRelationship(prev.relationships, npcId).score + 3);
-          return {
-            ...prev,
-            dialogueHistory: {
-              ...prev.dialogueHistory,
-              [npcId]: [...(prev.dialogueHistory[npcId] ?? []), reply],
-            },
-            relationships: {
-              ...prev.relationships,
-              [npcId]: {
-                score: nextScore,
-                tier: scoreToRelationshipTier(nextScore),
-                emotion: relationship.emotion,
-              },
-            },
-          };
-        });
+        setState((prev) => ({
+          ...prev,
+          dialogueHistory: {
+            ...prev.dialogueHistory,
+            [npcId]: [...(prev.dialogueHistory[npcId] ?? []), reply],
+          },
+          relationships: applyRelationship(prev),
+        }));
       } catch {
         const line = generateNPCLine({
           npcId,
           npcName: npc.name,
           archetype: npc.archetype,
-          emotionState: relationship.emotion,
+          emotionState: reactedEmotion,
           lineType: "response",
           playerName: state.playerName || "you",
           dayOffset: state.day - 1,
         });
         const reply: DialogueMessage = { role: "npc", text: line, timestamp: Date.now() };
-        setState((prev) => {
-          const nextScore = Math.min(100, getRelationship(prev.relationships, npcId).score + 2);
-          return {
-            ...prev,
-            dialogueHistory: {
-              ...prev.dialogueHistory,
-              [npcId]: [...(prev.dialogueHistory[npcId] ?? []), reply],
-            },
-            relationships: {
-              ...prev.relationships,
-              [npcId]: {
-                score: nextScore,
-                tier: scoreToRelationshipTier(nextScore),
-                emotion: relationship.emotion,
-              },
-            },
-          };
-        });
+        setState((prev) => ({
+          ...prev,
+          dialogueHistory: {
+            ...prev.dialogueHistory,
+            [npcId]: [...(prev.dialogueHistory[npcId] ?? []), reply],
+          },
+          relationships: applyRelationship(prev),
+        }));
       } finally {
         setDialogueLoading(false);
       }
@@ -552,6 +581,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       stats: state.stats,
       xp: state.xp,
       day: state.day,
+      week: dayToWeek(state.day),
       relationships: state.relationships,
       dialogueHistory: state.dialogueHistory,
       studyProgress: state.studyProgress,
@@ -562,6 +592,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       contentPack,
       contentPackLoading,
       startGame,
+      advanceDay,
       travelTo,
       refreshLocationDescription,
       examine,
@@ -581,6 +612,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       contentPack,
       contentPackLoading,
       startGame,
+      advanceDay,
       travelTo,
       refreshLocationDescription,
       examine,

@@ -16,6 +16,10 @@ Offline-first GED academic RPG companion to the web app, retro CRT terminal look
 
 - Backend already exists (web api-server); mobile calls it via direct fetch — DO NOT add DB/OpenAPI codegen for the mobile artifact.
 
+## Verifying / testing gotchas
+- Fresh environments can be missing an installed dep (e.g. `@react-native-community/netinfo` is in package.json but not in node_modules), which makes both `typecheck` AND the `expo` workflow fail with a "declared but not installed" / netinfo error. Fix: run `pnpm install` at the workspace root — the lockfile already has it, install just materializes node_modules.
+- `runTest` (Playwright e2e) CANNOT reach this Expo app: it routes through the shared proxy where `/` serves the **web** artifact (the "ACADEMY OS" desktop shell), so tests land on the wrong app even when given the absolute expo.worf.replit.dev URL. Verify the mobile app via the `screenshot` tool against $REPLIT_EXPO_DEV_DOMAIN instead (warm up with curl first).
+
 ## APK / EAS build
 - `eas.json` has a `preview` profile that produces an APK (`android.buildType: "apk"`, internal distribution); `production` makes an app-bundle. android package id = `com.theacademy.mobile`.
 - `metro.config.js` is monorepo-aware (watchFolders = workspace root, nodeModulesPaths includes root) so EAS cloud can resolve pnpm-hoisted deps. Default single-package metro config works for dev here but is risky for EAS.

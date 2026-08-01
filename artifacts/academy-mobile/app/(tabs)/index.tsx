@@ -62,6 +62,8 @@ export default function AdventureScreen() {
     isOnline,
     hasStarted,
     currentLocationId,
+    day,
+    week,
     log,
     locationLoading,
     examineLoading,
@@ -69,6 +71,7 @@ export default function AdventureScreen() {
     travelTo,
     refreshLocationDescription,
     examine,
+    advanceDay,
   } = useGame();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -89,7 +92,7 @@ export default function AdventureScreen() {
           <StatusBadge isOnline={isOnline} />
         </View>
         <Text style={[styles.locationType, { color: colors.mutedForeground }]}>
-          SECTOR: {location.type.toUpperCase()}
+          SECTOR: {location.type.toUpperCase()} · WEEK {week} · DAY {day}
         </Text>
         {contentPack ? (
           <View style={[styles.bulletin, { borderColor: colors.accent }]}>
@@ -169,6 +172,19 @@ export default function AdventureScreen() {
                 onPress={() => travelTo(exit.id)}
               />
             ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>TIME</Text>
+          <View style={styles.buttonRow}>
+            <CrtButton
+              label="REST — END DAY"
+              icon="moon"
+              variant="accent"
+              loading={locationLoading}
+              onPress={advanceDay}
+            />
           </View>
         </View>
       </View>
