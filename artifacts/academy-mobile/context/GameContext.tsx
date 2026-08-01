@@ -13,12 +13,14 @@ import type { EmotionState, RelationshipTier } from "@/lib/dialogueTemplates";
 import { LOCATIONS, NPCS, STARTING_LOCATION, type LocationId } from "@/lib/gameWorld";
 import {
   fetchContentPack,
-  fetchExamineDescription,
-  fetchLocationDescription,
-  fetchNpcDialogue,
   hasApiConfig,
   type ContentPack,
 } from "@/lib/api";
+import {
+  resolveLocationDescription,
+  resolveExamineDescription,
+  resolveNpcReply,
+} from "@/lib/gameFallbacks";
 import {
   analyzeDialogueTone,
   dayToWeek,
@@ -261,19 +263,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const npcNames = location.npcIds.map((id) => NPCS[id]?.name).filter(Boolean) as string[];
       setLocationLoading(true);
       try {
-        if (isOnline) {
-          const description = await fetchLocationDescription({
-            locationName: location.name,
-            locationDescription: location.description,
-            npcsPresent: npcNames,
-            interactables: location.interactables.map((i) => i.label),
-          });
-          appendLog({ type: "location", text: description });
-        } else {
-          throw new Error("offline");
-        }
-      } catch {
-        appendLog({ type: "location", text: location.description });
+        const { text } = isOnline
+          ? await resolveLocationDescription(
+              {
+                locationName: location.name,
+                locationDescription: location.description,
+                npcsPresent: npcNames,
+                interactables: location.interactables.map((i) => i.label),
+              },
+              location.description,
+            )
+          : { text: location.description };
+        appendLog({ type: "location", text });
       } finally {
         setLocationLoading(false);
       }
@@ -366,22 +367,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const examinedKey = `${location.id}:${interactableId}`;
       setExamineLoading(interactableId);
       try {
-        let text: string;
-        if (isOnline) {
-          text = await fetchExamineDescription({
-            target: target.label,
-            locationName: location.name,
-            locationDescription: location.description,
-          });
-        } else {
-          throw new Error("offline");
-        }
+        const { text } = isOnline
+          ? await resolveExamineDescription(
+              {
+                target: target.label,
+                locationName: location.name,
+                locationDescription: location.description,
+              },
+              target.description,
+            )
+          : { text: target.description };
         appendLog({ type: "action", text: `You examine the ${target.label}. ${text}` });
-      } catch {
-        appendLog({
-          type: "action",
-          text: `You examine the ${target.label}. ${target.description}`,
-        });
       } finally {
         setExamineLoading(null);
         setState((prev) => {
@@ -434,45 +430,45 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       setDialogueLoading(true);
       try {
-        let replyText: string;
-        if (isOnline) {
-          replyText = await fetchNpcDialogue({
-            npcName: npc.name,
-            npcTitle: npc.title,
-            npcRole: npc.title,
-            npcFaction: npc.faction,
-            npcBackstory: npc.backstory,
-            playerMessage: message.trim(),
-            playerName: state.playerName || "Recruit",
-            locationName: location.name,
-            conversationHistory: history.map((m) => ({
-              isFromPlayer: m.role === "player",
-              content: m.text,
-            })),
-          });
-        } else {
-          throw new Error("offline");
-        }
+        const { text: replyText } = isOnline
+          ? await resolveNpcReply(
+              {
+                npcName: npc.name,
+                npcTitle: npc.title,
+                npcRole: npc.title,
+                npcFaction: npc.faction,
+                npcBackstory: npc.backstory,
+                playerMessage: message.trim(),
+                playerName: state.playerName || "Recruit",
+                locationName: location.name,
+                conversationHistory: history.map((m) => ({
+                  isFromPlayer: m.role === "player",
+                  content: m.text,
+                })),
+              },
+              () =>
+                generateNPCLine({
+                  npcId,
+                  npcName: npc.name,
+                  archetype: npc.archetype,
+                  emotionState: reactedEmotion,
+                  lineType: "response",
+                  playerName: state.playerName || "you",
+                  dayOffset: state.day - 1,
+                }),
+            )
+          : {
+              text: generateNPCLine({
+                npcId,
+                npcName: npc.name,
+                archetype: npc.archetype,
+                emotionState: reactedEmotion,
+                lineType: "response",
+                playerName: state.playerName || "you",
+                dayOffset: state.day - 1,
+              }),
+            };
         const reply: DialogueMessage = { role: "npc", text: replyText, timestamp: Date.now() };
-        setState((prev) => ({
-          ...prev,
-          dialogueHistory: {
-            ...prev.dialogueHistory,
-            [npcId]: [...(prev.dialogueHistory[npcId] ?? []), reply],
-          },
-          relationships: applyRelationship(prev),
-        }));
-      } catch {
-        const line = generateNPCLine({
-          npcId,
-          npcName: npc.name,
-          archetype: npc.archetype,
-          emotionState: reactedEmotion,
-          lineType: "response",
-          playerName: state.playerName || "you",
-          dayOffset: state.day - 1,
-        });
-        const reply: DialogueMessage = { role: "npc", text: line, timestamp: Date.now() };
         setState((prev) => ({
           ...prev,
           dialogueHistory: {
