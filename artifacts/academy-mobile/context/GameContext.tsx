@@ -9,8 +9,8 @@ import React, {
   useState,
 } from "react";
 
-import type { EmotionState, RelationshipTier } from "@/lib/dialogueTemplates";
-import { LOCATIONS, NPCS, STARTING_LOCATION, type LocationId } from "@/lib/gameWorld";
+import type { EmotionState, RelationshipTier } from "@workspace/game-engine";
+import { LOCATIONS, NPCS, STARTING_LOCATION, type LocationId } from "@workspace/game-engine";
 import {
   fetchContentPack,
   hasApiConfig,
@@ -29,8 +29,8 @@ import {
   generateOfflineContentPack,
   generateQuizSet,
   scoreToRelationshipTier,
-} from "@/lib/offlineContentEngine";
-import type { GEDSubjectKey, StudyQuestion } from "@/lib/studyTemplates";
+} from "@workspace/game-engine";
+import type { GEDSubjectKey, StudyQuestion } from "@workspace/game-engine";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const STORAGE_KEY = "academy-mobile-state-v1";

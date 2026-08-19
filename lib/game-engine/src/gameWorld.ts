@@ -1,5 +1,5 @@
 /**
- * Static offline world model for The Academy (Mobile).
+ * Static offline world model for The Academy.
  *
  * Mirrors the campus layout and cast seeded server-side
  * (artifacts/api-server/src/storage.ts / procedural/generators.ts) so the

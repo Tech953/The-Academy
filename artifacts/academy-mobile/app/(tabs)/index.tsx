@@ -15,7 +15,7 @@ import { TerminalLine } from "@/components/TerminalLine";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
-import { LOCATIONS, NPCS } from "@/lib/gameWorld";
+import { LOCATIONS, NPCS } from "@workspace/game-engine";
 
 function EnrollmentScreen() {
   const colors = useColors();

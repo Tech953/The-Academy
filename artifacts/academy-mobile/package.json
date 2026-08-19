@@ -56,5 +56,8 @@
     "vitest": "^4.1.10",
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
+  },
+  "dependencies": {
+    "@workspace/game-engine": "workspace:*"
   }
 }

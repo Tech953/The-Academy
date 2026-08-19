@@ -17,6 +17,9 @@ export interface PackWorldEvent {
   tags: string[];
 }
 
+/** Alias for PackWorldEvent — used by the offline content engine. */
+export type ContentPackEvent = PackWorldEvent;
+
 export interface PackNpcMood {
   npcId: string;
   npcName: string;
@@ -47,7 +50,7 @@ export interface ContentPack {
 /** One week in milliseconds */
 export const PACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** localStorage key for the client-cached pack */
+/** localStorage / AsyncStorage key for the client-cached pack */
 export const CONTENT_PACK_STORAGE_KEY = 'academy-content-pack-v1';
 
 /** API endpoint */

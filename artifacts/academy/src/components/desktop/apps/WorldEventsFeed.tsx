@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { useContentPack } from '@/hooks/useContentPack';
-import type { PackWorldEvent, PackNpcMood, PackGEDFocus } from '@shared/contentPack';
+import type { PackWorldEvent, PackNpcMood, PackGEDFocus } from '@workspace/game-engine';
 import { Wifi, WifiOff, RefreshCw, ChevronDown, ChevronRight, Zap, Users, BookOpen, Globe } from 'lucide-react';
 
 const CATEGORY_COLORS: Record<string, string> = {

@@ -1,1 +1,2 @@
 - [Academy mobile artifact](academy-mobile.md) — Expo companion: offline-first engine, workflow name, font/color conventions, gotchas.
+- [Game engine shared lib](game-engine-lib.md) — @workspace/game-engine: single source for offline content, GED templates, world layout shared by web + mobile.

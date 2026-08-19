@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
-import type { GEDSubjectKey, StudyQuestion } from "@/lib/studyTemplates";
+import type { GEDSubjectKey, StudyQuestion } from "@workspace/game-engine";
 
 const SUBJECTS: { key: GEDSubjectKey; label: string }[] = [
   { key: "math", label: "Math Reasoning" },

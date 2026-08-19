@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
-import { NPCS, type NpcDef } from "@/lib/gameWorld";
+import { NPCS, type NpcDef } from "@workspace/game-engine";
 
 function NpcListItem({
   npc,

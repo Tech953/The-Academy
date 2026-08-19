@@ -5,9 +5,9 @@ import { StarterPerk, LevelUpPerk, STARTER_PERKS } from '@shared/perks';
 import type { StudentCurriculumProgress, GEDSubjectKey, LessonProgress } from '@shared/schema';
 import { emptyProgress, recordQuizAttempt, SUBJECT_STAT_MAP } from '@/lib/gedCurriculum';
 import { LANGUAGE_STAT_MAP } from '@/lib/languageCourseGenerator';
-import { generateNPCLine, inferEmotionState } from '@/lib/offlineContentEngine';
-import { SeededRandom, hashString } from '@/lib/seededRandom';
-import type { Archetype } from '@/lib/dialogueTemplates';
+import { generateNPCLine, inferEmotionState } from '@workspace/game-engine';
+import { SeededRandom, hashString } from '@workspace/game-engine';
+import type { Archetype } from '@workspace/game-engine';
 
 export interface Email {
   id: string;

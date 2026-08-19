@@ -280,6 +280,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/game-engine':
+        specifier: workspace:*
+        version: link:../../lib/game-engine
       autoprefixer:
         specifier: ^10.5.2
         version: 10.5.2(postcss@8.5.16)
@@ -366,6 +369,10 @@ importers:
         version: 3.25.76
 
   artifacts/academy-mobile:
+    dependencies:
+      '@workspace/game-engine':
+        specifier: workspace:*
+        version: link:../../lib/game-engine
     devDependencies:
       '@babel/core':
         specifier: ^7.25.2
@@ -801,6 +808,8 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  lib/game-engine: {}
 
   scripts:
     devDependencies:

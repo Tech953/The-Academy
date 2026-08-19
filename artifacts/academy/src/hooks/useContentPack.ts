@@ -8,9 +8,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ContentPack } from '@shared/contentPack';
-import { CONTENT_PACK_STORAGE_KEY, CONTENT_PACK_ENDPOINT, isPackFresh } from '@shared/contentPack';
-import { generateContentPack } from '@/lib/offlineContentEngine';
+import type { ContentPack } from '@workspace/game-engine';
+import { CONTENT_PACK_STORAGE_KEY, CONTENT_PACK_ENDPOINT, isPackFresh } from '@workspace/game-engine';
+import { generateContentPack } from '@workspace/game-engine';
 
 export interface UseContentPackResult {
   pack: ContentPack | null;

@@ -40,7 +40,7 @@ import {
   inferEmotionState,
   scoreToRelationshipTier,
   analyzeDialogueTone,
-} from '../lib/offlineContentEngine';
+} from '@workspace/game-engine';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared NPC dialogue params fixture
