@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +16,7 @@ import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
 import { NPCS, type NpcDef } from "@workspace/game-engine";
+import { shouldShowShift } from "@/lib/relationshipShift";
 
 function NpcListItem({
   npc,
@@ -49,18 +50,47 @@ function NpcListItem({
 
 export default function NpcScreen() {
   const colors = useColors();
-  const { isOnline, relationships, dialogueHistory, sendDialogue, resetNpcConversation, dialogueLoading } =
-    useGame();
+  const {
+    isOnline,
+    relationships,
+    relationshipShifts,
+    dialogueHistory,
+    sendDialogue,
+    resetNpcConversation,
+    dialogueLoading,
+  } = useGame();
   const [activeNpcId, setActiveNpcId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [visibleShiftAt, setVisibleShiftAt] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  // Timestamps of shifts already shown (or discarded), per NPC — a shift is
+  // displayed at most once, so reopening a chat never replays an old banner.
+  const seenShiftsRef = useRef<Record<string, number>>({});
+
+  const activeShift = activeNpcId ? relationshipShifts[activeNpcId] : undefined;
+
+  // Flash the shift indicator briefly when a NEW shift lands for the open chat.
+  useEffect(() => {
+    if (!activeNpcId || !shouldShowShift(activeShift, seenShiftsRef.current[activeNpcId])) return;
+    const shift = activeShift!;
+    seenShiftsRef.current[activeNpcId] = shift.timestamp;
+    setVisibleShiftAt(shift.timestamp);
+    const timer = setTimeout(() => {
+      setVisibleShiftAt((current) => (current === shift.timestamp ? null : current));
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [activeNpcId, activeShift]);
 
   const npcList = Object.values(NPCS);
   const activeNpc = activeNpcId ? NPCS[activeNpcId] : null;
   const history = activeNpcId ? dialogueHistory[activeNpcId] ?? [] : [];
 
   const openNpc = (id: string) => {
+    // Discard any shift from a previous visit so it can never replay.
+    const existing = relationshipShifts[id];
+    if (existing) seenShiftsRef.current[id] = existing.timestamp;
     setActiveNpcId(id);
+    setVisibleShiftAt(null);
     if (!dialogueHistory[id] || dialogueHistory[id].length === 0) {
       resetNpcConversation(id);
     }
@@ -113,6 +143,31 @@ export default function NpcScreen() {
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
         {activeNpc.title} · {relationships[activeNpc.id]?.tier ?? "stranger"}
       </Text>
+      {activeShift && visibleShiftAt === activeShift.timestamp ? (
+        <View
+          style={[
+            styles.shiftBanner,
+            { borderColor: activeShift.delta > 0 ? colors.primary : colors.destructive },
+          ]}
+        >
+          <Feather
+            name={activeShift.delta > 0 ? "trending-up" : "trending-down"}
+            size={12}
+            color={activeShift.delta > 0 ? colors.primary : colors.destructive}
+          />
+          <Text
+            style={[
+              styles.shiftText,
+              { color: activeShift.delta > 0 ? colors.primary : colors.destructive },
+            ]}
+          >
+            {activeShift.delta > 0 ? "+ warmer" : "- cooler"}
+            {activeShift.fromTier !== activeShift.toTier
+              ? ` · now ${activeShift.toTier.toUpperCase()}`
+              : ""}
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView
         ref={scrollRef}
@@ -208,6 +263,18 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     letterSpacing: 0.5,
   },
+  shiftBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  shiftText: { ...monoFont, fontSize: 10, letterSpacing: 0.5 },
   chatLog: { flex: 1 },
   chatContent: { padding: 16, gap: 10 },
   bubble: {

@@ -32,6 +32,9 @@ import {
 } from "@workspace/game-engine";
 import type { GEDSubjectKey, StudyQuestion } from "@workspace/game-engine";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { computeRelationshipShift, type RelationshipShift } from "@/lib/relationshipShift";
+
+export type { RelationshipShift };
 
 const STORAGE_KEY = "academy-mobile-state-v1";
 
@@ -173,6 +176,7 @@ interface GameContextValue {
   day: number;
   week: number;
   relationships: Record<string, RelationshipState>;
+  relationshipShifts: Record<string, RelationshipShift>;
   dialogueHistory: Record<string, DialogueMessage[]>;
   studyProgress: Record<GEDSubjectKey, StudyProgress>;
   log: LogEntry[];
@@ -207,6 +211,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [locationLoading, setLocationLoading] = useState(false);
   const [examineLoading, setExamineLoading] = useState<string | null>(null);
   const [dialogueLoading, setDialogueLoading] = useState(false);
+  // Transient, in-memory only: the last relationship change per NPC, so the
+  // chat UI can flash a "warmer / cooler" indicator after a reply.
+  const [relationshipShifts, setRelationshipShifts] = useState<Record<string, RelationshipShift>>({});
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const hasEnrichedLocation = useRef<Set<LocationId>>(new Set());
@@ -477,6 +484,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           },
           relationships: applyRelationship(prev),
         }));
+        // Record the shift from the pre-send snapshot so the UI can surface it.
+        const shift = computeRelationshipShift(relationship.score, tone.delta);
+        if (shift) {
+          setRelationshipShifts((prevShifts) => ({ ...prevShifts, [npcId]: shift }));
+        }
       } finally {
         setDialogueLoading(false);
       }
@@ -579,6 +591,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       day: state.day,
       week: dayToWeek(state.day),
       relationships: state.relationships,
+      relationshipShifts,
       dialogueHistory: state.dialogueHistory,
       studyProgress: state.studyProgress,
       log: state.log,
@@ -602,6 +615,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ready,
       isOnline,
       state,
+      relationshipShifts,
       locationLoading,
       examineLoading,
       dialogueLoading,
