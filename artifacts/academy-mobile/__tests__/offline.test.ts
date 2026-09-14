@@ -40,6 +40,8 @@ import {
   inferEmotionState,
   scoreToRelationshipTier,
   analyzeDialogueTone,
+  matchEventsToHeadlines,
+  type OfflineWorldEvent,
 } from '@workspace/game-engine';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -545,6 +547,91 @@ describe('generateOfflineContentPack() — valid pack with no network', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Support utilities — all offline
 // ─────────────────────────────────────────────────────────────────────────────
+
+describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
+  const now = new Date('2026-09-14T12:00:00Z');
+  const day = Math.floor(now.getTime() / 86_400_000);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    vi.stubGlobal('fetch', vi.fn(() => {
+      throw new Error('Headline matching must remain offline');
+    }));
+  });
+
+  afterEach(() => {
+    expect(fetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  function expectValidEvent(event: OfflineWorldEvent) {
+    for (const field of ['id', 'instanceId', 'title', 'description', 'activeNpcReaction', 'activePlayerHook'] as const) {
+      expect(typeof event[field]).toBe('string');
+      expect(event[field].trim().length).toBeGreaterThan(0);
+    }
+    expect(event.startDay).toBe(day);
+    expect(event.instanceId).toBe(`${event.id}-rss-day${day}`);
+    expect(event.id).toBe(event.template.id);
+    expect(event.title).toBe(event.template.title);
+    expect(event.description).toBe(event.template.description);
+    expect(event.template.npcReactions).toContain(event.activeNpcReaction);
+    expect(event.template.playerHooks).toContain(event.activePlayerHook);
+    expect(['academic', 'social', 'crisis', 'discovery', 'competition', 'institutional', 'seasonal', 'mystery'])
+      .toContain(event.template.category);
+    expect(['hours', 'days', 'weeks']).toContain(event.template.duration);
+    for (const field of ['effects', 'npcReactions', 'playerHooks', 'tags'] as const) {
+      expect(event.template[field].length).toBeGreaterThan(0);
+      for (const value of event.template[field]) {
+        expect(typeof value).toBe('string');
+        expect(value.trim().length).toBeGreaterThan(0);
+      }
+    }
+  }
+
+  it('returns an empty array for an empty headline list', () => {
+    expect(matchEventsToHeadlines([])).toEqual([]);
+  });
+
+  it.each(['', '   ', '!!!', 'the', 'and', 'xylophonicallyunmatchable'])(
+    'returns no matches for no-signal headline %j without throwing',
+    (headline) => {
+      expect(matchEventsToHeadlines([headline])).toEqual([]);
+    },
+  );
+
+  it.each(['this', 'today', 'news', 'school'])('handles the common word %j safely', (headline) => {
+    const events = matchEventsToHeadlines([headline]);
+    expect(Array.isArray(events)).toBe(true);
+    expect(events.length).toBeLessThanOrEqual(3);
+    events.forEach(expectValidEvent);
+  });
+
+  it('produces complete events for matching headlines', () => {
+    const events = matchEventsToHeadlines(['Exam assessment study academic pressure']);
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.map(event => event.id)).toContain('exam-week');
+    events.forEach(expectValidEvent);
+  });
+
+  it('normalizes casing and punctuation', () => {
+    expect(matchEventsToHeadlines(['EXAM! ASSESSMENT, STUDY: ACADEMIC PRESSURE.']))
+      .toEqual(matchEventsToHeadlines(['exam assessment study academic pressure']));
+  });
+
+  it('caps matches at three and avoids duplicate event instances', () => {
+    const events = matchEventsToHeadlines(Array(10).fill('exam assessment study science lecture mystery'));
+    expect(events).toHaveLength(3);
+    expect(new Set(events.map(event => event.instanceId)).size).toBe(events.length);
+    events.forEach(expectValidEvent);
+  });
+
+  it('is deterministic within the same day', () => {
+    const headlines = ['Science lecture and exam assessment'];
+    expect(matchEventsToHeadlines(headlines)).toEqual(matchEventsToHeadlines(headlines));
+  });
+});
 
 describe('inferEmotionState() — offline emotion mapping', () => {
   it('returns "angry" when anger is dominant', () => {
