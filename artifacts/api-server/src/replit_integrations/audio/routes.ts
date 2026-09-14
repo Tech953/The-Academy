@@ -5,6 +5,10 @@ import { openai, speechToText, ensureCompatibleFormat } from "./client";
 // Body parser with 50MB limit for audio payloads
 const audioBodyParser = express.json({ limit: "50mb" });
 
+function routeParam(value: string | string[]): string {
+  return Array.isArray(value) ? value[0] ?? "" : value;
+}
+
 export function registerAudioRoutes(app: Express): void {
   // Get all conversations
   app.get("/api/conversations", async (req: Request, res: Response) => {
@@ -20,10 +24,11 @@ export function registerAudioRoutes(app: Express): void {
   // Get single conversation with messages
   app.get("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(routeParam(req.params.id), 10);
       const conversation = await chatStorage.getConversation(id);
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        res.status(404).json({ error: "Conversation not found" });
+        return;
       }
       const messages = await chatStorage.getMessagesByConversation(id);
       res.json({ ...conversation, messages });
@@ -48,7 +53,7 @@ export function registerAudioRoutes(app: Express): void {
   // Delete conversation
   app.delete("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(routeParam(req.params.id), 10);
       await chatStorage.deleteConversation(id);
       res.status(204).send();
     } catch (error) {
@@ -62,11 +67,12 @@ export function registerAudioRoutes(app: Express): void {
   // Uses gpt-4o-mini-transcribe for STT, gpt-audio for voice response
   app.post("/api/conversations/:id/messages", audioBodyParser, async (req: Request, res: Response) => {
     try {
-      const conversationId = parseInt(req.params.id);
+      const conversationId = parseInt(routeParam(req.params.id), 10);
       const { audio, voice = "alloy" } = req.body;
 
       if (!audio) {
-        return res.status(400).json({ error: "Audio data (base64) is required" });
+        res.status(400).json({ error: "Audio data (base64) is required" });
+        return;
       }
 
       // 1. Auto-detect format and convert to OpenAI-compatible format

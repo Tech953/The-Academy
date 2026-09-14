@@ -176,6 +176,8 @@ export class MemStorage implements IStorage {
       ...insertCharacter, 
       id,
       userId: insertCharacter.userId || null,
+      characterSummary: insertCharacter.characterSummary ?? null,
+      physicalTraits: insertCharacter.physicalTraits ?? {},
       subClass: insertCharacter.subClass || null,
       background: insertCharacter.background || null,
       currentLocation: insertCharacter.currentLocation || null,
@@ -265,9 +267,8 @@ export class MemStorage implements IStorage {
       id,
       characterId,
       sessionData,
-      savedAt: new Date(),
-      timestamp: new Date()
-    } as any;
+      timestamp: new Date(),
+    };
     this.gameSessions.set(id, session);
     if (persistentStore.isActive) {
       persistentStore.addSession(characterId, session);
@@ -283,9 +284,7 @@ export class MemStorage implements IStorage {
     const sessions = Array.from(this.gameSessions.values())
       .filter(session => session.characterId === characterId)
       .sort((a, b) => {
-        const aTime = (a as any).savedAt || a.timestamp;
-        const bTime = (b as any).savedAt || b.timestamp;
-        return new Date(bTime!).getTime() - new Date(aTime!).getTime();
+        return new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime();
       });
     return sessions[0];
   }

@@ -7,7 +7,8 @@ export function registerImageRoutes(app: Express): void {
       const { prompt, size = "1024x1024" } = req.body;
 
       if (!prompt) {
-        return res.status(400).json({ error: "Prompt is required" });
+        res.status(400).json({ error: "Prompt is required" });
+        return;
       }
 
       const response = await openai.images.generate({

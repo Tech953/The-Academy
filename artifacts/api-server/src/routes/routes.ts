@@ -290,7 +290,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const character = await storage.getCharacter(req.params.id);
       if (!character) {
-        return res.status(404).json({ error: "Character not found" });
+        res.status(404).json({ error: "Character not found" });
+        return;
       }
       res.json(character);
     } catch (error) {
@@ -314,7 +315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(character);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid character data", details: error.errors });
+        res.status(400).json({ error: "Invalid character data", details: error.issues });
+        return;
       }
       res.status(500).json({ error: "Failed to create character" });
     }
@@ -327,12 +329,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const character = await storage.updateCharacter(req.params.id, validatedUpdates);
       if (!character) {
-        return res.status(404).json({ error: "Character not found" });
+        res.status(404).json({ error: "Character not found" });
+        return;
       }
       res.json(character);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid character update data", details: error.errors });
+        res.status(400).json({ error: "Invalid character update data", details: error.issues });
+        return;
       }
       res.status(500).json({ error: "Failed to update character" });
     }
@@ -342,7 +346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const deleted = await storage.deleteCharacter(req.params.id);
       if (!deleted) {
-        return res.status(404).json({ error: "Character not found" });
+        res.status(404).json({ error: "Character not found" });
+        return;
       }
       res.json({ success: true });
     } catch (error) {
@@ -355,7 +360,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const location = await storage.getLocation(req.params.id);
       if (!location) {
-        return res.status(404).json({ error: "Location not found" });
+        res.status(404).json({ error: "Location not found" });
+        return;
       }
       res.json(location);
     } catch (error) {
@@ -377,7 +383,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const npc = await storage.getNPC(req.params.id);
       if (!npc) {
-        return res.status(404).json({ error: "NPC not found" });
+        res.status(404).json({ error: "NPC not found" });
+        return;
       }
       res.json(npc);
     } catch (error) {
@@ -408,7 +415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const item = await storage.getItem(req.params.id);
       if (!item) {
-        return res.status(404).json({ error: "Item not found" });
+        res.status(404).json({ error: "Item not found" });
+        return;
       }
       res.json(item);
     } catch (error) {
@@ -430,7 +438,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { characterId, gameState } = req.body;
       if (!characterId || !gameState) {
-        return res.status(400).json({ error: "Character ID and game state required" });
+        res.status(400).json({ error: "Character ID and game state required" });
+        return;
       }
       
       const session = await storage.saveGameSession(characterId, gameState);
@@ -444,7 +453,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const session = await storage.getLatestGameSession(req.params.characterId);
       if (!session) {
-        return res.status(404).json({ error: "No saved game found" });
+        res.status(404).json({ error: "No saved game found" });
+        return;
       }
       res.json(session.sessionData);
     } catch (error) {
@@ -458,11 +468,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { input, context } = req.body;
       
       if (!input || typeof input !== 'string') {
-        return res.status(400).json({ error: "Input text is required" });
+        res.status(400).json({ error: "Input text is required" });
+        return;
       }
       
       if (!context) {
-        return res.status(400).json({ error: "Game context is required" });
+        res.status(400).json({ error: "Game context is required" });
+        return;
       }
       
       // Validate context structure
@@ -507,7 +519,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.body;
 
       if (!type || !locationName) {
-        return res.status(400).json({ error: "type and locationName are required" });
+        res.status(400).json({ error: "type and locationName are required" });
+        return;
       }
 
       let systemPrompt: string;
@@ -582,11 +595,13 @@ Write a 2–3 sentence examine description for this object that is immersive and
       const { characterSummary } = req.body;
       
       if (!characterSummary || typeof characterSummary !== 'string') {
-        return res.status(400).json({ error: "Character summary is required" });
+        res.status(400).json({ error: "Character summary is required" });
+        return;
       }
       
       if (characterSummary.length < 20) {
-        return res.status(400).json({ error: "Character summary must be at least 20 characters" });
+        res.status(400).json({ error: "Character summary must be at least 20 characters" });
+        return;
       }
       
       const questions = await generatePhysicalQuestions(characterSummary);
@@ -627,7 +642,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
     try {
       const course = await storage.getCourse(req.params.id);
       if (!course) {
-        return res.status(404).json({ error: "Course not found" });
+        res.status(404).json({ error: "Course not found" });
+        return;
       }
       res.json(course);
     } catch (error) {
@@ -659,14 +675,16 @@ Write a 2–3 sentence examine description for this object that is immersive and
       );
       
       if (alreadyEnrolled) {
-        return res.status(400).json({ error: "Already enrolled in this course" });
+        res.status(400).json({ error: "Already enrolled in this course" });
+        return;
       }
       
       const enrollment = await storage.createEnrollment(enrollmentData);
       res.status(201).json(enrollment);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid enrollment data", details: error.errors });
+        res.status(400).json({ error: "Invalid enrollment data", details: error.issues });
+        return;
       }
       res.status(500).json({ error: "Failed to enroll in course" });
     }
@@ -687,11 +705,13 @@ Write a 2–3 sentence examine description for this object that is immersive and
     try {
       const enrollment = await storage.getEnrollment(req.params.id);
       if (!enrollment) {
-        return res.status(404).json({ error: "Enrollment not found" });
+        res.status(404).json({ error: "Enrollment not found" });
+        return;
       }
       
       if (enrollment.status !== 'enrolled') {
-        return res.status(400).json({ error: "Course already completed or dropped" });
+        res.status(400).json({ error: "Course already completed or dropped" });
+        return;
       }
       
       // Use current grade as final grade
@@ -720,36 +740,42 @@ Write a 2–3 sentence examine description for this object that is immersive and
       const energyCost = 10; // Fixed cost for attending class
       
       if (!characterId) {
-        return res.status(400).json({ error: "Character ID required" });
+        res.status(400).json({ error: "Character ID required" });
+        return;
       }
       
       const enrollment = await storage.getEnrollment(req.params.id);
       if (!enrollment) {
-        return res.status(404).json({ error: "Enrollment not found" });
+        res.status(404).json({ error: "Enrollment not found" });
+        return;
       }
       
       // Verify enrollment belongs to character
       if (enrollment.characterId !== characterId) {
-        return res.status(403).json({ error: "Enrollment does not belong to this character" });
+        res.status(403).json({ error: "Enrollment does not belong to this character" });
+        return;
       }
       
       if (enrollment.status !== 'enrolled') {
-        return res.status(400).json({ error: "Cannot attend inactive enrollment" });
+        res.status(400).json({ error: "Cannot attend inactive enrollment" });
+        return;
       }
       
       // Get character and check energy
       const character = await storage.getCharacter(characterId);
       if (!character) {
-        return res.status(404).json({ error: "Character not found" });
+        res.status(404).json({ error: "Character not found" });
+        return;
       }
       
       const currentEnergy = character.energy ?? 100; // Default to 100 if null
       if (currentEnergy < energyCost) {
-        return res.status(400).json({ 
+        res.status(400).json({
           error: "Insufficient energy",
           required: energyCost,
           available: currentEnergy
         });
+        return;
       }
       
       // Check duplicate attendance
@@ -761,7 +787,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       );
       
       if (alreadyAttended) {
-        return res.status(400).json({ error: "Attendance already marked for this date" });
+        res.status(400).json({ error: "Attendance already marked for this date" });
+        return;
       }
       
       // Atomic update: deduct energy FIRST, then mark attendance
@@ -771,7 +798,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       });
       
       if (!updatedCharacter) {
-        return res.status(500).json({ error: "Failed to update character energy" });
+        res.status(500).json({ error: "Failed to update character energy" });
+        return;
       }
       
       // Clone the attendance array to avoid mutating the original until persistence succeeds
@@ -786,7 +814,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
         await storage.updateCharacter(characterId, {
           energy: currentEnergy, // Restore original computed energy
         });
-        return res.status(500).json({ error: "Failed to mark attendance" });
+        res.status(500).json({ error: "Failed to mark attendance" });
+        return;
       }
       
       res.json({ 
@@ -808,28 +837,33 @@ Write a 2–3 sentence examine description for this object that is immersive and
       const { enrollmentId, submission } = req.body;
       
       if (!enrollmentId || !submission) {
-        return res.status(400).json({ error: "Enrollment ID and submission required" });
+        res.status(400).json({ error: "Enrollment ID and submission required" });
+        return;
       }
       
       const assignment = await storage.getAssignment(req.params.id);
       if (!assignment) {
-        return res.status(404).json({ error: "Assignment not found" });
+        res.status(404).json({ error: "Assignment not found" });
+        return;
       }
       
       // Get enrollment and validate
       const enrollment = await storage.getEnrollment(enrollmentId);
       if (!enrollment) {
-        return res.status(404).json({ error: "Enrollment not found" });
+        res.status(404).json({ error: "Enrollment not found" });
+        return;
       }
       
       // SECURITY: Verify enrollment belongs to the assignment's course
       if (enrollment.courseId !== assignment.courseId) {
-        return res.status(403).json({ error: "Assignment does not belong to this enrollment" });
+        res.status(403).json({ error: "Assignment does not belong to this enrollment" });
+        return;
       }
       
       // SECURITY: Verify enrollment is active
       if (enrollment.status !== 'enrolled') {
-        return res.status(403).json({ error: "Cannot submit to inactive enrollment" });
+        res.status(403).json({ error: "Cannot submit to inactive enrollment" });
+        return;
       }
       
       // Grade the assignment
@@ -935,7 +969,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
     try {
       const textbook = await storage.getTextbook(req.params.id);
       if (!textbook) {
-        return res.status(404).json({ error: "Textbook not found" });
+        res.status(404).json({ error: "Textbook not found" });
+        return;
       }
       res.json(textbook);
     } catch (error) {
@@ -948,7 +983,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
     try {
       const textbook = await storage.getTextbookByCourse(req.params.courseId);
       if (!textbook) {
-        return res.status(404).json({ error: "Textbook not found for this course" });
+        res.status(404).json({ error: "Textbook not found for this course" });
+        return;
       }
       res.json(textbook);
     } catch (error) {
@@ -972,7 +1008,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       const week = parseInt(req.params.week);
       const lecture = await storage.getLectureByWeek(req.params.courseId, week);
       if (!lecture) {
-        return res.status(404).json({ error: "Lecture not found" });
+        res.status(404).json({ error: "Lecture not found" });
+        return;
       }
       res.json(lecture);
     } catch (error) {
@@ -1027,7 +1064,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       } = req.body;
       
       if (!npcName || !playerMessage) {
-        return res.status(400).json({ error: "NPC name and player message are required" });
+        res.status(400).json({ error: "NPC name and player message are required" });
+        return;
       }
       
       const systemPrompt = buildNpcSystemPrompt(npcName, npcTitle, {
@@ -1074,7 +1112,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
     try {
       const { memoryId, prompt } = req.body;
       if (!prompt || typeof prompt !== 'string') {
-        return res.status(400).json({ error: "prompt is required" });
+        res.status(400).json({ error: "prompt is required" });
+        return;
       }
       const fullPrompt = `${prompt}. Style: retro-futuristic Academy RPG, Neo-CRT green terminal aesthetic, dark background, neon accents, cinematic quality, detailed illustration. No text overlays.`;
       const imageOpenai = new OpenAI({ apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY });
@@ -1087,7 +1126,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       });
       const b64 = response.data?.[0]?.b64_json;
       if (!b64) {
-        return res.status(500).json({ error: "No image returned from generation" });
+        res.status(500).json({ error: "No image returned from generation" });
+        return;
       }
       res.json({ imageDataUrl: `data:image/png;base64,${b64}`, memoryId });
     } catch (err: any) {
@@ -1098,9 +1138,17 @@ Write a 2–3 sentence examine description for this object that is immersive and
 
   app.get("/api/rss", async (req, res) => {
     const rawUrl = req.query.url as string;
-    if (!rawUrl) return res.status(400).json({ error: "url query param required" });
+    if (!rawUrl) {
+      res.status(400).json({ error: "url query param required" });
+      return;
+    }
     let feedUrl: string;
-    try { feedUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).json({ error: "invalid url" }); }
+    try {
+      feedUrl = decodeURIComponent(rawUrl);
+    } catch {
+      res.status(400).json({ error: "invalid url" });
+      return;
+    }
     const ALLOWED_DOMAINS = [
       'nasa.gov', 'sciencedaily.com', 'wikipedia.org', 'hnrss.org',
       'nationalgeographic.com', 'technologyreview.com', 'phys.org',
@@ -1108,14 +1156,23 @@ Write a 2–3 sentence examine description for this object that is immersive and
     try {
       const parsed = new URL(feedUrl);
       const ok = ALLOWED_DOMAINS.some(d => parsed.hostname.endsWith(d));
-      if (!ok) return res.status(403).json({ error: "feed domain not allowed" });
-    } catch { return res.status(400).json({ error: "malformed url" }); }
+      if (!ok) {
+        res.status(403).json({ error: "feed domain not allowed" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: "malformed url" });
+      return;
+    }
     try {
       const resp = await fetch(feedUrl, {
         headers: { 'User-Agent': 'AcademyOS/1.0 RSS Reader', 'Accept': 'application/rss+xml, application/xml, text/xml' },
         signal: AbortSignal.timeout(8000),
       });
-      if (!resp.ok) return res.status(502).json({ error: `upstream ${resp.status}` });
+      if (!resp.ok) {
+        res.status(502).json({ error: `upstream ${resp.status}` });
+        return;
+      }
       const xml = await resp.text();
       const items: { title: string; link: string; pubDate?: string; description?: string }[] = [];
       const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
@@ -1147,7 +1204,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
   app.get('/api/content-pack', async (_req, res) => {
     try {
       if (cachedContentPack && isPackFresh(cachedContentPack)) {
-        return res.json(cachedContentPack);
+        res.json(cachedContentPack);
+        return;
       }
       const pack = await generateWeeklyContentPack();
       res.json(pack);
@@ -1297,7 +1355,8 @@ async function registerUrlMetaRoute(app: Express) {
   app.get('/api/fetch-url-meta', async (req, res) => {
     const raw = (req.query.url as string) ?? '';
     if (!raw || !/^https?:\/\//i.test(raw)) {
-      return res.status(400).json({ error: 'Invalid or missing URL parameter' });
+      res.status(400).json({ error: 'Invalid or missing URL parameter' });
+      return;
     }
     try {
       const controller = new AbortController();

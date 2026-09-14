@@ -87,7 +87,7 @@ export const persistentStore = {
   getLatestSession(characterId: string): GameSession | undefined {
     const sessions = data.gameSessions[characterId] || [];
     return sessions.sort((a, b) =>
-      new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+      new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime()
     )[0];
   },
 
