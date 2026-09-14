@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   analyzeDialogueTone,
   dayToWeek,
+  getRelationshipProgress,
   scoreToRelationshipTier,
 } from "@workspace/game-engine";
 import { computeRelationshipShift } from "../lib/relationshipShift";
@@ -64,6 +65,40 @@ describe("relationship tier boundaries", () => {
   it("cannot increase beyond 100 or decrease below 0", () => {
     expect(computeRelationshipShift(100, analyzeDialogueTone("thank you").delta, 123)).toBeNull();
     expect(computeRelationshipShift(0, analyzeDialogueTone("idiot").delta, 123)).toBeNull();
+  });
+
+  it.each([
+    [0, "stranger", 0, 10, 0, "acquaintance"],
+    [5, "stranger", 0, 10, 0.5, "acquaintance"],
+    [10, "acquaintance", 10, 30, 0, "friendly"],
+    [20, "acquaintance", 10, 30, 0.5, "friendly"],
+    [50, "friend", 50, 70, 0, "close"],
+    [80, "close", 70, 90, 0.5, "trusted"],
+    [90, "trusted", 90, 100, 0, null],
+    [100, "trusted", 90, 100, 1, null],
+  ])("score %i reports %s progress toward %s", (score, tier, startScore, endScore, progress, nextTier) => {
+    expect(getRelationshipProgress(score)).toEqual({
+      score,
+      tier,
+      startScore,
+      endScore,
+      progress,
+      nextTier,
+    });
+  });
+
+  it("clamps progress input so a stale score cannot break the UI", () => {
+    expect(getRelationshipProgress(-10)).toMatchObject({
+      score: 0,
+      tier: "stranger",
+      progress: 0,
+    });
+    expect(getRelationshipProgress(125)).toMatchObject({
+      score: 100,
+      tier: "trusted",
+      progress: 1,
+      nextTier: null,
+    });
   });
 });
 
