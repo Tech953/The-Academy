@@ -401,13 +401,60 @@ export function inferEmotionState(emotions: {
 /**
  * Map a numeric relationship score (0–100) to a RelationshipTier.
  */
+const RELATIONSHIP_TIER_BOUNDS: ReadonlyArray<{
+  tier: RelationshipTier;
+  startScore: number;
+  endScore: number;
+  nextTier: RelationshipTier | null;
+}> = [
+  { tier: 'stranger', startScore: 0, endScore: 10, nextTier: 'acquaintance' },
+  { tier: 'acquaintance', startScore: 10, endScore: 30, nextTier: 'friendly' },
+  { tier: 'friendly', startScore: 30, endScore: 50, nextTier: 'friend' },
+  { tier: 'friend', startScore: 50, endScore: 70, nextTier: 'close' },
+  { tier: 'close', startScore: 70, endScore: 90, nextTier: 'trusted' },
+  { tier: 'trusted', startScore: 90, endScore: 100, nextTier: null },
+];
+
 export function scoreToRelationshipTier(score: number): RelationshipTier {
-  if (score >= 90) return 'trusted';
-  if (score >= 70) return 'close';
-  if (score >= 50) return 'friend';
-  if (score >= 30) return 'friendly';
-  if (score >= 10) return 'acquaintance';
+  for (let i = RELATIONSHIP_TIER_BOUNDS.length - 1; i >= 0; i--) {
+    if (score >= RELATIONSHIP_TIER_BOUNDS[i].startScore) {
+      return RELATIONSHIP_TIER_BOUNDS[i].tier;
+    }
+  }
   return 'stranger';
+}
+
+export interface RelationshipProgress {
+  score: number;
+  tier: RelationshipTier;
+  startScore: number;
+  endScore: number;
+  progress: number;
+  nextTier: RelationshipTier | null;
+}
+
+/**
+ * Describe where a score sits inside its current tier.
+ * The returned progress is normalized from 0 to 1 and uses the same
+ * thresholds as scoreToRelationshipTier, so UI hints cannot drift from
+ * relationship behavior.
+ */
+export function getRelationshipProgress(score: number): RelationshipProgress {
+  const normalizedScore = Number.isFinite(score)
+    ? Math.max(0, Math.min(100, score))
+    : 0;
+  const tier = scoreToRelationshipTier(normalizedScore);
+  const bounds = RELATIONSHIP_TIER_BOUNDS.find((entry) => entry.tier === tier)!;
+  const range = bounds.endScore - bounds.startScore;
+
+  return {
+    score: normalizedScore,
+    tier,
+    startScore: bounds.startScore,
+    endScore: bounds.endScore,
+    progress: range === 0 ? 1 : (normalizedScore - bounds.startScore) / range,
+    nextTier: bounds.nextTier,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────

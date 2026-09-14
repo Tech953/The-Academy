@@ -15,19 +15,23 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
-import { NPCS, type NpcDef } from "@workspace/game-engine";
+import { getRelationshipProgress, NPCS, type NpcDef } from "@workspace/game-engine";
 import { shouldShowShift } from "@/lib/relationshipShift";
 
 function NpcListItem({
   npc,
   onPress,
-  tier,
+  score,
 }: {
   npc: NpcDef;
   onPress: () => void;
-  tier: string;
+  score: number;
 }) {
   const colors = useColors();
+  const relationship = getRelationshipProgress(score);
+  const progressLabel = relationship.nextTier
+    ? `${Math.round(relationship.progress * 100)}% TO ${relationship.nextTier.toUpperCase()}`
+    : "MAX TIER";
   return (
     <Pressable
       onPress={onPress}
@@ -39,9 +43,23 @@ function NpcListItem({
       <View style={styles.npcInfo}>
         <Text style={[styles.npcName, { color: colors.primary }]}>{npc.name}</Text>
         <Text style={[styles.npcTitle, { color: colors.mutedForeground }]}>{npc.title}</Text>
+        <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>
+          {relationship.score} / {relationship.endScore} · {progressLabel}
+        </Text>
+        <View style={[styles.progressTrack, { borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                backgroundColor: colors.primary,
+                width: `${Math.round(relationship.progress * 100)}%`,
+              },
+            ]}
+          />
+        </View>
       </View>
       <View style={styles.npcRight}>
-        <Text style={[styles.tierText, { color: colors.accent }]}>{tier.toUpperCase()}</Text>
+        <Text style={[styles.tierText, { color: colors.accent }]}>{relationship.tier.toUpperCase()}</Text>
         <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
       </View>
     </Pressable>
@@ -84,6 +102,9 @@ export default function NpcScreen() {
   const npcList = Object.values(NPCS);
   const activeNpc = activeNpcId ? NPCS[activeNpcId] : null;
   const history = activeNpcId ? dialogueHistory[activeNpcId] ?? [] : [];
+  const activeRelationship = activeNpc
+    ? getRelationshipProgress(relationships[activeNpc.id]?.score ?? 0)
+    : null;
 
   const openNpc = (id: string) => {
     // Discard any shift from a previous visit so it can never replay.
@@ -116,7 +137,7 @@ export default function NpcScreen() {
             <NpcListItem
               key={npc.id}
               npc={npc}
-              tier={relationships[npc.id]?.tier ?? "stranger"}
+              score={relationships[npc.id]?.score ?? 0}
               onPress={() => openNpc(npc.id)}
             />
           ))}
@@ -141,8 +162,33 @@ export default function NpcScreen() {
         <StatusBadge isOnline={isOnline} />
       </View>
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
-        {activeNpc.title} · {relationships[activeNpc.id]?.tier ?? "stranger"}
+        {activeNpc.title} · {activeRelationship?.tier ?? "stranger"}
       </Text>
+      {activeRelationship ? (
+        <View style={styles.chatProgress}>
+          <View style={styles.chatProgressMeta}>
+            <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>
+              RELATIONSHIP {activeRelationship.score} / {activeRelationship.endScore}
+            </Text>
+            <Text style={[styles.progressLabel, { color: colors.accent }]}>
+              {activeRelationship.nextTier
+                ? `NEXT ${activeRelationship.nextTier.toUpperCase()}`
+                : "MAX TIER"}
+            </Text>
+          </View>
+          <View style={[styles.progressTrack, { borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: colors.primary,
+                  width: `${Math.round(activeRelationship.progress * 100)}%`,
+                },
+              ]}
+            />
+          </View>
+        </View>
+      ) : null}
       {activeShift && visibleShiftAt === activeShift.timestamp ? (
         <View
           style={[
@@ -251,17 +297,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 12,
   },
-  npcInfo: { gap: 2 },
+  npcInfo: { flex: 1, gap: 2 },
   npcName: { ...monoFontBold, fontSize: 14 },
   npcTitle: { ...monoFont, fontSize: 11 },
-  npcRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  npcRight: { flexDirection: "row", alignItems: "center", gap: 6, marginLeft: 10 },
   tierText: { ...monoFont, fontSize: 10, letterSpacing: 0.5 },
+  progressLabel: { ...monoFont, fontSize: 9, letterSpacing: 0.4 },
+  progressTrack: {
+    height: 5,
+    borderWidth: 1,
+    width: "100%",
+    marginTop: 3,
+  },
+  progressFill: { height: "100%" },
   npcTitleSub: {
     ...monoFont,
     fontSize: 11,
     paddingHorizontal: 16,
     paddingTop: 8,
     letterSpacing: 0.5,
+  },
+  chatProgress: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  chatProgressMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 4,
   },
   shiftBanner: {
     flexDirection: "row",
