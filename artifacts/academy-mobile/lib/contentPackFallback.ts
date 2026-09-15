@@ -1,6 +1,7 @@
 import {
   CONTENT_PACK_STORAGE_KEY,
   generateOfflineContentPack,
+  isDisplayableContentPackEvent as isSharedDisplayableContentPackEvent,
 } from "@workspace/game-engine";
 
 import type { ContentPack, ContentPackEvent } from "./api";
@@ -23,23 +24,7 @@ const isNonEmptyString = (value: unknown): value is string =>
 export function isDisplayableContentPackEvent(
   value: unknown,
 ): value is ContentPackEvent {
-  if (!value || typeof value !== "object") return false;
-
-  const event = value as Partial<ContentPackEvent>;
-  return (
-    isNonEmptyString(event.id) &&
-    isNonEmptyString(event.title) &&
-    isNonEmptyString(event.description) &&
-    isNonEmptyString(event.npcReaction) &&
-    isNonEmptyString(event.playerHook) &&
-    isNonEmptyString(event.category) &&
-    typeof event.durationDays === "number" &&
-    Number.isFinite(event.durationDays) &&
-    event.durationDays > 0 &&
-    Array.isArray(event.tags) &&
-    event.tags.length > 0 &&
-    event.tags.every(isNonEmptyString)
-  );
+  return isSharedDisplayableContentPackEvent(value);
 }
 
 function eventIdentity(event: ContentPackEvent): string {

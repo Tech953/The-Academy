@@ -599,6 +599,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/game-engine':
+        specifier: workspace:*
+        version: link:../../lib/game-engine
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3

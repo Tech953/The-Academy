@@ -17,6 +17,37 @@ export interface PackWorldEvent {
   tags: string[];
 }
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+/**
+ * Runtime boundary for event records crossing the content-pack API.
+ *
+ * Keep this rule in the shared engine so server responses and mobile fallback
+ * handling agree on the minimum event shape required by bulletin screens.
+ */
+export function isDisplayableContentPackEvent(
+  value: unknown,
+): value is PackWorldEvent {
+  if (!value || typeof value !== 'object') return false;
+
+  const event = value as Partial<PackWorldEvent>;
+  return (
+    isNonEmptyString(event.id) &&
+    isNonEmptyString(event.title) &&
+    isNonEmptyString(event.description) &&
+    isNonEmptyString(event.npcReaction) &&
+    isNonEmptyString(event.playerHook) &&
+    isNonEmptyString(event.category) &&
+    typeof event.durationDays === 'number' &&
+    Number.isFinite(event.durationDays) &&
+    event.durationDays > 0 &&
+    Array.isArray(event.tags) &&
+    event.tags.length > 0 &&
+    event.tags.every(isNonEmptyString)
+  );
+}
+
 /** Alias for PackWorldEvent — used by the offline content engine. */
 export type ContentPackEvent = PackWorldEvent;
 

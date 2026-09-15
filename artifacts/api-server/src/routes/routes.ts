@@ -9,6 +9,10 @@ import { generatePhysicalQuestions } from "../ai/characterQuestions";
 import OpenAI from "openai";
 import type { ContentPack } from "../shared/contentPack";
 import { PACK_TTL_MS, currentWeekKey, isPackFresh } from "../shared/contentPack";
+import {
+  isDisplayableContentPackEvent,
+  type PackWorldEvent,
+} from "@workspace/game-engine";
 import { aiLimiter, contentPackLimiter } from "../middleware/security";
 
 const defaultOpenai = new OpenAI({
@@ -35,8 +39,11 @@ const WEEKLY_THEMES = [
   "The gap between what is taught and what is true",
 ];
 
-const EVENT_CATEGORIES = ['academic', 'social', 'discovery', 'mystery', 'competition', 'crisis', 'institutional'];
-
+const contentPackEventSchema = z.unknown()
+  .refine(isDisplayableContentPackEvent, {
+    message: 'Active event is missing a required displayable field',
+  })
+  .transform(value => value as PackWorldEvent);
 const contentPackSchema = z.object({
   version: z.string().min(1),
   generatedAt: z.number().finite(),
@@ -44,16 +51,7 @@ const contentPackSchema = z.object({
   worldSeed: z.number().finite(),
   weeklyTheme: z.string().min(1),
   themeContext: z.string().min(1),
-  activeEvents: z.array(z.object({
-    id: z.string().min(1),
-    title: z.string().min(1),
-    description: z.string().min(1),
-    npcReaction: z.string().min(1),
-    playerHook: z.string().min(1),
-    category: z.enum(['academic', 'social', 'discovery', 'mystery', 'competition', 'crisis', 'institutional']),
-    durationDays: z.number().finite().positive(),
-    tags: z.array(z.string().min(1)).min(1),
-  })).length(3),
+  activeEvents: z.array(contentPackEventSchema).length(3),
   npcMoodShifts: z.array(z.object({
     npcId: z.string().min(1),
     npcName: z.string().min(1),
@@ -69,7 +67,7 @@ const contentPackSchema = z.object({
   rssHeadlines: z.array(z.string().min(1)).optional(),
 });
 
-function validateContentPack(pack: ContentPack): ContentPack {
+function validateContentPack(pack: unknown): ContentPack {
   return contentPackSchema.parse(pack) as ContentPack;
 }
 
@@ -110,7 +108,9 @@ async function fetchRSSHeadlines(): Promise<string[]> {
   return headlines.slice(0, 10);
 }
 
-async function generateWeeklyContentPack(): Promise<ContentPack> {
+async function generateWeeklyContentPack(
+  openai: Pick<OpenAI, "chat"> = defaultOpenai,
+): Promise<ContentPack> {
   const weekKey = currentWeekKey();
   const now = Date.now();
 
@@ -160,7 +160,7 @@ Rules:
 - Keep all text concise and evocative
 - Never reference real news sources, real people, or the real world directly`;
 
-    const completion = await defaultOpenai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: "gpt-5-mini",
       messages: [{ role: "user", content: prompt }],
       max_completion_tokens: 3000,
@@ -182,16 +182,9 @@ Rules:
       worldSeed: 12345,
       weeklyTheme,
       themeContext: raw.themeContext ?? `The Academy settles into the rhythm of "${weeklyTheme}."`,
-      activeEvents: (raw.activeEvents ?? []).map((e: any) => ({
-        id: e.id ?? 'event-unknown',
-        title: e.title ?? 'Academy Event',
-        description: e.description ?? '',
-        npcReaction: e.npcReaction ?? '',
-        playerHook: e.playerHook ?? '',
-        category: EVENT_CATEGORIES.includes(e.category) ? e.category : 'academic',
-        durationDays: Number(e.durationDays) || 3,
-        tags: Array.isArray(e.tags) ? e.tags : [],
-      })),
+      // Do not fill missing event fields here. The shared schema must see the
+      // model's actual records so malformed output falls back deterministically.
+      activeEvents: Array.isArray(raw.activeEvents) ? raw.activeEvents : [],
       npcMoodShifts: (raw.npcMoodShifts ?? []).map((m: any) => ({
         npcId: m.npcId ?? 'unknown',
         npcName: m.npcName ?? 'Unknown',
@@ -276,10 +269,10 @@ function generateDeterministicPack(weekKey: string, weeklyTheme: string, now: nu
 }
 
 /** Schedule a silent weekly regeneration — called once on server start */
-function scheduleWeeklyPackRefresh() {
+function scheduleWeeklyPackRefresh(openai: Pick<OpenAI, "chat">) {
   const refreshIfStale = async () => {
     if (!cachedContentPack || !isPackFresh(cachedContentPack)) {
-      await generateWeeklyContentPack();
+      await generateWeeklyContentPack(openai);
     }
   };
 
@@ -335,7 +328,7 @@ export async function registerRoutes(
 
   // Start the weekly content pack refresh cycle
   if (!dependencies.skipContentRefresh) {
-    scheduleWeeklyPackRefresh();
+    scheduleWeeklyPackRefresh(openai);
   }
   // Character management routes
   app.get("/api/characters/:id", async (req, res) => {
@@ -1256,10 +1249,15 @@ Write a 2–3 sentence examine description for this object that is immersive and
   app.get('/api/content-pack', async (_req, res) => {
     try {
       if (cachedContentPack && isPackFresh(cachedContentPack)) {
-        res.json(cachedContentPack);
-        return;
+        try {
+          res.json(validateContentPack(cachedContentPack));
+          return;
+        } catch (err) {
+          console.warn('[ContentPack] Cached pack failed final validation, regenerating:', err);
+          cachedContentPack = null;
+        }
       }
-      const pack = await generateWeeklyContentPack();
+      const pack = await generateWeeklyContentPack(openai);
       res.json(pack);
     } catch (err) {
       console.error('[ContentPack] Endpoint error:', err);
@@ -1271,7 +1269,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   app.post('/api/content-pack/refresh', contentPackLimiter, async (_req, res) => {
     try {
       cachedContentPack = null;
-      const pack = await generateWeeklyContentPack();
+      const pack = await generateWeeklyContentPack(openai);
       res.json({ message: `Pack refreshed: ${pack.version}`, generatedBy: pack.generatedBy });
     } catch (err) {
       console.error('[ContentPack] Refresh error:', err);

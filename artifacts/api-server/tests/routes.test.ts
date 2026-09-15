@@ -123,6 +123,90 @@ function makeChatOpenAI(create: ReturnType<typeof vi.fn>) {
 }
 
 describe("main API routes", () => {
+  it("falls back deterministically when a generated bulletin event is malformed", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("", { status: 503 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const create = vi.fn(async () => ({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            themeContext: "A week of tests.",
+            activeEvents: [
+              {
+                id: "malformed-event",
+                title: "Malformed Event",
+                description: "",
+                npcReaction: "Something is wrong.",
+                playerHook: "Investigate.",
+                category: "academic",
+                durationDays: 3,
+                tags: ["test"],
+              },
+              {
+                id: "valid-event-1",
+                title: "Valid Event One",
+                description: "A valid event.",
+                npcReaction: "I noticed.",
+                playerHook: "Look closer.",
+                category: "academic",
+                durationDays: 3,
+                tags: ["valid"],
+              },
+              {
+                id: "valid-event-2",
+                title: "Valid Event Two",
+                description: "Another valid event.",
+                npcReaction: "That matters.",
+                playerHook: "Take part.",
+                category: "social",
+                durationDays: 2,
+                tags: ["valid"],
+              },
+            ],
+            npcMoodShifts: [
+              { npcId: "one", npcName: "One", emotionState: "focused", reason: "work" },
+              { npcId: "two", npcName: "Two", emotionState: "happy", reason: "news" },
+              { npcId: "three", npcName: "Three", emotionState: "sad", reason: "rain" },
+              { npcId: "four", npcName: "Four", emotionState: "calm", reason: "rest" },
+            ],
+            gedFocusAreas: [
+              { subject: "math", topic: "Algebra", whyNow: "Practice" },
+              { subject: "science", topic: "Biology", whyNow: "Review" },
+            ],
+          }),
+        },
+      }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+
+    const result = await request(testServer, "/api/content-pack");
+
+    expect(result.response.status).toBe(200);
+    expect(result.body.generatedBy).toBe("deterministic");
+    expect(result.body.activeEvents).toHaveLength(3);
+    expect(result.body.activeEvents.every((event: Record<string, unknown>) =>
+      typeof event.id === "string" &&
+      typeof event.title === "string" &&
+      typeof event.description === "string" &&
+      typeof event.npcReaction === "string" &&
+      typeof event.playerHook === "string" &&
+      typeof event.category === "string" &&
+      typeof event.durationDays === "number" &&
+      Array.isArray(event.tags),
+    )).toBe(true);
+    expect(result.body.activeEvents.map((event: { id: string }) => event.id))
+      .not.toContain("malformed-event");
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it("returns a shaped 404 for a missing character and stops before mutation", async () => {
     const getCharacter = vi.fn(async () => undefined);
     const updateCharacter = vi.fn();
