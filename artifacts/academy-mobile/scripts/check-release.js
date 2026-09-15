@@ -15,6 +15,26 @@ function readReleaseConfig(configPath = EAS_CONFIG_PATH) {
   }
 }
 
+function getReleaseProfiles(config) {
+  const buildProfiles = config?.build;
+  if (!buildProfiles || typeof buildProfiles !== "object") {
+    throw new Error(
+      "[release-smoke] EAS release configuration must define build profiles.",
+    );
+  }
+
+  return Object.entries(buildProfiles)
+    .filter(([, releaseProfile]) => {
+      const env = releaseProfile?.env;
+      return (
+        env &&
+        typeof env === "object" &&
+        Object.prototype.hasOwnProperty.call(env, "EXPO_PUBLIC_DOMAIN")
+      );
+    })
+    .map(([profile]) => profile);
+}
+
 function getReleaseDomain(config, profile) {
   const releaseProfile = config?.build?.[profile];
   const rawDomain = releaseProfile?.env?.EXPO_PUBLIC_DOMAIN;
@@ -149,15 +169,78 @@ async function runReleaseSmokeCheck({
   };
 }
 
-if (require.main === module) {
-  const profile = process.argv[2] || process.env.RELEASE_PROFILE || DEFAULT_PROFILE;
+async function runReleaseSmokeChecks({
+  configPath = EAS_CONFIG_PATH,
+  fetchImpl = fetch,
+} = {}) {
+  const config = readReleaseConfig(configPath);
+  const profiles = getReleaseProfiles(config);
 
-  runReleaseSmokeCheck({ profile })
-    .then(({ profile: checkedProfile, domain, healthUrl, aiUrl }) => {
-      console.log(
-        `[release-smoke] ${checkedProfile} passed for ${domain}: ${healthUrl} and ${aiUrl}`,
+  if (profiles.length === 0) {
+    throw new Error(
+      "[release-smoke] No EAS build profiles define EXPO_PUBLIC_DOMAIN in eas.json.",
+    );
+  }
+
+  const passed = [];
+  const failed = [];
+
+  for (const profile of profiles) {
+    try {
+      passed.push(
+        await runReleaseSmokeCheck({
+          profile,
+          configPath,
+          fetchImpl,
+        }),
       );
-    })
+    } catch (error) {
+      failed.push({
+        profile,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    }
+  }
+
+  return { profiles, passed, failed };
+}
+
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  const allProfiles =
+    args.includes("--all") ||
+    args.includes("--all-profiles") ||
+    process.env.RELEASE_PROFILE === "all";
+  const profile =
+    args.find((argument) => !argument.startsWith("--")) ||
+    process.env.RELEASE_PROFILE ||
+    DEFAULT_PROFILE;
+
+  const check = allProfiles
+    ? runReleaseSmokeChecks().then(({ passed, failed }) => {
+        for (const result of passed) {
+          console.log(
+            `[release-smoke] ${result.profile} passed for ${result.domain}: ${result.healthUrl} and ${result.aiUrl}`,
+          );
+        }
+        for (const failure of failed) {
+          console.error(
+            `[release-smoke] ${failure.profile} failed: ${failure.error.message}`,
+          );
+        }
+        if (failed.length > 0) {
+          process.exitCode = 1;
+        }
+      })
+    : runReleaseSmokeCheck({ profile }).then(
+        ({ profile: checkedProfile, domain, healthUrl, aiUrl }) => {
+          console.log(
+            `[release-smoke] ${checkedProfile} passed for ${domain}: ${healthUrl} and ${aiUrl}`,
+          );
+        },
+      );
+
+  check
     .catch((error) => {
       console.error(error.message);
       process.exitCode = 1;
@@ -166,6 +249,8 @@ if (require.main === module) {
 
 module.exports = {
   getReleaseDomain,
+  getReleaseProfiles,
   readReleaseConfig,
   runReleaseSmokeCheck,
+  runReleaseSmokeChecks,
 };
