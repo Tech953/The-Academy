@@ -97,6 +97,14 @@ body {
   border: 0.12vw solid rgba(121, 255, 134, 0.36);
 }
 
+.paper-terminal {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
+    #dcebcf;
+  border: 0.12vw solid #78917b;
+  box-shadow: inset 0 0 0 0.1vw rgba(18, 32, 20, 0.12);
+}
+
 .crt-muted {
   color: #86aa8b;
 }

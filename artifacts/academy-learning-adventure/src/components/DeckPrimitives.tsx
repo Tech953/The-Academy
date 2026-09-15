@@ -11,7 +11,7 @@ export function SlideFrame({ no, eyebrow, title, subtitle, children, dark = fals
         <div className="text-[1.6vw] uppercase tracking-[0.17em] text-[#ffbd69]">{eyebrow}</div>
         <h1 className="mt-[1.2vh] max-w-[82vw] text-[3.7vw] font-bold leading-[1.06] tracking-[-0.055em] text-[#d8ffda] crt-glow">{title}</h1>
         {subtitle ? <p className="mt-[1.4vh] max-w-[78vw] text-[2vw] leading-[1.35] text-[#9cc7a0]">{subtitle}</p> : null}
-        <div className="mt-[4vh] h-[62vh]">{children}</div>
+        <div className="mt-[4vh] h-[56vh] overflow-hidden">{children}</div>
       </div>
       <div className="absolute bottom-[2.5vh] left-[5.5vw] right-[5.5vw] z-10 flex justify-between text-[1.5vw] tracking-[0.12em] text-[#527659]"><span>GED ACADEMIC RPG</span><span>PHOSPHOR ARCHIVE / 1980s INSTITUTIONAL COMPUTER</span></div>
     </div>
