@@ -9,6 +9,7 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "validate-slides": "pnpm exec tsx scripts/validate-slides.ts",
     "validate-exports": "pnpm exec tsx scripts/validate-exports.ts",
+    "validate-routes": "pnpm exec tsx scripts/validate-routes.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
