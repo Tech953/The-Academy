@@ -230,6 +230,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const hasEnrichedLocation = useRef<Set<LocationId>>(new Set());
+  const weeklyTheme =
+    contentPack?.weeklyTheme ?? generateOfflineContentPack(state.day).weeklyTheme;
 
   useEffect(() => {
     (async () => {
@@ -474,6 +476,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                   emotionState: reactedEmotion,
                   lineType: "response",
                   playerName: state.playerName || "you",
+                  weeklyTheme,
                   dayOffset: state.day - 1,
                 }),
             )
@@ -485,6 +488,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                 emotionState: reactedEmotion,
                 lineType: "response",
                 playerName: state.playerName || "you",
+                weeklyTheme,
                 dayOffset: state.day - 1,
               }),
             };
@@ -506,7 +510,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setDialogueLoading(false);
       }
     },
-    [isOnline, state.relationships, state.dialogueHistory, state.playerName, state.day],
+    [isOnline, state.relationships, state.dialogueHistory, state.playerName, state.day, weeklyTheme],
   );
 
   const resetNpcConversation = useCallback((npcId: string) => {
@@ -522,6 +526,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         playerName: prev.playerName || "stranger",
         location: LOCATIONS[npc.locationId].name,
         faction: npc.faction ?? "unaffiliated",
+        weeklyTheme,
         dayOffset: prev.day - 1,
       });
       return {
@@ -534,7 +539,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         },
       };
     });
-  }, []);
+  }, [weeklyTheme]);
 
   const getQuizSet = useCallback(
     (subject: GEDSubjectKey): StudyQuestion[] => {

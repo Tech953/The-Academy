@@ -510,6 +510,35 @@ describe('generateOfflineConversation() — full conversation with no network', 
       expect(line.text.trim().length).toBeGreaterThan(0);
     }
   });
+
+  it('occasionally references the weekly theme deterministically', () => {
+    const theme = 'Community Outreach Drive';
+    const options = {
+      npcId: 'npc_torres',
+      npcName: 'Ms. Torres',
+      archetype: 'mentor' as const,
+      emotionState: 'neutral' as const,
+      relationshipTier: 'friend' as const,
+      weeklyTheme: theme,
+    };
+    const firstPass = Array.from({ length: 21 }, (_, dayOffset) =>
+      generateNPCLine({
+        ...options,
+        lineType: 'response',
+        dayOffset,
+      }),
+    );
+    const secondPass = Array.from({ length: 21 }, (_, dayOffset) =>
+      generateNPCLine({
+        ...options,
+        lineType: 'response',
+        dayOffset,
+      }),
+    );
+
+    expect(firstPass).toEqual(secondPass);
+    expect(firstPass.some((line) => line.includes(theme))).toBe(true);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

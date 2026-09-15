@@ -95,10 +95,7 @@ export interface ContentPackSummary {
   featuredQuizSets: OfflineQuizSet[];
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DIALOGUE GENERATOR
-// ─────────────────────────────────────────────────────────────────
-
+type DialogueLineType = OfflineDialogueLine['type'];
 /**
  * Generate a full offline conversation for an NPC.
  * Deterministic: same inputs → same output, always.
@@ -113,12 +110,13 @@ export function generateOfflineConversation(opts: {
   location?: string;
   faction?: string;
   topic?: string;
+  weeklyTheme?: string;
   dayOffset?: number;
 }): OfflineConversation {
   const {
     npcId, npcName, archetype, emotionState, relationshipTier,
     playerName = 'stranger', location = 'the Academy',
-    faction = 'unaffiliated', topic, dayOffset = 0
+    faction = 'unaffiliated', topic, weeklyTheme, dayOffset = 0
   } = opts;
 
   const rng = new SeededRandom(temporalSeed(npcId, dayOffset));
@@ -149,7 +147,12 @@ export function generateOfflineConversation(opts: {
     ? `${tierPrefix} ${fillTemplate(openingText, vars)}`
     : fillTemplate(openingText, vars);
 
-  lines.push({ speaker: npcName, text: finalOpening, type: 'opening', relationshipTier });
+  lines.push({
+    speaker: npcName,
+    text: addWeeklyThemeReference(finalOpening, 'opening', weeklyTheme, rng),
+    type: 'opening',
+    relationshipTier,
+  });
 
   // Response pool
   const numResponses = rng.int(1, 2);
@@ -191,9 +194,20 @@ export function generateNPCLine(opts: {
   lineType: 'opening' | 'response' | 'question' | 'farewell';
   playerName?: string;
   topic?: string;
+  weeklyTheme?: string;
   dayOffset?: number;
 }): string {
-  const { npcId, npcName, archetype, emotionState, lineType, playerName = 'you', topic, dayOffset = 0 } = opts;
+  const {
+    npcId,
+    npcName,
+    archetype,
+    emotionState,
+    lineType,
+    playerName = 'you',
+    topic,
+    weeklyTheme,
+    dayOffset = 0,
+  } = opts;
   const rng = new SeededRandom(temporalSeed(npcId, dayOffset) ^ hashString(lineType));
   const safeArchetype: Archetype = DIALOGUE_TEMPLATES[archetype] ? archetype : 'scholar';
   const template = DIALOGUE_TEMPLATES[safeArchetype][emotionState];
@@ -213,7 +227,7 @@ export function generateNPCLine(opts: {
     day: `day ${dayOffset + 1}`,
   };
 
-  return fillTemplate(rng.pick(pool), vars);
+  return addWeeklyThemeReference(fillTemplate(rng.pick(pool), vars), lineType, weeklyTheme, rng);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -637,3 +651,27 @@ export {
   ALL_QUESTIONS,
   STUDY_PROMPTS,
 };
+
+/**
+ * Occasionally connect a deterministic line to the active campus theme.
+ * The seeded RNG makes this stable for the same NPC/day while still keeping
+ * the reference from appearing in every line.
+ */
+function addWeeklyThemeReference(
+  text: string,
+  lineType: DialogueLineType,
+  weeklyTheme: string | undefined,
+  rng: SeededRandom,
+): string {
+  const theme = weeklyTheme?.trim();
+  if (!theme || !rng.bool(0.35)) return text;
+
+  const referenceByType: Record<DialogueLineType, string> = {
+    opening: `The campus keeps circling back to "${theme}" this week.`,
+    response: `With "${theme}" on everyone's mind, that feels worth considering.`,
+    question: `How do you think "${theme}" will change things around here?`,
+    farewell: `Keep an eye on how "${theme}" unfolds this week.`,
+  };
+  const separator = /[.!?]$/.test(text.trim()) ? ' ' : '. ';
+  return `${text}${separator}${referenceByType[lineType]}`;
+}

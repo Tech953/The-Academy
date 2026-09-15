@@ -5,7 +5,11 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
-import type { GEDSubjectKey, StudyQuestion } from "@workspace/game-engine";
+import {
+  generateOfflineContentPack,
+  type GEDSubjectKey,
+  type StudyQuestion,
+} from "@workspace/game-engine";
 
 const SUBJECTS: { key: GEDSubjectKey; label: string }[] = [
   { key: "math", label: "Math Reasoning" },
@@ -13,6 +17,28 @@ const SUBJECTS: { key: GEDSubjectKey; label: string }[] = [
   { key: "science", label: "Science" },
   { key: "social_studies", label: "Social Studies" },
 ];
+
+function focusSubjectKey(subject: string): GEDSubjectKey | null {
+  const normalized = subject.trim().toLowerCase().replace(/[-\s]+/g, "_");
+  if (normalized === "math" || normalized.includes("math")) return "math";
+  if (
+    normalized === "language_arts" ||
+    normalized.includes("language") ||
+    normalized.includes("reading") ||
+    normalized.includes("writing")
+  ) {
+    return "language_arts";
+  }
+  if (normalized === "science" || normalized.includes("science")) return "science";
+  if (
+    normalized === "social_studies" ||
+    normalized.includes("social") ||
+    normalized.includes("history")
+  ) {
+    return "social_studies";
+  }
+  return null;
+}
 
 function QuestionCard({
   question,
@@ -74,10 +100,33 @@ function QuestionCard({
 
 export default function StudyScreen() {
   const colors = useColors();
-  const { isOnline, studyProgress, getQuizSet, answerQuestion } = useGame();
+  const { isOnline, day, week, studyProgress, contentPack, getQuizSet, answerQuestion } = useGame();
   const [subject, setSubject] = useState<GEDSubjectKey | null>(null);
 
-  const questions = useMemo(() => (subject ? getQuizSet(subject) : []), [subject]);
+  // Show the bundled pack immediately, then replace it with the synced pack
+  // when available. This keeps the weekly focus useful while fully offline.
+  const studyPack = useMemo(
+    () => contentPack ?? generateOfflineContentPack(day),
+    [contentPack, day],
+  );
+  const focusAreas = studyPack.gedFocusAreas;
+  const focusBySubject = useMemo(() => {
+    const grouped: Partial<Record<GEDSubjectKey, typeof focusAreas>> = {};
+    for (const focus of focusAreas) {
+      const key = focusSubjectKey(focus.subject);
+      if (!key) continue;
+      grouped[key] = [...(grouped[key] ?? []), focus];
+    }
+    return grouped;
+  }, [focusAreas]);
+  const orderedSubjects = useMemo(
+    () =>
+      [...SUBJECTS].sort(
+        (a, b) => Number(Boolean(focusBySubject[b.key])) - Number(Boolean(focusBySubject[a.key])),
+      ),
+    [focusBySubject],
+  );
+  const questions = useMemo(() => (subject ? getQuizSet(subject) : []), [getQuizSet, subject]);
 
   if (!subject) {
     return (
@@ -89,21 +138,61 @@ export default function StudyScreen() {
           <StatusBadge isOnline={isOnline} />
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
-          {SUBJECTS.map((s) => {
+          <View style={[styles.focusPanel, { borderColor: colors.accent }]}>
+            <Text style={[styles.focusLabel, { color: colors.accent }]}>
+              WEEK {week} STUDY FOCUS
+            </Text>
+            <Text style={[styles.focusTheme, { color: colors.foreground }]}>
+              {studyPack.weeklyTheme}
+            </Text>
+            {focusAreas.map((focus, index) => (
+              <View key={`${focus.subject}-${focus.topic}-${index}`} style={styles.focusItem}>
+                <Text style={[styles.focusTopic, { color: colors.primary }]}>
+                  {focus.subject} · {focus.topic}
+                </Text>
+                <Text style={[styles.focusWhy, { color: colors.mutedForeground }]}>
+                  {focus.whyNow}
+                </Text>
+              </View>
+            ))}
+          </View>
+          {orderedSubjects.map((s) => {
             const progress = studyProgress[s.key];
+            const subjectFocus = focusBySubject[s.key] ?? [];
+            const isFocused = subjectFocus.length > 0;
             return (
               <Pressable
                 key={s.key}
                 onPress={() => setSubject(s.key)}
                 style={({ pressed }) => [
                   styles.subjectRow,
-                  { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                  {
+                    borderColor: isFocused ? colors.accent : colors.border,
+                    opacity: pressed ? 0.6 : 1,
+                  },
                 ]}
               >
-                <Text style={[styles.subjectLabel, { color: colors.primary }]}>{s.label}</Text>
-                <Text style={[styles.subjectStats, { color: colors.mutedForeground }]}>
-                  {progress.correct}/{progress.answered} correct
-                </Text>
+                <View style={styles.subjectCopy}>
+                  <Text style={[styles.subjectLabel, { color: isFocused ? colors.accent : colors.primary }]}>
+                    {s.label}
+                  </Text>
+                  {subjectFocus.map((focus, index) => (
+                    <Text
+                      key={`${focus.topic}-${index}`}
+                      style={[styles.subjectFocus, { color: colors.mutedForeground }]}
+                    >
+                      FOCUS: {focus.topic}
+                    </Text>
+                  ))}
+                </View>
+                <View style={styles.subjectMeta}>
+                  {isFocused ? (
+                    <Text style={[styles.thisWeek, { color: colors.accent }]}>THIS WEEK</Text>
+                  ) : null}
+                  <Text style={[styles.subjectStats, { color: colors.mutedForeground }]}>
+                    {progress.correct}/{progress.answered} correct
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
@@ -151,14 +240,25 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
   },
   listContent: { padding: 16, gap: 12 },
+  focusPanel: { borderWidth: 1, padding: 12, gap: 8 },
+  focusLabel: { ...monoFontBold, fontSize: 10, letterSpacing: 1 },
+  focusTheme: { ...monoFontBold, fontSize: 14 },
+  focusItem: { gap: 3 },
+  focusTopic: { ...monoFont, fontSize: 12 },
+  focusWhy: { ...monoFont, fontSize: 10, lineHeight: 14 },
   subjectRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderWidth: 1,
     padding: 14,
+    gap: 12,
   },
+  subjectCopy: { flex: 1, gap: 4 },
   subjectLabel: { ...monoFontBold, fontSize: 14 },
+  subjectFocus: { ...monoFont, fontSize: 10 },
+  subjectMeta: { alignItems: "flex-end", gap: 4 },
+  thisWeek: { ...monoFontBold, fontSize: 9, letterSpacing: 0.5 },
   subjectStats: { ...monoFont, fontSize: 11 },
   card: {
     borderWidth: 1,
