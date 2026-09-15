@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/academy-learning-adventure/"
+title = "The Academy — Learning Adventure"
+description = "A 30-slide pitch deck for The Academy, a GED-focused academic RPG that turns study, assignments, relationships, and progress into a retro CRT desktop adventure for educators, partners, funders, and collaborators."
+version = "1.0.0"
+id = "artifacts/academy-learning-adventure"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/academy-learning-adventure/" ]
+localPort = 21366
+
+[services.development]
+run = "pnpm --filter @workspace/academy-learning-adventure run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/academy-learning-adventure", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/academy-learning-adventure/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21366"
+BASE_PATH = "/academy-learning-adventure/"
