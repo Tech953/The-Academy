@@ -64,3 +64,27 @@ content-pack enrichment are enabled in distributed builds:
 The public hostname is configuration, not a credential. If the published
 backend is unavailable, `lib/gameFallbacks.ts` returns bundled deterministic
 content and the core study loop remains local.
+
+## Native handoff preflight
+
+Use the handoff command for a profile-scoped EAS build. It runs the release
+connectivity check first and will not start EAS when health or AI enrichment
+fails:
+
+```bash
+RELEASE_PROFILE=preview pnpm --filter @workspace/academy-mobile run native-handoff
+```
+
+The command defaults to an Android preview build. Override the profile or
+platform when needed:
+
+```bash
+pnpm --filter @workspace/academy-mobile run native-handoff -- \
+  --profile production --platform android
+```
+
+To verify the preflight without starting a cloud build:
+
+```bash
+pnpm --filter @workspace/academy-mobile run native-handoff -- --check-only
+```
