@@ -60,6 +60,7 @@ export default function AdventureScreen() {
   const {
     ready,
     isOnline,
+    enrichmentStatus,
     hasStarted,
     currentLocationId,
     day,
@@ -89,7 +90,7 @@ export default function AdventureScreen() {
           <Text style={[styles.locationName, { color: colors.primary, textShadowColor: colors.primary }]}>
             {location.name.toUpperCase()}
           </Text>
-          <StatusBadge isOnline={isOnline} />
+          <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
         </View>
         <Text style={[styles.locationType, { color: colors.mutedForeground }]}>
           SECTOR: {location.type.toUpperCase()} · WEEK {week} · DAY {day}

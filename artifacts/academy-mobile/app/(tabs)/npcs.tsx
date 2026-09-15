@@ -70,6 +70,7 @@ export default function NpcScreen() {
   const colors = useColors();
   const {
     isOnline,
+    enrichmentStatus,
     relationships,
     relationshipShifts,
     dialogueHistory,
@@ -131,7 +132,7 @@ export default function NpcScreen() {
           <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
             CAMPUS DIRECTORY
           </Text>
-          <StatusBadge isOnline={isOnline} />
+          <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
         </View>
         <View style={[styles.themeCue, { borderColor: colors.accent }]}>
           <Text style={[styles.themeCueLabel, { color: colors.accent }]}>WEEKLY CAMPUS THEME</Text>
@@ -164,7 +165,7 @@ export default function NpcScreen() {
             {activeNpc.name.toUpperCase()}
           </Text>
         </Pressable>
-        <StatusBadge isOnline={isOnline} />
+        <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
       </View>
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
         {activeNpc.title} · {activeRelationship?.tier ?? "stranger"}

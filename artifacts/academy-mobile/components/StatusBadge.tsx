@@ -3,14 +3,37 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { monoFontBold } from "@/constants/fonts";
 import { useColors } from "@/hooks/useColors";
+import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
 
-export function StatusBadge({ isOnline }: { isOnline: boolean }) {
+export function StatusBadge({
+  isOnline,
+  enrichmentStatus,
+}: {
+  isOnline: boolean;
+  enrichmentStatus?: EnrichmentStatus;
+}) {
   const colors = useColors();
-  const color = isOnline ? colors.primary : colors.accent;
+  const status = enrichmentStatus ?? (isOnline ? "live" : "offline");
+  const statusCopy = {
+    checking: "CHECKING API",
+    live: "LIVE AI",
+    offline: "LOCAL MODE",
+    fallback: "LOCAL FALLBACK",
+  } satisfies Record<EnrichmentStatus, string>;
+  const color =
+    status === "live"
+      ? colors.primary
+      : status === "checking"
+        ? colors.mutedForeground
+        : colors.accent;
   return (
-    <View style={[styles.container, { borderColor: color }]}>
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`Content mode: ${statusCopy[status]}`}
+      style={[styles.container, { borderColor: color }]}
+    >
       <View style={[styles.dot, { backgroundColor: color, shadowColor: color }]} />
-      <Text style={[styles.label, { color }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text>
+      <Text style={[styles.label, { color }]}>{statusCopy[status]}</Text>
     </View>
   );
 }

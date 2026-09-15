@@ -100,7 +100,16 @@ function QuestionCard({
 
 export default function StudyScreen() {
   const colors = useColors();
-  const { isOnline, day, week, studyProgress, contentPack, getQuizSet, answerQuestion } = useGame();
+  const {
+    isOnline,
+    enrichmentStatus,
+    day,
+    week,
+    studyProgress,
+    contentPack,
+    getQuizSet,
+    answerQuestion,
+  } = useGame();
   const [subject, setSubject] = useState<GEDSubjectKey | null>(null);
 
   // Show the bundled pack immediately, then replace it with the synced pack
@@ -135,7 +144,7 @@ export default function StudyScreen() {
           <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
             GED PREP
           </Text>
-          <StatusBadge isOnline={isOnline} />
+          <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
           <View style={[styles.focusPanel, { borderColor: colors.accent }]}>
@@ -210,7 +219,7 @@ export default function StudyScreen() {
             {SUBJECTS.find((s) => s.key === subject)?.label.toUpperCase()}
           </Text>
         </Pressable>
-        <StatusBadge isOnline={isOnline} />
+        <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
       </View>
       <ScrollView contentContainerStyle={styles.listContent}>
         {questions.map((q) => (

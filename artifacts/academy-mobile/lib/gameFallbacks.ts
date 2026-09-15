@@ -20,7 +20,8 @@ import {
   type NpcDialogueParams,
 } from './api';
 
-export type ContentSource = 'online' | 'offline';
+export type { ContentSource } from './enrichmentStatus';
+import type { ContentSource } from './enrichmentStatus';
 
 // ─────────────────────────────────────────────────────────────────
 // Location description

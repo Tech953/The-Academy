@@ -11,7 +11,19 @@ import { useColors } from "@/hooks/useColors";
 
 export default function StatsScreen() {
   const colors = useColors();
-  const { isOnline, playerName, day, week, xp, stats, inventory, visitedLocationIds, examinedIds, resetGame } =
+  const {
+    isOnline,
+    enrichmentStatus,
+    playerName,
+    day,
+    week,
+    xp,
+    stats,
+    inventory,
+    visitedLocationIds,
+    examinedIds,
+    resetGame,
+  } =
     useGame();
 
   const confirmReset = () => {
@@ -31,7 +43,7 @@ export default function StatsScreen() {
         <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
           STUDENT FILE
         </Text>
-        <StatusBadge isOnline={isOnline} />
+        <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.card, { borderColor: colors.border }]}>
