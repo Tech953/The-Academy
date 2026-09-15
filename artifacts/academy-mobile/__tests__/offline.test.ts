@@ -44,6 +44,7 @@ import {
   analyzeDialogueTone,
   matchEventsToHeadlines,
   EVENT_TEMPLATES,
+  validateEventTemplateTags,
   type OfflineWorldEvent,
 } from '@workspace/game-engine';
 
@@ -680,6 +681,55 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
       }
     }
   }
+
+  it('keeps the complete event-template library ready for headline matching', () => {
+    expect(validateEventTemplateTags()).toEqual([]);
+  });
+
+  it('reports malformed tags with template identity and category', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const issues = validateEventTemplateTags([
+      {
+        ...sourceTemplate,
+        id: 'malformed-tag-fixture',
+        tags: ['', '   ', ' Math ', 'math', 'MATH'],
+      },
+    ]);
+
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        templateId: 'malformed-tag-fixture',
+        category: 'academic',
+        tagIndex: 0,
+        reason: 'blank',
+      }),
+      expect.objectContaining({
+        templateId: 'malformed-tag-fixture',
+        category: 'academic',
+        tagIndex: 1,
+        reason: 'whitespace-only',
+      }),
+      expect.objectContaining({
+        templateId: 'malformed-tag-fixture',
+        category: 'academic',
+        tagIndex: 2,
+        reason: 'untrimmed',
+      }),
+      expect.objectContaining({
+        templateId: 'malformed-tag-fixture',
+        category: 'academic',
+        tagIndex: 2,
+        reason: 'not-lowercase',
+      }),
+      expect.objectContaining({
+        templateId: 'malformed-tag-fixture',
+        category: 'academic',
+        tagIndex: 3,
+        reason: 'duplicate',
+        normalizedTag: 'math',
+      }),
+    ]));
+  });
 
   it('returns an empty array for an empty headline list', () => {
     expect(matchEventsToHeadlines([])).toEqual([]);

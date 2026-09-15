@@ -502,6 +502,80 @@ export const EVENT_TEMPLATES: Record<EventCategory, WorldEventTemplate[]> = {
 
 export const ALL_EVENTS: WorldEventTemplate[] = Object.values(EVENT_TEMPLATES).flat();
 
+export type EventTemplateTagIssueReason =
+  | 'blank'
+  | 'whitespace-only'
+  | 'untrimmed'
+  | 'not-lowercase'
+  | 'duplicate';
+
+export interface EventTemplateTagIssue {
+  templateId: string;
+  category: EventCategory;
+  tag: string;
+  tagIndex: number;
+  reason: EventTemplateTagIssueReason;
+  normalizedTag: string;
+}
+
+/**
+ * Validate the canonical tag format used by headline matching.
+ *
+ * Tags must be non-empty, trimmed, lowercase, and unique within a template.
+ * Duplicate detection uses the trimmed lowercase value so casing and
+ * surrounding whitespace cannot hide duplicate topics.
+ */
+export function validateEventTemplateTags(
+  templates: readonly WorldEventTemplate[] = ALL_EVENTS,
+): EventTemplateTagIssue[] {
+  const issues: EventTemplateTagIssue[] = [];
+
+  for (const template of templates) {
+    const normalizedTags = template.tags.map(tag => tag.trim().toLowerCase());
+    const tagCounts = new Map<string, number>();
+
+    for (const normalizedTag of normalizedTags) {
+      if (normalizedTag) {
+        tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) ?? 0) + 1);
+      }
+    }
+
+    template.tags.forEach((tag, tagIndex) => {
+      const normalizedTag = normalizedTags[tagIndex];
+      const addIssue = (reason: EventTemplateTagIssueReason) => {
+        issues.push({
+          templateId: template.id,
+          category: template.category,
+          tag,
+          tagIndex,
+          reason,
+          normalizedTag,
+        });
+      };
+
+      if (tag.length === 0) {
+        addIssue('blank');
+      } else if (normalizedTag.length === 0) {
+        addIssue('whitespace-only');
+      }
+
+      if (tag !== tag.trim()) {
+        addIssue('untrimmed');
+      }
+
+      if (tag !== tag.toLowerCase()) {
+        addIssue('not-lowercase');
+      }
+
+      if (normalizedTag && tagCounts.get(normalizedTag)! > 1) {
+        addIssue('duplicate');
+      }
+    });
+  }
+
+  return issues;
+}
+
 /** Match a headline/topic string to the closest event templates by tag overlap */
 export function matchEventsByTags(tags: string[], maxResults = 3): WorldEventTemplate[] {
   const lower = tags.map(t => t.toLowerCase());
