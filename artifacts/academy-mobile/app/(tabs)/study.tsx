@@ -6,6 +6,7 @@ import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
 import {
+  focusSubjectKey,
   generateOfflineContentPack,
   type GEDSubjectKey,
   type StudyQuestion,
@@ -17,28 +18,6 @@ const SUBJECTS: { key: GEDSubjectKey; label: string }[] = [
   { key: "science", label: "Science" },
   { key: "social_studies", label: "Social Studies" },
 ];
-
-function focusSubjectKey(subject: string): GEDSubjectKey | null {
-  const normalized = subject.trim().toLowerCase().replace(/[-\s]+/g, "_");
-  if (normalized === "math" || normalized.includes("math")) return "math";
-  if (
-    normalized === "language_arts" ||
-    normalized.includes("language") ||
-    normalized.includes("reading") ||
-    normalized.includes("writing")
-  ) {
-    return "language_arts";
-  }
-  if (normalized === "science" || normalized.includes("science")) return "science";
-  if (
-    normalized === "social_studies" ||
-    normalized.includes("social") ||
-    normalized.includes("history")
-  ) {
-    return "social_studies";
-  }
-  return null;
-}
 
 function QuestionCard({
   question,

@@ -37,12 +37,14 @@ import {
 import {
   analyzeDialogueTone,
   dayToWeek,
+  focusSubjectKey,
   generateNPCLine,
   generateOfflineConversation,
   generateQuizSet,
   scoreToRelationshipTier,
+  type GEDSubjectKey,
+  type StudyQuestion,
 } from "@workspace/game-engine";
-import type { GEDSubjectKey, StudyQuestion } from "@workspace/game-engine";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { computeRelationshipShift, type RelationshipShift } from "@/lib/relationshipShift";
 import { selectWeeklyTheme } from "@/lib/themeSelection";
@@ -616,9 +618,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const getQuizSet = useCallback(
     (subject: GEDSubjectKey): StudyQuestion[] => {
       const seed = `mobile-${subject}-day${state.day}-${state.studyProgress[subject].answered}`;
-      return generateQuizSet(subject, seed, 5).questions;
+      const focusTopics = (contentPack?.gedFocusAreas ?? [])
+        .filter(focus => focusSubjectKey(focus.subject) === subject)
+        .map(focus => focus.topic);
+      return generateQuizSet(subject, seed, 5, focusTopics).questions;
     },
-    [state.day, state.studyProgress],
+    [contentPack?.gedFocusAreas, state.day, state.studyProgress],
   );
 
   const answerQuestion = useCallback((question: StudyQuestion, choice: string): boolean => {

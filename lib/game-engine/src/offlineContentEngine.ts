@@ -43,6 +43,7 @@ import {
   STUDY_QUESTIONS,
   ALL_QUESTIONS,
   STUDY_PROMPTS,
+  topicMatchesFocus,
   getQuestions,
   GEDSubjectKey,
   StudyQuestion,
@@ -353,10 +354,29 @@ export function generateBulletinEvents(
  * Generate a seeded quiz set for a subject.
  * Same subject + seed = same questions, always.
  */
-export function generateQuizSet(subject: GEDSubjectKey, seed: string, count = 5): OfflineQuizSet {
+export function generateQuizSet(
+  subject: GEDSubjectKey,
+  seed: string,
+  count = 5,
+  focusTopics: string[] = [],
+): OfflineQuizSet {
   const rng = SeededRandom.fromEntity(seed);
   const pool = STUDY_QUESTIONS[subject];
-  const questions = rng.sample(pool, Math.min(count, pool.length));
+  const validFocusTopics = focusTopics.filter(topic => topic.trim().length > 0);
+  if (validFocusTopics.length === 0) {
+    return { subject, questions: rng.sample(pool, Math.min(count, pool.length)), seed };
+  }
+
+  const focusedPool = pool.filter(question =>
+    validFocusTopics.some(topic => topicMatchesFocus(question.topic, topic)),
+  );
+  const generalPool = pool.filter(question => !focusedPool.includes(question));
+  const focusedQuestions = rng.sample(focusedPool, Math.min(count, focusedPool.length));
+  const generalQuestions = rng.sample(
+    generalPool,
+    Math.min(count - focusedQuestions.length, generalPool.length),
+  );
+  const questions = [...focusedQuestions, ...generalQuestions];
   return { subject, questions, seed };
 }
 

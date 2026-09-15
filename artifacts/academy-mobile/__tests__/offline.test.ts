@@ -454,6 +454,29 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
     expect(a.questions.map((q) => q.id)).not.toEqual(b.questions.map((q) => q.id));
   });
 
+  it('puts matching focus topics first while retaining general subject questions', () => {
+    const quiz = generateQuizSet('math', 'focus-seed', 5, ['Linear Equations']);
+    const focusedCount = quiz.questions.filter(
+      question => question.topic === 'Linear Equations',
+    ).length;
+
+    expect(focusedCount).toBeGreaterThan(0);
+    expect(quiz.questions.slice(0, focusedCount).every(
+      question => question.topic === 'Linear Equations',
+    )).toBe(true);
+    expect(quiz.questions.slice(focusedCount).some(
+      question => question.topic !== 'Linear Equations',
+    )).toBe(true);
+  });
+
+  it('keeps focus-prioritized quiz order deterministic', () => {
+    const focusTopics = ['Ratios & Proportions'];
+    const first = generateQuizSet('math', 'focus-deterministic', 5, focusTopics);
+    const second = generateQuizSet('math', 'focus-deterministic', 5, focusTopics);
+
+    expect(first).toEqual(second);
+  });
+
   it('does not call fetch — works with zero network access', () => {
     const spy = vi.fn().mockRejectedValue(new Error('fetch must not be called'));
     vi.stubGlobal('fetch', spy);

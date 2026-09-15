@@ -34,6 +34,57 @@ export interface StudyPrompt {
   connections: string[];      // Related topics
 }
 
+/** Map server/content-pack subject labels to the local GED subject key. */
+export function focusSubjectKey(subject: string): GEDSubjectKey | null {
+  const normalized = subject.trim().toLowerCase().replace(/[-\s]+/g, "_");
+  if (normalized === "math" || normalized.includes("math")) return "math";
+  if (
+    normalized === "language_arts" ||
+    normalized.includes("language") ||
+    normalized.includes("reading") ||
+    normalized.includes("writing")
+  ) {
+    return "language_arts";
+  }
+  if (normalized === "science" || normalized.includes("science")) return "science";
+  if (
+    normalized === "social_studies" ||
+    normalized.includes("social") ||
+    normalized.includes("history")
+  ) {
+    return "social_studies";
+  }
+  return null;
+}
+
+const TOPIC_STOP_WORDS = new Set(["a", "an", "and", "for", "in", "of", "on", "the", "to"]);
+
+function normalizeTopic(topic: string): string[] {
+  return topic
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter(token => token.length > 2 && !TOPIC_STOP_WORDS.has(token));
+}
+
+/** Match exact, contained, or meaningful-word-overlap topic labels. */
+export function topicMatchesFocus(questionTopic: string, focusTopic: string): boolean {
+  const question = normalizeTopic(questionTopic);
+  const focus = normalizeTopic(focusTopic);
+  if (question.length === 0 || focus.length === 0) return false;
+
+  const questionText = question.join(" ");
+  const focusText = focus.join(" ");
+  return (
+    questionText === focusText ||
+    questionText.includes(focusText) ||
+    focusText.includes(questionText) ||
+    focus.some(token => question.includes(token))
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MATHEMATICAL REASONING
 // ─────────────────────────────────────────────────────────────────
