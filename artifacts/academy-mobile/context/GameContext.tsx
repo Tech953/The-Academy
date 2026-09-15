@@ -27,13 +27,18 @@ import {
   getInitialEnrichmentStatus,
   type EnrichmentStatus,
 } from "@/lib/enrichmentStatus";
-import { ensureUsableContentPack } from "@/lib/contentPackFallback";
+import {
+  ensureUsableContentPack,
+  fallbackAfterRefreshFailure,
+  isUsableContentPack,
+  readCachedContentPack,
+  writeCachedContentPack,
+} from "@/lib/contentPackFallback";
 import {
   analyzeDialogueTone,
   dayToWeek,
   generateNPCLine,
   generateOfflineConversation,
-  generateOfflineContentPack,
   generateQuizSet,
   scoreToRelationshipTier,
 } from "@workspace/game-engine";
@@ -391,11 +396,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       try {
         if (!isOnline) throw new Error("offline");
         const pack = await fetchContentPack();
+        const normalizedPack = ensureUsableContentPack(pack, state.day);
+        if (!isUsableContentPack(normalizedPack)) {
+          throw new Error("Content pack was not usable after normalization");
+        }
+        await writeCachedContentPack(AsyncStorage, normalizedPack);
         recordEnrichmentSource("online");
-        if (!cancelled) setContentPack(ensureUsableContentPack(pack, state.day));
+        if (!cancelled) setContentPack(normalizedPack);
       } catch {
         recordOfflineContent();
-        if (!cancelled) setContentPack(generateOfflineContentPack(state.day));
+        const cachedPack = await readCachedContentPack(AsyncStorage);
+        if (!cancelled) {
+          setContentPack(fallbackAfterRefreshFailure(cachedPack, state.day));
+        }
       } finally {
         if (!cancelled) setContentPackLoading(false);
       }

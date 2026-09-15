@@ -34,7 +34,11 @@ import {
 import {
   BULLETIN_EVENT_LIMIT,
   ensureUsableContentPack,
+  fallbackAfterRefreshFailure,
   isDisplayableContentPackEvent,
+  parseCachedContentPack,
+  readCachedContentPack,
+  writeCachedContentPack,
 } from '../lib/contentPackFallback';
 
 import {
@@ -646,6 +650,42 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     expect(result.activeEvents.filter((event) => event.id === remoteEvent.id)).toHaveLength(1);
     expect(result.generatedBy).toBe('deterministic');
     expectDisplayableUniqueBulletin(result.activeEvents);
+  });
+
+  it('keeps a fresh valid cache and rejects expired or malformed cache JSON', async () => {
+    const pack = generateOfflineContentPack(day);
+    const now = pack.generatedAt + 1;
+    const storage = new Map<string, string>();
+    const storageAdapter = {
+      getItem: async (key: string) => storage.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        storage.set(key, value);
+      },
+    };
+
+    expect(await writeCachedContentPack(storageAdapter, pack, now)).toBe(true);
+    const raw = storage.values().next().value as string;
+    expect(parseCachedContentPack(raw, now)).toEqual(pack);
+    await expect(readCachedContentPack(storageAdapter, now)).resolves.toEqual(pack);
+
+    expect(parseCachedContentPack(
+      JSON.stringify({ ...pack, expiresAt: now }),
+      now,
+    )).toBeNull();
+    expect(parseCachedContentPack(
+      JSON.stringify({ ...pack, activeEvents: [pack.activeEvents[0]] }),
+      now,
+    )).toBeNull();
+    expect(parseCachedContentPack('{not-json', now)).toBeNull();
+  });
+
+  it('prefers the last usable cached bulletin after a refresh failure', () => {
+    const cachedPack = generateOfflineContentPack(day);
+    expect(fallbackAfterRefreshFailure(cachedPack, day + 1)).toBe(cachedPack);
+
+    const generated = fallbackAfterRefreshFailure(null, day + 1);
+    expect(generated.generatedBy).toBe('deterministic');
+    expectDisplayableUniqueBulletin(generated.activeEvents);
   });
 });
 
