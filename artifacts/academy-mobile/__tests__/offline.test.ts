@@ -47,6 +47,7 @@ import {
   generateQuizSet,
   generateDailyEvents,
   generateBulletinEvents,
+  generateContentPack,
   generateOfflineContentPack,
   inferEmotionState,
   scoreToRelationshipTier,
@@ -886,9 +887,19 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     sourceTemplate.tags = [...originalTags, ' Malformed '];
 
     try {
-      expect(() => generateBulletinEvents(42, ['exam assessment'])).toThrow(
-        /Malformed event template tags: .*untrimmed/,
-      );
+      const generators = [
+        () => generateDailyEvents(42),
+        () => matchEventsToHeadlines(['exam assessment']),
+        () => generateBulletinEvents(42, ['exam assessment']),
+        () => generateContentPack(42),
+        () => generateOfflineContentPack(42, ['exam assessment']),
+      ];
+
+      for (const generate of generators) {
+        expect(generate).toThrow(
+          /Malformed event template tags: template "exam-week" in category "academic" tag " Malformed " is untrimmed/,
+        );
+      }
     } finally {
       sourceTemplate.tags = originalTags;
     }

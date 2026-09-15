@@ -576,8 +576,27 @@ export function validateEventTemplateTags(
   return issues;
 }
 
+/**
+ * Runtime gate for every consumer that can produce offline event content.
+ *
+ * Keeping this separate from the diagnostic validator lets tooling inspect all
+ * issues while runtime callers fail on the first malformed template before it
+ * can affect headline matching or deterministic content.
+ */
+export function assertValidEventTemplateTags(
+  templates: readonly WorldEventTemplate[] = ALL_EVENTS,
+): void {
+  const firstIssue = validateEventTemplateTags(templates)[0];
+  if (!firstIssue) return;
+
+  throw new Error(
+    `Malformed event template tags: template "${firstIssue.templateId}" in category "${firstIssue.category}" tag "${firstIssue.tag}" is ${firstIssue.reason} (index ${firstIssue.tagIndex})`,
+  );
+}
+
 /** Match a headline/topic string to the closest event templates by tag overlap */
 export function matchEventsByTags(tags: string[], maxResults = 3): WorldEventTemplate[] {
+  assertValidEventTemplateTags();
   const lower = tags.map(t => t.toLowerCase());
   return ALL_EVENTS
     .map(ev => ({ ev, score: ev.tags.filter(t => lower.some(l => t.includes(l) || l.includes(t))).length }))
