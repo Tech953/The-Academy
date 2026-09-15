@@ -13,9 +13,14 @@ const {
   ) => string;
   findAvailableMetroPort: (
     preferredPort: number,
-    options?: { maxSearch?: number },
+    options?: {
+      isAvailable?: (port: number) => boolean | Promise<boolean>;
+      maxSearch?: number;
+    },
   ) => Promise<number>;
-  getConfiguredMetroPort: (env?: NodeJS.ProcessEnv) => number;
+  getConfiguredMetroPort: (
+    env?: Record<string, string | undefined>,
+  ) => number;
 };
 
 const listeners: Server[] = [];
@@ -121,6 +126,7 @@ describe("Metro port selection", () => {
   it("reports the full search range when every candidate is occupied", async () => {
     await expect(
       findAvailableMetroPort(20_400, {
+        isAvailable: async () => false,
         maxSearch: 3,
       }),
     ).rejects.toThrow(
