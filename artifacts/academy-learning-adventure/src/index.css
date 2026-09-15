@@ -11,15 +11,14 @@
 }
 
 :root {
-  /* Replace these with brand colors */
-  --slide-primary: #4f46e5;
-  --slide-accent: #06b6d4;
-  --slide-bg: #f8fafc;
-  --slide-text: #0f172a;
-  --slide-muted: #64748b;
-  --font-display-family: 'Inter', system-ui, sans-serif;
-  --font-body-family: 'Inter', system-ui, sans-serif;
-  color-scheme: light;
+  --slide-primary: #79ff86;
+  --slide-accent: #ffbd69;
+  --slide-bg: #071009;
+  --slide-text: #d8ffda;
+  --slide-muted: #86aa8b;
+  --font-display-family: 'Space Mono', monospace;
+  --font-body-family: 'Space Mono', monospace;
+  color-scheme: dark;
 }
 
 html,
@@ -31,8 +30,9 @@ body,
 }
 
 body {
-  background: var(--slide-bg);
+  background: #071009;
   color: var(--slide-text);
+  font-family: var(--font-body-family);
 }
 
 .slide {
@@ -45,4 +45,82 @@ body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.deck-frame {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(42, 123, 57, 0.18), transparent 30%),
+    linear-gradient(135deg, #071009 0%, #0a160d 55%, #061008 100%);
+  color: #d8ffda;
+  font-family: var(--font-body-family);
+}
+
+.deck-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.38;
+  background-image:
+    linear-gradient(rgba(121, 255, 134, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(121, 255, 134, 0.035) 1px, transparent 1px);
+  background-size: 4vw 4vw;
+}
+
+.deck-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 0.38vh,
+    rgba(121, 255, 134, 0.16) 0.44vh,
+    transparent 0.52vh
+  );
+  mix-blend-mode: screen;
+}
+
+.crt-glow {
+  text-shadow: 0 0 0.35vw rgba(121, 255, 134, 0.78);
+}
+
+.crt-border {
+  border: 0.12vw solid rgba(121, 255, 134, 0.55);
+  box-shadow: inset 0 0 0 0.1vw rgba(121, 255, 134, 0.06);
+}
+
+.crt-surface {
+  background: rgba(4, 16, 8, 0.76);
+  border: 0.12vw solid rgba(121, 255, 134, 0.36);
+}
+
+.crt-muted {
+  color: #86aa8b;
+}
+
+.crt-amber {
+  color: #ffbd69;
+}
+
+.crt-cyan {
+  color: #82f2f6;
+}
+
+.crt-red {
+  color: #ff7b73;
+}
+
+.micro-grid {
+  background-image:
+    linear-gradient(rgba(121, 255, 134, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(121, 255, 134, 0.1) 1px, transparent 1px);
+  background-size: 1.6vw 1.6vw;
+}
+
+.pixel-rule {
+  height: 0.14vw;
+  background: linear-gradient(90deg, #79ff86 0%, rgba(121, 255, 134, 0.2) 72%, transparent 100%);
 }
