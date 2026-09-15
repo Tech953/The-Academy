@@ -37,6 +37,42 @@ const WEEKLY_THEMES = [
 
 const EVENT_CATEGORIES = ['academic', 'social', 'discovery', 'mystery', 'competition', 'crisis', 'institutional'];
 
+const contentPackSchema = z.object({
+  version: z.string().min(1),
+  generatedAt: z.number().finite(),
+  expiresAt: z.number().finite(),
+  worldSeed: z.number().finite(),
+  weeklyTheme: z.string().min(1),
+  themeContext: z.string().min(1),
+  activeEvents: z.array(z.object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    npcReaction: z.string().min(1),
+    playerHook: z.string().min(1),
+    category: z.enum(['academic', 'social', 'discovery', 'mystery', 'competition', 'crisis', 'institutional']),
+    durationDays: z.number().finite().positive(),
+    tags: z.array(z.string().min(1)).min(1),
+  })).length(3),
+  npcMoodShifts: z.array(z.object({
+    npcId: z.string().min(1),
+    npcName: z.string().min(1),
+    emotionState: z.string().min(1),
+    reason: z.string().min(1),
+  })).length(4),
+  gedFocusAreas: z.array(z.object({
+    subject: z.string().min(1),
+    topic: z.string().min(1),
+    whyNow: z.string().min(1),
+  })).length(2),
+  generatedBy: z.enum(['gpt', 'deterministic']),
+  rssHeadlines: z.array(z.string().min(1)).optional(),
+});
+
+function validateContentPack(pack: ContentPack): ContentPack {
+  return contentPackSchema.parse(pack) as ContentPack;
+}
+
 // ─── RSS Headline Fetcher (Phase 4: RSS → World Pipeline) ────────
 const RSS_FEEDS = [
   'https://www.nasa.gov/rss/dyn/breaking_news.rss',
@@ -171,9 +207,10 @@ Rules:
       rssHeadlines: rssHeadlines.length > 0 ? rssHeadlines : undefined,
     };
 
-    cachedContentPack = pack;
+    const validatedPack = validateContentPack(pack);
+    cachedContentPack = validatedPack;
     console.log(`[ContentPack] Generated fresh pack ${weekKey} via GPT (${completion.usage?.total_tokens ?? '?'} tokens)`);
-    return pack;
+    return validatedPack;
 
   } catch (err) {
     console.warn('[ContentPack] GPT generation failed, using deterministic fallback:', err);
@@ -233,8 +270,9 @@ function generateDeterministicPack(weekKey: string, weeklyTheme: string, now: nu
     ],
     generatedBy: 'deterministic',
   };
-  cachedContentPack = pack;
-  return pack;
+  const validatedPack = validateContentPack(pack);
+  cachedContentPack = validatedPack;
+  return validatedPack;
 }
 
 /** Schedule a silent weekly regeneration — called once on server start */

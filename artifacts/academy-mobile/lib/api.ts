@@ -167,6 +167,7 @@ export interface ContentPack {
   gedFocusAreas: Array<{ subject: string; topic: string; whyNow: string }>;
   generatedBy: "gpt" | "deterministic";
   rssHeadlines?: string[];
+  eventsRepaired?: boolean;
 }
 
 export async function fetchContentPack(): Promise<ContentPack> {

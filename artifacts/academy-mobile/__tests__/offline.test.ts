@@ -653,6 +653,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     const result = ensureUsableContentPack(malformedPack, day);
 
     expect(result.generatedBy).toBe('deterministic');
+    expect(result.eventsRepaired).toBe(true);
     expectDisplayableUniqueBulletin(result.activeEvents);
   });
 
@@ -672,6 +673,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     expect(result.activeEvents[0]).toBe(remoteEvent);
     expect(result.activeEvents.filter((event) => event.id === remoteEvent.id)).toHaveLength(1);
     expect(result.generatedBy).toBe('deterministic');
+    expect(result.eventsRepaired).toBe(true);
     expectDisplayableUniqueBulletin(result.activeEvents);
   });
 
@@ -690,6 +692,14 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     const raw = storage.values().next().value as string;
     expect(parseCachedContentPack(raw, now)).toEqual(pack);
     await expect(readCachedContentPack(storageAdapter, now)).resolves.toEqual(pack);
+
+    const restartedStorageAdapter = {
+      getItem: async (key: string) => storage.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        storage.set(key, value);
+      },
+    };
+    await expect(readCachedContentPack(restartedStorageAdapter, now)).resolves.toEqual(pack);
 
     expect(parseCachedContentPack(
       JSON.stringify({ ...pack, expiresAt: now }),
@@ -868,6 +878,20 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
 
   it('returns an empty array for an empty headline list', () => {
     expect(matchEventsToHeadlines([])).toEqual([]);
+  });
+
+  it('fails fast when malformed tags reach offline headline generation', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const originalTags = sourceTemplate.tags;
+    sourceTemplate.tags = [...originalTags, ' Malformed '];
+
+    try {
+      expect(() => generateBulletinEvents(42, ['exam assessment'])).toThrow(
+        /Malformed event template tags: .*untrimmed/,
+      );
+    } finally {
+      sourceTemplate.tags = originalTags;
+    }
   });
 
   it.each(['', '   ', '!!!', 'the', 'and', 'xylophonicallyunmatchable'])(

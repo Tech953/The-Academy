@@ -73,12 +73,35 @@ describe("forwarded-client rate limiting", () => {
     expect((await request(testServer, "203.0.113.11")).status).toBe(200);
   });
 
+  it("keeps IPv6 forwarded clients isolated from one another", async () => {
+    const testServer = await startRateLimitedServer();
+
+    for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
+      expect((await request(testServer, "2001:db8:10::10")).status).toBe(200);
+    }
+
+    expect((await request(testServer, "2001:db8:10::10")).status).toBe(429);
+    expect((await request(testServer, "2001:db8:11::11")).status).toBe(200);
+  });
+
   it("skips health and specialized routes from the general quota", () => {
     expect(shouldSkipGeneralApiLimit({ path: "/api/healthz" })).toBe(false);
     expect(shouldSkipGeneralApiLimit({ path: "/healthz" })).toBe(true);
     expect(shouldSkipGeneralApiLimit({ path: "/ai/describe" })).toBe(true);
     expect(shouldSkipGeneralApiLimit({ path: "/content-pack/refresh" })).toBe(true);
     expect(shouldSkipGeneralApiLimit({ path: "/locations" })).toBe(false);
+
+    for (const specializedPath of [
+      "/nlp/process",
+      "/ai/describe",
+      "/character-creation/generate-questions",
+      "/npc-dialogue",
+      "/memories/visualize",
+      "/content-pack/refresh",
+    ]) {
+      expect(shouldSkipGeneralApiLimit({ path: specializedPath })).toBe(true);
+      expect(shouldSkipGeneralApiLimit({ path: `/api${specializedPath}` })).toBe(false);
+    }
   });
 
   it("rejects an invalid proxy-hop configuration before the API starts", async () => {

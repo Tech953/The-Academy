@@ -4,6 +4,15 @@ const path = require("path");
 const DEFAULT_PROFILE = "preview";
 const REQUEST_TIMEOUT_MS = 15_000;
 const EAS_CONFIG_PATH = path.resolve(__dirname, "..", "eas.json");
+const DEFAULT_REPORT_PATH = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  ".local",
+  "outputs",
+  "academy-mobile-release-smoke.json",
+);
 
 function readReleaseConfig(configPath = EAS_CONFIG_PATH) {
   try {
@@ -205,6 +214,24 @@ async function runReleaseSmokeChecks({
   return { profiles, passed, failed };
 }
 
+function writeReleaseReport(reportPath, report) {
+  const resolvedPath = path.resolve(reportPath);
+  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  fs.writeFileSync(
+    resolvedPath,
+    `${JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        ...report,
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  return resolvedPath;
+}
+
 if (require.main === module) {
   const args = process.argv.slice(2);
   const allProfiles =
@@ -212,12 +239,34 @@ if (require.main === module) {
     args.includes("--all-profiles") ||
     process.env.RELEASE_PROFILE === "all";
   const profile =
-    args.find((argument) => !argument.startsWith("--")) ||
+    args.find(
+      (argument, index) =>
+        !argument.startsWith("--") && args[index - 1] !== "--report",
+    ) ||
     process.env.RELEASE_PROFILE ||
     DEFAULT_PROFILE;
+  const reportFlagIndex = args.indexOf("--report");
+  if (
+    reportFlagIndex >= 0 &&
+    (!args[reportFlagIndex + 1] ||
+      args[reportFlagIndex + 1].startsWith("--"))
+  ) {
+    console.error("[release-smoke] --report requires a file path.");
+    process.exitCode = 1;
+    return;
+  }
+  const reportPath =
+    reportFlagIndex >= 0
+      ? args[reportFlagIndex + 1]
+      : process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
 
   const check = allProfiles
-    ? runReleaseSmokeChecks().then(({ passed, failed }) => {
+    ? runReleaseSmokeChecks().then((result) => {
+        const report = writeReleaseReport(reportPath, {
+          command: "check-release --all",
+          ...result,
+        });
+        const { passed, failed } = result;
         for (const result of passed) {
           console.log(
             `[release-smoke] ${result.profile} passed for ${result.domain}: ${result.healthUrl} and ${result.aiUrl}`,
@@ -228,20 +277,31 @@ if (require.main === module) {
             `[release-smoke] ${failure.profile} failed: ${failure.error.message}`,
           );
         }
+        console.log(`[release-smoke] Report written to ${report}`);
         if (failed.length > 0) {
           process.exitCode = 1;
         }
       })
-    : runReleaseSmokeCheck({ profile }).then(
-        ({ profile: checkedProfile, domain, healthUrl, aiUrl }) => {
+    : runReleaseSmokeCheck({ profile }).then((result) => {
+        const report = writeReleaseReport(reportPath, {
+          command: `check-release ${result.profile}`,
+          status: "passed",
+          result,
+        });
+        const { profile: checkedProfile, domain, healthUrl, aiUrl } = result;
           console.log(
             `[release-smoke] ${checkedProfile} passed for ${domain}: ${healthUrl} and ${aiUrl}`,
           );
-        },
-      );
+          console.log(`[release-smoke] Report written to ${report}`);
+        });
 
   check
     .catch((error) => {
+      writeReleaseReport(reportPath, {
+        command: `check-release ${allProfiles ? "--all" : profile}`,
+        status: "failed",
+        error: error instanceof Error ? error.message : String(error),
+      });
       console.error(error.message);
       process.exitCode = 1;
     });
@@ -253,4 +313,5 @@ module.exports = {
   readReleaseConfig,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
+  writeReleaseReport,
 };

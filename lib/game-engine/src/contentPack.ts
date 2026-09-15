@@ -45,6 +45,7 @@ export interface ContentPack {
   gedFocusAreas: PackGEDFocus[];
   generatedBy: 'gpt' | 'deterministic';
   rssHeadlines?: string[];   // Real-world headlines that seeded this week's events
+  eventsRepaired?: boolean;  // True when malformed/missing remote events were replaced offline
 }
 
 /** One week in milliseconds */

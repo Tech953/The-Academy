@@ -53,6 +53,27 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/react/') || id.includes('/react-dom/')) {
+            return 'vendor-react';
+          }
+          if (id.includes('/recharts/') || id.includes('/victory/')) {
+            return 'vendor-charts';
+          }
+          if (id.includes('/prosemirror/')) {
+            return 'vendor-editor';
+          }
+          if (id.includes('/lucide-react/')) {
+            return 'vendor-icons';
+          }
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port,

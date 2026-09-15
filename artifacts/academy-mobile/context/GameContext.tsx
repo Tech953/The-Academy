@@ -235,6 +235,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [relationshipShifts, setRelationshipShifts] = useState<Record<string, RelationshipShift>>({});
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
+  const contentPackRequestRef = useRef(0);
   const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
     getInitialEnrichmentStatus(networkOnline, apiConfigured),
   );
@@ -393,6 +394,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || !state.hasStarted) return;
     let cancelled = false;
+    const requestId = ++contentPackRequestRef.current;
+    const isCurrentRequest = () =>
+      !cancelled && contentPackRequestRef.current === requestId;
     setContentPackLoading(true);
     (async () => {
       try {
@@ -402,17 +406,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (!isUsableContentPack(normalizedPack)) {
           throw new Error("Content pack was not usable after normalization");
         }
+        if (!isCurrentRequest()) return;
         await writeCachedContentPack(AsyncStorage, normalizedPack);
         recordEnrichmentSource("online");
-        if (!cancelled) setContentPack(normalizedPack);
+        if (isCurrentRequest()) setContentPack(normalizedPack);
       } catch {
+        if (!isCurrentRequest()) return;
         recordOfflineContent();
         const cachedPack = await readCachedContentPack(AsyncStorage);
-        if (!cancelled) {
+        if (isCurrentRequest()) {
           setContentPack(fallbackAfterRefreshFailure(cachedPack, state.day));
         }
       } finally {
-        if (!cancelled) setContentPackLoading(false);
+        if (isCurrentRequest()) setContentPackLoading(false);
       }
     })();
     return () => {

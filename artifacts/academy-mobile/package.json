@@ -8,8 +8,8 @@
     "build": "node scripts/build.js",
     "check-release": "node scripts/check-release.js",
     "native-handoff": "node scripts/native-handoff.js",
-    "release:preview": "RELEASE_PROFILE=preview pnpm run check-release && npx eas-cli build -p android --profile preview",
-    "release:production": "RELEASE_PROFILE=production pnpm run check-release && npx eas-cli build -p android --profile production",
+    "release:preview": "RELEASE_PLATFORM=android RELEASE_PROFILE=preview pnpm run native-handoff -- --platform android --profile preview",
+    "release:production": "RELEASE_PLATFORM=android RELEASE_PROFILE=production pnpm run native-handoff -- --platform android --profile production",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"

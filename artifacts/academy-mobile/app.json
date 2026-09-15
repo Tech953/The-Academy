@@ -14,7 +14,8 @@
       "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.theacademy.mobile"
     },
     "android": {
       "package": "com.theacademy.mobile",

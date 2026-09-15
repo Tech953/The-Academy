@@ -2,3 +2,4 @@
 - [Game engine shared lib](game-engine-lib.md) — @workspace/game-engine: single source for offline content, GED templates, world layout shared by web + mobile.
 - [Mobile Vitest boundary](mobile-vitest-boundary.md) — Keep pure context selectors in `.ts` modules; importing native-heavy provider TSX breaks the Node test transformer.
 - [Deck export safe areas](deck-export-safe-areas.md) — Fixed 1920×1080 slides need bounded normal-flow content; intrinsic grids and absolute notes can defeat footer spacing.
+- [IPv6 rate-limit identity](ipv6-rate-limit.md) — IPv6 quotas are subnet-grouped; isolation tests need distinct prefixes.

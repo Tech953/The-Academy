@@ -33,6 +33,7 @@ import {
   EVENT_TEMPLATES,
   ALL_EVENTS,
   matchEventsByTags,
+  validateEventTemplateTags,
   WorldEventTemplate,
   EventCategory,
 } from './eventTemplates';
@@ -291,6 +292,14 @@ function matchEventsToHeadlinesForDay(
   headlines: string[],
   dayNumber: number,
 ): OfflineWorldEvent[] {
+  const tagIssues = validateEventTemplateTags();
+  if (tagIssues.length > 0) {
+    const firstIssue = tagIssues[0];
+    throw new Error(
+      `Malformed event template tags: ${firstIssue.templateId} tag "${firstIssue.tag}" is ${firstIssue.reason}`,
+    );
+  }
+
   const rng = new SeededRandom(temporalSeed('rss-match', dayNumber));
 
   const uniqueHeadlines = [
@@ -657,6 +666,7 @@ export function generateOfflineContentPack(day: number, headlines: string[] = []
     npcMoodShifts: [],
     gedFocusAreas,
     generatedBy: 'deterministic',
+    eventsRepaired: false,
   };
 }
 

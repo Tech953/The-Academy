@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -137,6 +137,40 @@ function fileForReference(value: string, previewPath: string): string {
   return filePath;
 }
 
+function generatedAssetFiles(directory: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...generatedAssetFiles(entryPath));
+    } else if (/\.(?:css|html?|js|mjs)$/i.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+function validateGeneratedAssetReferences(previewPath: string): void {
+  const assetPathPattern = /(["'`])((?:\/)(?:assets|images|fonts|icons|favicon)[^"'`\s)]*)\1/g;
+  const escapes: string[] = [];
+
+  for (const filePath of generatedAssetFiles(buildOutputDirectory)) {
+    const document = readFileSync(filePath, 'utf8');
+    for (const match of document.matchAll(assetPathPattern)) {
+      const value = match[2];
+      if (!value.startsWith(previewPath)) {
+        escapes.push(`${path.relative(buildOutputDirectory, filePath)}: ${value}`);
+      }
+    }
+  }
+
+  if (escapes.length > 0) {
+    throw new Error(
+      `Generated chunks contain asset URLs that bypass ${previewPath}: ${escapes.join(', ')}`,
+    );
+  }
+}
+
 function validate(): void {
   const previewPath = readPreviewPath();
   if (!existsSync(builtIndexPath) || !statSync(builtIndexPath).isFile()) {
@@ -184,6 +218,8 @@ function validate(): void {
       );
     }
   }
+
+  validateGeneratedAssetReferences(previewPath);
 
   console.log(
     `✓ Built asset references stay under ${previewPath} (${references.length} local references checked)`,

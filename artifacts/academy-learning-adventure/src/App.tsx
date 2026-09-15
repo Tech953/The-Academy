@@ -12,7 +12,14 @@
  * check" if this file has been hand-edited and needs repair.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { slides } from '@/slideLoader';
 import type { Action } from '@/.sdm/core/schema';
 import {
@@ -31,6 +38,37 @@ function getSlideIndex(pathname: string): number {
 const PARENT_OWNS_NAVIGATION =
   new URLSearchParams(window.location.search).get('replitNav') === 'parent' ||
   window.parent !== window.parent.parent;
+
+class SlideErrorBoundary extends Component<
+  { slideLabel: string; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error(`[slides] Failed to render ${this.props.slideLabel}`, error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-black p-12 text-center font-mono text-[#ffbd69]">
+          <div>
+            <div className="text-xl font-bold">SLIDE UNAVAILABLE</div>
+            <div className="mt-3 text-sm text-[#86aa8b]">
+              {this.props.slideLabel} could not render. Use the navigation to continue.
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function SlideEditor() {
   const [location, navigate] = useLocation();
@@ -198,7 +236,9 @@ function SlideEditor() {
           key={slide.id}
           style={{ display: index === currentIndex ? 'block' : 'none' }}
         >
-          <slide.Component active={index === currentIndex} />
+          <SlideErrorBoundary slideLabel={`Slide ${slide.position}`}>
+            <slide.Component active={index === currentIndex} />
+          </SlideErrorBoundary>
         </div>
       ))}
     </div>
@@ -220,7 +260,9 @@ function AllSlides() {
           style={{ width: '1920px', height: '1080px' }}
         >
           <div className="h-full w-full [&_.h-screen]:!h-full [&_.w-screen]:!w-full">
-            <slide.Component />
+            <SlideErrorBoundary slideLabel={`Slide ${slide.position}`}>
+              <slide.Component />
+            </SlideErrorBoundary>
           </div>
         </div>
       ))}

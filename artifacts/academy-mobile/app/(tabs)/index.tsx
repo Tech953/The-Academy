@@ -105,6 +105,11 @@ export default function AdventureScreen() {
                 {headlineEvent.title}: {headlineEvent.description}
               </Text>
             ) : null}
+            {contentPack.eventsRepaired ? (
+              <Text style={[styles.bulletinRepair, { color: colors.accent }]}>
+                REPAIRED EVENTS / OFFLINE FALLBACK ACTIVE
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -271,6 +276,11 @@ const styles = StyleSheet.create({
   bulletinBody: {
     ...monoFont,
     fontSize: 11,
+  },
+  bulletinRepair: {
+    ...monoFontBold,
+    fontSize: 9,
+    letterSpacing: 0.7,
   },
   log: { flex: 1 },
   logContent: { padding: 16 },

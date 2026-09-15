@@ -125,6 +125,7 @@ export function isUsableContentPack(
     pack.gedFocusAreas.length > 0 &&
     pack.gedFocusAreas.every(hasUsableFocusArea) &&
     (pack.generatedBy === "gpt" || pack.generatedBy === "deterministic")
+    && (pack.eventsRepaired === undefined || typeof pack.eventsRepaired === "boolean")
   );
 }
 
@@ -195,6 +196,7 @@ export function ensureUsableContentPack(
     return {
       ...pack,
       activeEvents: remoteEvents.slice(0, BULLETIN_EVENT_LIMIT),
+      eventsRepaired: false,
     };
   }
 
@@ -208,6 +210,7 @@ export function ensureUsableContentPack(
     ...pack,
     activeEvents: mergedEvents,
     generatedBy: "deterministic",
+    eventsRepaired: true,
   };
 }
 
