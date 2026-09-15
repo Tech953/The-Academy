@@ -201,6 +201,7 @@ interface GameContextValue {
   dialogueLoading: boolean;
   contentPack: ContentPack | null;
   contentPackLoading: boolean;
+  bulletinEventsRepaired: boolean;
   enrichmentStatus: EnrichmentStatus;
   weeklyTheme: string;
   startGame: (name: string) => void;
@@ -235,6 +236,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [relationshipShifts, setRelationshipShifts] = useState<Record<string, RelationshipShift>>({});
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
+  const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
   const contentPackRequestRef = useRef(0);
   const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
     getInitialEnrichmentStatus(networkOnline, apiConfigured),
@@ -701,6 +703,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      bulletinEventsRepaired,
       enrichmentStatus,
       weeklyTheme,
       startGame,
@@ -724,6 +727,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      bulletinEventsRepaired,
       enrichmentStatus,
       weeklyTheme,
       startGame,

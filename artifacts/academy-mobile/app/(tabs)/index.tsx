@@ -69,6 +69,7 @@ export default function AdventureScreen() {
     locationLoading,
     examineLoading,
     contentPack,
+    bulletinEventsRepaired,
     travelTo,
     refreshLocationDescription,
     examine,
@@ -105,9 +106,9 @@ export default function AdventureScreen() {
                 {headlineEvent.title}: {headlineEvent.description}
               </Text>
             ) : null}
-            {contentPack.eventsRepaired ? (
+            {bulletinEventsRepaired ? (
               <Text style={[styles.bulletinRepair, { color: colors.accent }]}>
-                REPAIRED EVENTS / OFFLINE FALLBACK ACTIVE
+                LOCAL EVENTS INCLUDED — BULLETIN CONTINUES
               </Text>
             ) : null}
           </View>
