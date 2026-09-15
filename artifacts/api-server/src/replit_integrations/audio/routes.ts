@@ -1,6 +1,11 @@
 import express, { type Express, type Request, type Response } from "express";
-import { chatStorage } from "../chat/storage";
-import { openai, speechToText, ensureCompatibleFormat } from "./client";
+import type OpenAI from "openai";
+import { chatStorage as defaultChatStorage, type ChatStorage } from "../chat/storage";
+import {
+  openai as defaultOpenai,
+  speechToText as defaultSpeechToText,
+  ensureCompatibleFormat as defaultEnsureCompatibleFormat,
+} from "./client";
 
 // Body parser with 50MB limit for audio payloads
 const audioBodyParser = express.json({ limit: "50mb" });
@@ -9,7 +14,23 @@ function routeParam(value: string | string[]): string {
   return Array.isArray(value) ? value[0] ?? "" : value;
 }
 
-export function registerAudioRoutes(app: Express): void {
+export interface AudioRouteDependencies {
+  storage?: ChatStorage;
+  openai?: Pick<OpenAI, "chat">;
+  ensureCompatibleFormat?: typeof defaultEnsureCompatibleFormat;
+  speechToText?: typeof defaultSpeechToText;
+}
+
+export function registerAudioRoutes(
+  app: Express,
+  dependencies: AudioRouteDependencies = {},
+): void {
+  const chatStorage = dependencies.storage ?? defaultChatStorage;
+  const openai = dependencies.openai ?? defaultOpenai;
+  const ensureCompatibleFormat =
+    dependencies.ensureCompatibleFormat ?? defaultEnsureCompatibleFormat;
+  const speechToText = dependencies.speechToText ?? defaultSpeechToText;
+
   // Get all conversations
   app.get("/api/conversations", async (req: Request, res: Response) => {
     try {

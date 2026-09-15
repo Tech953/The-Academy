@@ -464,4 +464,89 @@ describe("chat, image, and audio integration routes", () => {
     expect(result.response.status).toBe(400);
     expect(result.body).toEqual({ error: "Audio data (base64) is required" });
   });
+
+  it("returns JSON when audio preparation or transcription fails before streaming", async () => {
+    const createMessage = vi.fn();
+    const create = vi.fn();
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => {
+      throw new Error("transcription unavailable");
+    });
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({ createMessage }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const result = await request(testServer, "/api/conversations/1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ audio: Buffer.from("audio").toString("base64") }),
+    });
+
+    expect(result.response.status).toBe(500);
+    expect(result.body).toEqual({ error: "Failed to process voice message" });
+    expect(ensureCompatibleFormat).toHaveBeenCalledTimes(1);
+    expect(speechToText).toHaveBeenCalledTimes(1);
+    expect(create).not.toHaveBeenCalled();
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it("emits an SSE error and avoids the assistant write when streaming fails", async () => {
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
+      id: role === "user" ? 1 : 2,
+      conversationId,
+      role,
+      content,
+      createdAt: new Date(),
+    }));
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => "User transcript");
+    const stream = (async function* () {
+      yield { choices: [{ delta: { audio: { transcript: "Partial reply" } } }] };
+      throw new Error("stream interrupted");
+    })();
+    const create = vi.fn(async () => stream);
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({
+          createMessage,
+          getMessagesByConversation: vi.fn(async () => []),
+        }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const result = await request(testServer, "/api/conversations/7/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ audio: Buffer.from("audio").toString("base64") }),
+    });
+    const events = result.text
+      .trim()
+      .split("\n\n")
+      .map(event => JSON.parse(event.replace(/^data: /, "")));
+
+    expect(result.response.status).toBe(200);
+    expect(result.response.headers.get("content-type")).toContain("text/event-stream");
+    expect(events).toEqual([
+      { type: "user_transcript", data: "User transcript" },
+      { type: "transcript", data: "Partial reply" },
+      { type: "error", error: "Failed to process voice message" },
+    ]);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledWith(7, "user", "User transcript");
+    expect(create).toHaveBeenCalledTimes(1);
+  });
 });
