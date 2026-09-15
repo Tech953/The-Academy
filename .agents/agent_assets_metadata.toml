@@ -13,3 +13,31 @@ type = "table"
 title = "The Academy — Developer's Guide (CSV)"
 description = "Comprehensive developer reference covering setup, architecture, commands, conventions, and gotchas for the web, API, and mobile apps."
 logical_id = "61a18b0c-0e47-41f8-9d91-8787c8f7b157"
+
+[[outputs]]
+id = "zGqAJWGoAm5OX9hy2Tjnx"
+uri = "file://.local/outputs/The-Academy---Learning-Adventure.pptx"
+type = "slides"
+title = "The Academy — Learning Adventure (PPTX)"
+description = "PowerPoint export of the reviewed 30-slide Academy deck."
+logical_id = "113b8e11-44aa-48fb-9979-faf423233996"
+content_hash = "sha256:25360526e715f7e5b14ac07a18bca42ab48d16ae642b574a3559ce3c791c2726"
+size = 10622443
+mtime_ms = 1789445066366
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e7c1e32c-edb0-4f1e-8a1d-bac1fd310fa4/113b8e11-44aa-48fb-9979-faf423233996/3e77b998-14d5-46e9-96d1-9304a4a4fe52"
+storage_version_token = "1789445067954368"
+content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+[[outputs]]
+id = "Phib85rjnTKTHRKCZB-aT"
+uri = "file://.local/outputs/The-Academy---Learning-Adventure.pdf"
+type = "pdf"
+title = "The Academy — Learning Adventure (PDF)"
+description = "PDF export of the reviewed 30-slide Academy deck."
+logical_id = "7a8498b6-05c8-4618-9d84-604d52df8a2c"
+content_hash = "sha256:19b7db7f969fda891f3df8a46c0eb60f57b25f543f131b88e128dedd4fbcdc76"
+size = 4125091
+mtime_ms = 1789445073683
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e7c1e32c-edb0-4f1e-8a1d-bac1fd310fa4/7a8498b6-05c8-4618-9d84-604d52df8a2c/6855128a-2fa3-4f1e-84cc-9b48ecbb3c8a"
+storage_version_token = "1789445074683746"
+content_type = "application/pdf"
