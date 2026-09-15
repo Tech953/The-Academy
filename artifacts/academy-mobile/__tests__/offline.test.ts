@@ -41,6 +41,7 @@ import {
   scoreToRelationshipTier,
   analyzeDialogueTone,
   matchEventsToHeadlines,
+  EVENT_TEMPLATES,
   type OfflineWorldEvent,
 } from '@workspace/game-engine';
 
@@ -551,6 +552,38 @@ describe('generateOfflineContentPack() — valid pack with no network', () => {
 describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
   const now = new Date('2026-09-14T12:00:00Z');
   const day = Math.floor(now.getTime() / 86_400_000);
+  const headlineFixtures = [
+    {
+      category: 'academic',
+      templateId: 'exam-week',
+      expectedTag: 'exam',
+      headline: 'Exam assessment and study pressure rises across campus',
+    },
+    {
+      category: 'social',
+      templateId: 'talent-showcase',
+      expectedTag: 'performance',
+      headline: 'Student performance and community culture event draws a crowd',
+    },
+    {
+      category: 'discovery',
+      templateId: 'astronomical-event',
+      expectedTag: 'astronomy',
+      headline: 'Astronomy observation opens a rare space window',
+    },
+    {
+      category: 'mystery',
+      templateId: 'strange-pattern',
+      expectedTag: 'conspiracy',
+      headline: 'Investigation reveals a conspiracy and a strange pattern',
+    },
+    {
+      category: 'crisis',
+      templateId: 'power-outage',
+      expectedTag: 'emergency',
+      headline: 'Emergency power outage leaves the campus in the dark',
+    },
+  ] as const;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -614,6 +647,20 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     expect(events.map(event => event.id)).toContain('exam-week');
     events.forEach(expectValidEvent);
   });
+
+  it.each(headlineFixtures)(
+    'keeps the $category headline vocabulary connected to its template',
+    ({ category, templateId, expectedTag, headline }) => {
+      const template = EVENT_TEMPLATES[category].find(event => event.id === templateId);
+
+      expect(template).toBeDefined();
+      expect(template?.category).toBe(category);
+      expect(template?.tags).toContain(expectedTag);
+
+      const events = matchEventsToHeadlines([headline]);
+      expect(events.map(event => event.id)).toContain(templateId);
+    },
+  );
 
   it('normalizes casing and punctuation', () => {
     expect(matchEventsToHeadlines(['EXAM! ASSESSMENT, STUDY: ACADEMIC PRESSURE.']))
