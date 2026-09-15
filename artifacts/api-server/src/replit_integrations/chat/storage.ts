@@ -12,7 +12,16 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
-class InMemoryChatStorage {
+export interface ChatStorage {
+  getConversation(id: number): Promise<ChatConversation | undefined>;
+  getAllConversations(): Promise<ChatConversation[]>;
+  createConversation(title: string): Promise<ChatConversation>;
+  deleteConversation(id: number): Promise<void>;
+  getMessagesByConversation(conversationId: number): Promise<ChatMessage[]>;
+  createMessage(conversationId: number, role: string, content: string): Promise<ChatMessage>;
+}
+
+class InMemoryChatStorage implements ChatStorage {
   private conversations: Map<number, ChatConversation> = new Map();
   private messages: Map<number, ChatMessage> = new Map();
   private nextConversationId = 1;

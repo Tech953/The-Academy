@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "../storage";
+import { storage as defaultStorage, type IStorage } from "../storage";
 import { insertCharacterSchema, insertEnrollmentSchema } from "@workspace/db";
 import { z } from "zod/v4";
 import { processNaturalLanguage, type GameContext } from "../nlp/commandProcessor";
@@ -11,7 +11,7 @@ import type { ContentPack } from "../shared/contentPack";
 import { PACK_TTL_MS, currentWeekKey, isPackFresh } from "../shared/contentPack";
 import { aiLimiter, contentPackLimiter } from "../middleware/security";
 
-const openai = new OpenAI({
+const defaultOpenai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
@@ -124,7 +124,7 @@ Rules:
 - Keep all text concise and evocative
 - Never reference real news sources, real people, or the real world directly`;
 
-    const completion = await openai.chat.completions.create({
+    const completion = await defaultOpenai.chat.completions.create({
       model: "gpt-5-mini",
       messages: [{ role: "user", content: prompt }],
       max_completion_tokens: 3000,
@@ -282,9 +282,23 @@ const characterUpdateSchema = z.object({
   socialConnections: z.record(z.string(), z.any()).optional(),
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export interface RouteDependencies {
+  storage?: IStorage;
+  openai?: Pick<OpenAI, "chat">;
+  skipContentRefresh?: boolean;
+}
+
+export async function registerRoutes(
+  app: Express,
+  dependencies: RouteDependencies = {},
+): Promise<Server> {
+  const storage = dependencies.storage ?? defaultStorage;
+  const openai = dependencies.openai ?? defaultOpenai;
+
   // Start the weekly content pack refresh cycle
-  scheduleWeeklyPackRefresh();
+  if (!dependencies.skipContentRefresh) {
+    scheduleWeeklyPackRefresh();
+  }
   // Character management routes
   app.get("/api/characters/:id", async (req, res) => {
     try {

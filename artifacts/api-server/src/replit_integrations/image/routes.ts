@@ -1,7 +1,17 @@
 import type { Express, Request, Response } from "express";
-import { openai } from "./client";
+import OpenAI from "openai";
+import { openai as defaultOpenai } from "./client";
 
-export function registerImageRoutes(app: Express): void {
+export interface ImageRouteDependencies {
+  openai?: Pick<OpenAI, "images">;
+}
+
+export function registerImageRoutes(
+  app: Express,
+  dependencies: ImageRouteDependencies = {},
+): void {
+  const openai = dependencies.openai ?? defaultOpenai;
+
   app.post("/api/generate-image", async (req: Request, res: Response) => {
     try {
       const { prompt, size = "1024x1024" } = req.body;

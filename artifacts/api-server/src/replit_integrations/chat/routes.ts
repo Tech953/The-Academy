@@ -1,8 +1,8 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
-import { chatStorage } from "./storage";
+import { chatStorage as defaultChatStorage, type ChatStorage } from "./storage";
 
-const openai = new OpenAI({
+const defaultOpenai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
@@ -11,7 +11,18 @@ function routeParam(value: string | string[]): string {
   return Array.isArray(value) ? value[0] ?? "" : value;
 }
 
-export function registerChatRoutes(app: Express): void {
+export interface ChatRouteDependencies {
+  storage?: ChatStorage;
+  openai?: Pick<OpenAI, "chat">;
+}
+
+export function registerChatRoutes(
+  app: Express,
+  dependencies: ChatRouteDependencies = {},
+): void {
+  const chatStorage = dependencies.storage ?? defaultChatStorage;
+  const openai = dependencies.openai ?? defaultOpenai;
+
   // Get all conversations
   app.get("/api/conversations", async (req: Request, res: Response) => {
     try {
