@@ -7,6 +7,24 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+function readTrustProxyHops(): number {
+  const rawValue = process.env.TRUST_PROXY_HOPS ?? "0";
+  if (!/^\d+$/.test(rawValue)) {
+    throw new Error(`TRUST_PROXY_HOPS must be a non-negative integer; received "${rawValue}"`);
+  }
+
+  const hops = Number(rawValue);
+  if (!Number.isSafeInteger(hops)) {
+    throw new Error(`TRUST_PROXY_HOPS is out of range; received "${rawValue}"`);
+  }
+
+  return hops;
+}
+
+// The managed artifact proxy is the only trusted hop in development and
+// production. Standalone local runs default to trusting no forwarded hops.
+app.set("trust proxy", readTrustProxyHops());
+
 app.use(
   pinoHttp({
     logger,
