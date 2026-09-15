@@ -29,16 +29,29 @@ An installable APK still requires an Expo account and EAS cloud access:
 cd artifacts/academy-mobile
 npx eas-cli login
 npx eas-cli init
-npx eas-cli build -p android --profile preview
+pnpm run release:preview
 ```
 
 The `preview` profile produces an internal-distribution APK. The local static
 build check does not replace the EAS native Android build.
 
+For a production Android App Bundle, use the guarded production release
+command:
+
+```bash
+pnpm run release:production
+```
+
+Both release commands run the credential-free connectivity check before
+starting EAS. A failed health or AI enrichment request stops the command and
+prints the profile plus the exact URL that needs attention. The `dev` and
+`build` commands do not run this check, so local development and static builds
+remain independent of the published API.
+
 ## Release connectivity smoke check
 
-Before handing off a preview APK or production app bundle, run the
-credential-free release check from the workspace root:
+The release commands above run this check automatically. To run the check
+without starting an EAS build, use it directly from the workspace root:
 
 ```bash
 pnpm --filter @workspace/academy-mobile run check-release

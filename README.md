@@ -80,10 +80,12 @@ The mobile app ships with an EAS build config (`artifacts/academy-mobile/eas.jso
 
 ```bash
 cd artifacts/academy-mobile
-eas build -p android --profile preview
+pnpm run release:preview
 ```
 
-The `preview` profile produces an installable `.apk`; the `production` profile produces a Play Store app bundle.
+The `preview` profile produces an installable `.apk`; the `production`
+profile produces a Play Store app bundle. These release commands verify the
+published API health and AI enrichment endpoint before starting EAS.
 
 ## License
 
