@@ -614,6 +614,24 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
       expectedTag: 'emergency',
       headline: 'Emergency power outage leaves the campus in the dark',
     },
+    {
+      category: 'competition',
+      templateId: 'academic-olympiad',
+      expectedTag: 'olympiad',
+      headline: 'Academic olympiad brings teams from across the region to campus',
+    },
+    {
+      category: 'institutional',
+      templateId: 'inspection',
+      expectedTag: 'inspection',
+      headline: 'External inspection reviews standards and accountability at the academy',
+    },
+    {
+      category: 'seasonal',
+      templateId: 'term-opening',
+      expectedTag: 'new term',
+      headline: 'New term arrival welcomes students back to the academy',
+    },
   ] as const;
 
   beforeEach(() => {
