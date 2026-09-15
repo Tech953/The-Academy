@@ -35,6 +35,24 @@ const {
   }>;
 };
 
+const { verifyAllProfileConnectivity } = require("../scripts/native-handoff.js") as {
+  verifyAllProfileConnectivity: (options: {
+    profile: string;
+    runAllProfiles: () => Promise<{
+      profiles: string[];
+      passed: Array<{ profile: string; domain: string; healthUrl: string; aiUrl: string }>;
+      failed: Array<{ profile: string; error: Error }>;
+    }>;
+  }) => Promise<{
+    selected: { profile: string };
+    allProfiles: {
+      profiles: string[];
+      passed: Array<{ profile: string }>;
+      failed: Array<{ profile: string; error: string }>;
+    };
+  }>;
+};
+
 const okJson = (payload: unknown) =>
   new Response(JSON.stringify(payload), {
     status: 200,
@@ -155,5 +173,66 @@ describe("release smoke check", () => {
     expect(result.passed).toMatchObject([
       { profile: "production", domain: "theeacademy.replit.app" },
     ]);
+  });
+
+  it("blocks the native handoff when any profile fails", async () => {
+    const runAllProfiles = vi.fn(async () => ({
+      profiles: ["preview", "production"],
+      passed: [
+        {
+          profile: "preview",
+          domain: "preview.example.com",
+          healthUrl: "https://preview.example.com/api/healthz",
+          aiUrl: "https://preview.example.com/api/ai/describe",
+        },
+      ],
+      failed: [
+        { profile: "production", error: new Error("HTTP 503") },
+      ],
+    }));
+
+    await expect(
+      verifyAllProfileConnectivity({
+        profile: "preview",
+        runAllProfiles,
+      }),
+    ).rejects.toThrow(
+      /Release connectivity failed before EAS build: production: HTTP 503/,
+    );
+    expect(runAllProfiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the selected profile after every profile passes", async () => {
+    const runAllProfiles = vi.fn(async () => ({
+      profiles: ["preview", "production"],
+      passed: [
+        {
+          profile: "preview",
+          domain: "preview.example.com",
+          healthUrl: "https://preview.example.com/api/healthz",
+          aiUrl: "https://preview.example.com/api/ai/describe",
+        },
+        {
+          profile: "production",
+          domain: "production.example.com",
+          healthUrl: "https://production.example.com/api/healthz",
+          aiUrl: "https://production.example.com/api/ai/describe",
+        },
+      ],
+      failed: [],
+    }));
+
+    await expect(
+      verifyAllProfileConnectivity({
+        profile: "production",
+        runAllProfiles,
+      }),
+    ).resolves.toMatchObject({
+      selected: { profile: "production" },
+      allProfiles: {
+        profiles: ["preview", "production"],
+        failed: [],
+      },
+    });
   });
 });

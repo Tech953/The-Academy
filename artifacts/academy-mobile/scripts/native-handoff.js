@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const {
-  runReleaseSmokeCheck,
+  runReleaseSmokeChecks,
   writeReleaseReport,
 } = require("./check-release.js");
 
@@ -110,13 +110,51 @@ function easCommand() {
   };
 }
 
+function summarizeConnectivity(result) {
+  return {
+    profiles: result.profiles,
+    passed: result.passed,
+    failed: result.failed.map(({ profile, error }) => ({
+      profile,
+      error: error instanceof Error ? error.message : String(error),
+    })),
+  };
+}
+
+async function verifyAllProfileConnectivity({
+  profile,
+  runAllProfiles = runReleaseSmokeChecks,
+} = {}) {
+  const result = await runAllProfiles();
+  const summary = summarizeConnectivity(result);
+
+  if (summary.failed.length > 0) {
+    const details = summary.failed
+      .map(({ profile: failedProfile, error }) => `${failedProfile}: ${error}`)
+      .join("; ");
+    throw new Error(
+      `[native-handoff] Release connectivity failed before EAS build: ${details}`,
+    );
+  }
+
+  const selected = result.passed.find((candidate) => candidate.profile === profile);
+  if (!selected) {
+    throw new Error(
+      `[native-handoff] Selected release profile "${profile}" was not included in the all-profile smoke check.`,
+    );
+  }
+
+  return { selected, allProfiles: summary };
+}
+
 async function main() {
   const { easArgs, platform, profile, checkOnly } = parseArgs(
     process.argv.slice(2),
   );
 
   validatePlatformIdentity(platform);
-  const connectivity = await runReleaseSmokeCheck({ profile });
+  const connectivityCheck = await verifyAllProfileConnectivity({ profile });
+  const connectivity = connectivityCheck.selected;
   const reportPath = process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
   const appConfig = readAppConfig();
   writeReleaseReport(reportPath, {
@@ -129,6 +167,7 @@ async function main() {
         ? appConfig.ios.bundleIdentifier
         : appConfig.android.package,
     connectivity,
+    allProfileConnectivity: connectivityCheck.allProfiles,
   });
   console.log(
     `[native-handoff] Release connectivity passed for profile "${profile}".`,
@@ -182,6 +221,7 @@ async function main() {
         ? appConfig.ios.bundleIdentifier
         : appConfig.android.package,
     connectivity,
+    allProfileConnectivity: connectivityCheck.allProfiles,
     easExitCode: result.status,
     ...buildMetadata,
   });
@@ -191,8 +231,18 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`[native-handoff] Aborted before EAS build: ${message}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[native-handoff] Aborted before EAS build: ${message}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  extractBuildMetadata,
+  parseArgs,
+  summarizeConnectivity,
+  validatePlatformIdentity,
+  verifyAllProfileConnectivity,
+};
