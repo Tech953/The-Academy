@@ -31,6 +31,11 @@ import {
   resolveExamineDescription,
   resolveNpcReply,
 } from '../lib/gameFallbacks';
+import {
+  BULLETIN_EVENT_LIMIT,
+  ensureUsableContentPack,
+  isDisplayableContentPackEvent,
+} from '../lib/contentPackFallback';
 
 import {
   generateNPCLine,
@@ -47,6 +52,7 @@ import {
   validateEventTemplateTags,
   type OfflineWorldEvent,
 } from '@workspace/game-engine';
+import type { ContentPack, ContentPackEvent } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared NPC dialogue params fixture
@@ -574,6 +580,72 @@ describe('generateOfflineContentPack() — valid pack with no network', () => {
       expect(typeof event.category).toBe('string');
       expect(Array.isArray(event.tags)).toBe(true);
     }
+  });
+});
+
+describe('ensureUsableContentPack() — malformed remote bulletin fallback', () => {
+  const day = 12;
+  const remoteEvent: ContentPackEvent = {
+    id: 'remote-campus-survey',
+    title: 'Campus Survey Opens',
+    description: 'Students can share priorities for the next term.',
+    npcReaction: 'Everyone has an opinion about what should change.',
+    playerHook: 'Read the proposals and add your own response.',
+    category: 'institutional',
+    durationDays: 3,
+    tags: ['survey', 'campus'],
+  };
+
+  function basePack(): ContentPack {
+    return {
+      ...generateOfflineContentPack(day),
+      activeEvents: [remoteEvent],
+      generatedBy: 'gpt',
+    };
+  }
+
+  function expectDisplayableUniqueBulletin(events: unknown[]) {
+    expect(events).toHaveLength(BULLETIN_EVENT_LIMIT);
+    expect(new Set(
+      events
+        .filter(isDisplayableContentPackEvent)
+        .map((event) => event.id.trim().toLowerCase()),
+    ).size).toBe(BULLETIN_EVENT_LIMIT);
+    events.forEach((event) => {
+      expect(isDisplayableContentPackEvent(event)).toBe(true);
+    });
+  }
+
+  it('replaces a missing activeEvents array with deterministic displayable events', () => {
+    const malformedPack = {
+      ...basePack(),
+      activeEvents: undefined,
+      rssHeadlines: undefined,
+    } as unknown as ContentPack;
+
+    const result = ensureUsableContentPack(malformedPack, day);
+
+    expect(result.generatedBy).toBe('deterministic');
+    expectDisplayableUniqueBulletin(result.activeEvents);
+  });
+
+  it('keeps valid remote events and replaces duplicate or partial records', () => {
+    const malformedPack = {
+      ...basePack(),
+      activeEvents: [
+        remoteEvent,
+        { ...remoteEvent, title: 'Duplicate copy' },
+        { ...remoteEvent, id: 'partial-event', description: '', tags: undefined },
+      ],
+      rssHeadlines: ['Exam assessment study'],
+    } as unknown as ContentPack;
+
+    const result = ensureUsableContentPack(malformedPack, day);
+
+    expect(result.activeEvents[0]).toBe(remoteEvent);
+    expect(result.activeEvents.filter((event) => event.id === remoteEvent.id)).toHaveLength(1);
+    expect(result.generatedBy).toBe('deterministic');
+    expectDisplayableUniqueBulletin(result.activeEvents);
   });
 });
 

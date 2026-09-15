@@ -27,6 +27,7 @@ import {
   getInitialEnrichmentStatus,
   type EnrichmentStatus,
 } from "@/lib/enrichmentStatus";
+import { ensureUsableContentPack } from "@/lib/contentPackFallback";
 import {
   analyzeDialogueTone,
   dayToWeek,
@@ -154,19 +155,6 @@ function defaultState(): PersistedState {
         timestamp: Date.now(),
       },
     ],
-  };
-}
-
-function ensureUsableContentPack(pack: ContentPack, day: number): ContentPack {
-  if (Array.isArray(pack.activeEvents) && pack.activeEvents.length > 0) {
-    return pack;
-  }
-
-  const fallback = generateOfflineContentPack(day, pack.rssHeadlines ?? []);
-  return {
-    ...pack,
-    activeEvents: fallback.activeEvents,
-    generatedBy: "deterministic",
   };
 }
 
