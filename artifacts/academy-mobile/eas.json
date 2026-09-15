@@ -17,7 +17,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": ""
+        "EXPO_PUBLIC_DOMAIN": "TheeAcademy.replit.app"
       }
     },
     "production": {
@@ -26,7 +26,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": ""
+        "EXPO_PUBLIC_DOMAIN": "TheeAcademy.replit.app"
       }
     }
   },

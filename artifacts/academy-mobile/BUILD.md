@@ -34,3 +34,18 @@ npx eas-cli build -p android --profile preview
 
 The `preview` profile produces an internal-distribution APK. The local static
 build check does not replace the EAS native Android build.
+
+## Release connectivity
+
+The `preview` APK and `production` app bundle bake the public deployment
+hostname into `EXPO_PUBLIC_DOMAIN`, so live AI descriptions, NPC dialogue, and
+content-pack enrichment are enabled in distributed builds:
+
+- Online base: `https://TheeAcademy.replit.app/api`
+- Preview: online-enabled APK with deterministic offline fallback
+- Production: online-enabled Android App Bundle with deterministic offline fallback
+- Development: the local workflow supplies its development hostname
+
+The public hostname is configuration, not a credential. If the published
+backend is unavailable, `lib/gameFallbacks.ts` returns bundled deterministic
+content and the core study loop remains local.

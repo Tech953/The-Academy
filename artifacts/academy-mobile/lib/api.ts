@@ -12,13 +12,12 @@
 const REQUEST_TIMEOUT_MS = 9000;
 
 /**
- * `EXPO_PUBLIC_DOMAIN` is injected by the Replit dev workflow so the app can
- * reach the sibling `artifacts/api-server` through the shared proxy. It is
- * NOT guaranteed to be present in an EAS-built APK installed outside this
- * workspace (there is no public backend URL to bake in yet). Rather than
- * throwing and letting every online call blow up with a config error, we
- * report "no backend configured" so callers can proactively treat the app
- * as offline instead of racing a fetch that can never succeed.
+ * `EXPO_PUBLIC_DOMAIN` is injected by the Replit dev workflow or baked into
+ * the EAS preview/production profiles. It contains only the public deployment
+ * hostname; no credentials belong in this value. Rather than throwing and
+ * letting every online call blow up with a config error, we report "no
+ * backend configured" so callers can proactively treat the app as offline
+ * instead of racing a fetch that can never succeed.
  */
 export function hasApiConfig(): boolean {
   return Boolean(process.env.EXPO_PUBLIC_DOMAIN);
