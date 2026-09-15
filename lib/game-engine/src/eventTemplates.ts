@@ -594,12 +594,29 @@ export function assertValidEventTemplateTags(
   );
 }
 
+function normalizeEventMatchText(value: string): string {
+  return value.normalize('NFKC').toLowerCase();
+}
+
 /** Match a headline/topic string to the closest event templates by tag overlap */
 export function matchEventsByTags(tags: string[], maxResults = 3): WorldEventTemplate[] {
   assertValidEventTemplateTags();
-  const lower = tags.map(t => t.toLowerCase());
+  const normalizedInputs = tags
+    .map(normalizeEventMatchText)
+    .filter(input =>
+      input.length > 3 || /[^\p{L}\p{N}\s]/u.test(input)
+    );
+
   return ALL_EVENTS
-    .map(ev => ({ ev, score: ev.tags.filter(t => lower.some(l => t.includes(l) || l.includes(t))).length }))
+    .map(ev => ({
+      ev,
+      score: ev.tags.filter(tag => {
+        const normalizedTag = normalizeEventMatchText(tag);
+        return normalizedInputs.some(input =>
+          normalizedTag.includes(input) || input.includes(normalizedTag)
+        );
+      }).length,
+    }))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, maxResults)

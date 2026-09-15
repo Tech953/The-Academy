@@ -305,9 +305,18 @@ function matchEventsToHeadlinesForDay(
         .map(headline => [headline.toLowerCase(), headline] as const),
     ).values(),
   ];
-  const allTags = uniqueHeadlines.flatMap(h =>
-    h.toLowerCase().split(/\W+/).filter(w => w.length > 3)
-  );
+  const allTags = uniqueHeadlines.flatMap(headline => {
+    const normalizedHeadline = headline.normalize('NFKC').toLowerCase();
+    const unicodeWords = normalizedHeadline.match(/[\p{L}\p{N}]+/gu) ?? [];
+
+    // Keep the complete headline so tags such as "c++" and "e-mail" can
+    // match even when punctuation is meaningful. Unicode word tokens retain
+    // the existing partial-overlap behavior for ordinary multi-word tags.
+    return [
+      normalizedHeadline,
+      ...unicodeWords.filter(word => word.length > 3),
+    ];
+  });
 
   const matches = matchEventsByTags(allTags, 3);
   return matches.map((template, i) => ({

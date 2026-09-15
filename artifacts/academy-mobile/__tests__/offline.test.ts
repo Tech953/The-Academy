@@ -984,6 +984,40 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
       .toEqual(matchEventsToHeadlines(['exam assessment study academic pressure']));
   });
 
+  it('matches accented and punctuation-heavy tags case-insensitively', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const originalTags = sourceTemplate.tags;
+    sourceTemplate.tags = [...originalTags, 'café', 'c++'];
+
+    try {
+      const accentedAndPunctuated = matchEventsToHeadlines(['CAFÉ / C++ workshop']);
+      const repeatedMatch = matchEventsToHeadlines(['café / c++ workshop']);
+
+      expect(accentedAndPunctuated).toEqual(repeatedMatch);
+      expect(accentedAndPunctuated.map(event => event.id)).toContain('exam-week');
+    } finally {
+      sourceTemplate.tags = originalTags;
+    }
+  });
+
+  it('identifies the template and Unicode tag when casing is malformed', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const issues = validateEventTemplateTags([{
+      ...sourceTemplate,
+      id: 'unicode-tag-fixture',
+      tags: ['Café'],
+    }]);
+
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        templateId: 'unicode-tag-fixture',
+        tag: 'Café',
+        reason: 'not-lowercase',
+        normalizedTag: 'café',
+      }),
+    ]));
+  });
+
   it('caps matches at three and avoids duplicate event instances', () => {
     const events = matchEventsToHeadlines(Array(10).fill('exam assessment study science lecture mystery'));
     expect(events).toHaveLength(3);
