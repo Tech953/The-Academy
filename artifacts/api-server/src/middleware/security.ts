@@ -2,9 +2,24 @@ import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 
+const GENERAL_LIMIT_EXEMPT_PATHS = new Set([
+  '/healthz',
+  '/nlp/process',
+  '/ai/describe',
+  '/character-creation/generate-questions',
+  '/npc-dialogue',
+  '/memories/visualize',
+  '/content-pack/refresh',
+]);
+
+export function shouldSkipGeneralApiLimit(req: Pick<Request, 'path'>): boolean {
+  return GENERAL_LIMIT_EXEMPT_PATHS.has(req.path);
+}
+
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
+  skip: shouldSkipGeneralApiLimit,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests — please try again in a few minutes.' },

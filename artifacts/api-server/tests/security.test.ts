@@ -2,7 +2,13 @@ import express from "express";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiLimiter } from "../src/middleware/security";
+import router from "../src/routes";
+import { registerRoutes } from "../src/routes/routes";
+import {
+  apiLimiter,
+  shouldSkipGeneralApiLimit,
+} from "../src/middleware/security";
+import type { IStorage } from "../src/storage";
 
 type TestServer = {
   server: Server;
@@ -26,9 +32,13 @@ afterEach(async () => {
 async function startRateLimitedServer(): Promise<TestServer> {
   const app = express();
   app.set("trust proxy", 1);
-  app.use(apiLimiter);
-  app.get("/limited", (_req, res) => {
-    res.json({ ok: true });
+  app.use("/api", apiLimiter);
+  app.use("/api", router);
+  await registerRoutes(app, {
+    storage: {
+      getAllLocations: vi.fn(async () => []),
+    } as unknown as IStorage,
+    skipContentRefresh: true,
   });
 
   const server = app.listen(0);
@@ -41,9 +51,10 @@ async function startRateLimitedServer(): Promise<TestServer> {
 async function request(
   testServer: TestServer,
   forwardedFor?: string,
+  path = "/api/locations",
 ): Promise<Response> {
   const headers = forwardedFor ? { "x-forwarded-for": forwardedFor } : undefined;
-  return fetch(`${testServer.baseUrl}/limited`, { headers });
+  return fetch(`${testServer.baseUrl}${path}`, { headers });
 }
 
 describe("forwarded-client rate limiting", () => {
@@ -52,6 +63,7 @@ describe("forwarded-client rate limiting", () => {
 
     const directRequest = await request(testServer);
     expect(directRequest.status).toBe(200);
+    expect((await request(testServer, undefined, "/api/healthz")).status).toBe(200);
 
     for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
       expect((await request(testServer, "203.0.113.10")).status).toBe(200);
@@ -59,6 +71,14 @@ describe("forwarded-client rate limiting", () => {
 
     expect((await request(testServer, "203.0.113.10")).status).toBe(429);
     expect((await request(testServer, "203.0.113.11")).status).toBe(200);
+  });
+
+  it("skips health and specialized routes from the general quota", () => {
+    expect(shouldSkipGeneralApiLimit({ path: "/api/healthz" })).toBe(false);
+    expect(shouldSkipGeneralApiLimit({ path: "/healthz" })).toBe(true);
+    expect(shouldSkipGeneralApiLimit({ path: "/ai/describe" })).toBe(true);
+    expect(shouldSkipGeneralApiLimit({ path: "/content-pack/refresh" })).toBe(true);
+    expect(shouldSkipGeneralApiLimit({ path: "/locations" })).toBe(false);
   });
 
   it("rejects an invalid proxy-hop configuration before the API starts", async () => {
