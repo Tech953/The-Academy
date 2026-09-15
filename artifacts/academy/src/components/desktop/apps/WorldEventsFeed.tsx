@@ -20,6 +20,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   competition:   'text-green-400 border-green-400/30 bg-green-400/10',
   crisis:        'text-red-400 border-red-400/30 bg-red-400/10',
   institutional: 'text-slate-400 border-slate-400/30 bg-slate-400/10',
+  seasonal:      'text-orange-400 border-orange-400/30 bg-orange-400/10',
 };
 
 const EMOTION_BADGES: Record<string, string> = {

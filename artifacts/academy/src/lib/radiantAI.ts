@@ -1,6 +1,9 @@
 // The Academy Radiant AI System
 // Based on the architectural diagram for autonomous NPC behavior
 
+import { EVENT_TEMPLATES } from '@workspace/game-engine';
+import type { EventCategory } from '@workspace/game-engine';
+
 // ============================================
 // TYPES & INTERFACES
 // ============================================
@@ -106,7 +109,17 @@ export interface DialogueContext {
 }
 
 // World event that affects NPCs
-export type WorldEventType = 'exam' | 'competition' | 'accident' | 'announcement' | 'social' | 'crisis';
+export type WorldEventType =
+  | 'exam'
+  | 'competition'
+  | 'accident'
+  | 'announcement'
+  | 'social'
+  | 'crisis'
+  | 'discovery'
+  | 'institutional'
+  | 'seasonal'
+  | 'mystery';
 
 export interface WorldEvent {
   id: string;
@@ -1173,13 +1186,28 @@ export function applyEventConsequences(npc: NPCEntity, event: WorldEvent): NPCEn
 // EVENT CHAINING SYSTEM
 // ============================================
 
-const EVENT_TEMPLATES = {
-  academic: ['Math Exam', 'Science Fair', 'Debate Competition', 'Research Presentation', 'Guest Lecture'],
-  social: ['Campus Festival', 'Club Competition', 'Theater Performance', 'Dance Night', 'Study Group'],
-  emergency: ['Fire Drill', 'Power Outage', 'Medical Emergency', 'Weather Alert', 'Security Lockdown']
-};
-
 const EVENT_LOCATIONS = ['Library', 'Courtyard', 'Lab', 'Gym', 'Auditorium', 'Cafeteria', 'Classroom'];
+
+/**
+ * Compatibility boundary for Radiant AI's older event lifecycle API.
+ *
+ * The lifecycle still exposes names such as "exam", "accident", and
+ * "announcement" because saved game state and chaining logic use them.
+ * Template content itself is canonical in @workspace/game-engine so the web
+ * and mobile bulletin paths cannot drift into separate vocabularies.
+ */
+const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
+  exam: 'academic',
+  competition: 'competition',
+  accident: 'crisis',
+  announcement: 'institutional',
+  social: 'social',
+  crisis: 'crisis',
+  discovery: 'discovery',
+  institutional: 'institutional',
+  seasonal: 'seasonal',
+  mystery: 'mystery',
+};
 
 export interface EventChainConfig {
   chainProbability: number;  // 0-1 chance to spawn follow-up
@@ -1192,25 +1220,32 @@ export const DEFAULT_CHAIN_CONFIG: EventChainConfig = {
 };
 
 export function generateProceduralEvent(type?: WorldEventType, durationMs?: number): WorldEvent {
-  const eventTypes: WorldEventType[] = ['exam', 'competition', 'social', 'announcement', 'crisis'];
+  const eventTypes: WorldEventType[] = [
+    'exam',
+    'competition',
+    'social',
+    'announcement',
+    'crisis',
+    'discovery',
+    'institutional',
+    'seasonal',
+    'mystery',
+  ];
   const selectedType = type || eventTypes[Math.floor(Math.random() * eventTypes.length)];
-  
-  const templateType = selectedType === 'exam' ? 'academic' : 
-                       selectedType === 'crisis' ? 'emergency' : 
-                       selectedType === 'competition' ? 'academic' : 'social';
-  
-  const templates = EVENT_TEMPLATES[templateType];
-  const name = templates[Math.floor(Math.random() * templates.length)];
+  const category = RADIANT_EVENT_CATEGORIES[selectedType];
+  const templates = EVENT_TEMPLATES[category];
+  const template = templates[Math.floor(Math.random() * templates.length)];
   const location = EVENT_LOCATIONS[Math.floor(Math.random() * EVENT_LOCATIONS.length)];
   
   const duration = durationMs || (Math.floor(Math.random() * 45) + 15) * 60 * 1000; // 15-60 min
   const now = Date.now();
+  const name = template.title;
   
   return {
     id: `event_${now}_${Math.random().toString(36).substr(2, 9)}`,
     type: selectedType,
     name,
-    description: `${name} occurring at ${location}`,
+    description: `${template.description} Location: ${location}.`,
     startTime: now,
     endTime: now + duration,
     affectedLocations: [location],
