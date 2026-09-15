@@ -33,8 +33,10 @@ import {
 import type { GEDSubjectKey, StudyQuestion } from "@workspace/game-engine";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { computeRelationshipShift, type RelationshipShift } from "@/lib/relationshipShift";
+import { selectWeeklyTheme } from "@/lib/themeSelection";
 
 export type { RelationshipShift };
+export { selectWeeklyTheme };
 
 const STORAGE_KEY = "academy-mobile-state-v1";
 
@@ -232,8 +234,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const hasEnrichedLocation = useRef<Set<LocationId>>(new Set());
   const weeklyTheme = useMemo(
-    () => contentPack?.weeklyTheme ?? generateOfflineContentPack(state.day).weeklyTheme,
-    [contentPack?.weeklyTheme, state.day],
+    () => selectWeeklyTheme(contentPack, state.day),
+    [contentPack, state.day],
   );
 
   useEffect(() => {
