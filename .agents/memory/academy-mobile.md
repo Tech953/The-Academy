@@ -13,6 +13,7 @@ Offline-first GED academic RPG companion to the web app, retro CRT terminal look
 - Colors: single CRT palette (light===dark) in `constants/colors.ts`; `radius` is a top-level number sibling of `light`/`dark`, so a `Record<string, palette>` cast breaks typecheck — access `dark` via a narrow cast instead.
 
 **Offline-first design (explicit user requirement):** app must be fully usable with no network. `lib/api.ts` does online→offline fallback for describe/npcReply and tags each result with `source: "online" | "offline"`. Study is fully local (`generateQuizSet`). Sync (content packs) is additive-only enrichment cached in AsyncStorage. Never make a core flow require the network.
+- **Enrichment status should be shared and non-blocking:** show checking, live AI, local-only, or local-fallback based on connectivity/configuration and the latest enrichment result; never gate study, travel, dialogue, or saved progress on the API.
 
 - Backend already exists (web api-server); mobile calls it via direct fetch — DO NOT add DB/OpenAPI codegen for the mobile artifact.
 

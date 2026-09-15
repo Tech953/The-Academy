@@ -20,7 +20,13 @@ import {
   resolveLocationDescription,
   resolveExamineDescription,
   resolveNpcReply,
+  type ContentSource,
 } from "@/lib/gameFallbacks";
+import {
+  getEnrichmentStatusForSource,
+  getInitialEnrichmentStatus,
+  type EnrichmentStatus,
+} from "@/lib/enrichmentStatus";
 import {
   analyzeDialogueTone,
   dayToWeek,
@@ -200,6 +206,7 @@ interface GameContextValue {
   dialogueLoading: boolean;
   contentPack: ContentPack | null;
   contentPackLoading: boolean;
+  enrichmentStatus: EnrichmentStatus;
   weeklyTheme: string;
   startGame: (name: string) => void;
   advanceDay: () => Promise<void>;
@@ -221,7 +228,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // backend to talk to (e.g. an EAS-built APK with no EXPO_PUBLIC_DOMAIN
   // baked in). Only claim "online" when both are true, so the UI badge and
   // the offline-fallback logic agree on what's actually reachable.
-  const isOnline = networkOnline && hasApiConfig();
+  const apiConfigured = hasApiConfig();
+  const isOnline = networkOnline && apiConfigured;
   const [state, setState] = useState<PersistedState>(defaultState);
   const [ready, setReady] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -232,11 +240,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [relationshipShifts, setRelationshipShifts] = useState<Record<string, RelationshipShift>>({});
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
+  const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
+    getInitialEnrichmentStatus(networkOnline, apiConfigured),
+  );
   const hasEnrichedLocation = useRef<Set<LocationId>>(new Set());
   const weeklyTheme = useMemo(
     () => selectWeeklyTheme(contentPack, state.day),
     [contentPack, state.day],
   );
+
+  useEffect(() => {
+    setEnrichmentStatus(
+      getInitialEnrichmentStatus(networkOnline, apiConfigured),
+    );
+  }, [apiConfigured, networkOnline]);
 
   useEffect(() => {
     (async () => {
@@ -266,6 +283,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const recordEnrichmentSource = useCallback((source: ContentSource) => {
+    setEnrichmentStatus(getEnrichmentStatusForSource(source));
+  }, []);
+
+  const recordOfflineContent = useCallback(() => {
+    setEnrichmentStatus(isOnline ? "fallback" : "offline");
+  }, [isOnline]);
+
   const startGame = useCallback((name: string) => {
     const trimmed = name.trim() || "Recruit";
     setState((prev) => ({
@@ -290,7 +315,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const npcNames = location.npcIds.map((id) => NPCS[id]?.name).filter(Boolean) as string[];
       setLocationLoading(true);
       try {
-        const { text } = isOnline
+        const result = isOnline
           ? await resolveLocationDescription(
               {
                 locationName: location.name,
@@ -300,13 +325,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               },
               location.description,
             )
-          : { text: location.description };
-        appendLog({ type: "location", text });
+          : { text: location.description, source: "offline" as const };
+        if (isOnline) {
+          recordEnrichmentSource(result.source);
+        } else {
+          recordOfflineContent();
+        }
+        appendLog({ type: "location", text: result.text });
       } finally {
         setLocationLoading(false);
       }
     },
-    [isOnline, appendLog],
+    [appendLog, isOnline, recordEnrichmentSource, recordOfflineContent],
   );
 
   const travelTo = useCallback(
@@ -373,8 +403,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       try {
         if (!isOnline) throw new Error("offline");
         const pack = await fetchContentPack();
+        recordEnrichmentSource("online");
         if (!cancelled) setContentPack(ensureUsableContentPack(pack, state.day));
       } catch {
+        recordOfflineContent();
         if (!cancelled) setContentPack(generateOfflineContentPack(state.day));
       } finally {
         if (!cancelled) setContentPackLoading(false);
@@ -384,7 +416,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, state.hasStarted, isOnline, state.day]);
+    }, [
+      ready,
+      state.hasStarted,
+      isOnline,
+      recordEnrichmentSource,
+      recordOfflineContent,
+      state.day,
+    ]);
 
   const examine = useCallback(
     async (interactableId: string) => {
@@ -394,7 +433,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const examinedKey = `${location.id}:${interactableId}`;
       setExamineLoading(interactableId);
       try {
-        const { text } = isOnline
+        const result = isOnline
           ? await resolveExamineDescription(
               {
                 target: target.label,
@@ -403,8 +442,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               },
               target.description,
             )
-          : { text: target.description };
-        appendLog({ type: "action", text: `You examine the ${target.label}. ${text}` });
+          : { text: target.description, source: "offline" as const };
+        if (isOnline) {
+          recordEnrichmentSource(result.source);
+        } else {
+          recordOfflineContent();
+        }
+        appendLog({ type: "action", text: `You examine the ${target.label}. ${result.text}` });
       } finally {
         setExamineLoading(null);
         setState((prev) => {
@@ -418,7 +462,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [isOnline, appendLog, state.currentLocationId],
+    [
+      appendLog,
+      isOnline,
+      recordEnrichmentSource,
+      recordOfflineContent,
+      state.currentLocationId,
+    ],
   );
 
   const sendDialogue = useCallback(
@@ -457,7 +507,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       setDialogueLoading(true);
       try {
-        const { text: replyText } = isOnline
+        const replyResult = isOnline
           ? await resolveNpcReply(
               {
                 npcName: npc.name,
@@ -496,7 +546,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                 weeklyTheme,
                 dayOffset: state.day - 1,
               }),
+              source: "offline" as const,
             };
+        if (isOnline) {
+          recordEnrichmentSource(replyResult.source);
+        } else {
+          recordOfflineContent();
+        }
+        const replyText = replyResult.text;
         const reply: DialogueMessage = { role: "npc", text: replyText, timestamp: Date.now() };
         setState((prev) => ({
           ...prev,
@@ -515,7 +572,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setDialogueLoading(false);
       }
     },
-    [isOnline, state.relationships, state.dialogueHistory, state.playerName, state.day, weeklyTheme],
+    [
+      isOnline,
+      recordEnrichmentSource,
+      recordOfflineContent,
+      state.relationships,
+      state.dialogueHistory,
+      state.playerName,
+      state.day,
+      weeklyTheme,
+    ],
   );
 
   const resetNpcConversation = useCallback((npcId: string) => {
@@ -623,6 +689,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      enrichmentStatus,
       weeklyTheme,
       startGame,
       advanceDay,
@@ -645,6 +712,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      enrichmentStatus,
       weeklyTheme,
       startGame,
       advanceDay,
