@@ -198,6 +198,7 @@ interface GameContextValue {
   dialogueLoading: boolean;
   contentPack: ContentPack | null;
   contentPackLoading: boolean;
+  weeklyTheme: string;
   startGame: (name: string) => void;
   advanceDay: () => Promise<void>;
   travelTo: (locationId: LocationId) => Promise<void>;
@@ -230,8 +231,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const hasEnrichedLocation = useRef<Set<LocationId>>(new Set());
-  const weeklyTheme =
-    contentPack?.weeklyTheme ?? generateOfflineContentPack(state.day).weeklyTheme;
+  const weeklyTheme = useMemo(
+    () => contentPack?.weeklyTheme ?? generateOfflineContentPack(state.day).weeklyTheme,
+    [contentPack?.weeklyTheme, state.day],
+  );
 
   useEffect(() => {
     (async () => {
@@ -618,6 +621,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      weeklyTheme,
       startGame,
       advanceDay,
       travelTo,
@@ -639,6 +643,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      weeklyTheme,
       startGame,
       advanceDay,
       travelTo,

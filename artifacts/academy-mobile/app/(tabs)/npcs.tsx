@@ -76,6 +76,7 @@ export default function NpcScreen() {
     sendDialogue,
     resetNpcConversation,
     dialogueLoading,
+    weeklyTheme,
   } = useGame();
   const [activeNpcId, setActiveNpcId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -131,6 +132,10 @@ export default function NpcScreen() {
             CAMPUS DIRECTORY
           </Text>
           <StatusBadge isOnline={isOnline} />
+        </View>
+        <View style={[styles.themeCue, { borderColor: colors.accent }]}>
+          <Text style={[styles.themeCueLabel, { color: colors.accent }]}>WEEKLY CAMPUS THEME</Text>
+          <Text style={[styles.themeCueValue, { color: colors.foreground }]}>{weeklyTheme}</Text>
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
           {npcList.map((npc) => (
@@ -316,6 +321,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     letterSpacing: 0.5,
+  },
+  themeCue: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 2,
+  },
+  themeCueLabel: {
+    ...monoFontBold,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  themeCueValue: {
+    ...monoFont,
+    fontSize: 12,
+    lineHeight: 17,
   },
   chatProgress: {
     paddingHorizontal: 16,
