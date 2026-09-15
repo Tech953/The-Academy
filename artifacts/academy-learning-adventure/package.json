@@ -10,7 +10,7 @@
     "validate-slides": "pnpm exec tsx scripts/validate-slides.ts",
     "validate-exports": "pnpm exec tsx scripts/validate-exports.ts",
     "validate-routes": "pnpm exec tsx scripts/validate-routes.ts",
-    "validate-base-path": "pnpm exec tsx scripts/validate-base-path.ts",
+    "validate-base-path": "env -u BASE_PATH -u PORT pnpm run build && pnpm exec tsx scripts/validate-base-path.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

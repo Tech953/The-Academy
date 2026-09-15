@@ -13,19 +13,36 @@ const artifactConfigPath = path.join(
 const buildOutputDirectory = path.join(projectRoot, 'dist', 'public');
 const builtIndexPath = path.join(buildOutputDirectory, 'index.html');
 
+type AssetKind = 'script' | 'stylesheet' | 'favicon';
+
 type LocalReference = {
   attribute: 'href' | 'src';
   value: string;
 };
 
+type AssetReference = {
+  kind: AssetKind;
+  url: string;
+};
+
 function readPreviewPath(): string {
   const config = readFileSync(artifactConfigPath, 'utf8');
   const match = /^previewPath\s*=\s*"([^"]+)"/m.exec(config);
-  if (!match?.[1]) {
+  const previewPath = match?.[1];
+
+  if (!previewPath) {
     throw new Error(`Could not read "previewPath" from ${artifactConfigPath}`);
   }
 
-  return `/${match[1].replace(/^\/+|\/+$/g, '')}/`;
+  return `/${previewPath.replace(/^\/+|\/+$/g, '')}/`;
+}
+
+function attributeValue(tag: string, name: string): string | undefined {
+  const match = new RegExp(
+    `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`,
+    'i',
+  ).exec(tag);
+  return match?.[1] ?? match?.[2] ?? match?.[3];
 }
 
 function isExternalReference(value: string): boolean {
@@ -35,6 +52,7 @@ function isExternalReference(value: string): boolean {
 function localReferences(document: string): LocalReference[] {
   const references: LocalReference[] = [];
   const pattern = /\b(href|src)\s*=\s*["']([^"']+)["']/gi;
+
   for (const match of document.matchAll(pattern)) {
     const attribute = match[1]?.toLowerCase();
     const value = match[2];
@@ -44,6 +62,42 @@ function localReferences(document: string): LocalReference[] {
       !isExternalReference(value)
     ) {
       references.push({ attribute, value });
+    }
+  }
+
+  return references;
+}
+
+function assetReferences(document: string): AssetReference[] {
+  const references: AssetReference[] = [];
+  const tags = document.match(/<(?:script|link)\b[^>]*>/gi) ?? [];
+
+  for (const tag of tags) {
+    const tagName = /^<([a-z]+)/i.exec(tag)?.[1]?.toLowerCase();
+
+    if (tagName === 'script') {
+      const url = attributeValue(tag, 'src');
+      if (url) {
+        references.push({ kind: 'script', url });
+      }
+      continue;
+    }
+
+    if (tagName !== 'link') {
+      continue;
+    }
+
+    const rel = attributeValue(tag, 'rel')?.toLowerCase().split(/\s+/) ?? [];
+    const url = attributeValue(tag, 'href');
+    if (!url) {
+      continue;
+    }
+
+    if (rel.includes('stylesheet')) {
+      references.push({ kind: 'stylesheet', url });
+    }
+    if (rel.includes('icon')) {
+      references.push({ kind: 'favicon', url });
     }
   }
 
@@ -60,10 +114,13 @@ function fileForReference(value: string, previewPath: string): string {
     ? withoutQuery.slice(previewPath.length)
     : withoutQuery.replace(/^\/+/, '');
   let decodedPath: string;
+
   try {
     decodedPath = decodeURIComponent(relativePath);
   } catch {
-    throw new Error(`Built asset reference is not valid URL encoding: "${value}"`);
+    throw new Error(
+      `Built asset reference is not valid URL encoding: "${value}"`,
+    );
   }
 
   const filePath = path.resolve(buildOutputDirectory, decodedPath);
@@ -72,7 +129,9 @@ function fileForReference(value: string, previewPath: string): string {
     relativeFilePath.startsWith('..') ||
     path.isAbsolute(relativeFilePath)
   ) {
-    throw new Error(`Built asset reference escapes the output directory: "${value}"`);
+    throw new Error(
+      `Built asset reference escapes the output directory: "${value}"`,
+    );
   }
 
   return filePath;
@@ -89,7 +148,16 @@ function validate(): void {
   const document = readFileSync(builtIndexPath, 'utf8');
   const references = localReferences(document);
   if (references.length === 0) {
-    throw new Error('Built index does not contain any local href or src references.');
+    throw new Error(
+      'Built index does not contain any local href or src references.',
+    );
+  }
+
+  const assetReferencesInDocument = assetReferences(document);
+  for (const kind of ['script', 'stylesheet', 'favicon'] as const) {
+    if (!assetReferencesInDocument.some((reference) => reference.kind === kind)) {
+      throw new Error(`Built document has no ${kind} URL.`);
+    }
   }
 
   const rootRelativeReferences = references.filter((reference) =>
