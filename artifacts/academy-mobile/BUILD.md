@@ -35,6 +35,21 @@ npx eas-cli build -p android --profile preview
 The `preview` profile produces an internal-distribution APK. The local static
 build check does not replace the EAS native Android build.
 
+## Release connectivity smoke check
+
+Before handing off a preview APK or production app bundle, run the
+credential-free release check from the workspace root:
+
+```bash
+pnpm --filter @workspace/academy-mobile run check-release
+RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-release
+```
+
+The check reads `EXPO_PUBLIC_DOMAIN` from the selected profile in `eas.json`,
+then verifies `/api/healthz` and a representative `POST /api/ai/describe`
+request. It does not require an EAS build or credentials. If either request
+fails, the command prints the exact profile and URL that needs attention.
+
 ## Release connectivity
 
 The `preview` APK and `production` app bundle bake the public deployment
