@@ -1380,6 +1380,10 @@ async function registerUrlMetaRoute(app: Express) {
         signal: controller.signal,
       });
       clearTimeout(timeout);
+      if (!response.ok) {
+        res.status(502).json({ error: `upstream ${response.status}` });
+        return;
+      }
       const html = await response.text();
 
       const getMeta = (...names: string[]): string => {

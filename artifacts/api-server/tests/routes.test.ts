@@ -16,8 +16,10 @@ type TestServer = {
 };
 
 const openServers = new Set<Server>();
+const requestFetch = globalThis.fetch.bind(globalThis);
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   await Promise.all(
     [...openServers].map(
       server =>
@@ -46,7 +48,7 @@ async function request(
   path: string,
   init: RequestInit = {},
 ): Promise<{ response: Response; body: any; text: string }> {
-  const response = await fetch(`${testServer.baseUrl}${path}`, init);
+  const response = await requestFetch(`${testServer.baseUrl}${path}`, init);
   const text = await response.text();
   const contentType = response.headers.get("content-type") ?? "";
   return {
@@ -236,6 +238,96 @@ describe("main API routes", () => {
     expect(result.response.status).toBe(200);
     expect(result.body).toEqual({ description: "A quiet room of lamps and old maps." });
     expect(create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RSS and URL metadata routes", () => {
+  it("rejects invalid URL metadata input without calling fetch", async () => {
+    const upstreamFetch = vi.fn();
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(testServer, "/api/fetch-url-meta?url=not-a-url");
+
+    expect(result.response.status).toBe(400);
+    expect(result.body).toEqual({ error: "Invalid or missing URL parameter" });
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable error when URL metadata fetching fails upstream", async () => {
+    const upstreamFetch = vi.fn(async () => {
+      throw new Error("upstream unavailable");
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Farticle",
+    );
+
+    expect(result.response.status).toBe(500);
+    expect(result.body).toEqual({
+      error: "Could not retrieve URL: upstream unavailable",
+    });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the upstream status when URL metadata responds with an error", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("temporarily unavailable", { status: 503 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Farticle",
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "upstream 503" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a stable error when an RSS feed request fails upstream", async () => {
+    const upstreamFetch = vi.fn(async () => {
+      throw new Error("feed unavailable");
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/rss?url=https%3A%2F%2Fnasa.gov%2Ffeed.xml",
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "feed unavailable" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the upstream status when an RSS feed responds with an error", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("temporarily unavailable", { status: 503 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/rss?url=https%3A%2F%2Fnasa.gov%2Ffeed.xml",
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "upstream 503" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 });
 
