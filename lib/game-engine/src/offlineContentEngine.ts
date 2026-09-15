@@ -269,9 +269,24 @@ export function generateDailyEvents(dayNumber: number, count = 2): OfflineWorldE
  */
 export function matchEventsToHeadlines(headlines: string[]): OfflineWorldEvent[] {
   const dayNumber = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  return matchEventsToHeadlinesForDay(headlines, dayNumber);
+}
+
+function matchEventsToHeadlinesForDay(
+  headlines: string[],
+  dayNumber: number,
+): OfflineWorldEvent[] {
   const rng = new SeededRandom(temporalSeed('rss-match', dayNumber));
 
-  const allTags = headlines.flatMap(h =>
+  const uniqueHeadlines = [
+    ...new Map(
+      headlines
+        .map(headline => headline.trim())
+        .filter(Boolean)
+        .map(headline => [headline.toLowerCase(), headline] as const),
+    ).values(),
+  ];
+  const allTags = uniqueHeadlines.flatMap(h =>
     h.toLowerCase().split(/\W+/).filter(w => w.length > 3)
   );
 
@@ -286,6 +301,34 @@ export function matchEventsToHeadlines(headlines: string[]): OfflineWorldEvent[]
     activeNpcReaction: rng.pick(template.npcReactions),
     activePlayerHook: rng.pick(template.playerHooks),
   }));
+}
+
+/**
+ * Build bulletin events from headline matches first, then fill remaining
+ * slots with deterministic daily events. Headlines are enrichment, not a
+ * requirement for a usable bulletin.
+ */
+export function generateBulletinEvents(
+  dayNumber: number,
+  headlines: string[] = [],
+  count = 3,
+): OfflineWorldEvent[] {
+  const desiredCount = Math.max(0, Math.floor(count));
+  if (desiredCount === 0) return [];
+
+  const matchedEvents = matchEventsToHeadlinesForDay(headlines, dayNumber);
+  const fallbackEvents = generateDailyEvents(dayNumber, desiredCount);
+  const events: OfflineWorldEvent[] = [];
+  const seenIds = new Set<string>();
+
+  for (const event of [...matchedEvents, ...fallbackEvents]) {
+    if (seenIds.has(event.id)) continue;
+    seenIds.add(event.id);
+    events.push(event);
+    if (events.length === desiredCount) break;
+  }
+
+  return events;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -551,34 +594,22 @@ export function dayToWeek(day: number): number {
  * keyed to the in-game *week* (so they stay stable as the day/week counter
  * advances within a week), while the active events rotate each *day*.
  */
-export function generateOfflineContentPack(day: number): ContentPack {
+export function generateOfflineContentPack(day: number, headlines: string[] = []): ContentPack {
   const week = dayToWeek(day);
   const weekRng = new SeededRandom(temporalSeed('content-pack-week', week));
   const theme = weekRng.pick(WEEKLY_THEMES);
   const gedFocusAreas = WEEKLY_FOCUS_AREAS[(week - 1) % WEEKLY_FOCUS_AREAS.length];
 
-  const rng = new SeededRandom(temporalSeed('content-pack', day));
-
-  const categories = Object.keys(EVENT_TEMPLATES) as EventCategory[];
-  const activeEvents: ContentPackEvent[] = [];
-  const usedIds = new Set<string>();
-  for (let i = 0; i < 3; i++) {
-    const category = rng.pick(categories);
-    const pool = EVENT_TEMPLATES[category];
-    const template = rng.pick(pool);
-    if (usedIds.has(template.id)) continue;
-    usedIds.add(template.id);
-    activeEvents.push({
-      id: template.id,
-      title: template.title,
-      description: template.description,
-      npcReaction: rng.pick(template.npcReactions),
-      playerHook: rng.pick(template.playerHooks),
-      category: template.category,
-      durationDays: template.duration === 'hours' ? 1 : template.duration === 'days' ? 3 : 7,
-      tags: template.tags,
-    });
-  }
+  const activeEvents: ContentPackEvent[] = generateBulletinEvents(day, headlines, 3).map((event) => ({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    npcReaction: event.activeNpcReaction,
+    playerHook: event.activePlayerHook,
+    category: event.template.category,
+    durationDays: event.template.duration === 'hours' ? 1 : event.template.duration === 'days' ? 3 : 7,
+    tags: event.template.tags,
+  }));
 
   const now = Date.now();
   return {

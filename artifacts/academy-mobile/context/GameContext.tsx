@@ -149,6 +149,19 @@ function defaultState(): PersistedState {
   };
 }
 
+function ensureUsableContentPack(pack: ContentPack, day: number): ContentPack {
+  if (Array.isArray(pack.activeEvents) && pack.activeEvents.length > 0) {
+    return pack;
+  }
+
+  const fallback = generateOfflineContentPack(day, pack.rssHeadlines ?? []);
+  return {
+    ...pack,
+    activeEvents: fallback.activeEvents,
+    generatedBy: "deterministic",
+  };
+}
+
 let idCounter = 0;
 function nextId(prefix: string): string {
   idCounter += 1;
@@ -353,7 +366,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       try {
         if (!isOnline) throw new Error("offline");
         const pack = await fetchContentPack();
-        if (!cancelled) setContentPack(pack);
+        if (!cancelled) setContentPack(ensureUsableContentPack(pack, state.day));
       } catch {
         if (!cancelled) setContentPack(generateOfflineContentPack(state.day));
       } finally {

@@ -36,6 +36,8 @@ import {
   generateNPCLine,
   generateOfflineConversation,
   generateQuizSet,
+  generateDailyEvents,
+  generateBulletinEvents,
   generateOfflineContentPack,
   inferEmotionState,
   scoreToRelationshipTier,
@@ -599,13 +601,22 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     vi.useRealTimers();
   });
 
-  function expectValidEvent(event: OfflineWorldEvent) {
+  function expectValidEvent(
+    event: OfflineWorldEvent,
+    instanceKind: 'rss' | 'daily' | 'either' = 'rss',
+  ) {
     for (const field of ['id', 'instanceId', 'title', 'description', 'activeNpcReaction', 'activePlayerHook'] as const) {
       expect(typeof event[field]).toBe('string');
       expect(event[field].trim().length).toBeGreaterThan(0);
     }
     expect(event.startDay).toBe(day);
-    expect(event.instanceId).toBe(`${event.id}-rss-day${day}`);
+    const expectedInstanceIds =
+      instanceKind === 'rss'
+        ? [`${event.id}-rss-day${day}`]
+        : instanceKind === 'daily'
+          ? [`${event.id}-day${day}`]
+          : [`${event.id}-rss-day${day}`, `${event.id}-day${day}`];
+    expect(expectedInstanceIds).toContain(event.instanceId);
     expect(event.id).toBe(event.template.id);
     expect(event.title).toBe(event.template.title);
     expect(event.description).toBe(event.template.description);
@@ -638,14 +649,53 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     const events = matchEventsToHeadlines([headline]);
     expect(Array.isArray(events)).toBe(true);
     expect(events.length).toBeLessThanOrEqual(3);
-    events.forEach(expectValidEvent);
+    events.forEach(event => expectValidEvent(event));
   });
 
   it('produces complete events for matching headlines', () => {
     const events = matchEventsToHeadlines(['Exam assessment study academic pressure']);
     expect(events.length).toBeGreaterThan(0);
     expect(events.map(event => event.id)).toContain('exam-week');
-    events.forEach(expectValidEvent);
+    events.forEach(event => expectValidEvent(event));
+  });
+
+  it('deduplicates repeated headlines without crowding out a second useful match', () => {
+    const headlines = [
+      ...Array(10).fill('Exam assessment study academic pressure'),
+      'Astronomy observation opens a rare space window',
+      'the and news',
+    ];
+    const events = generateBulletinEvents(day, headlines, 3);
+
+    expect(events.map(event => event.id)).toContain('exam-week');
+    expect(events.map(event => event.id)).toContain('astronomical-event');
+    expect(new Set(events.map(event => event.id)).size).toBe(events.length);
+    events.forEach(event => expectValidEvent(event, 'either'));
+  });
+
+  it('fills an all-noise feed with deterministic daily events', () => {
+    const events = generateBulletinEvents(
+      day,
+      ['the and news', 'xylophonicallyunmatchable', '!!!'],
+      3,
+    );
+    const fallback = generateDailyEvents(day, 3);
+
+    expect(events).toEqual(fallback);
+    expect(events.length).toBeGreaterThan(0);
+    expect(new Set(events.map(event => event.id)).size).toBe(events.length);
+    events.forEach(event => expectValidEvent(event, 'daily'));
+  });
+
+  it('keeps the offline content pack populated with mixed and noisy headlines', () => {
+    const pack = generateOfflineContentPack(day, [
+      ...Array(8).fill('Exam assessment study academic pressure'),
+      'not useful noise',
+    ]);
+
+    expect(pack.activeEvents.length).toBeGreaterThan(0);
+    expect(new Set(pack.activeEvents.map(event => event.id)).size).toBe(pack.activeEvents.length);
+    expect(pack.activeEvents.map(event => event.id)).toContain('exam-week');
   });
 
   it.each(headlineFixtures)(
@@ -671,7 +721,7 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     const events = matchEventsToHeadlines(Array(10).fill('exam assessment study science lecture mystery'));
     expect(events).toHaveLength(3);
     expect(new Set(events.map(event => event.instanceId)).size).toBe(events.length);
-    events.forEach(expectValidEvent);
+    events.forEach(event => expectValidEvent(event));
   });
 
   it('is deterministic within the same day', () => {
