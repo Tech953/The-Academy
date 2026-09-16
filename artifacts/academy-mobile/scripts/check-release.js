@@ -3,7 +3,16 @@ const path = require("path");
 
 const DEFAULT_PROFILE = "preview";
 const REQUEST_TIMEOUT_MS = 15_000;
+const EXPECTED_ANDROID_PACKAGE = "com.theacademy.mobile";
+const APP_CONFIG_PATH = path.resolve(__dirname, "..", "app.json");
 const EAS_CONFIG_PATH = path.resolve(__dirname, "..", "eas.json");
+const GENERATED_ANDROID_MANIFEST_PATH = path.resolve(
+  __dirname,
+  "..",
+  "static-build",
+  "android",
+  "manifest.json",
+);
 const DEFAULT_REPORT_PATH = path.resolve(
   __dirname,
   "..",
@@ -22,6 +31,77 @@ function readReleaseConfig(configPath = EAS_CONFIG_PATH) {
       `[release-smoke] Could not read EAS release configuration at ${configPath}: ${error.message}`,
     );
   }
+}
+
+function readJsonFile(configPath, label) {
+  try {
+    return JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `[release-identity] Could not read ${label} at ${configPath}: ${error.message}`,
+    );
+  }
+}
+
+function validateAndroidPreviewIdentity({
+  appConfig,
+  easConfig,
+  generatedManifest,
+  appConfigPath = APP_CONFIG_PATH,
+  easConfigPath = EAS_CONFIG_PATH,
+  generatedManifestPath = GENERATED_ANDROID_MANIFEST_PATH,
+} = {}) {
+  const resolvedAppConfig =
+    appConfig ?? readJsonFile(appConfigPath, "app.json");
+  const resolvedEasConfig =
+    easConfig ?? readJsonFile(easConfigPath, "eas.json");
+  const resolvedGeneratedManifest =
+    generatedManifest ??
+    readJsonFile(generatedManifestPath, "generated Android manifest");
+
+  const configuredPackage = resolvedAppConfig?.expo?.android?.package;
+  if (configuredPackage !== EXPECTED_ANDROID_PACKAGE) {
+    throw new Error(
+      `[release-identity] Android package drift: expected ${EXPECTED_ANDROID_PACKAGE}, found ${configuredPackage || "missing"} in app.json.`,
+    );
+  }
+
+  const previewProfile = resolvedEasConfig?.build?.preview;
+  if (!previewProfile || typeof previewProfile !== "object") {
+    throw new Error(
+      '[release-identity] EAS profile "preview" is missing from eas.json.',
+    );
+  }
+  if (previewProfile.distribution !== "internal") {
+    throw new Error(
+      `[release-identity] EAS preview distribution must be "internal" for an APK handoff; found ${previewProfile.distribution || "missing"}.`,
+    );
+  }
+  if (previewProfile.android?.buildType !== "apk") {
+    throw new Error(
+      `[release-identity] EAS preview Android buildType must be "apk"; found ${previewProfile.android?.buildType || "missing"}.`,
+    );
+  }
+
+  const generatedPackage =
+    resolvedGeneratedManifest?.extra?.expoClient?.android?.package;
+  if (!generatedPackage) {
+    throw new Error(
+      `[release-identity] Generated Android manifest is missing extra.expoClient.android.package at ${generatedManifestPath}. Run the mobile static build before the release check.`,
+    );
+  }
+  if (generatedPackage !== configuredPackage) {
+    throw new Error(
+      `[release-identity] Generated Android package drift: app.json declares ${configuredPackage}, but generated Android metadata declares ${generatedPackage}. Rebuild the mobile static metadata before handoff.`,
+    );
+  }
+
+  return {
+    androidPackage: configuredPackage,
+    generatedAndroidPackage: generatedPackage,
+    previewDistribution: previewProfile.distribution,
+    previewBuildType: previewProfile.android.buildType,
+  };
 }
 
 function getReleaseProfiles(config) {
@@ -234,6 +314,7 @@ function writeReleaseReport(reportPath, report) {
 
 if (require.main === module) {
   const args = process.argv.slice(2);
+  const identityOnly = args.includes("--identity-only");
   const allProfiles =
     args.includes("--all") ||
     args.includes("--all-profiles") ||
@@ -260,10 +341,37 @@ if (require.main === module) {
       ? args[reportFlagIndex + 1]
       : process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
 
+  let androidIdentity;
+  try {
+    androidIdentity = validateAndroidPreviewIdentity();
+    console.log(
+      `[release-identity] Android package ${androidIdentity.androidPackage} matches app.json, EAS preview APK settings, and generated metadata.`,
+    );
+    if (identityOnly) {
+      const report = writeReleaseReport(reportPath, {
+        command: "check-release --identity-only",
+        status: "passed",
+        androidIdentity,
+      });
+      console.log(`[release-identity] Report written to ${report}`);
+      return;
+    }
+  } catch (error) {
+    writeReleaseReport(reportPath, {
+      command: `check-release ${identityOnly ? "--identity-only" : profile}`,
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return;
+  }
+
   const check = allProfiles
     ? runReleaseSmokeChecks().then((result) => {
         const report = writeReleaseReport(reportPath, {
           command: "check-release --all",
+          androidIdentity,
           ...result,
         });
         const { passed, failed } = result;
@@ -286,14 +394,15 @@ if (require.main === module) {
         const report = writeReleaseReport(reportPath, {
           command: `check-release ${result.profile}`,
           status: "passed",
+          androidIdentity,
           result,
         });
         const { profile: checkedProfile, domain, healthUrl, aiUrl } = result;
-          console.log(
-            `[release-smoke] ${checkedProfile} passed for ${domain}: ${healthUrl} and ${aiUrl}`,
-          );
-          console.log(`[release-smoke] Report written to ${report}`);
-        });
+        console.log(
+          `[release-smoke] ${checkedProfile} passed for ${domain}: ${healthUrl} and ${aiUrl}`,
+        );
+        console.log(`[release-smoke] Report written to ${report}`);
+      });
 
   check
     .catch((error) => {
@@ -308,9 +417,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+  EXPECTED_ANDROID_PACKAGE,
   getReleaseDomain,
   getReleaseProfiles,
   readReleaseConfig,
+  validateAndroidPreviewIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   writeReleaseReport,

@@ -63,6 +63,18 @@ then verifies `/api/healthz` and a representative `POST /api/ai/describe`
 request. It does not require an EAS build or credentials. If either request
 fails, the command prints the exact profile and URL that needs attention.
 
+Before the connectivity requests, the release check also compares the Android
+package in `app.json`, the `preview` profile's internal APK settings in
+`eas.json`, and the generated Android metadata at
+`static-build/android/manifest.json`. If the generated metadata is missing or
+stale, refresh it with the local static build before retrying the release check.
+To run only this credential-free identity check without contacting the API:
+
+```bash
+pnpm --filter @workspace/academy-mobile run build
+pnpm --filter @workspace/academy-mobile run check-release:identity
+```
+
 ## Release connectivity
 
 The `preview` APK and `production` app bundle bake the public deployment

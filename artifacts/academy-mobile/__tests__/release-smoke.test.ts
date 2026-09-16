@@ -4,12 +4,23 @@ const {
   getReleaseDomain,
   getReleaseProfiles,
   readReleaseConfig,
+  validateAndroidPreviewIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
 } = require("../scripts/check-release.js") as {
   getReleaseDomain: (config: unknown, profile: string) => string;
   getReleaseProfiles: (config: unknown) => string[];
   readReleaseConfig: (configPath?: string) => Record<string, unknown>;
+  validateAndroidPreviewIdentity: (options?: {
+    appConfig?: unknown;
+    easConfig?: unknown;
+    generatedManifest?: unknown;
+  }) => {
+    androidPackage: string;
+    generatedAndroidPackage: string;
+    previewDistribution: string;
+    previewBuildType: string;
+  };
   runReleaseSmokeCheck: (options: {
     profile?: string;
     configPath?: string;
@@ -60,6 +71,74 @@ const okJson = (payload: unknown) =>
   });
 
 describe("release smoke check", () => {
+  const validIdentity = () => ({
+    appConfig: {
+      expo: { android: { package: "com.theacademy.mobile" } },
+    },
+    easConfig: {
+      build: {
+        preview: {
+          distribution: "internal",
+          android: { buildType: "apk" },
+        },
+      },
+    },
+    generatedManifest: {
+      extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+    },
+  });
+
+  it("matches Android identity across app, EAS preview, and generated metadata", () => {
+    expect(validateAndroidPreviewIdentity(validIdentity())).toEqual({
+      androidPackage: "com.theacademy.mobile",
+      generatedAndroidPackage: "com.theacademy.mobile",
+      previewDistribution: "internal",
+      previewBuildType: "apk",
+    });
+  });
+
+  it("reports Android package drift before an APK handoff", () => {
+    expect(() =>
+      validateAndroidPreviewIdentity({
+        ...validIdentity(),
+        appConfig: {
+          expo: { android: { package: "com.theacademy.other" } },
+        },
+      }),
+    ).toThrow(
+      /Android package drift: expected com\.theacademy\.mobile, found com\.theacademy\.other/,
+    );
+  });
+
+  it("reports preview profile drift before an APK handoff", () => {
+    expect(() =>
+      validateAndroidPreviewIdentity({
+        ...validIdentity(),
+        easConfig: {
+          build: {
+            preview: {
+              distribution: "internal",
+              android: { buildType: "app-bundle" },
+            },
+          },
+        },
+      }),
+    ).toThrow(/preview Android buildType must be "apk"/);
+  });
+
+  it("reports generated Android metadata drift before an APK handoff", () => {
+    expect(() =>
+      validateAndroidPreviewIdentity({
+        ...validIdentity(),
+        generatedManifest: {
+          extra: { expoClient: { android: { package: "com.theacademy.other" } } },
+        },
+      }),
+    ).toThrow(
+      /Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.other/,
+    );
+  });
+
   it("reads the preview hostname from eas.json", () => {
     const config = readReleaseConfig();
     expect(getReleaseDomain(config, "preview")).toBe("theeacademy.replit.app");

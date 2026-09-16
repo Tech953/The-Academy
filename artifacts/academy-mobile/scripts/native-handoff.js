@@ -3,13 +3,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const {
+  EXPECTED_ANDROID_PACKAGE,
   runReleaseSmokeChecks,
+  validateAndroidPreviewIdentity,
   writeReleaseReport,
 } = require("./check-release.js");
 
 const DEFAULT_PLATFORM = "android";
 const DEFAULT_PROFILE = "preview";
-const EXPECTED_APP_ID = "com.theacademy.mobile";
+const EXPECTED_APP_ID = EXPECTED_ANDROID_PACKAGE;
 const DEFAULT_REPORT_PATH = path.resolve(
   __dirname,
   "..",
@@ -30,6 +32,10 @@ function readAppConfig() {
 }
 
 function validatePlatformIdentity(platform) {
+  if (platform === "android") {
+    return validateAndroidPreviewIdentity();
+  }
+
   const expo = readAppConfig();
   const configuredId =
     platform === "ios" ? expo?.ios?.bundleIdentifier : expo?.android?.package;
@@ -39,6 +45,8 @@ function validatePlatformIdentity(platform) {
       `[native-handoff] ${platform} identity drift: expected ${EXPECTED_APP_ID}, found ${configuredId || "missing"} in app.json.`,
     );
   }
+
+  return { appId: configuredId };
 }
 
 function extractBuildMetadata(output) {
@@ -152,7 +160,7 @@ async function main() {
     process.argv.slice(2),
   );
 
-  validatePlatformIdentity(platform);
+  const identity = validatePlatformIdentity(platform);
   const connectivityCheck = await verifyAllProfileConnectivity({ profile });
   const connectivity = connectivityCheck.selected;
   const reportPath = process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
@@ -162,6 +170,7 @@ async function main() {
     status: checkOnly ? "check-only" : "starting",
     platform,
     profile,
+    identity,
     appId:
       platform === "ios"
         ? appConfig.ios.bundleIdentifier
@@ -216,6 +225,7 @@ async function main() {
     status: result.status === 0 ? "completed" : "failed",
     platform,
     profile,
+    identity,
     appId:
       platform === "ios"
         ? appConfig.ios.bundleIdentifier
