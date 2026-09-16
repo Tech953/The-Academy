@@ -66,7 +66,7 @@ function NpcListItem({
   );
 }
 
-export default function NpcScreen() {
+export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: string | null } = {}) {
   const colors = useColors();
   const {
     isOnline,
@@ -79,7 +79,7 @@ export default function NpcScreen() {
     dialogueLoading,
     weeklyTheme,
   } = useGame();
-  const [activeNpcId, setActiveNpcId] = useState<string | null>(null);
+  const [activeNpcId, setActiveNpcId] = useState<string | null>(initialNpcId);
   const [draft, setDraft] = useState("");
   const [visibleShiftAt, setVisibleShiftAt] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -170,6 +170,10 @@ export default function NpcScreen() {
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
         {activeNpc.title} · {activeRelationship?.tier ?? "stranger"}
       </Text>
+      <View style={[styles.chatThemeCue, { borderColor: colors.accent }]}>
+        <Text style={[styles.chatThemeLabel, { color: colors.accent }]}>WEEKLY THEME</Text>
+        <Text style={[styles.chatThemeValue, { color: colors.foreground }]}>{weeklyTheme}</Text>
+      </View>
       {activeRelationship ? (
         <View style={styles.chatProgress}>
           <View style={styles.chatProgressMeta}>
@@ -340,6 +344,27 @@ const styles = StyleSheet.create({
     ...monoFont,
     fontSize: 12,
     lineHeight: 17,
+  },
+  chatThemeCue: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 6,
+    paddingLeft: 8,
+    paddingVertical: 5,
+    borderLeftWidth: 2,
+  },
+  chatThemeLabel: {
+    ...monoFontBold,
+    fontSize: 9,
+    letterSpacing: 0.7,
+  },
+  chatThemeValue: {
+    ...monoFont,
+    flex: 1,
+    fontSize: 10,
+    lineHeight: 14,
   },
   chatProgress: {
     paddingHorizontal: 16,

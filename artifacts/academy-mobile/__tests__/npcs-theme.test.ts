@@ -31,7 +31,8 @@ vi.mock("react-native", async () => {
     ScrollView: primitive("section"),
     StyleSheet: { create: <T,>(styles: T): T => styles },
     Text: primitive("span"),
-    TextInput: primitive("input"),
+    TextInput: ({ placeholder }: { placeholder?: string }) =>
+      React.createElement("input", { placeholder }),
     View: primitive("div"),
   };
 });
@@ -79,6 +80,10 @@ vi.mock("@/context/GameContext", () => ({
 import NpcScreen from "../app/(tabs)/npcs";
 import { selectWeeklyTheme } from "../lib/themeSelection";
 
+const NpcScreenWithInitialNpc = NpcScreen as React.ComponentType<{
+  initialNpcId?: string | null;
+}>;
+
 describe("NPC directory weekly theme cue", () => {
   beforeEach(() => {
     gameState.weeklyTheme = "";
@@ -109,5 +114,19 @@ describe("NPC directory weekly theme cue", () => {
     expect(markup).toContain(syncedTheme);
     expect(markup).not.toContain(offlineTheme);
     expect(markup).not.toContain("Say something...");
+  });
+
+  it("keeps the synced theme visible while an NPC conversation is open", () => {
+    const syncedTheme = "Student Showcase Week";
+    gameState.weeklyTheme = syncedTheme;
+
+    const markup = renderToStaticMarkup(
+      React.createElement(NpcScreenWithInitialNpc, { initialNpcId: "receptionist_emily" }),
+    );
+
+    expect(markup).toContain("WEEKLY THEME");
+    expect(markup).toContain(syncedTheme);
+    expect(markup).toContain("Say something...");
+    expect(markup).not.toContain("CAMPUS DIRECTORY");
   });
 });
