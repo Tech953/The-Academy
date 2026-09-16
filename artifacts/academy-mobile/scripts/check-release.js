@@ -22,6 +22,15 @@ const DEFAULT_REPORT_PATH = path.resolve(
   "outputs",
   "academy-mobile-release-smoke.json",
 );
+const DEFAULT_HANDOFF_REPORT_PATH = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  ".local",
+  "outputs",
+  "academy-mobile-native-handoff.json",
+);
 
 function readReleaseConfig(configPath = EAS_CONFIG_PATH) {
   try {
@@ -294,6 +303,125 @@ async function runReleaseSmokeChecks({
   return { profiles, passed, failed };
 }
 
+function validateNativeHandoff({
+  handoffReport,
+  appConfig,
+  easConfig,
+  handoffReportPath = DEFAULT_HANDOFF_REPORT_PATH,
+} = {}) {
+  const resolvedAppConfig =
+    appConfig ?? readJsonFile(APP_CONFIG_PATH, "app.json");
+  const resolvedEasConfig =
+    easConfig ?? readJsonFile(EAS_CONFIG_PATH, "eas.json");
+  const report =
+    handoffReport ??
+    readJsonFile(handoffReportPath, "native handoff report");
+  const configuredPackage = resolvedAppConfig?.expo?.android?.package;
+  const configuredVersion = resolvedAppConfig?.expo?.version;
+  const previewProfile = resolvedEasConfig?.build?.preview;
+  const build = report?.build;
+  const errors = [];
+
+  if (!previewProfile || typeof previewProfile !== "object") {
+    errors.push('EAS profile "preview" is missing from eas.json');
+  } else {
+    if (previewProfile.distribution !== "internal") {
+      errors.push(
+        `preview distribution must be "internal" (found ${previewProfile.distribution || "missing"})`,
+      );
+    }
+    if (previewProfile.android?.buildType !== "apk") {
+      errors.push(
+        `preview Android buildType must be "apk" (found ${previewProfile.android?.buildType || "missing"})`,
+      );
+    }
+  }
+
+  if (report?.status !== "completed") {
+    errors.push(
+      `handoff status must be "completed" (found ${report?.status || "missing"})`,
+    );
+  }
+  if (report?.platform !== "android") {
+    errors.push(
+      `handoff platform must be "android" (found ${report?.platform || "missing"})`,
+    );
+  }
+  if (report?.profile !== "preview") {
+    errors.push(
+      `handoff profile must be "preview" (found ${report?.profile || "missing"})`,
+    );
+  }
+  if (!build || typeof build !== "object") {
+    errors.push("handoff build metadata is missing");
+  } else {
+    const installerUrl =
+      typeof build.installerUrl === "string" ? build.installerUrl.trim() : "";
+    const installerPath =
+      typeof build.installerPath === "string" ? build.installerPath.trim() : "";
+    const installerReference = installerUrl || installerPath;
+    const hasExpectedArtifactType = /\.apk(?:[?#]|$)/i.test(installerReference);
+    const hasEasBuildMetadata =
+      typeof build.buildId === "string" &&
+      build.buildId.trim().length > 0 &&
+      typeof build.buildDetailsPageUrl === "string" &&
+      /^https?:\/\//i.test(build.buildDetailsPageUrl);
+
+    if (!installerReference) {
+      errors.push("installerUrl or installerPath is missing");
+    } else if (!hasExpectedArtifactType && !hasEasBuildMetadata) {
+      errors.push(
+        "installer reference is not an .apk and has no EAS buildId/buildDetailsPageUrl metadata",
+      );
+    }
+    if (!configuredVersion) {
+      errors.push("app.json expo.version is missing");
+    } else if (String(build.version) !== String(configuredVersion)) {
+      errors.push(
+        `build version "${build.version || "missing"}" does not match app.json "${configuredVersion}"`,
+      );
+    }
+    if (!configuredPackage) {
+      errors.push("app.json expo.android.package is missing");
+    } else if (build.package !== configuredPackage) {
+      errors.push(
+        `build package "${build.package || "missing"}" does not match app.json "${configuredPackage}"`,
+      );
+    }
+    if (typeof build.profile !== "string" || build.profile !== "preview") {
+      errors.push(
+        `build profile must be "preview" (found ${build.profile || "missing"})`,
+      );
+    }
+    if (
+      typeof build.timestamp !== "string" ||
+      Number.isNaN(new Date(build.timestamp).getTime())
+    ) {
+      errors.push("build timestamp is missing or invalid");
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      `[release-handoff] Installer handoff validation failed:\n- ${errors.join("\n- ")}`,
+    );
+  }
+
+  return {
+    status: "passed",
+    platform: "android",
+    profile: "preview",
+    distribution: "internal",
+    buildType: "apk",
+    version: String(build.version),
+    androidPackage: configuredPackage,
+    installerUrl: build.installerUrl || null,
+    installerPath: build.installerPath || null,
+    timestamp: build.timestamp,
+    buildId: build.buildId || null,
+  };
+}
+
 function writeReleaseReport(reportPath, report) {
   const resolvedPath = path.resolve(reportPath);
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
@@ -315,6 +443,8 @@ function writeReleaseReport(reportPath, report) {
 if (require.main === module) {
   const args = process.argv.slice(2);
   const identityOnly = args.includes("--identity-only");
+  const handoffOnly =
+    args.includes("--handoff") || args.includes("--validate-handoff");
   const allProfiles =
     args.includes("--all") ||
     args.includes("--all-profiles") ||
@@ -340,6 +470,32 @@ if (require.main === module) {
     reportFlagIndex >= 0
       ? args[reportFlagIndex + 1]
       : process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
+
+  if (handoffOnly) {
+    const handoffReportPath =
+      process.env.RELEASE_HANDOFF_PATH || DEFAULT_HANDOFF_REPORT_PATH;
+    try {
+      const handoff = validateNativeHandoff({ handoffReportPath });
+      const report = writeReleaseReport(reportPath, {
+        command: "check-release --handoff",
+        status: "passed",
+        handoff,
+      });
+      console.log(
+        `[release-handoff] Installer handoff passed. Report written to ${report}`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      writeReleaseReport(reportPath, {
+        command: "check-release --handoff",
+        status: "failed",
+        error: message,
+      });
+      console.error(message);
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   let androidIdentity;
   try {
@@ -421,6 +577,7 @@ module.exports = {
   getReleaseDomain,
   getReleaseProfiles,
   readReleaseConfig,
+  validateNativeHandoff,
   validateAndroidPreviewIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,

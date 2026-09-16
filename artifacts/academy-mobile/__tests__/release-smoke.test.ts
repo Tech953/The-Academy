@@ -4,6 +4,7 @@ const {
   getReleaseDomain,
   getReleaseProfiles,
   readReleaseConfig,
+  validateNativeHandoff,
   validateAndroidPreviewIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
@@ -11,6 +12,23 @@ const {
   getReleaseDomain: (config: unknown, profile: string) => string;
   getReleaseProfiles: (config: unknown) => string[];
   readReleaseConfig: (configPath?: string) => Record<string, unknown>;
+  validateNativeHandoff: (options: {
+    handoffReport?: unknown;
+    appConfig?: unknown;
+    easConfig?: unknown;
+  }) => {
+    status: string;
+    platform: string;
+    profile: string;
+    distribution: string;
+    buildType: string;
+    version: string;
+    androidPackage: string;
+    installerUrl: string | null;
+    installerPath: string | null;
+    timestamp: string;
+    buildId: string | null;
+  };
   validateAndroidPreviewIdentity: (options?: {
     appConfig?: unknown;
     easConfig?: unknown;
@@ -193,6 +211,123 @@ describe("native handoff build metadata", () => {
 });
 
 describe("release smoke check", () => {
+  const validHandoffConfig = () => ({
+    appConfig: {
+      expo: {
+        version: "1.0.0",
+        android: { package: "com.theacademy.mobile" },
+      },
+    },
+    easConfig: {
+      build: {
+        preview: {
+          distribution: "internal",
+          android: { buildType: "apk" },
+        },
+      },
+    },
+  });
+
+  const validHandoffReport = (): {
+    status: string;
+    platform: string;
+    profile: string;
+    build: {
+      installerUrl: string | null;
+      installerPath: string | null;
+      version: string;
+      package: string;
+      profile: string;
+      timestamp: string;
+      buildId: string | null;
+      buildDetailsPageUrl: string | null;
+    };
+  } => ({
+      status: "completed",
+      platform: "android",
+      profile: "preview",
+      build: {
+        installerUrl: "https://example.invalid/academy-preview.apk?sig=redacted",
+        installerPath: null,
+        version: "1.0.0",
+        package: "com.theacademy.mobile",
+        profile: "preview",
+        timestamp: "2026-09-15T15:00:00.000Z",
+        buildId: "build-123",
+        buildDetailsPageUrl: "https://expo.dev/builds/build-123",
+      },
+    });
+
+  it("accepts a complete preview APK handoff without contacting a device", () => {
+    expect(
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        handoffReport: validHandoffReport(),
+      }),
+    ).toEqual({
+      status: "passed",
+      platform: "android",
+      profile: "preview",
+      distribution: "internal",
+      buildType: "apk",
+      version: "1.0.0",
+      androidPackage: "com.theacademy.mobile",
+      installerUrl: "https://example.invalid/academy-preview.apk?sig=redacted",
+      installerPath: null,
+      timestamp: "2026-09-15T15:00:00.000Z",
+      buildId: "build-123",
+    });
+  });
+
+  it("accepts an EAS artifact URL when build metadata identifies the build", () => {
+    const report = validHandoffReport();
+    report.build.installerUrl = "https://expo.dev/artifacts/build-123";
+
+    expect(
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        handoffReport: report,
+      }),
+    ).toMatchObject({
+      status: "passed",
+      installerUrl: "https://expo.dev/artifacts/build-123",
+    });
+  });
+
+  it("reports actionable errors for stale version and package metadata", () => {
+    const report = validHandoffReport();
+    report.build.version = "0.9.0";
+    report.build.package = "com.theacademy.old";
+
+    expect(() =>
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        handoffReport: report,
+      }),
+    ).toThrow(
+      /build version "0\.9\.0" does not match app\.json "1\.0\.0".*build package "com\.theacademy\.old" does not match app\.json "com\.theacademy\.mobile"/s,
+    );
+  });
+
+  it("rejects missing installer references and non-preview handoffs", () => {
+    const report = validHandoffReport();
+    report.profile = "production";
+    report.build.profile = "production";
+    report.build.installerUrl = null;
+    report.build.installerPath = null;
+    report.build.buildId = null;
+    report.build.buildDetailsPageUrl = null;
+
+    expect(() =>
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        handoffReport: report,
+      }),
+    ).toThrow(
+      /handoff profile must be "preview".*installerUrl or installerPath is missing.*build profile must be "preview"/s,
+    );
+  });
+
   const validIdentity = () => ({
     appConfig: {
       expo: { android: { package: "com.theacademy.mobile" } },

@@ -130,3 +130,17 @@ an installer URL/path, version, package identity, profile, or timestamp. It
 writes a failed metadata report instead of creating a partial installer
 handoff. The report contains normalized metadata only; it does not persist EAS
 CLI output, credentials, or command arguments.
+
+Before distributing the installer, validate that handoff without a device or
+network request:
+
+```bash
+pnpm --filter @workspace/academy-mobile run check-release:handoff
+```
+
+This reads the native handoff report (override it with
+`RELEASE_HANDOFF_PATH`) and confirms that the record is a completed Android
+preview build, that `preview` remains an internal APK profile, and that the
+recorded version, package identity, profile, timestamp, and installer
+reference are consistent. Validation failures list every actionable mismatch
+and write a failed release report instead of passing.
