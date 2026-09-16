@@ -44,6 +44,8 @@ const {
     profile?: string;
     configPath?: string;
     fetchImpl: typeof fetch;
+    retryDelayMs?: number;
+    sleepImpl?: (delayMs: number) => Promise<void>;
   }) => Promise<{
     profile: string;
     domain: string;
@@ -53,6 +55,8 @@ const {
   runReleaseSmokeChecks: (options: {
     configPath?: string;
     fetchImpl: typeof fetch;
+    retryDelayMs?: number;
+    sleepImpl?: (delayMs: number) => Promise<void>;
   }) => Promise<{
     profiles: string[];
     passed: Array<{
@@ -521,13 +525,58 @@ describe("release smoke check", () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(okJson({ status: "ok" }))
+      .mockResolvedValueOnce(new Response("upstream unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response("upstream unavailable", { status: 503 }))
       .mockResolvedValueOnce(new Response("upstream unavailable", { status: 503 })) as unknown as typeof fetch;
 
     await expect(
-      runReleaseSmokeCheck({ fetchImpl }),
+      runReleaseSmokeCheck({
+        fetchImpl,
+        retryDelayMs: 0,
+        sleepImpl: async () => {},
+      }),
     ).rejects.toThrow(
       /AI enrichment check failed.*https:\/\/theeacademy\.replit\.app\/api\/ai\/describe.*HTTP 503/i,
     );
+  });
+
+  it("retries a transient AI 5xx response and succeeds", async () => {
+    const sleepImpl = vi.fn(async () => {});
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(okJson({ status: "ok" }))
+      .mockResolvedValueOnce(new Response("upstream unavailable", { status: 503 }))
+      .mockResolvedValueOnce(okJson({ description: "Recovered description." })) as unknown as typeof fetch;
+
+    await expect(
+      runReleaseSmokeCheck({
+        fetchImpl,
+        retryDelayMs: 0,
+        sleepImpl,
+      }),
+    ).resolves.toMatchObject({ profile: "preview" });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleepImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("exhausts retries for transient network failures and preserves the error", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValue(new Error("socket reset")) as unknown as typeof fetch;
+    const sleepImpl = vi.fn(async () => {});
+
+    await expect(
+      runReleaseSmokeCheck({
+        fetchImpl,
+        retryDelayMs: 0,
+        sleepImpl,
+      }),
+    ).rejects.toThrow(
+      /Health check could not reach .*socket reset/,
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleepImpl).toHaveBeenCalledTimes(2);
   });
 
   it("checks every configured domain profile and reports each profile", async () => {
@@ -553,10 +602,16 @@ describe("release smoke check", () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(new Response("preview unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response("preview unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response("preview unavailable", { status: 503 }))
       .mockResolvedValueOnce(okJson({ status: "ok" }))
       .mockResolvedValueOnce(okJson({ description: "Production description." })) as unknown as typeof fetch;
 
-    const result = await runReleaseSmokeChecks({ fetchImpl });
+    const result = await runReleaseSmokeChecks({
+      fetchImpl,
+      retryDelayMs: 0,
+      sleepImpl: async () => {},
+    });
 
     expect(result.profiles).toEqual(["preview", "production"]);
     expect(result.failed).toHaveLength(1);

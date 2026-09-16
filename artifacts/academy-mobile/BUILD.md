@@ -73,6 +73,8 @@ The check reads `EXPO_PUBLIC_DOMAIN` from the selected profile in `eas.json`,
 then verifies `/api/healthz` and a representative `POST /api/ai/describe`
 request. It does not require an EAS build or credentials. If either request
 fails, the command prints the exact profile and URL that needs attention.
+Network errors and HTTP 5xx responses get at most two brief retries; 4xx
+responses and invalid success payloads stop immediately.
 
 For an archiveable all-profile result, pass `--all` and `--report`. Human-readable
 lines are still printed, while the JSON report contains one stable result entry

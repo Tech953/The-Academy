@@ -3,6 +3,8 @@ const path = require("path");
 
 const DEFAULT_PROFILE = "preview";
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_REQUEST_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 250;
 const EXPECTED_ANDROID_PACKAGE = "com.theacademy.mobile";
 const APP_CONFIG_PATH = path.resolve(__dirname, "..", "app.json");
 const EAS_CONFIG_PATH = path.resolve(__dirname, "..", "eas.json");
@@ -178,6 +180,38 @@ async function fetchWithTimeout(fetchImpl, url, init) {
   }
 }
 
+function sleep(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function isRetryableResponse(response) {
+  return response.status >= 500 && response.status <= 599;
+}
+
+async function fetchWithRetry(
+  fetchImpl,
+  url,
+  init,
+  { retryDelayMs = RETRY_DELAY_MS, sleepImpl = sleep } = {},
+) {
+  for (let attempt = 1; attempt <= MAX_REQUEST_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(fetchImpl, url, init);
+      if (!isRetryableResponse(response) || attempt === MAX_REQUEST_ATTEMPTS) {
+        return response;
+      }
+    } catch (error) {
+      if (attempt === MAX_REQUEST_ATTEMPTS) {
+        throw error;
+      }
+    }
+
+    await sleepImpl(retryDelayMs);
+  }
+
+  throw new Error(`[release-smoke] Request retry limit reached for ${url}.`);
+}
+
 async function readJson(response, label) {
   try {
     return await response.json();
@@ -192,6 +226,8 @@ async function runReleaseSmokeCheck({
   profile = DEFAULT_PROFILE,
   configPath = EAS_CONFIG_PATH,
   fetchImpl = fetch,
+  retryDelayMs = RETRY_DELAY_MS,
+  sleepImpl = sleep,
 } = {}) {
   const config = readReleaseConfig(configPath);
   const domain = getReleaseDomain(config, profile);
@@ -201,10 +237,15 @@ async function runReleaseSmokeCheck({
 
   let healthResponse;
   try {
-    healthResponse = await fetchWithTimeout(fetchImpl, healthUrl, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
+    healthResponse = await fetchWithRetry(
+      fetchImpl,
+      healthUrl,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      },
+      { retryDelayMs, sleepImpl },
+    );
   } catch (error) {
     throw new Error(
       `[release-smoke] Health check could not reach ${healthUrl}: ${error.message}`,
@@ -226,20 +267,25 @@ async function runReleaseSmokeCheck({
 
   let aiResponse;
   try {
-    aiResponse = await fetchWithTimeout(fetchImpl, aiUrl, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
+    aiResponse = await fetchWithRetry(
+      fetchImpl,
+      aiUrl,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "location",
+          locationName: "Academy Library",
+          locationDescription: "A quiet room lined with books.",
+          npcsPresent: [],
+          interactables: [],
+        }),
       },
-      body: JSON.stringify({
-        type: "location",
-        locationName: "Academy Library",
-        locationDescription: "A quiet room lined with books.",
-        npcsPresent: [],
-        interactables: [],
-      }),
-    });
+      { retryDelayMs, sleepImpl },
+    );
   } catch (error) {
     throw new Error(
       `[release-smoke] AI enrichment check could not reach ${aiUrl}: ${error.message}`,
@@ -270,6 +316,8 @@ async function runReleaseSmokeCheck({
 async function runReleaseSmokeChecks({
   configPath = EAS_CONFIG_PATH,
   fetchImpl = fetch,
+  retryDelayMs = RETRY_DELAY_MS,
+  sleepImpl = sleep,
 } = {}) {
   const config = readReleaseConfig(configPath);
   const profiles = getReleaseProfiles(config);
@@ -296,6 +344,8 @@ async function runReleaseSmokeChecks({
           profile,
           configPath,
           fetchImpl,
+          retryDelayMs,
+          sleepImpl,
         }),
       );
     } catch (error) {
