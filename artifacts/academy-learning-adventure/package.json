@@ -11,7 +11,7 @@
     "validate-exports": "pnpm exec tsx scripts/validate-exports.ts",
     "validate-routes": "pnpm exec tsx scripts/validate-routes.ts",
     "validate-bundle": "pnpm exec tsx scripts/validate-bundle.ts",
-    "validate-base-path": "env -u BASE_PATH -u PORT pnpm run build && pnpm exec tsx scripts/validate-base-path.ts",
+    "validate-base-path": "env -u BASE_PATH -u PORT pnpm run build && env -u BASE_PATH -u PORT pnpm exec tsx scripts/validate-base-path.ts",
     "release-check": "pnpm exec tsx scripts/release-check.ts",
     "test": "tsx --test src/widgets/ImportedChart.test.ts scripts/release-check.test.ts scripts/validate-exports.test.ts scripts/validate-routes.test.ts scripts/validate-base-path.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -1,22 +1,22 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
+const projectRoot = path.resolve(__dirname, "..");
 const artifactConfigPath = path.join(
   projectRoot,
-  '.replit-artifact',
-  'artifact.toml',
+  ".replit-artifact",
+  "artifact.toml",
 );
-const buildOutputDirectory = path.join(projectRoot, 'dist', 'public');
-const builtIndexPath = path.join(buildOutputDirectory, 'index.html');
+const buildOutputDirectory = path.join(projectRoot, "dist", "public");
+const builtIndexPath = path.join(buildOutputDirectory, "index.html");
 
-type AssetKind = 'script' | 'stylesheet' | 'favicon';
+type AssetKind = "script" | "stylesheet" | "favicon";
 
 type LocalReference = {
-  attribute: 'href' | 'src';
+  attribute: "href" | "src";
   value: string;
 };
 
@@ -26,7 +26,7 @@ type AssetReference = {
 };
 
 function readPreviewPath(): string {
-  const config = readFileSync(artifactConfigPath, 'utf8');
+  const config = readFileSync(artifactConfigPath, "utf8");
   const match = /^previewPath\s*=\s*"([^"]+)"/m.exec(config);
   const previewPath = match?.[1];
 
@@ -34,13 +34,13 @@ function readPreviewPath(): string {
     throw new Error(`Could not read "previewPath" from ${artifactConfigPath}`);
   }
 
-  return `/${previewPath.replace(/^\/+|\/+$/g, '')}/`;
+  return `/${previewPath.replace(/^\/+|\/+$/g, "")}/`;
 }
 
 function attributeValue(tag: string, name: string): string | undefined {
   const match = new RegExp(
     `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`,
-    'i',
+    "i",
   ).exec(tag);
   return match?.[1] ?? match?.[2] ?? match?.[3];
 }
@@ -57,7 +57,7 @@ function localReferences(document: string): LocalReference[] {
     const attribute = match[1]?.toLowerCase();
     const value = match[2];
     if (
-      (attribute === 'href' || attribute === 'src') &&
+      (attribute === "href" || attribute === "src") &&
       value &&
       !isExternalReference(value)
     ) {
@@ -75,29 +75,29 @@ function assetReferences(document: string): AssetReference[] {
   for (const tag of tags) {
     const tagName = /^<([a-z]+)/i.exec(tag)?.[1]?.toLowerCase();
 
-    if (tagName === 'script') {
-      const url = attributeValue(tag, 'src');
+    if (tagName === "script") {
+      const url = attributeValue(tag, "src");
       if (url) {
-        references.push({ kind: 'script', url });
+        references.push({ kind: "script", url });
       }
       continue;
     }
 
-    if (tagName !== 'link') {
+    if (tagName !== "link") {
       continue;
     }
 
-    const rel = attributeValue(tag, 'rel')?.toLowerCase().split(/\s+/) ?? [];
-    const url = attributeValue(tag, 'href');
+    const rel = attributeValue(tag, "rel")?.toLowerCase().split(/\s+/) ?? [];
+    const url = attributeValue(tag, "href");
     if (!url) {
       continue;
     }
 
-    if (rel.includes('stylesheet')) {
-      references.push({ kind: 'stylesheet', url });
+    if (rel.includes("stylesheet")) {
+      references.push({ kind: "stylesheet", url });
     }
-    if (rel.includes('icon')) {
-      references.push({ kind: 'favicon', url });
+    if (rel.includes("icon")) {
+      references.push({ kind: "favicon", url });
     }
   }
 
@@ -105,14 +105,14 @@ function assetReferences(document: string): AssetReference[] {
 }
 
 function referencePath(value: string): string {
-  return value.split(/[?#]/, 1)[0] ?? '';
+  return value.split(/[?#]/, 1)[0] ?? "";
 }
 
 function fileForReference(value: string, previewPath: string): string {
   const withoutQuery = referencePath(value);
   const relativePath = withoutQuery.startsWith(previewPath)
     ? withoutQuery.slice(previewPath.length)
-    : withoutQuery.replace(/^\/+/, '');
+    : withoutQuery.replace(/^\/+/, "");
   let decodedPath: string;
 
   try {
@@ -125,10 +125,7 @@ function fileForReference(value: string, previewPath: string): string {
 
   const filePath = path.resolve(buildOutputDirectory, decodedPath);
   const relativeFilePath = path.relative(buildOutputDirectory, filePath);
-  if (
-    relativeFilePath.startsWith('..') ||
-    path.isAbsolute(relativeFilePath)
-  ) {
+  if (relativeFilePath.startsWith("..") || path.isAbsolute(relativeFilePath)) {
     throw new Error(
       `Built asset reference escapes the output directory: "${value}"`,
     );
@@ -178,8 +175,9 @@ function generatedAssetUrls(document: string, extension: string): string[] {
     }
   }
 
-  if (extension.toLowerCase() === '.css') {
-    const cssUrlPattern = /url\(\s*(?:(["'])(\/[^"')\s]+)\1|(\/[^"')\s]+))\s*\)/gi;
+  if (extension.toLowerCase() === ".css") {
+    const cssUrlPattern =
+      /url\(\s*(?:(["'])(\/[^"')\s]+)\1|(\/[^"')\s]+))\s*\)/gi;
     for (const match of document.matchAll(cssUrlPattern)) {
       const value = match[2] ?? match[3];
       if (value) {
@@ -198,11 +196,8 @@ export function validateGeneratedAssetReferences(
   const escapes: string[] = [];
 
   for (const filePath of generatedAssetFiles(outputDirectory)) {
-    const document = readFileSync(filePath, 'utf8');
-    for (const value of generatedAssetUrls(
-      document,
-      path.extname(filePath),
-    )) {
+    const document = readFileSync(filePath, "utf8");
+    for (const value of generatedAssetUrls(document, path.extname(filePath))) {
       if (!value.startsWith(previewPath)) {
         escapes.push(`${path.relative(outputDirectory, filePath)}: ${value}`);
       }
@@ -211,7 +206,7 @@ export function validateGeneratedAssetReferences(
 
   if (escapes.length > 0) {
     throw new Error(
-      `Generated chunks contain asset URLs that bypass ${previewPath}: ${escapes.join(', ')}`,
+      `Generated chunks contain asset URLs that bypass ${previewPath}: ${escapes.join(", ")}`,
     );
   }
 }
@@ -224,23 +219,25 @@ function validate(): void {
     );
   }
 
-  const document = readFileSync(builtIndexPath, 'utf8');
+  const document = readFileSync(builtIndexPath, "utf8");
   const references = localReferences(document);
   if (references.length === 0) {
     throw new Error(
-      'Built index does not contain any local href or src references.',
+      "Built index does not contain any local href or src references.",
     );
   }
 
   const assetReferencesInDocument = assetReferences(document);
-  for (const kind of ['script', 'stylesheet', 'favicon'] as const) {
-    if (!assetReferencesInDocument.some((reference) => reference.kind === kind)) {
+  for (const kind of ["script", "stylesheet", "favicon"] as const) {
+    if (
+      !assetReferencesInDocument.some((reference) => reference.kind === kind)
+    ) {
       throw new Error(`Built document has no ${kind} URL.`);
     }
   }
 
   const rootRelativeReferences = references.filter((reference) =>
-    reference.value.startsWith('/'),
+    reference.value.startsWith("/"),
   );
   const invalidReferences = rootRelativeReferences.filter(
     (reference) => !reference.value.startsWith(previewPath),
@@ -251,8 +248,10 @@ function validate(): void {
         (reference) =>
           `${reference.attribute}="${reference.value}" (expected prefix ${previewPath})`,
       )
-      .join(', ');
-    throw new Error(`Built asset URLs bypass the artifact base path: ${details}`);
+      .join(", ");
+    throw new Error(
+      `Built asset URLs bypass the artifact base path: ${details}`,
+    );
   }
 
   for (const reference of references) {
@@ -271,7 +270,7 @@ function validate(): void {
   );
 }
 
-if (path.resolve(process.argv[1] ?? '') === __filename) {
+if (path.resolve(process.argv[1] ?? "") === __filename) {
   try {
     validate();
   } catch (error) {

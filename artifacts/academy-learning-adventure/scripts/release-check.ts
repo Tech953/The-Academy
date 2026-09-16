@@ -1,6 +1,6 @@
-import { spawnSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type ReleaseCheckCommand = {
   command: string;
@@ -11,13 +11,12 @@ export function releaseCheckCommands(
   exportArgs: Array<string> = [],
 ): Array<ReleaseCheckCommand> {
   return [
-    { command: 'pnpm', args: ['run', 'typecheck'] },
-    { command: 'pnpm', args: ['run', 'validate-slides', '--', '--check'] },
-    { command: 'pnpm', args: ['run', 'build'] },
-    { command: 'pnpm', args: ['exec', 'tsx', 'scripts/validate-base-path.ts'] },
-    { command: 'pnpm', args: ['run', 'validate-bundle'] },
-    { command: 'pnpm', args: ['run', 'validate-routes'] },
-    { command: 'pnpm', args: ['run', 'validate-exports', '--', ...exportArgs] },
+    { command: "pnpm", args: ["run", "typecheck"] },
+    { command: "pnpm", args: ["run", "validate-slides", "--", "--check"] },
+    { command: "pnpm", args: ["run", "validate-base-path"] },
+    { command: "pnpm", args: ["run", "validate-bundle"] },
+    { command: "pnpm", args: ["run", "validate-routes"] },
+    { command: "pnpm", args: ["run", "validate-exports", "--", ...exportArgs] },
   ];
 }
 
@@ -32,13 +31,13 @@ export function runReleaseCheck(
 
 function runReleaseCommand({ command, args }: ReleaseCheckCommand): void {
   const result = spawnSync(command, args, {
-    cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
-    stdio: 'inherit',
+    cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+    stdio: "inherit",
   });
 
   if (result.error) {
     throw new Error(
-      `Release check could not start "${command} ${args.join(' ')}": ${result.error.message}`,
+      `Release check could not start "${command} ${args.join(" ")}": ${result.error.message}`,
     );
   }
   if (result.status !== 0) {
@@ -46,7 +45,7 @@ function runReleaseCommand({ command, args }: ReleaseCheckCommand): void {
   }
 }
 
-if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
+if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   try {
     runReleaseCheck();
   } catch (error) {
