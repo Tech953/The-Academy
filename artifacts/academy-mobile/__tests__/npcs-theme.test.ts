@@ -95,4 +95,19 @@ describe("NPC directory weekly theme cue", () => {
     expect(markup).toContain(offlineTheme);
     expect(markup).not.toContain("Say something...");
   });
+
+  it("renders a synced content-pack theme instead of the offline fallback", () => {
+    const day = 8;
+    const offlineTheme = selectWeeklyTheme(null, day);
+    const syncedTheme = "Student Showcase Week";
+    gameState.weeklyTheme = selectWeeklyTheme({ weeklyTheme: syncedTheme }, day);
+
+    const markup = renderToStaticMarkup(React.createElement(NpcScreen));
+
+    expect(markup).toContain("CAMPUS DIRECTORY");
+    expect(markup).toContain("WEEKLY CAMPUS THEME");
+    expect(markup).toContain(syncedTheme);
+    expect(markup).not.toContain(offlineTheme);
+    expect(markup).not.toContain("Say something...");
+  });
 });
