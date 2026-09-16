@@ -401,7 +401,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       !cancelled && contentPackRequestRef.current === requestId;
     setContentPackLoading(true);
     (async () => {
+      let cachedPack: ContentPack | null = null;
       try {
+        cachedPack = await readCachedContentPack(AsyncStorage);
+        if (!isCurrentRequest()) return;
+        if (cachedPack) {
+          setContentPack(cachedPack);
+        }
+
         if (!isOnline) throw new Error("offline");
         const pack = await fetchContentPack();
         const normalizedPack = ensureUsableContentPack(pack, state.day);
@@ -415,10 +422,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       } catch {
         if (!isCurrentRequest()) return;
         recordOfflineContent();
-        const cachedPack = await readCachedContentPack(AsyncStorage);
-        if (isCurrentRequest()) {
-          setContentPack(fallbackAfterRefreshFailure(cachedPack, state.day));
-        }
+        setContentPack(fallbackAfterRefreshFailure(cachedPack, state.day));
       } finally {
         if (isCurrentRequest()) setContentPackLoading(false);
       }

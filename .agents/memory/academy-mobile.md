@@ -27,3 +27,11 @@ Offline-first GED academic RPG companion to the web app, retro CRT terminal look
 - `metro.config.js` is monorepo-aware (watchFolders = workspace root, nodeModulesPaths includes root) so EAS cloud can resolve pnpm-hoisted deps. Default single-package metro config works for dev here but is risky for EAS.
 - `EXPO_PUBLIC_DOMAIN` is baked at build time and controls online API base. Empty in eas.json profiles → APK is offline-only (still fully playable). For online enrichment, set it to the published deployment domain in the profile's `env` before building.
 - Build is run by the user with their own Expo account: `cd artifacts/academy-mobile && npx eas-cli login && npx eas-cli init && npx eas-cli build -p android --profile preview`. Cannot be run agent-side (needs their account + Expo cloud).
+
+## Persistence testing
+
+The Node-resolved AsyncStorage package implementation delegates to `window.localStorage`; a persistent localStorage fixture exercises the actual mobile adapter boundary more faithfully than a plain Map passed to the parser.
+
+**Why:** Native restart behavior depends on the adapter's JSON/string serialization and key-value semantics, not only the pure cache helpers.
+
+**How to apply:** For restart coverage, install a `window.localStorage` fixture before calling `writeCachedContentPack`/`readCachedContentPack` with the real `@react-native-async-storage/async-storage` import, then remove it in `finally`.

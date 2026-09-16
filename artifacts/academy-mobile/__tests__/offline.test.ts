@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── lib under test ─────────────────────────────────────────────────────────
 import {
@@ -711,6 +712,59 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       now,
     )).toBeNull();
     expect(parseCachedContentPack('{not-json', now)).toBeNull();
+  });
+
+  it('persists a remote bulletin through AsyncStorage across a relaunch fixture', async () => {
+    const values = new Map<string, string>();
+    const localStorage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        values.set(key, value);
+      },
+      removeItem: (key: string) => {
+        values.delete(key);
+      },
+      clear: () => {
+        values.clear();
+      },
+      key: (index: number) => [...values.keys()][index] ?? null,
+      get length() {
+        return values.size;
+      },
+    };
+
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { localStorage },
+    });
+
+    try {
+      const remotePack: ContentPack = {
+        ...generateOfflineContentPack(day),
+        version: 'pack-remote-relaunch',
+        generatedBy: 'gpt',
+        eventsRepaired: false,
+      };
+      const now = remotePack.generatedAt + 1;
+
+      await expect(writeCachedContentPack(AsyncStorage, remotePack, now)).resolves.toBe(true);
+
+      // A fresh provider instance gets the same device-backed value before any
+      // network refresh is attempted.
+      await expect(readCachedContentPack(AsyncStorage, now)).resolves.toEqual(remotePack);
+
+      localStorage.setItem(
+        'academy-content-pack-v1',
+        JSON.stringify({ ...remotePack, expiresAt: now }),
+      );
+      await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
+
+      localStorage.setItem('academy-content-pack-v1', '{not-json');
+      await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
+      expect(fallbackAfterRefreshFailure(null, day).generatedBy).toBe('deterministic');
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
   });
 
   it('prefers the last usable cached bulletin after a refresh failure', () => {
