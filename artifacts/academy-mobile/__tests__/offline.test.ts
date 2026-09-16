@@ -51,6 +51,8 @@ import {
   generateBulletinEvents,
   generateContentPack,
   generateOfflineContentPack,
+  focusSubjectKey,
+  topicMatchesFocus,
   inferEmotionState,
   scoreToRelationshipTier,
   analyzeDialogueTone,
@@ -470,6 +472,48 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
     expect(quiz.questions.slice(focusedCount).some(
       question => question.topic !== 'Linear Equations',
     )).toBe(true);
+  });
+
+  it.each([
+    { subject: 'math', contentLabel: 'Math Reasoning', focusTopic: 'Linear Equations' },
+    { subject: 'language_arts', contentLabel: 'Language Arts', focusTopic: 'Evidence and Claims' },
+    { subject: 'science', contentLabel: 'Science', focusTopic: 'Scientific Method' },
+    { subject: 'social_studies', contentLabel: 'Social Studies', focusTopic: 'US Government' },
+  ] as const)(
+    'prioritizes focus questions for $subject and preserves general questions',
+    ({ subject, contentLabel, focusTopic }) => {
+      expect(focusSubjectKey(contentLabel)).toBe(subject);
+
+      const quiz = generateQuizSet(subject, `focus-${subject}`, 5, [focusTopic]);
+      const focusedCount = quiz.questions.filter(
+        question => topicMatchesFocus(question.topic, focusTopic),
+      ).length;
+
+      expect(focusedCount).toBeGreaterThan(0);
+      expect(quiz.questions.slice(0, focusedCount).every(
+        question => topicMatchesFocus(question.topic, focusTopic),
+      )).toBe(true);
+      expect(quiz.questions.slice(focusedCount).some(
+        question => !topicMatchesFocus(question.topic, focusTopic),
+      )).toBe(true);
+      expect(generateQuizSet(subject, `focus-${subject}`, 5, [focusTopic])).toEqual(quiz);
+    },
+  );
+
+  it('maps every subject label emitted by weekly offline focus packs', () => {
+    const expectedSubjects = new Map([
+      ['Math Reasoning', 'math'],
+      ['Language Arts', 'language_arts'],
+      ['Science', 'science'],
+      ['Social Studies', 'social_studies'],
+    ]);
+
+    for (const day of [1, 8, 15, 22]) {
+      const pack = generateOfflineContentPack(day);
+      for (const focus of pack.gedFocusAreas) {
+        expect(focusSubjectKey(focus.subject)).toBe(expectedSubjects.get(focus.subject));
+      }
+    }
   });
 
   it('keeps focus-prioritized quiz order deterministic', () => {
