@@ -69,7 +69,16 @@ describe("forwarded-client rate limiting", () => {
       expect((await request(testServer, "203.0.113.10")).status).toBe(200);
     }
 
-    expect((await request(testServer, "203.0.113.10")).status).toBe(429);
+    const blockedRequest = await request(testServer, "203.0.113.10");
+    expect(blockedRequest.status).toBe(429);
+    expect(blockedRequest.headers.get("ratelimit-limit")).toBe("200");
+    expect(blockedRequest.headers.get("ratelimit-remaining")).toBe("0");
+    expect(blockedRequest.headers.get("ratelimit-policy")).toBe("200;w=900");
+    expect(blockedRequest.headers.get("ratelimit-reset")).toMatch(/^\d+$/);
+    expect(blockedRequest.headers.get("retry-after")).toMatch(/^\d+$/);
+    expect(blockedRequest.headers.get("x-ratelimit-limit")).toBeNull();
+    expect(blockedRequest.headers.get("x-ratelimit-remaining")).toBeNull();
+    expect(blockedRequest.headers.get("x-ratelimit-reset")).toBeNull();
     expect((await request(testServer, "203.0.113.11")).status).toBe(200);
   });
 
