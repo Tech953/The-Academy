@@ -19,6 +19,11 @@ type ExportPaths = {
   pdf: string;
 };
 
+export type SlideExpectation = {
+  position: number;
+  title: string;
+};
+
 function usage(): string {
   return [
     'Usage: pnpm run validate-exports -- [--dir <directory>]',
@@ -66,7 +71,7 @@ function parseArgs(args: Array<string>): {
   return parsed;
 }
 
-function expectedSlideCount(): number {
+export function readSlideManifest(): Array<SlideExpectation> {
   let manifest: unknown;
   try {
     manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
@@ -79,7 +84,29 @@ function expectedSlideCount(): number {
     throw new Error('Slide manifest must contain at least one slide entry.');
   }
 
-  return manifest.length;
+  const entries = manifest.flatMap((entry, index) => {
+    if (
+      !entry ||
+      typeof entry !== 'object' ||
+      typeof entry.title !== 'string' ||
+      !entry.title.trim()
+    ) {
+      throw new Error(`Slide manifest entry ${index + 1} is missing a title.`);
+    }
+    return [
+      {
+        position:
+          typeof entry.position === 'number' ? entry.position : index + 1,
+        title: entry.title.trim(),
+      },
+    ];
+  });
+
+  if (entries.some((entry, index) => entry.position !== index + 1)) {
+    throw new Error('Slide manifest positions must be numbered contiguously from 1.');
+  }
+
+  return entries;
 }
 
 function assertFile(filePath: string, label: string): void {
@@ -140,7 +167,109 @@ function readZipListing(filePath: string): string {
   }
 }
 
-function validatePptx(filePath: string, expected: number): void {
+function xmlText(value: string): string {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    );
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function expectedTitleFound(text: string, title: string): boolean {
+  const normalizedText = normalizeText(text);
+  const normalizedTitle = normalizeText(title);
+  if (!normalizedTitle) return false;
+  if (normalizedText.includes(normalizedTitle)) return true;
+
+  const titleWords = normalizedTitle.split(' ');
+  const orderedWords = new RegExp(
+    titleWords
+      .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('(?:\\s+.*?)?\\s+'),
+  );
+  return orderedWords.test(normalizedText);
+}
+
+export function validateSlideContent(
+  slideTexts: Array<string>,
+  expectations: Array<SlideExpectation>,
+  format: 'PPTX' | 'PDF',
+  filePath: string,
+): void {
+  if (slideTexts.length !== expectations.length) {
+    throw new Error(
+      `${format} export content has ${slideTexts.length} slides; expected ${expectations.length}: ${filePath}`,
+    );
+  }
+
+  for (const [index, expectation] of expectations.entries()) {
+    const text = slideTexts[index] ?? '';
+    if (normalizeText(text).length < 12) {
+      throw new Error(
+        `${format} export slide ${expectation.position} is unexpectedly empty: ${filePath}`,
+      );
+    }
+    if (!expectedTitleFound(text, expectation.title)) {
+      throw new Error(
+        `${format} export slide ${expectation.position} is missing expected title "${expectation.title}": ${filePath}`,
+      );
+    }
+  }
+}
+
+export function extractPptxSlideTexts(
+  filePath: string,
+  expectations: Array<SlideExpectation>,
+): Array<string> {
+  return expectations.map((expectation) => {
+    const entry = `ppt/slides/slide${expectation.position}.xml`;
+    try {
+      const xml = execFileSync('unzip', ['-p', filePath, entry], {
+        stdio: 'pipe',
+        encoding: 'utf8',
+      });
+      return [...xml.matchAll(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/gi)]
+        .map((match) => xmlText(match[1] ?? ''))
+        .join(' ');
+    } catch {
+      throw new Error(
+        `PPTX export slide ${expectation.position} text could not be read: ${filePath}`,
+      );
+    }
+  });
+}
+
+export function extractPdfPageTexts(filePath: string): Array<string> {
+  try {
+    const text = execFileSync('pdftotext', ['-layout', filePath, '-'], {
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
+    return text
+      .split('\f')
+      .map((page) => page.trim())
+      .filter((page, index, pages) => index < pages.length - 1 || page.length > 0);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`PDF export text could not be extracted: ${filePath} (${message})`);
+  }
+}
+
+function validatePptx(filePath: string, expectations: Array<SlideExpectation>): void {
   assertFile(filePath, 'PPTX export');
   const entries = readZipListing(filePath)
     .split(/\r?\n/)
@@ -162,21 +291,27 @@ function validatePptx(filePath: string, expected: number): void {
     })
     .sort((left, right) => left - right);
 
-  if (slideNumbers.length !== expected) {
+  if (slideNumbers.length !== expectations.length) {
     throw new Error(
-      `PPTX export has ${slideNumbers.length} slides; expected ${expected}: ${filePath}`,
+      `PPTX export has ${slideNumbers.length} slides; expected ${expectations.length}: ${filePath}`,
     );
   }
 
-  const expectedNumbers = Array.from({ length: expected }, (_, index) => index + 1);
+  const expectedNumbers = expectations.map((expectation) => expectation.position);
   if (slideNumbers.some((number, index) => number !== expectedNumbers[index])) {
     throw new Error(
-      `PPTX export slide entries are not numbered contiguously from 1 to ${expected}: ${filePath}`,
+      `PPTX export slide entries are not numbered contiguously from 1 to ${expectations.length}: ${filePath}`,
     );
   }
+  validateSlideContent(
+    extractPptxSlideTexts(filePath, expectations),
+    expectations,
+    'PPTX',
+    filePath,
+  );
 }
 
-function validatePdf(filePath: string, expected: number): void {
+function validatePdf(filePath: string, expectations: Array<SlideExpectation>): void {
   assertFile(filePath, 'PDF export');
   const header = readFileSync(filePath).subarray(0, 5).toString('latin1');
   if (header !== '%PDF-') {
@@ -194,8 +329,8 @@ function validatePdf(filePath: string, expected: number): void {
     }
 
     const actual = Number(pages);
-    if (actual !== expected) {
-      throw new Error(`has ${actual} pages; expected ${expected}`);
+    if (actual !== expectations.length) {
+      throw new Error(`has ${actual} pages; expected ${expectations.length}`);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -204,27 +339,35 @@ function validatePdf(filePath: string, expected: number): void {
     }
     throw new Error(`PDF export is not readable: ${filePath} (${message})`);
   }
+  validateSlideContent(
+    extractPdfPageTexts(filePath),
+    expectations,
+    'PDF',
+    filePath,
+  );
 }
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  const expected = expectedSlideCount();
+  const expectations = readSlideManifest();
   const paths = resolveExportPaths(args);
 
-  validatePptx(paths.pptx, expected);
-  validatePdf(paths.pdf, expected);
+  validatePptx(paths.pptx, expectations);
+  validatePdf(paths.pdf, expectations);
 
   console.log(
-    `✓ Slide exports are valid (${expected} slides/pages):\n` +
+    `✓ Slide exports are valid (${expectations.length} slides/pages with expected titles):\n` +
       `  PPTX: ${paths.pptx}\n` +
       `  PDF:  ${paths.pdf}`,
   );
 }
 
-try {
-  main();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Slide export validation failed: ${message}`);
-  process.exitCode = 1;
+if (path.resolve(process.argv[1] ?? '') === __filename) {
+  try {
+    main();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Slide export validation failed: ${message}`);
+    process.exitCode = 1;
+  }
 }
