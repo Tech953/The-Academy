@@ -1,6 +1,6 @@
 import express, { type Express } from "express";
 import type OpenAI from "openai";
-import type { Server } from "node:http";
+import { request as httpRequest, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerRoutes } from "../src/routes/routes";
@@ -687,5 +687,97 @@ describe("chat, image, and audio integration routes", () => {
     expect(createMessage).toHaveBeenCalledTimes(1);
     expect(createMessage).toHaveBeenCalledWith(7, "user", "User transcript");
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts provider streaming and skips the assistant write when the client disconnects", async () => {
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
+      id: role === "user" ? 1 : 2,
+      conversationId,
+      role,
+      content,
+      createdAt: new Date(),
+    }));
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => "User transcript");
+    let providerSignal: AbortSignal | undefined;
+    let resolveProviderStart: ((signal: AbortSignal) => void) | undefined;
+    const providerStarted = new Promise<AbortSignal>(resolve => {
+      resolveProviderStart = resolve;
+    });
+    const create = vi.fn(async (
+      _params: Record<string, unknown>,
+      options: { signal?: AbortSignal },
+    ) => {
+      providerSignal = options.signal;
+      resolveProviderStart?.(providerSignal);
+      return (async function* () {
+        yield { choices: [{ delta: { audio: { transcript: "Partial reply" } } }] };
+        await new Promise<void>(resolve => {
+          if (providerSignal?.aborted) {
+            resolve();
+            return;
+          }
+          providerSignal?.addEventListener("abort", () => resolve(), { once: true });
+        });
+      })();
+    });
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({
+          createMessage,
+          getMessagesByConversation: vi.fn(async () => []),
+        }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const clientDisconnected = new Promise<void>((resolve, reject) => {
+      const client = httpRequest(
+        `${testServer.baseUrl}/api/conversations/7/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+        },
+        response => {
+          response.once("data", async () => {
+            try {
+              await providerStarted;
+              client.destroy();
+            } catch (error) {
+              reject(error);
+            }
+          });
+          response.once("close", resolve);
+        },
+      );
+      client.once("error", error => {
+        if ((error as NodeJS.ErrnoException).code === "ECONNRESET") {
+          resolve();
+        } else {
+          reject(error);
+        }
+      });
+      client.end(JSON.stringify({ audio: Buffer.from("audio").toString("base64") }));
+    });
+
+    await clientDisconnected;
+    const signal = await providerStarted;
+    await new Promise<void>(resolve => {
+      if (signal.aborted) {
+        resolve();
+      } else {
+        signal.addEventListener("abort", () => resolve(), { once: true });
+      }
+    });
+
+    expect(signal.aborted).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledWith(7, "user", "User transcript");
   });
 });

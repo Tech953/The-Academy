@@ -87,6 +87,10 @@ export function registerAudioRoutes(
   // Auto-detects audio format and converts WebM/MP4/OGG to WAV
   // Uses gpt-4o-mini-transcribe for STT, gpt-audio for voice response
   app.post("/api/conversations/:id/messages", audioBodyParser, async (req: Request, res: Response) => {
+    const disconnectController = new AbortController();
+    let clientDisconnected = false;
+    let cleanupDisconnectListeners = () => {};
+
     try {
       const conversationId = parseInt(routeParam(req.params.id), 10);
       const { audio, voice = "alloy" } = req.body;
@@ -96,15 +100,35 @@ export function registerAudioRoutes(
         return;
       }
 
+      const markClientDisconnected = () => {
+        if (res.writableEnded || clientDisconnected) return;
+        clientDisconnected = true;
+        disconnectController.abort();
+      };
+      cleanupDisconnectListeners = () => {
+        req.off("aborted", markClientDisconnected);
+        res.off("close", markClientDisconnected);
+        res.off("error", markClientDisconnected);
+      };
+      req.once("aborted", markClientDisconnected);
+      res.once("close", markClientDisconnected);
+      res.once("error", markClientDisconnected);
+
       // 1. Auto-detect format and convert to OpenAI-compatible format
       const rawBuffer = Buffer.from(audio, "base64");
       const { buffer: audioBuffer, format: inputFormat } = await ensureCompatibleFormat(rawBuffer);
 
+      if (clientDisconnected) return;
+
       // 2. Transcribe user audio
       const userTranscript = await speechToText(audioBuffer, inputFormat);
 
+      if (clientDisconnected) return;
+
       // 3. Save user message
       await chatStorage.createMessage(conversationId, "user", userTranscript);
+
+      if (clientDisconnected) return;
 
       // 4. Get conversation history
       const existingMessages = await chatStorage.getMessagesByConversation(conversationId);
@@ -127,11 +151,13 @@ export function registerAudioRoutes(
         audio: { voice, format: "pcm16" },
         messages: chatHistory,
         stream: true,
-      });
+      }, { signal: disconnectController.signal });
 
       let assistantTranscript = "";
 
       for await (const chunk of stream) {
+        if (clientDisconnected) break;
+
         const delta = chunk.choices?.[0]?.delta as any;
         if (!delta) continue;
 
@@ -145,12 +171,17 @@ export function registerAudioRoutes(
         }
       }
 
+      if (clientDisconnected) return;
+
       // 7. Save assistant message
       await chatStorage.createMessage(conversationId, "assistant", assistantTranscript);
+
+      if (clientDisconnected) return;
 
       res.write(`data: ${JSON.stringify({ type: "done", transcript: assistantTranscript })}\n\n`);
       res.end();
     } catch (error) {
+      if (clientDisconnected || res.destroyed || res.writableEnded) return;
       console.error("Error processing voice message:", error);
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to process voice message" })}\n\n`);
@@ -158,6 +189,8 @@ export function registerAudioRoutes(
       } else {
         res.status(500).json({ error: "Failed to process voice message" });
       }
+    } finally {
+      cleanupDisconnectListeners?.();
     }
   });
 }
