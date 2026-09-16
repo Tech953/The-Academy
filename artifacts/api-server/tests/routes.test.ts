@@ -630,11 +630,61 @@ describe("chat, image, and audio integration routes", () => {
     });
 
     expect(result.response.status).toBe(500);
-    expect(result.body).toEqual({ error: "Failed to process voice message" });
+    expect(result.body).toEqual({
+      error: "Failed to process voice message",
+      retryable: true,
+    });
     expect(ensureCompatibleFormat).toHaveBeenCalledTimes(1);
     expect(speechToText).toHaveBeenCalledTimes(1);
     expect(create).not.toHaveBeenCalled();
     expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed pre-header voice session explicit after saving the user transcript", async () => {
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
+      id: role === "user" ? 1 : 2,
+      conversationId,
+      role,
+      content,
+      createdAt: new Date(),
+    }));
+    const getMessagesByConversation = vi.fn(async () => {
+      throw new Error("history unavailable");
+    });
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => "User transcript");
+    const create = vi.fn();
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({ createMessage, getMessagesByConversation }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const result = await request(testServer, "/api/conversations/7/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ audio: Buffer.from("audio").toString("base64") }),
+    });
+
+    expect(result.response.status).toBe(500);
+    expect(result.body).toEqual({
+      error: "Failed to process voice message",
+      retryable: true,
+    });
+    expect(createMessage).toHaveBeenNthCalledWith(1, 7, "user", "User transcript");
+    expect(createMessage).toHaveBeenNthCalledWith(
+      2,
+      7,
+      "assistant",
+      "[Voice response failed. Please retry this message.]",
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("emits an SSE error and avoids the assistant write when streaming fails", async () => {
@@ -682,10 +732,15 @@ describe("chat, image, and audio integration routes", () => {
     expect(events).toEqual([
       { type: "user_transcript", data: "User transcript" },
       { type: "transcript", data: "Partial reply" },
-      { type: "error", error: "Failed to process voice message" },
+      { type: "error", error: "Failed to process voice message", retryable: true },
     ]);
-    expect(createMessage).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledTimes(2);
     expect(createMessage).toHaveBeenCalledWith(7, "user", "User transcript");
+    expect(createMessage).toHaveBeenCalledWith(
+      7,
+      "assistant",
+      "[Voice response failed. Please retry this message.]",
+    );
     expect(create).toHaveBeenCalledTimes(1);
   });
 

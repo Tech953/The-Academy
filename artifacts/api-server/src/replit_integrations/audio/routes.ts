@@ -9,6 +9,8 @@ import {
 
 // Body parser with 50MB limit for audio payloads
 const audioBodyParser = express.json({ limit: "50mb" });
+const VOICE_FAILURE_ERROR = "Failed to process voice message";
+const VOICE_FAILURE_MARKER = "[Voice response failed. Please retry this message.]";
 
 function routeParam(value: string | string[]): string {
   return Array.isArray(value) ? value[0] ?? "" : value;
@@ -87,12 +89,22 @@ export function registerAudioRoutes(
   // Auto-detects audio format and converts WebM/MP4/OGG to WAV
   // Uses gpt-4o-mini-transcribe for STT, gpt-audio for voice response
   app.post("/api/conversations/:id/messages", audioBodyParser, async (req: Request, res: Response) => {
+    const conversationId = parseInt(routeParam(req.params.id), 10);
     const disconnectController = new AbortController();
     let clientDisconnected = false;
     let cleanupDisconnectListeners = () => {};
+    let userMessageSaved = false;
+
+    const saveVoiceFailureMarker = async () => {
+      if (!userMessageSaved || clientDisconnected) return;
+      try {
+        await chatStorage.createMessage(conversationId, "assistant", VOICE_FAILURE_MARKER);
+      } catch (markerError) {
+        console.error("Error saving voice failure marker:", markerError);
+      }
+    };
 
     try {
-      const conversationId = parseInt(routeParam(req.params.id), 10);
       const { audio, voice = "alloy" } = req.body;
 
       if (!audio) {
@@ -127,6 +139,7 @@ export function registerAudioRoutes(
 
       // 3. Save user message
       await chatStorage.createMessage(conversationId, "user", userTranscript);
+      userMessageSaved = true;
 
       if (clientDisconnected) return;
 
@@ -182,12 +195,18 @@ export function registerAudioRoutes(
       res.end();
     } catch (error) {
       if (clientDisconnected || res.destroyed || res.writableEnded) return;
+      await saveVoiceFailureMarker();
+      if (clientDisconnected || res.destroyed || res.writableEnded) return;
       console.error("Error processing voice message:", error);
       if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to process voice message" })}\n\n`);
+        res.write(`data: ${JSON.stringify({
+          type: "error",
+          error: VOICE_FAILURE_ERROR,
+          retryable: true,
+        })}\n\n`);
         res.end();
       } else {
-        res.status(500).json({ error: "Failed to process voice message" });
+        res.status(500).json({ error: VOICE_FAILURE_ERROR, retryable: true });
       }
     } finally {
       cleanupDisconnectListeners?.();
