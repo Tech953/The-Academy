@@ -1,3 +1,14 @@
+import { spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 const {
@@ -146,6 +157,128 @@ const okJson = (payload: unknown) =>
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+
+const nativeHandoffPath = path.resolve(
+  __dirname,
+  "../scripts/native-handoff.js",
+);
+const checkReleasePath = path.resolve(__dirname, "../scripts/check-release.js");
+
+function createNativeHandoffSubprocessFixture() {
+  const fixtureDirectory = mkdtempSync(
+    path.join(tmpdir(), "academy-native-handoff-"),
+  );
+  const easRecordPath = path.join(fixtureDirectory, "eas-invocation.json");
+  const reportPath = path.join(fixtureDirectory, "handoff-report.json");
+  const easCommandPath = path.join(fixtureDirectory, "record-eas.js");
+  const preloadPath = path.join(fixtureDirectory, "stub-preflight.cjs");
+
+  writeFileSync(
+    easCommandPath,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.writeFileSync(
+  process.env.EAS_RECORD_PATH,
+  JSON.stringify({ args: process.argv.slice(2) }),
+);
+process.stdout.write(JSON.stringify([{
+  id: "stub-build",
+  status: "finished",
+  profile: "preview",
+  appVersion: "1.0.0",
+  appIdentifier: "com.theacademy.mobile",
+  completedAt: "2026-09-16T12:00:00.000Z",
+  buildDetailsPageUrl: "https://expo.dev/builds/stub-build",
+  artifactUrl: "https://expo.dev/builds/stub-build.apk"
+}]));
+`,
+    "utf8",
+  );
+  chmodSync(easCommandPath, 0o755);
+
+  writeFileSync(
+    preloadPath,
+    `const checkReleasePath = ${JSON.stringify(checkReleasePath)};
+const checkRelease = require(checkReleasePath);
+const failed = process.env.RELEASE_PREFLIGHT_RESULT === "failed";
+const result = failed
+  ? {
+      profiles: ["preview", "production"],
+      passed: [{
+        profile: "preview",
+        domain: "preview.example.com",
+        healthUrl: "https://preview.example.com/api/healthz",
+        aiUrl: "https://preview.example.com/api/ai/describe"
+      }],
+      failed: [{
+        profile: "production",
+        domain: "production.example.com",
+        error: new Error("HTTP 503")
+      }]
+    }
+  : {
+      profiles: ["preview", "production"],
+      passed: [
+        {
+          profile: "preview",
+          domain: "preview.example.com",
+          healthUrl: "https://preview.example.com/api/healthz",
+          aiUrl: "https://preview.example.com/api/ai/describe"
+        },
+        {
+          profile: "production",
+          domain: "production.example.com",
+          healthUrl: "https://production.example.com/api/healthz",
+          aiUrl: "https://production.example.com/api/ai/describe"
+        }
+      ],
+      failed: []
+    };
+require.cache[require.resolve(checkReleasePath)].exports = {
+  ...checkRelease,
+  runReleaseSmokeChecks: async () => result
+};
+`,
+    "utf8",
+  );
+
+  return {
+    fixtureDirectory,
+    easRecordPath,
+    easCommandPath,
+    reportPath,
+    preloadPath,
+  };
+}
+
+function runNativeHandoffSubprocess(
+  fixture: ReturnType<typeof createNativeHandoffSubprocessFixture>,
+  preflightResult: "failed" | "passed",
+) {
+  return spawnSync(
+    process.execPath,
+    [
+      "--require",
+      fixture.preloadPath,
+      nativeHandoffPath,
+      "--platform",
+      "android",
+      "--profile",
+      "preview",
+    ],
+    {
+      cwd: path.resolve(__dirname, ".."),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        EAS_CLI_COMMAND: fixture.easCommandPath,
+        EAS_RECORD_PATH: fixture.easRecordPath,
+        RELEASE_PREFLIGHT_RESULT: preflightResult,
+        RELEASE_REPORT_PATH: fixture.reportPath,
+      },
+    },
+  );
+}
 
 describe("native handoff build metadata", () => {
   const appConfig = {
@@ -725,5 +858,42 @@ describe("release smoke check", () => {
         failed: [],
       },
     });
+  });
+
+  it("does not invoke EAS when a subprocess preflight fails", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(fixture, "failed");
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /Release connectivity failed before EAS build: production: HTTP 503/,
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(false);
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("invokes the stubbed EAS command after every subprocess preflight passes", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(fixture, "passed");
+
+      expect(result.status).toBe(0);
+      expect(existsSync(fixture.easRecordPath)).toBe(true);
+      expect(JSON.parse(readFileSync(fixture.easRecordPath, "utf8"))).toEqual({
+        args: [
+          "build",
+          "--platform",
+          "android",
+          "--profile",
+          "preview",
+          "--json",
+        ],
+      });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
   });
 });
