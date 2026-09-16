@@ -1,7 +1,10 @@
+import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
+const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
@@ -19,6 +22,7 @@ const manifestPath = path.join(
 
 type SlideManifestEntry = {
   position: number;
+  title: string;
 };
 
 function readConfigValue(name: string): string {
@@ -50,7 +54,9 @@ function readManifest(): SlideManifestEntry[] {
       (entry) =>
         typeof entry !== 'object' ||
         entry === null ||
-        typeof (entry as { position?: unknown }).position !== 'number',
+        typeof (entry as { position?: unknown }).position !== 'number' ||
+        typeof (entry as { title?: unknown }).title !== 'string' ||
+        !(entry as { title: string }).title.trim(),
     )
   ) {
     throw new Error(
@@ -102,7 +108,61 @@ function routeUrl(origin: string, previewPath: string, position: number): URL {
   return new URL(`${normalizedPath}slide${position}`, `${origin}/`);
 }
 
-async function validateRoute(url: URL): Promise<void> {
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function visibleBodyText(document: string): string {
+  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(document)?.[1] ?? '';
+  return body
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:amp|lt|gt|quot|apos);/g, (entity) => {
+      const decoded = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&apos;': "'",
+      } as const;
+      return decoded[entity as keyof typeof decoded] ?? entity;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function browserRenderFailure(
+  document: string,
+  expectedTitle: string,
+): string | undefined {
+  if (!/<div[^>]+id=["']root["']/.test(document)) {
+    return 'did not return the application root';
+  }
+
+  const bodyText = visibleBodyText(document);
+  if (/<vite-error-overlay\b/i.test(document) || /runtime error/i.test(bodyText)) {
+    return 'showed a runtime error overlay';
+  }
+  if (/slide unavailable/i.test(bodyText)) {
+    return 'showed the slide-unavailable fallback';
+  }
+  if (bodyText.length < 24) {
+    return 'rendered unexpectedly little visible content';
+  }
+  if (!normalizeText(bodyText).includes(normalizeText(expectedTitle))) {
+    return `did not render expected title "${expectedTitle}"`;
+  }
+
+  return undefined;
+}
+
+async function validateHtmlRoute(url: URL): Promise<void> {
   const response = await fetch(url);
   const contentType = response.headers.get('content-type') ?? '';
   const document = await response.text();
@@ -123,11 +183,70 @@ async function validateRoute(url: URL): Promise<void> {
   }
 }
 
+async function validateBrowserRoute(
+  url: URL,
+  entry: SlideManifestEntry,
+  browserPath: string,
+): Promise<void> {
+  let document: string;
+  try {
+    const result = await execFileAsync(
+      browserPath,
+      [
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--dump-dom',
+        '--virtual-time-budget=3000',
+        url.toString(),
+      ],
+      {
+        encoding: 'utf8',
+        maxBuffer: 8 * 1024 * 1024,
+        timeout: 20_000,
+      },
+    );
+    document = result.stdout;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${url.pathname} browser check could not complete: ${message}`);
+  }
+
+  const failure = browserRenderFailure(document, entry.title);
+  if (failure) {
+    throw new Error(`${url.pathname} browser render check ${failure}`);
+  }
+}
+
+async function validateBrowserRoutes(
+  routes: Array<{ url: URL; entry: SlideManifestEntry }>,
+  browserPath: string,
+): Promise<void> {
+  let nextIndex = 0;
+  const worker = async (): Promise<void> => {
+    while (nextIndex < routes.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const route = routes[index];
+      if (route) {
+        await validateBrowserRoute(route.url, route.entry, browserPath);
+      }
+    }
+  };
+
+  const workerCount = Math.min(4, routes.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker()),
+  );
+}
+
 async function main(): Promise<void> {
   const previewPath = readConfigValue('previewPath');
   const configuredPort = readConfigValue('localPort');
   const origin = parseOrigin(process.argv.slice(2), configuredPort);
-  const positions = readManifest()
+  const manifest = readManifest();
+  const positions = manifest
     .map((entry) => entry.position)
     .sort((left, right) => left - right);
 
@@ -140,10 +259,17 @@ async function main(): Promise<void> {
     );
   }
 
-  const routes = positions.map((position) =>
-    routeUrl(origin, previewPath, position),
-  );
-  await Promise.all(routes.map(validateRoute));
+  const routes = positions.map((position) => {
+    const entry = manifest.find((candidate) => candidate.position === position);
+    if (!entry) {
+      throw new Error(`Could not find manifest entry for slide ${position}.`);
+    }
+    return { entry, url: routeUrl(origin, previewPath, position) };
+  });
+  await Promise.all(routes.map(({ url }) => validateHtmlRoute(url)));
+
+  const browserPath = process.env.ACADEMY_BROWSER_PATH ?? 'chromium';
+  await validateBrowserRoutes(routes, browserPath);
 
   const representativePositions = [
     positions[0],
@@ -151,7 +277,10 @@ async function main(): Promise<void> {
     positions[positions.length - 1],
   ];
   console.log(
-    `✓ ${routes.length} slide routes returned usable HTML under ${previewPath}`,
+    `✓ ${routes.length} slide routes returned usable HTML and rendered content under ${previewPath}`,
+  );
+  console.log(
+    `  Browser sweep: ${browserPath} checked all ${routes.length} routes`,
   );
   console.log(
     `  Representative routes: ${representativePositions
@@ -160,10 +289,12 @@ async function main(): Promise<void> {
   );
 }
 
-try {
-  await main();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Slide route validation failed: ${message}`);
-  process.exitCode = 1;
+if (path.resolve(process.argv[1] ?? '') === __filename) {
+  try {
+    await main();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Slide route validation failed: ${message}`);
+    process.exitCode = 1;
+  }
 }
