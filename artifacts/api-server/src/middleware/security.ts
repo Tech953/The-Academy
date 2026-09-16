@@ -2,14 +2,20 @@ import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 
+export const SPECIALIZED_API_PATHS = {
+  nlpProcess: '/nlp/process',
+  aiDescribe: '/ai/describe',
+  characterQuestions: '/character-creation/generate-questions',
+  npcDialogue: '/npc-dialogue',
+  memoryVisualization: '/memories/visualize',
+  contentPackRefresh: '/content-pack/refresh',
+} as const;
+
+export const SPECIALIZED_LIMITED_PATHS = Object.values(SPECIALIZED_API_PATHS);
+
 const GENERAL_LIMIT_EXEMPT_PATHS = new Set([
   '/healthz',
-  '/nlp/process',
-  '/ai/describe',
-  '/character-creation/generate-questions',
-  '/npc-dialogue',
-  '/memories/visualize',
-  '/content-pack/refresh',
+  ...SPECIALIZED_LIMITED_PATHS,
 ]);
 
 export function shouldSkipGeneralApiLimit(req: Pick<Request, 'path'>): boolean {

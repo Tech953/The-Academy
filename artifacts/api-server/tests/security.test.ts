@@ -6,6 +6,7 @@ import router from "../src/routes";
 import { registerRoutes } from "../src/routes/routes";
 import {
   apiLimiter,
+  SPECIALIZED_LIMITED_PATHS,
   shouldSkipGeneralApiLimit,
 } from "../src/middleware/security";
 import type { IStorage } from "../src/storage";
@@ -105,14 +106,7 @@ describe("forwarded-client rate limiting", () => {
     expect(shouldSkipGeneralApiLimit({ path: "/content-pack/refresh" })).toBe(true);
     expect(shouldSkipGeneralApiLimit({ path: "/locations" })).toBe(false);
 
-    for (const specializedPath of [
-      "/nlp/process",
-      "/ai/describe",
-      "/character-creation/generate-questions",
-      "/npc-dialogue",
-      "/memories/visualize",
-      "/content-pack/refresh",
-    ]) {
+    for (const specializedPath of SPECIALIZED_LIMITED_PATHS) {
       expect(shouldSkipGeneralApiLimit({ path: specializedPath })).toBe(true);
       expect(shouldSkipGeneralApiLimit({ path: `/api${specializedPath}` })).toBe(false);
     }
