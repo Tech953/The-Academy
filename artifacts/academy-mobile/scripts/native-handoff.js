@@ -12,6 +12,7 @@ const {
 const DEFAULT_PLATFORM = "android";
 const DEFAULT_PROFILE = "preview";
 const EXPECTED_APP_ID = EXPECTED_ANDROID_PACKAGE;
+const EXPECTED_IOS_BUNDLE_ID = "com.theacademy.mobile";
 const DEFAULT_REPORT_PATH = path.resolve(
   __dirname,
   "..",
@@ -39,10 +40,12 @@ function validatePlatformIdentity(platform) {
   const expo = readAppConfig();
   const configuredId =
     platform === "ios" ? expo?.ios?.bundleIdentifier : expo?.android?.package;
+  const expectedId =
+    platform === "ios" ? EXPECTED_IOS_BUNDLE_ID : EXPECTED_ANDROID_PACKAGE;
 
-  if (configuredId !== EXPECTED_APP_ID) {
+  if (configuredId !== expectedId) {
     throw new Error(
-      `[native-handoff] ${platform} identity drift: expected ${EXPECTED_APP_ID}, found ${configuredId || "missing"} in app.json.`,
+      `[native-handoff] ${platform} identity drift: expected ${expectedId}, found ${configuredId || "missing"} in app.json.`,
     );
   }
 

@@ -12,6 +12,8 @@
     "native-handoff": "node scripts/native-handoff.js",
     "release:preview": "RELEASE_PLATFORM=android RELEASE_PROFILE=preview pnpm run native-handoff -- --platform android --profile preview",
     "release:production": "RELEASE_PLATFORM=android RELEASE_PROFILE=production pnpm run native-handoff -- --platform android --profile production",
+    "release:preview:ios": "RELEASE_PLATFORM=ios RELEASE_PROFILE=preview pnpm run native-handoff -- --platform ios --profile preview",
+    "release:production:ios": "RELEASE_PLATFORM=ios RELEASE_PROFILE=production pnpm run native-handoff -- --platform ios --profile production",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"

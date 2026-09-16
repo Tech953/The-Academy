@@ -66,6 +66,8 @@ const {
 
 const {
   normalizeBuildMetadata,
+  parseArgs,
+  validatePlatformIdentity,
   verifyAllProfileConnectivity,
 } = require("../scripts/native-handoff.js") as {
   normalizeBuildMetadata: (
@@ -86,6 +88,13 @@ const {
     buildId: string | null;
     buildDetailsPageUrl: string | null;
   };
+  parseArgs: (args: string[]) => {
+    platform: string;
+    profile: string;
+    checkOnly: boolean;
+    easArgs: string[];
+  };
+  validatePlatformIdentity: (platform: string) => { appId: string };
   verifyAllProfileConnectivity: (options: {
     profile: string;
     runAllProfiles: () => Promise<{
@@ -207,6 +216,28 @@ describe("native handoff build metadata", () => {
         },
       ),
     ).toThrow(/Incomplete EAS build metadata: missing installer URL or local APK path/);
+  });
+});
+
+describe("native handoff platform selection", () => {
+  it("supports the guarded iOS preview and production arguments", () => {
+    expect(
+      parseArgs([
+        "--platform",
+        "ios",
+        "--profile",
+        "production",
+        "--check-only",
+      ]),
+    ).toEqual({
+      platform: "ios",
+      profile: "production",
+      checkOnly: true,
+      easArgs: [],
+    });
+    expect(validatePlatformIdentity("ios")).toEqual({
+      appId: "com.theacademy.mobile",
+    });
   });
 });
 

@@ -21,7 +21,7 @@ the search range:
 EXPO_METRO_PORT=8090 pnpm --filter @workspace/academy-mobile run build
 ```
 
-## Android installer
+## Native installers
 
 An installable APK still requires an Expo account and EAS cloud access:
 
@@ -32,21 +32,32 @@ npx eas-cli init
 pnpm run release:preview
 ```
 
-The `preview` profile produces an internal-distribution APK. The local static
-build check does not replace the EAS native Android build.
+The `preview` profile produces an internal-distribution APK. To run the same
+guarded preview handoff for iOS, use:
 
-For a production Android App Bundle, use the guarded production release
-command:
+```bash
+pnpm run release:preview:ios
+```
+
+The local static build check does not replace the EAS native build.
+
+For a production Android App Bundle, use:
 
 ```bash
 pnpm run release:production
 ```
 
-Both release commands run the credential-free connectivity check before
-starting EAS. A failed health or AI enrichment request stops the command and
-prints the profile plus the exact URL that needs attention. The `dev` and
-`build` commands do not run this check, so local development and static builds
-remain independent of the published API.
+For a production iOS build, use the matching guarded command:
+
+```bash
+pnpm run release:production:ios
+```
+
+All four native release commands run the credential-free connectivity check
+for every configured EAS profile before starting EAS. A failed health or AI
+enrichment request stops the command and prints the profile plus the exact URL
+that needs attention. The `dev` and `build` commands do not run this check, so
+local development and static builds remain independent of the published API.
 
 ## Release connectivity smoke check
 
@@ -77,13 +88,13 @@ pnpm --filter @workspace/academy-mobile run check-release:identity
 
 ## Release connectivity
 
-The `preview` APK and `production` app bundle bake the public deployment
-hostname into `EXPO_PUBLIC_DOMAIN`, so live AI descriptions, NPC dialogue, and
-content-pack enrichment are enabled in distributed builds:
+The `preview` and `production` EAS profiles bake the public deployment hostname
+into `EXPO_PUBLIC_DOMAIN` for both Android and iOS, so live AI descriptions,
+NPC dialogue, and content-pack enrichment are enabled in distributed builds:
 
 - Online base: `https://TheeAcademy.replit.app/api`
-- Preview: online-enabled APK with deterministic offline fallback
-- Production: online-enabled Android App Bundle with deterministic offline fallback
+- Preview: online-enabled Android APK or iOS build with deterministic offline fallback
+- Production: online-enabled Android App Bundle or iOS build with deterministic offline fallback
 - Development: the local workflow supplies its development hostname
 
 The public hostname is configuration, not a credential. If the published
@@ -100,12 +111,20 @@ fails:
 RELEASE_PROFILE=preview pnpm --filter @workspace/academy-mobile run native-handoff
 ```
 
-The command defaults to an Android preview build. Override the profile or
-platform when needed:
+The command defaults to an Android preview build. The iOS package scripts above
+select the iOS platform explicitly; you can also override the profile or
+platform directly:
 
 ```bash
 pnpm --filter @workspace/academy-mobile run native-handoff -- \
   --profile production --platform android
+```
+
+For an iOS production check without starting a cloud build:
+
+```bash
+pnpm --filter @workspace/academy-mobile run native-handoff -- \
+  --check-only --profile production --platform ios
 ```
 
 To verify the preflight without starting a cloud build:
