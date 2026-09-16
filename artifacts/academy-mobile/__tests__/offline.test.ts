@@ -40,6 +40,7 @@ import {
   isDisplayableContentPackEvent,
   parseCachedContentPack,
   readCachedContentPack,
+  resolveContentPackRefresh,
   writeCachedContentPack,
 } from '../lib/contentPackFallback';
 
@@ -689,6 +690,56 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       expect(isDisplayableContentPackEvent(event)).toBe(true);
     });
   }
+
+  it('keeps a connected study pack when the enrichment request succeeds', async () => {
+    const connectedPack: ContentPack = {
+      ...generateOfflineContentPack(day),
+      version: 'connected-pack',
+      generatedBy: 'gpt',
+      eventsRepaired: false,
+    };
+
+    await expect(
+      resolveContentPackRefresh(
+        async () => connectedPack,
+        null,
+        day,
+      ),
+    ).resolves.toEqual({
+      pack: connectedPack,
+      source: 'online',
+    });
+  });
+
+  it('keeps cached or deterministic study content when enrichment fails', async () => {
+    const cachedPack = generateOfflineContentPack(day);
+
+    await expect(
+      resolveContentPackRefresh(
+        async () => {
+          throw new Error('AI service unavailable');
+        },
+        cachedPack,
+        day + 1,
+      ),
+    ).resolves.toEqual({
+      pack: cachedPack,
+      source: 'offline',
+    });
+
+    await expect(
+      resolveContentPackRefresh(
+        async () => {
+          throw new Error('AI service unavailable');
+        },
+        null,
+        day + 1,
+      ),
+    ).resolves.toMatchObject({
+      source: 'offline',
+      pack: { generatedBy: 'deterministic' },
+    });
+  });
 
   it('replaces a missing activeEvents array with deterministic displayable events', () => {
     const malformedPack = {

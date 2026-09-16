@@ -28,11 +28,10 @@ import {
   type EnrichmentStatus,
 } from "@/lib/enrichmentStatus";
 import {
-  ensureUsableContentPack,
   fallbackAfterRefreshFailure,
   createContentPackWriteQueue,
-  isUsableContentPack,
   readCachedContentPack,
+  resolveContentPackRefresh,
 } from "@/lib/contentPackFallback";
 import {
   analyzeDialogueTone,
@@ -411,17 +410,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setContentPack(cachedPack);
         }
 
-        if (!isOnline) throw new Error("offline");
-        const pack = await fetchContentPack();
-        const normalizedPack = ensureUsableContentPack(pack, state.day);
-        if (!isUsableContentPack(normalizedPack)) {
-          throw new Error("Content pack was not usable after normalization");
+        const refreshResult = isOnline
+          ? await resolveContentPackRefresh(fetchContentPack, cachedPack, state.day)
+          : {
+              pack: fallbackAfterRefreshFailure(cachedPack, state.day),
+              source: "offline" as const,
+            };
+        if (!isCurrentRequest()) return;
+        await writeContentPack(refreshResult.pack, isCurrentRequest);
+        if (!isCurrentRequest()) return;
+        if (refreshResult.source === "online") {
+          recordEnrichmentSource("online");
+        } else {
+          recordOfflineContent();
         }
-        if (!isCurrentRequest()) return;
-        await writeContentPack(normalizedPack, isCurrentRequest);
-        if (!isCurrentRequest()) return;
-        recordEnrichmentSource("online");
-        if (isCurrentRequest()) setContentPack(normalizedPack);
+        if (isCurrentRequest()) setContentPack(refreshResult.pack);
       } catch {
         if (!isCurrentRequest()) return;
         recordOfflineContent();

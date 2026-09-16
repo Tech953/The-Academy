@@ -5,6 +5,7 @@ import {
 } from "@workspace/game-engine";
 
 import type { ContentPack, ContentPackEvent } from "./api";
+import type { ContentSource } from "./enrichmentStatus";
 
 export const BULLETIN_EVENT_LIMIT = 3;
 export { CONTENT_PACK_STORAGE_KEY };
@@ -235,4 +236,33 @@ export function fallbackAfterRefreshFailure(
   day: number,
 ): ContentPack {
   return cachedPack ?? generateOfflineContentPack(day);
+}
+
+export interface ContentPackRefreshResult {
+  pack: ContentPack;
+  source: ContentSource;
+}
+
+/**
+ * Resolve one connected content-pack refresh without letting a failed request
+ * remove the study bulletin. The caller supplies the fetcher so this boundary
+ * can be tested without a device or network.
+ */
+export async function resolveContentPackRefresh(
+  fetcher: () => Promise<ContentPack>,
+  cachedPack: ContentPack | null,
+  day: number,
+): Promise<ContentPackRefreshResult> {
+  try {
+    const pack = ensureUsableContentPack(await fetcher(), day);
+    if (!isUsableContentPack(pack)) {
+      throw new Error("Content pack was not usable after normalization");
+    }
+    return { pack, source: "online" };
+  } catch {
+    return {
+      pack: fallbackAfterRefreshFailure(cachedPack, day),
+      source: "offline",
+    };
+  }
 }

@@ -97,6 +97,27 @@ function QuestionCard({
   );
 }
 
+function StudyAvailabilityNotice({
+  status,
+}: {
+  status: "checking" | "live" | "offline" | "fallback";
+}) {
+  if (status === "checking" || status === "live") return null;
+
+  return (
+    <View style={styles.availabilityNotice}>
+      <Text style={styles.availabilityTitle}>
+        {status === "fallback"
+          ? "LIVE ENRICHMENT UNAVAILABLE"
+          : "OFFLINE STUDY MODE"}
+      </Text>
+      <Text style={styles.availabilityCopy}>
+        Bundled study content is active. You can keep answering questions.
+      </Text>
+    </View>
+  );
+}
+
 export default function StudyScreen() {
   const colors = useColors();
   const {
@@ -150,6 +171,7 @@ export default function StudyScreen() {
           <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
+          <StudyAvailabilityNotice status={enrichmentStatus} />
           <View style={[styles.focusPanel, { borderColor: colors.accent }]}>
             <Text style={[styles.focusLabel, { color: colors.accent }]}>
               WEEK {week} STUDY FOCUS
@@ -225,6 +247,7 @@ export default function StudyScreen() {
         <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
       </View>
       <ScrollView contentContainerStyle={styles.listContent}>
+        <StudyAvailabilityNotice status={enrichmentStatus} />
         {questions.map((q) => (
           <QuestionCard
             key={q.id}
@@ -257,6 +280,24 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
   },
   listContent: { padding: 16, gap: 12 },
+  availabilityNotice: {
+    borderWidth: 1,
+    borderColor: "#ffbd69",
+    padding: 10,
+    gap: 4,
+  },
+  availabilityTitle: {
+    ...monoFontBold,
+    color: "#ffbd69",
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  availabilityCopy: {
+    ...monoFont,
+    color: "#86aa8b",
+    fontSize: 10,
+    lineHeight: 14,
+  },
   focusPanel: { borderWidth: 1, padding: 12, gap: 8 },
   focusLabel: { ...monoFontBold, fontSize: 10, letterSpacing: 1 },
   focusTheme: { ...monoFontBold, fontSize: 14 },
