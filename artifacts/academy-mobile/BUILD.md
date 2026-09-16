@@ -74,6 +74,15 @@ then verifies `/api/healthz` and a representative `POST /api/ai/describe`
 request. It does not require an EAS build or credentials. If either request
 fails, the command prints the exact profile and URL that needs attention.
 
+For an archiveable all-profile result, pass `--all` and `--report`. Human-readable
+lines are still printed, while the JSON report contains one stable result entry
+for every discovered profile:
+
+```bash
+pnpm --filter @workspace/academy-mobile run check-release -- \
+  --all --report .local/outputs/academy-mobile-release-smoke.json
+```
+
 Before the connectivity requests, the release check also compares the Android
 package in `app.json`, the `preview` profile's internal APK settings in
 `eas.json`, and the generated Android metadata at

@@ -284,6 +284,12 @@ async function runReleaseSmokeChecks({
   const failed = [];
 
   for (const profile of profiles) {
+    let domain = null;
+    try {
+      domain = getReleaseDomain(config, profile);
+    } catch {
+      // Preserve the profile in the machine-readable failure summary.
+    }
     try {
       passed.push(
         await runReleaseSmokeCheck({
@@ -295,12 +301,42 @@ async function runReleaseSmokeChecks({
     } catch (error) {
       failed.push({
         profile,
+        domain,
         error: error instanceof Error ? error : new Error(String(error)),
       });
     }
   }
 
   return { profiles, passed, failed };
+}
+
+function summarizeReleaseSmokeResult(result) {
+  const passedByProfile = new Map(
+    result.passed.map((entry) => [entry.profile, entry]),
+  );
+  const failedByProfile = new Map(
+    result.failed.map((entry) => [entry.profile, entry]),
+  );
+
+  return {
+    status: result.failed.length > 0 ? "failed" : "passed",
+    profiles: result.profiles.map((profile) => {
+      const passed = passedByProfile.get(profile);
+      const failed = failedByProfile.get(profile);
+      return {
+        profile,
+        domain: passed?.domain ?? failed?.domain ?? null,
+        status: passed ? "passed" : "failed",
+        healthUrl: passed?.healthUrl ?? null,
+        aiUrl: passed?.aiUrl ?? null,
+        error: failed
+          ? failed.error instanceof Error
+            ? failed.error.message
+            : String(failed.error)
+          : null,
+      };
+    }),
+  };
 }
 
 function validateNativeHandoff({
@@ -525,10 +561,13 @@ if (require.main === module) {
 
   const check = allProfiles
     ? runReleaseSmokeChecks().then((result) => {
+        const summary = summarizeReleaseSmokeResult(result);
         const report = writeReleaseReport(reportPath, {
           command: "check-release --all",
           androidIdentity,
           ...result,
+          status: summary.status,
+          summary,
         });
         const { passed, failed } = result;
         for (const result of passed) {
@@ -581,5 +620,6 @@ module.exports = {
   validateAndroidPreviewIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
+  summarizeReleaseSmokeResult,
   writeReleaseReport,
 };

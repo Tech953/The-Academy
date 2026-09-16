@@ -8,6 +8,7 @@ const {
   validateAndroidPreviewIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
+  summarizeReleaseSmokeResult,
 } = require("../scripts/check-release.js") as {
   getReleaseDomain: (config: unknown, profile: string) => string;
   getReleaseProfiles: (config: unknown) => string[];
@@ -60,8 +61,32 @@ const {
       healthUrl: string;
       aiUrl: string;
     }>;
-    failed: Array<{ profile: string; error: Error }>;
+    failed: Array<{ profile: string; domain: string | null; error: Error }>;
   }>;
+  summarizeReleaseSmokeResult: (result: {
+    profiles: string[];
+    passed: Array<{
+      profile: string;
+      domain: string;
+      healthUrl: string;
+      aiUrl: string;
+    }>;
+    failed: Array<{
+      profile: string;
+      domain: string | null;
+      error: Error;
+    }>;
+  }) => {
+    status: string;
+    profiles: Array<{
+      profile: string;
+      domain: string | null;
+      status: string;
+      healthUrl: string | null;
+      aiUrl: string | null;
+      error: string | null;
+    }>;
+  };
 };
 
 const {
@@ -537,9 +562,53 @@ describe("release smoke check", () => {
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0]).toMatchObject({ profile: "preview" });
     expect(result.failed[0].error.message).toMatch(/HTTP 503/);
+    expect(result.failed[0].domain).toBe("theeacademy.replit.app");
     expect(result.passed).toMatchObject([
       { profile: "production", domain: "theeacademy.replit.app" },
     ]);
+  });
+
+  it("summarizes every profile with stable machine-readable results", () => {
+    expect(
+      summarizeReleaseSmokeResult({
+        profiles: ["preview", "production"],
+        passed: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+          },
+        ],
+        failed: [
+          {
+            profile: "production",
+            domain: "production.example.com",
+            error: new Error("HTTP 503"),
+          },
+        ],
+      }),
+    ).toEqual({
+      status: "failed",
+      profiles: [
+        {
+          profile: "preview",
+          domain: "preview.example.com",
+          status: "passed",
+          healthUrl: "https://preview.example.com/api/healthz",
+          aiUrl: "https://preview.example.com/api/ai/describe",
+          error: null,
+        },
+        {
+          profile: "production",
+          domain: "production.example.com",
+          status: "failed",
+          healthUrl: null,
+          aiUrl: null,
+          error: "HTTP 503",
+        },
+      ],
+    });
   });
 
   it("blocks the native handoff when any profile fails", async () => {
