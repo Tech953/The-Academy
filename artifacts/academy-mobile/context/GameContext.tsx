@@ -39,6 +39,7 @@ import {
   dayToWeek,
   focusSubjectKey,
   generateNPCLine,
+  generateOfflineContentPack,
   generateOfflineConversation,
   generateQuizSet,
   scoreToRelationshipTier,
@@ -633,7 +634,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const getQuizSet = useCallback(
     (subject: GEDSubjectKey): StudyQuestion[] => {
       const seed = `mobile-${subject}-day${state.day}-${state.studyProgress[subject].answered}`;
-      const focusTopics = (contentPack?.gedFocusAreas ?? [])
+      const focusTopics = (contentPack ?? generateOfflineContentPack(state.day)).gedFocusAreas
         .filter(focus => focusSubjectKey(focus.subject) === subject)
         .map(focus => focus.topic);
       return generateQuizSet(subject, seed, 5, focusTopics).questions;

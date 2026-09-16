@@ -85,6 +85,14 @@ export function topicMatchesFocus(questionTopic: string, focusTopic: string): bo
   );
 }
 
+/** Return whether a question belongs to any of the supplied weekly focus topics. */
+export function isQuestionFocusMatched(
+  question: Pick<StudyQuestion, 'topic'>,
+  focusTopics: readonly string[],
+): boolean {
+  return focusTopics.some(focusTopic => topicMatchesFocus(question.topic, focusTopic));
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MATHEMATICAL REASONING
 // ─────────────────────────────────────────────────────────────────

@@ -44,7 +44,7 @@ import {
   STUDY_QUESTIONS,
   ALL_QUESTIONS,
   STUDY_PROMPTS,
-  topicMatchesFocus,
+  isQuestionFocusMatched,
   getQuestions,
   GEDSubjectKey,
   StudyQuestion,
@@ -382,7 +382,7 @@ export function generateQuizSet(
   }
 
   const focusedPool = pool.filter(question =>
-    validFocusTopics.some(topic => topicMatchesFocus(question.topic, topic)),
+    isQuestionFocusMatched(question, validFocusTopics),
   );
   const generalPool = pool.filter(question => !focusedPool.includes(question));
   const focusedQuestions = rng.sample(focusedPool, Math.min(count, focusedPool.length));

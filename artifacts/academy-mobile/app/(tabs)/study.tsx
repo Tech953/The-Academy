@@ -8,6 +8,7 @@ import { useColors } from "@/hooks/useColors";
 import {
   focusSubjectKey,
   generateOfflineContentPack,
+  isQuestionFocusMatched,
   type GEDSubjectKey,
   type StudyQuestion,
 } from "@workspace/game-engine";
@@ -22,9 +23,11 @@ const SUBJECTS: { key: GEDSubjectKey; label: string }[] = [
 function QuestionCard({
   question,
   onAnswer,
+  isFocusMatched,
 }: {
   question: StudyQuestion;
   onAnswer: (choice: string) => boolean;
+  isFocusMatched: boolean;
 }) {
   const colors = useColors();
   const [selected, setSelected] = useState<string | null>(null);
@@ -40,7 +43,24 @@ function QuestionCard({
 
   return (
     <View style={[styles.card, { borderColor: colors.border }]}>
-      <Text style={[styles.topic, { color: colors.accent }]}>{question.topic.toUpperCase()}</Text>
+      <View style={styles.topicRow}>
+        <Text style={[styles.topic, { color: colors.accent }]}>{question.topic.toUpperCase()}</Text>
+        <View
+          style={[
+            styles.focusBadge,
+            { borderColor: isFocusMatched ? colors.accent : colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.focusBadgeText,
+              { color: isFocusMatched ? colors.accent : colors.mutedForeground },
+            ]}
+          >
+            {isFocusMatched ? "WEEKLY FOCUS" : "GENERAL PRACTICE"}
+          </Text>
+        </View>
+      </View>
       <Text style={[styles.question, { color: colors.foreground }]}>{question.question}</Text>
       <View style={styles.choices}>
         {choices.map((choice) => {
@@ -115,6 +135,10 @@ export default function StudyScreen() {
     [focusBySubject],
   );
   const questions = useMemo(() => (subject ? getQuizSet(subject) : []), [getQuizSet, subject]);
+  const currentFocusTopics = useMemo(
+    () => (subject ? (focusBySubject[subject] ?? []).map((focus) => focus.topic) : []),
+    [focusBySubject, subject],
+  );
 
   if (!subject) {
     return (
@@ -202,7 +226,12 @@ export default function StudyScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.listContent}>
         {questions.map((q) => (
-          <QuestionCard key={q.id} question={q} onAnswer={(choice) => answerQuestion(q, choice)} />
+          <QuestionCard
+            key={q.id}
+            question={q}
+            isFocusMatched={isQuestionFocusMatched(q, currentFocusTopics)}
+            onAnswer={(choice) => answerQuestion(q, choice)}
+          />
         ))}
       </ScrollView>
     </View>
@@ -253,7 +282,19 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
-  topic: { ...monoFontBold, fontSize: 10, letterSpacing: 1 },
+  topicRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  topic: { ...monoFontBold, flex: 1, fontSize: 10, letterSpacing: 1 },
+  focusBadge: {
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  focusBadgeText: { ...monoFontBold, fontSize: 8, letterSpacing: 0.5 },
   question: { ...monoFont, fontSize: 14, lineHeight: 20 },
   choices: { gap: 8 },
   choice: {
