@@ -1,4 +1,4 @@
-import { createElement, type ComponentType } from 'react';
+import { createElement, lazy, type ComponentType } from 'react';
 import manifestJson from '@/data/slides-manifest.json';
 import { sdmSlideDocumentFilename } from '@/.sdm/core/serialization';
 import {
@@ -15,13 +15,23 @@ export interface LoadedSlide extends SlideEntry {
   Component: ComponentType<SlideComponentProps>;
 }
 
-const slideModules: Record<string, { default: ComponentType }> =
-  import.meta.glob('./pages/slides/*.tsx', { eager: true });
+type SlideComponent = ComponentType<SlideComponentProps>;
+type SlideModuleLoader = () => Promise<{ default: SlideComponent }>;
 
-const sdmModules: Record<string, { default: unknown }> = import.meta.glob(
-  './data/slides/*.sdm.yaml',
-  { eager: true },
+const slideModules = import.meta.glob<{ default: SlideComponent }>(
+  './pages/slides/*.tsx',
 );
+
+const sdmModules = import.meta.glob<{ default: unknown }>(
+  './data/slides/*.sdm.yaml',
+);
+
+function lazySlide(loader: SlideModuleLoader): SlideComponent {
+  const LazyComponent = lazy(loader);
+  return function LoadedLazySlide(props: SlideComponentProps) {
+    return createElement(LazyComponent, props);
+  };
+}
 
 function loadManifestSlides(): SlideEntry[] {
   const parsed = parseSlidesManifest(manifestJson);
@@ -75,8 +85,8 @@ export const slides: LoadedSlide[] = [...manifestSlides]
       const filename = sdmSlideDocumentFilename(entry.id);
       const expectedPath = `src/data/slides/${filename}`;
       const key = `./data/slides/${filename}`;
-      const mod = sdmModules[key];
-      if (entry.filepath !== expectedPath || !mod) {
+      const loader = sdmModules[key];
+      if (entry.filepath !== expectedPath || !loader) {
         return {
           ...entry,
           Component: errorSlide(
@@ -86,12 +96,17 @@ export const slides: LoadedSlide[] = [...manifestSlides]
           ),
         };
       }
-      const Component = ({ active }: SlideComponentProps) =>
-        createElement(SdmSlide, {
-          slideId: entry.id,
-          initialDocument: mod.default,
-          active,
-        });
+      const Component = lazySlide(async () => {
+        const mod = await loader();
+        return {
+          default: ({ active }: SlideComponentProps) =>
+            createElement(SdmSlide, {
+              slideId: entry.id,
+              initialDocument: mod.default,
+              active,
+            }),
+        };
+      });
 
       return { ...entry, Component };
     }
@@ -108,9 +123,9 @@ export const slides: LoadedSlide[] = [...manifestSlides]
     }
 
     const key = `./pages/slides/${filename}`;
-    const mod = slideModules[key];
+    const loader = slideModules[key];
 
-    if (!mod) {
+    if (!loader) {
       const available = Object.keys(slideModules).join(', ');
 
       return {
@@ -125,6 +140,6 @@ export const slides: LoadedSlide[] = [...manifestSlides]
 
     return {
       ...entry,
-      Component: mod.default,
+      Component: lazySlide(loader),
     };
   });

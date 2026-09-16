@@ -14,6 +14,7 @@
 
 import {
   Component,
+  Suspense,
   type ErrorInfo,
   type ReactNode,
   useEffect,
@@ -68,6 +69,14 @@ class SlideErrorBoundary extends Component<
     }
     return this.props.children;
   }
+}
+
+function SlideLoadingFallback({ label }: { label: string }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-black p-12 text-center font-mono text-[#86aa8b]">
+      Loading {label}…
+    </div>
+  );
 }
 
 function SlideEditor() {
@@ -229,18 +238,20 @@ function SlideEditor() {
     };
   }, [currentIndex, navigate]);
 
+  const currentSlide = slides[currentIndex];
+  const CurrentSlide = currentSlide?.Component;
+
   return (
     <div className="select-none">
-      {slides.map((slide, index) => (
-        <div
-          key={slide.id}
-          style={{ display: index === currentIndex ? 'block' : 'none' }}
-        >
-          <SlideErrorBoundary slideLabel={`Slide ${slide.position}`}>
-            <slide.Component active={index === currentIndex} />
+      {currentSlide && CurrentSlide ? (
+        <div key={currentSlide.id}>
+          <SlideErrorBoundary slideLabel={`Slide ${currentSlide.position}`}>
+            <Suspense fallback={<SlideLoadingFallback label={currentSlide.title} />}>
+              <CurrentSlide active />
+            </Suspense>
           </SlideErrorBoundary>
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -252,20 +263,25 @@ function SlideEditor() {
 function AllSlides() {
   return (
     <div className="bg-black">
-      {slides.map((slide) => (
-        <div
-          key={slide.id}
-          data-slide-id={slide.id}
-          className="slide relative aspect-video overflow-hidden"
-          style={{ width: '1920px', height: '1080px' }}
-        >
-          <div className="h-full w-full [&_.h-screen]:!h-full [&_.w-screen]:!w-full">
-            <SlideErrorBoundary slideLabel={`Slide ${slide.position}`}>
-              <slide.Component />
-            </SlideErrorBoundary>
+      {slides.map((slide) => {
+        const SlideComponent = slide.Component;
+        return (
+          <div
+            key={slide.id}
+            data-slide-id={slide.id}
+            className="slide relative aspect-video overflow-hidden"
+            style={{ width: '1920px', height: '1080px' }}
+          >
+            <div className="h-full w-full [&_.h-screen]:!h-full [&_.w-screen]:!w-full">
+              <SlideErrorBoundary slideLabel={`Slide ${slide.position}`}>
+                <Suspense fallback={<SlideLoadingFallback label={slide.title} />}>
+                  <SlideComponent />
+                </Suspense>
+              </SlideErrorBoundary>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

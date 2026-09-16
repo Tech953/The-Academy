@@ -1,9 +1,11 @@
 import {
   Component,
   createContext,
+  useEffect,
   useContext,
   useId,
   useRef,
+  useState,
   type CSSProperties,
   type ElementType,
   type MouseEvent,
@@ -44,10 +46,12 @@ import {
 
 export type WidgetProps = Record<string, JsonValue>;
 export type WidgetModule = Record<string, unknown>;
+export type WidgetModuleLoader = () => Promise<WidgetModule>;
+export type WidgetRegistryEntry = WidgetModule | WidgetModuleLoader;
 
 export interface SdmRenderContextValue {
   baseUrl: string;
-  widgets: Record<string, WidgetModule>;
+  widgets: Record<string, WidgetRegistryEntry>;
 }
 
 export const SdmRenderContext = createContext<SdmRenderContextValue>({
@@ -555,15 +559,61 @@ function WidgetView({
 }) {
   const { widgets } = useContext(SdmRenderContext);
   const moduleKey = `..${element.widget.module.slice(1)}`;
-  const mod = Object.hasOwn(widgets, moduleKey) ? widgets[moduleKey] : undefined;
+  const widgetEntry = Object.hasOwn(widgets, moduleKey)
+    ? widgets[moduleKey]
+    : undefined;
   const exportName = element.widget.exportName ?? 'default';
   const widgetTarget = `${element.widget.module}#${exportName}`;
-  if (!mod) {
+  const [mod, setMod] = useState<WidgetModule | null>(() =>
+    widgetEntry && typeof widgetEntry !== 'function' ? widgetEntry : null,
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!widgetEntry || typeof widgetEntry !== 'function') {
+      setMod(widgetEntry ?? null);
+      setLoadError(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setMod(null);
+    setLoadError(null);
+    widgetEntry()
+      .then((loaded) => {
+        if (!cancelled) setMod(loaded);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [widgetEntry]);
+
+  if (!widgetEntry) {
     return (
       <WidgetFallback
         message={`Widget module not found: ${element.widget.module}`}
       />
     );
+  }
+  if (loadError) {
+    return (
+      <WidgetFallback
+        message={`Widget failed to load: ${widgetTarget} (${loadError})`}
+      />
+    );
+  }
+  if (!mod) {
+    return <WidgetFallback message={`Loading widget: ${widgetTarget}`} />;
   }
   if (!Object.hasOwn(mod, exportName)) {
     return (
