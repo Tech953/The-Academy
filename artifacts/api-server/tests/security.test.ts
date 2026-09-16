@@ -84,13 +84,18 @@ describe("forwarded-client rate limiting", () => {
 
   it("keeps IPv6 forwarded clients isolated from one another", async () => {
     const testServer = await startRateLimitedServer();
+    // Keep these in different prefixes because IPv6 limiters may group
+    // addresses by subnet when deriving a client key.
+    const firstClient = "2001:db8:10::10";
+    const secondClient = "2001:db8:11::11";
 
     for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
-      expect((await request(testServer, "2001:db8:10::10")).status).toBe(200);
+      expect((await request(testServer, firstClient)).status).toBe(200);
     }
 
-    expect((await request(testServer, "2001:db8:10::10")).status).toBe(429);
-    expect((await request(testServer, "2001:db8:11::11")).status).toBe(200);
+    const blockedRequest = await request(testServer, firstClient);
+    expect(blockedRequest.status).toBe(429);
+    expect((await request(testServer, secondClient)).status).toBe(200);
   });
 
   it("skips health and specialized routes from the general quota", () => {
