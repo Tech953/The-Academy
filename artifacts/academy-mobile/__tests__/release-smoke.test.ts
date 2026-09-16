@@ -46,7 +46,28 @@ const {
   }>;
 };
 
-const { verifyAllProfileConnectivity } = require("../scripts/native-handoff.js") as {
+const {
+  normalizeBuildMetadata,
+  verifyAllProfileConnectivity,
+} = require("../scripts/native-handoff.js") as {
+  normalizeBuildMetadata: (
+    output: { stdout: string; stderr: string },
+    options: {
+      platform: string;
+      profile: string;
+      capturedAt: string;
+      appConfig: unknown;
+    },
+  ) => {
+    installerUrl: string | null;
+    installerPath: string | null;
+    version: string;
+    package: string;
+    profile: string;
+    timestamp: string;
+    buildId: string | null;
+    buildDetailsPageUrl: string | null;
+  };
   verifyAllProfileConnectivity: (options: {
     profile: string;
     runAllProfiles: () => Promise<{
@@ -69,6 +90,107 @@ const okJson = (payload: unknown) =>
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+
+describe("native handoff build metadata", () => {
+  const appConfig = {
+    expo: {
+      version: "1.0.0",
+      android: { package: "com.theacademy.mobile" },
+    },
+  };
+
+  it("normalizes a completed EAS APK response into a durable handoff record", () => {
+    const output = {
+      stdout: JSON.stringify([
+        {
+          id: "build-123",
+          status: "finished",
+          profile: "preview",
+          appVersion: "1.0.0",
+          appIdentifier: "com.theacademy.mobile",
+          completedAt: "2026-09-15T15:00:00.000Z",
+          buildDetailsPageUrl: "https://expo.dev/builds/build-123",
+          artifacts: {
+            buildUrl: "https://example.invalid/academy-preview.apk?token=redacted",
+          },
+        },
+      ]),
+      stderr: "",
+    };
+
+    expect(
+      normalizeBuildMetadata(output, {
+        platform: "android",
+        profile: "preview",
+        appConfig,
+        capturedAt: "2026-09-15T15:01:00.000Z",
+      }),
+    ).toEqual({
+      installerUrl: "https://example.invalid/academy-preview.apk?token=redacted",
+      installerPath: null,
+      version: "1.0.0",
+      package: "com.theacademy.mobile",
+      profile: "preview",
+      timestamp: "2026-09-15T15:00:00.000Z",
+      buildId: "build-123",
+      buildDetailsPageUrl: "https://expo.dev/builds/build-123",
+    });
+  });
+
+  it("accepts a local APK path when the build was run locally", () => {
+    expect(
+      normalizeBuildMetadata(
+        {
+          stdout: JSON.stringify([
+            {
+              id: "local-build",
+              status: "finished",
+              artifactPath: "/tmp/academy-preview.apk",
+            },
+          ]),
+          stderr: "",
+        },
+        {
+          platform: "android",
+          profile: "preview",
+          appConfig,
+          capturedAt: "2026-09-15T15:01:00.000Z",
+        },
+      ),
+    ).toMatchObject({
+      installerUrl: null,
+      installerPath: "/tmp/academy-preview.apk",
+      version: "1.0.0",
+      package: "com.theacademy.mobile",
+      profile: "preview",
+      timestamp: "2026-09-15T15:01:00.000Z",
+    });
+  });
+
+  it("fails clearly instead of creating a handoff without an installer", () => {
+    expect(() =>
+      normalizeBuildMetadata(
+        {
+          stdout: JSON.stringify([
+            {
+              id: "incomplete-build",
+              status: "finished",
+              appVersion: "1.0.0",
+              appIdentifier: "com.theacademy.mobile",
+            },
+          ]),
+          stderr: "",
+        },
+        {
+          platform: "android",
+          profile: "preview",
+          appConfig,
+          capturedAt: "2026-09-15T15:01:00.000Z",
+        },
+      ),
+    ).toThrow(/Incomplete EAS build metadata: missing installer URL or local APK path/);
+  });
+});
 
 describe("release smoke check", () => {
   const validIdentity = () => ({

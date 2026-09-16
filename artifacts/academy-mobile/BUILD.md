@@ -113,3 +113,20 @@ To verify the preflight without starting a cloud build:
 ```bash
 pnpm --filter @workspace/academy-mobile run native-handoff -- --check-only
 ```
+
+After a successful EAS build, the command writes the durable handoff report to
+`.local/outputs/academy-mobile-native-handoff.json` (override this with
+`RELEASE_REPORT_PATH`). The `build` record contains:
+
+- `installerUrl` for a cloud APK, AAB, or IPA, or `installerPath` for a local
+  installer artifact
+- `version` from the EAS response, falling back to `app.json`
+- the platform package identity, selected EAS `profile`, and build/capture
+  `timestamp`
+- safe EAS `buildId` and build-details page URL when supplied
+
+The command refuses to mark a successful build as completed when it cannot find
+an installer URL/path, version, package identity, profile, or timestamp. It
+writes a failed metadata report instead of creating a partial installer
+handoff. The report contains normalized metadata only; it does not persist EAS
+CLI output, credentials, or command arguments.

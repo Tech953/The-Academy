@@ -49,31 +49,178 @@ function validatePlatformIdentity(platform) {
   return { appId: configuredId };
 }
 
-function extractBuildMetadata(output) {
-  const combinedOutput = output.stdout + "\n" + output.stderr;
-  const installerUrls = [
-    ...new Set(
-      combinedOutput.match(
-        /https?:\/\/[^\s"'\\]+(?:\.apk|\.aab|\.ipa)(?:\?[^\s"'\\]+)?/gi,
-      ) ?? [],
-    ),
-  ];
-  const jsonLines = combinedOutput
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("{") || line.startsWith("["));
+const INSTALLER_PATTERN = /\.(?:apk|aab|ipa)(?:[?#][^\s"'\\<>]*)?$/i;
+
+function cleanArtifactCandidate(value) {
+  return String(value).replace(/[),.;]+$/, "");
+}
+
+function isInstallerCandidate(value) {
+  return INSTALLER_PATTERN.test(cleanArtifactCandidate(value));
+}
+
+function addArtifactCandidate(value, urls, paths) {
+  if (typeof value !== "string" || !isInstallerCandidate(value)) return;
+  const candidate = cleanArtifactCandidate(value);
+  if (/^https?:\/\//i.test(candidate)) {
+    urls.add(candidate);
+  } else {
+    paths.add(candidate.replace(/^file:\/\//i, ""));
+  }
+}
+
+function collectArtifactCandidates(value, urls, paths) {
+  if (typeof value === "string") {
+    addArtifactCandidate(value, urls, paths);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectArtifactCandidates(entry, urls, paths));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  Object.values(value).forEach((entry) =>
+    collectArtifactCandidates(entry, urls, paths),
+  );
+}
+
+function parseJsonPayloads(text) {
+  const candidates = [text.trim(), ...text.split(/\r?\n/).map((line) => line.trim())];
   const parsed = [];
-  for (const line of jsonLines) {
+  const seen = new Set();
+  for (const candidate of candidates) {
+    if (!candidate || seen.has(candidate)) continue;
+    seen.add(candidate);
     try {
-      parsed.push(JSON.parse(line));
+      parsed.push(JSON.parse(candidate));
     } catch {
-      // EAS can interleave human-readable output with JSON; ignore non-JSON lines.
+      // EAS can interleave human-readable output with JSON; ignore those lines.
     }
+  }
+  return parsed;
+}
+
+function flattenBuildRecords(payloads) {
+  return payloads.flatMap((payload) =>
+    Array.isArray(payload) ? payload.filter((entry) => entry && typeof entry === "object") : [payload],
+  );
+}
+
+function findFirstValue(value, keys) {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const found = findFirstValue(entry, keys);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  for (const key of keys) {
+    if (value[key] !== undefined && value[key] !== null && value[key] !== "") {
+      return value[key];
+    }
+  }
+  for (const entry of Object.values(value)) {
+    const found = findFirstValue(entry, keys);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+function extractBuildMetadata(output) {
+  const combinedOutput = `${output.stdout ?? ""}\n${output.stderr ?? ""}`;
+  const payloads = parseJsonPayloads(combinedOutput);
+  const records = flattenBuildRecords(payloads);
+  const installerUrls = new Set();
+  const installerPaths = new Set();
+
+  records.forEach((record) =>
+    collectArtifactCandidates(record, installerUrls, installerPaths),
+  );
+  for (const candidate of combinedOutput.match(/https?:\/\/[^\s"'\\<>]+/gi) ?? []) {
+    addArtifactCandidate(candidate, installerUrls, installerPaths);
+  }
+  for (const candidate of combinedOutput.match(/[^\s"'\\<>]+?\.(?:apk|aab|ipa)(?:[?#][^\s"'\\<>]*)?/gi) ?? []) {
+    addArtifactCandidate(candidate, installerUrls, installerPaths);
   }
 
   return {
-    installerUrls,
-    easRecords: parsed.slice(-3),
+    installerUrls: [...installerUrls],
+    installerPaths: [...installerPaths],
+    easRecords: records.slice(-3),
+  };
+}
+
+function normalizeBuildTimestamp(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const date = new Date(
+    typeof value === "number" && value < 1_000_000_000_000 ? value * 1000 : value,
+  );
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`[native-handoff] Incomplete EAS build metadata: invalid build timestamp "${value}".`);
+  }
+  return date.toISOString();
+}
+
+function normalizeBuildMetadata(
+  output,
+  { platform, profile, appConfig, capturedAt = new Date().toISOString() } = {},
+) {
+  const extracted = extractBuildMetadata(output);
+  const record = extracted.easRecords.at(-1) ?? {};
+  const expo = appConfig?.expo ?? appConfig ?? {};
+  const configuredPackage =
+    platform === "ios" ? expo.ios?.bundleIdentifier : expo.android?.package;
+  const outputPackage = findFirstValue(record, [
+    "appIdentifier",
+    "applicationIdentifier",
+    "bundleIdentifier",
+    "package",
+    "identifier",
+  ]);
+  const version =
+    findFirstValue(record, ["appVersion", "version"]) ?? expo.version;
+  const outputProfile = findFirstValue(record, ["buildProfile", "profile"]);
+  const timestampValue = findFirstValue(record, [
+    "completedAt",
+    "finishedAt",
+    "createdAt",
+    "timestamp",
+  ]);
+  const installerUrl = extracted.installerUrls[0] ?? null;
+  const installerPath = extracted.installerPaths[0] ?? null;
+  const missing = [];
+
+  if (!installerUrl && !installerPath) missing.push("installer URL or local APK path");
+  if (!version) missing.push("version");
+  if (!configuredPackage && !outputPackage) missing.push("package identity");
+  if (!profile) missing.push("profile");
+  if (!capturedAt) missing.push("capture timestamp");
+  if (missing.length > 0) {
+    throw new Error(
+      `[native-handoff] Incomplete EAS build metadata: missing ${missing.join(", ")}.`,
+    );
+  }
+  if (outputPackage && configuredPackage && outputPackage !== configuredPackage) {
+    throw new Error(
+      `[native-handoff] EAS package identity "${outputPackage}" does not match app.json "${configuredPackage}".`,
+    );
+  }
+  if (outputProfile && outputProfile !== profile) {
+    throw new Error(
+      `[native-handoff] EAS profile "${outputProfile}" does not match requested profile "${profile}".`,
+    );
+  }
+
+  return {
+    installerUrl,
+    installerPath,
+    version: String(version),
+    package: configuredPackage ?? outputPackage,
+    profile,
+    timestamp: normalizeBuildTimestamp(timestampValue, capturedAt),
+    buildId: findFirstValue(record, ["id", "buildId"]) ?? null,
+    buildDetailsPageUrl: findFirstValue(record, ["buildDetailsPageUrl"]) ?? null,
   };
 }
 
@@ -165,9 +312,8 @@ async function main() {
   const connectivity = connectivityCheck.selected;
   const reportPath = process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
   const appConfig = readAppConfig();
-  writeReleaseReport(reportPath, {
+  const reportBase = {
     command: "native-handoff",
-    status: checkOnly ? "check-only" : "starting",
     platform,
     profile,
     identity,
@@ -177,6 +323,10 @@ async function main() {
         : appConfig.android.package,
     connectivity,
     allProfileConnectivity: connectivityCheck.allProfiles,
+  };
+  writeReleaseReport(reportPath, {
+    ...reportBase,
+    status: checkOnly ? "check-only" : "starting",
   });
   console.log(
     `[native-handoff] Release connectivity passed for profile "${profile}".`,
@@ -219,21 +369,31 @@ async function main() {
   };
   process.stdout.write(output.stdout);
   process.stderr.write(output.stderr);
-  const buildMetadata = extractBuildMetadata(output);
+  let buildMetadata = null;
+  if (result.status === 0) {
+    try {
+      buildMetadata = normalizeBuildMetadata(output, {
+        platform,
+        profile,
+        appConfig,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      writeReleaseReport(reportPath, {
+        ...reportBase,
+        status: "failed",
+        failureStage: "build-metadata",
+        easExitCode: result.status,
+        error: message,
+      });
+      throw error;
+    }
+  }
   writeReleaseReport(reportPath, {
-    command: "native-handoff",
+    ...reportBase,
     status: result.status === 0 ? "completed" : "failed",
-    platform,
-    profile,
-    identity,
-    appId:
-      platform === "ios"
-        ? appConfig.ios.bundleIdentifier
-        : appConfig.android.package,
-    connectivity,
-    allProfileConnectivity: connectivityCheck.allProfiles,
     easExitCode: result.status,
-    ...buildMetadata,
+    ...(buildMetadata ? { build: buildMetadata } : {}),
   });
   console.log(`[native-handoff] Report written to ${reportPath}`);
   if (result.status !== 0) {
@@ -251,6 +411,7 @@ if (require.main === module) {
 
 module.exports = {
   extractBuildMetadata,
+  normalizeBuildMetadata,
   parseArgs,
   summarizeConnectivity,
   validatePlatformIdentity,
