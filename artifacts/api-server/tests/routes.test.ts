@@ -413,6 +413,35 @@ describe("RSS and URL metadata routes", () => {
     expect(result.body).toEqual({ error: "upstream 503" });
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("allows trusted subdomains but rejects lookalike hosts before fetching", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("temporarily unavailable", { status: 503 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    for (const trustedUrl of [
+      "https://www.nasa.gov/feed.xml",
+      "https://feeds.sciencedaily.com/all.xml",
+    ]) {
+      const result = await request(testServer, `/api/rss?url=${encodeURIComponent(trustedUrl)}`);
+      expect(result.response.status).toBe(502);
+      expect(result.body).toEqual({ error: "upstream 503" });
+    }
+
+    for (const lookalikeUrl of [
+      "https://evilnasa.gov/feed.xml",
+      "https://nasa.gov.evil.example/feed.xml",
+      "https://not-sciencedaily.com/all.xml",
+    ]) {
+      const result = await request(testServer, `/api/rss?url=${encodeURIComponent(lookalikeUrl)}`);
+      expect(result.response.status).toBe(403);
+      expect(result.body).toEqual({ error: "feed domain not allowed" });
+    }
+
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("chat, image, and audio integration routes", () => {

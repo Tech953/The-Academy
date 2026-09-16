@@ -1204,7 +1204,9 @@ Write a 2–3 sentence examine description for this object that is immersive and
     ];
     try {
       const parsed = new URL(feedUrl);
-      const ok = ALLOWED_DOMAINS.some(d => parsed.hostname.endsWith(d));
+      const ok = ALLOWED_DOMAINS.some(
+        d => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`),
+      );
       if (!ok) {
         res.status(403).json({ error: "feed domain not allowed" });
         return;
