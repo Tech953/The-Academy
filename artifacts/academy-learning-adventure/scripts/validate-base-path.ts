@@ -143,23 +143,68 @@ function generatedAssetFiles(directory: string): string[] {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       files.push(...generatedAssetFiles(entryPath));
-    } else if (/\.(?:css|html?|js|mjs)$/i.test(entry.name)) {
+    } else if (/\.(?:css|js|mjs)$/i.test(entry.name)) {
       files.push(entryPath);
     }
   }
   return files;
 }
 
-function validateGeneratedAssetReferences(previewPath: string): void {
-  const assetPathPattern = /(["'`])((?:\/)(?:assets|images|fonts|icons|favicon)[^"'`\s)]*)\1/g;
+function isAssetLikeUrl(value: string): boolean {
+  const withoutQuery = value.split(/[?#]/, 1)[0] ?? value;
+  return (
+    /^\/(?:assets|images|fonts|icons|favicon)(?:\/|$)/i.test(withoutQuery) ||
+    /\.(?:avif|css|gif|ico|jpe?g|js|mjs|png|svg|ttf|wasm|webp|woff2?)(?:$|[?#])/i.test(
+      withoutQuery,
+    )
+  );
+}
+
+function generatedAssetUrls(document: string, extension: string): string[] {
+  const urls = new Set<string>();
+  const quotedUrlPattern = /(["'`])(\/[^"'`\s)]*)\1/g;
+  for (const match of document.matchAll(quotedUrlPattern)) {
+    const value = match[2];
+    if (value && isAssetLikeUrl(value)) {
+      urls.add(value);
+    }
+  }
+
+  const dynamicImportPattern = /\bimport\(\s*(["'`])(\/[^"'`\s)]*)\1\s*\)/g;
+  for (const match of document.matchAll(dynamicImportPattern)) {
+    const value = match[2];
+    if (value) {
+      urls.add(value);
+    }
+  }
+
+  if (extension.toLowerCase() === '.css') {
+    const cssUrlPattern = /url\(\s*(?:(["'])(\/[^"')\s]+)\1|(\/[^"')\s]+))\s*\)/gi;
+    for (const match of document.matchAll(cssUrlPattern)) {
+      const value = match[2] ?? match[3];
+      if (value) {
+        urls.add(value);
+      }
+    }
+  }
+
+  return [...urls];
+}
+
+export function validateGeneratedAssetReferences(
+  previewPath: string,
+  outputDirectory = buildOutputDirectory,
+): void {
   const escapes: string[] = [];
 
-  for (const filePath of generatedAssetFiles(buildOutputDirectory)) {
+  for (const filePath of generatedAssetFiles(outputDirectory)) {
     const document = readFileSync(filePath, 'utf8');
-    for (const match of document.matchAll(assetPathPattern)) {
-      const value = match[2];
+    for (const value of generatedAssetUrls(
+      document,
+      path.extname(filePath),
+    )) {
       if (!value.startsWith(previewPath)) {
-        escapes.push(`${path.relative(buildOutputDirectory, filePath)}: ${value}`);
+        escapes.push(`${path.relative(outputDirectory, filePath)}: ${value}`);
       }
     }
   }
@@ -226,10 +271,12 @@ function validate(): void {
   );
 }
 
-try {
-  validate();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Academy base-path validation failed: ${message}`);
-  process.exitCode = 1;
+if (path.resolve(process.argv[1] ?? '') === __filename) {
+  try {
+    validate();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Academy base-path validation failed: ${message}`);
+    process.exitCode = 1;
+  }
 }
