@@ -6,6 +6,7 @@ import router from "../src/routes";
 import { registerRoutes } from "../src/routes/routes";
 import {
   apiLimiter,
+  BoundedMemoryStore,
   SPECIALIZED_LIMITED_PATHS,
   shouldSkipGeneralApiLimit,
 } from "../src/middleware/security";
@@ -59,6 +60,29 @@ async function request(
 }
 
 describe("forwarded-client rate limiting", () => {
+  it("bounds local rate-limit state and expires inactive identities", async () => {
+    vi.useFakeTimers();
+    const store = new BoundedMemoryStore(2);
+    store.init({ windowMs: 1_000 } as Parameters<NonNullable<typeof store.init>>[0]);
+
+    try {
+      await store.increment("first-client");
+      await store.increment("second-client");
+      await store.increment("third-client");
+
+      expect(await store.get("first-client")).toBeUndefined();
+      expect((await store.get("third-client"))?.totalHits).toBe(1);
+
+      vi.advanceTimersByTime(1_001);
+
+      expect(await store.get("second-client")).toBeUndefined();
+      expect(await store.get("third-client")).toBeUndefined();
+    } finally {
+      store.shutdown();
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps direct requests valid and isolates quotas by forwarded client", async () => {
     const testServer = await startRateLimitedServer();
 
