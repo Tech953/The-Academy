@@ -19,7 +19,7 @@ import {
   ZAxis,
 } from 'recharts';
 
-interface ImportedSeries {
+export interface ImportedSeries {
   name: string;
   categories?: Array<string>;
   values: Array<number | null>;
@@ -28,7 +28,7 @@ interface ImportedSeries {
   color?: string;
 }
 
-interface ImportedChartModel {
+export interface ImportedChartModel {
   type:
     | 'bar'
     | 'column'
@@ -65,7 +65,23 @@ function seriesColor(series: ImportedSeries, index: number): string {
   return series.color ?? palette[index % palette.length];
 }
 
-function chartRows(chart: ImportedChartModel) {
+export interface ImportedChartRow {
+  category: string;
+  [key: string]: string | number | null;
+}
+
+export interface ImportedScatterPoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ImportedPieDatum {
+  name: string;
+  value: number;
+}
+
+export function chartRows(chart: ImportedChartModel): Array<ImportedChartRow> {
   const categories = chart.series[0]?.categories ?? [];
   const percent = chart.grouping === 'percentStacked';
 
@@ -86,6 +102,37 @@ function chartRows(chart: ImportedChartModel) {
         ]),
       ),
     };
+  });
+}
+
+export function scatterPoints(
+  series: ImportedSeries,
+  chartType: 'scatter' | 'bubble',
+): Array<ImportedScatterPoint> {
+  return series.values.flatMap((y, pointIndex) => {
+    const x = series.xValues?.length
+      ? (series.xValues[pointIndex] ?? null)
+      : pointIndex + 1;
+    const z = series.bubbleSizes?.length
+      ? (series.bubbleSizes[pointIndex] ?? null)
+      : 1;
+    if (
+      y === null ||
+      x === null ||
+      (chartType === 'bubble' && z === null)
+    ) {
+      return [];
+    }
+
+    return [{ x, y, z: z ?? 1 }];
+  });
+}
+
+export function pieData(series?: ImportedSeries): Array<ImportedPieDatum> {
+  return (series?.categories ?? []).flatMap((name, index) => {
+    const value = series?.values[index] ?? null;
+
+    return value === null ? [] : [{ name, value }];
   });
 }
 
@@ -114,6 +161,7 @@ export default function ImportedChart({
 
   let graphic;
   if (chart.type === 'scatter' || chart.type === 'bubble') {
+    const scatterType = chart.type;
     graphic = (
       <ScatterChart margin={common.margin}>
         <CartesianGrid stroke="#E2E8F0" strokeDasharray="4 4" />
@@ -127,23 +175,7 @@ export default function ImportedChart({
           <Scatter
             key={seriesKey(index)}
             name={series.name}
-            data={series.values.flatMap((y, pointIndex) => {
-              const x = series.xValues?.length
-                ? (series.xValues[pointIndex] ?? null)
-                : pointIndex + 1;
-              const z = series.bubbleSizes?.length
-                ? (series.bubbleSizes[pointIndex] ?? null)
-                : 1;
-              if (
-                y === null ||
-                x === null ||
-                (chart.type === 'bubble' && z === null)
-              ) {
-                return [];
-              }
-
-              return [{ x, y, z: z ?? 1 }];
-            })}
+            data={scatterPoints(series, scatterType)}
             fill={seriesColor(series, index)}
             isAnimationActive={false}
           />
@@ -201,11 +233,7 @@ export default function ImportedChart({
     );
   } else if (chart.type === 'pie' || chart.type === 'doughnut') {
     const series = chart.series[0];
-    const data = (series?.categories ?? []).flatMap((name, index) => {
-      const value = series?.values[index] ?? null;
-
-      return value === null ? [] : [{ name, value }];
-    });
+    const data = pieData(series);
     graphic = (
       <PieChart>
         <Tooltip animationDuration={0} />
