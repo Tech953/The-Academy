@@ -30,9 +30,9 @@ import {
 import {
   ensureUsableContentPack,
   fallbackAfterRefreshFailure,
+  createContentPackWriteQueue,
   isUsableContentPack,
   readCachedContentPack,
-  writeCachedContentPack,
 } from "@/lib/contentPackFallback";
 import {
   analyzeDialogueTone,
@@ -238,6 +238,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
   const contentPackRequestRef = useRef(0);
+  const writeContentPack = useRef(createContentPackWriteQueue(AsyncStorage)).current;
   const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
     getInitialEnrichmentStatus(networkOnline, apiConfigured),
   );
@@ -416,7 +417,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           throw new Error("Content pack was not usable after normalization");
         }
         if (!isCurrentRequest()) return;
-        await writeCachedContentPack(AsyncStorage, normalizedPack);
+        await writeContentPack(normalizedPack, isCurrentRequest);
+        if (!isCurrentRequest()) return;
         recordEnrichmentSource("online");
         if (isCurrentRequest()) setContentPack(normalizedPack);
       } catch {
@@ -438,6 +440,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       recordEnrichmentSource,
       recordOfflineContent,
       state.day,
+      writeContentPack,
     ]);
 
   const examine = useCallback(

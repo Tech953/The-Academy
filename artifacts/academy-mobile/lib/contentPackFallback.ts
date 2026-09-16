@@ -14,6 +14,11 @@ export interface ContentPackStorage {
   setItem(key: string, value: string): Promise<void>;
 }
 
+export type ContentPackWriteQueue = (
+  pack: ContentPack,
+  isCurrent: () => boolean,
+) => Promise<boolean>;
+
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
@@ -155,6 +160,32 @@ export async function writeCachedContentPack(
   } catch {
     return false;
   }
+}
+
+/**
+ * Serialize cache writes and re-check request ownership immediately before
+ * each mutation. A request can be superseded while an earlier AsyncStorage
+ * operation is still pending, so checking only before enqueueing is not enough.
+ */
+export function createContentPackWriteQueue(
+  storage: ContentPackStorage,
+): ContentPackWriteQueue {
+  let tail: Promise<void> = Promise.resolve();
+
+  return (pack, isCurrent) => {
+    const operation = tail
+      .catch(() => undefined)
+      .then(async () => {
+        if (!isCurrent()) return false;
+        return writeCachedContentPack(storage, pack);
+      });
+
+    tail = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  };
 }
 
 /**

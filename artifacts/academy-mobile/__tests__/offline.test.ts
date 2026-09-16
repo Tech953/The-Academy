@@ -34,6 +34,7 @@ import {
 } from '../lib/gameFallbacks';
 import {
   BULLETIN_EVENT_LIMIT,
+  createContentPackWriteQueue,
   ensureUsableContentPack,
   fallbackAfterRefreshFailure,
   isDisplayableContentPackEvent,
@@ -774,6 +775,59 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     const generated = fallbackAfterRefreshFailure(null, day + 1);
     expect(generated.generatedBy).toBe('deterministic');
     expectDisplayableUniqueBulletin(generated.activeEvents);
+  });
+
+  it('skips a superseded queued write before it can replace a newer cache', async () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: async (key: string) => values.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        values.set(key, value);
+      },
+    };
+    const writeQueue = createContentPackWriteQueue(storage);
+    const oldPack = { ...generateOfflineContentPack(day), version: 'pack-old' };
+    const newPack = { ...generateOfflineContentPack(day), version: 'pack-new' };
+    let oldRequestCurrent = true;
+
+    const oldWrite = writeQueue(oldPack, () => oldRequestCurrent);
+    oldRequestCurrent = false;
+    const newWrite = writeQueue(newPack, () => true);
+
+    await expect(oldWrite).resolves.toBe(false);
+    await expect(newWrite).resolves.toBe(true);
+    await expect(readCachedContentPack(storage)).resolves.toMatchObject({
+      version: 'pack-new',
+    });
+  });
+
+  it('leaves the newer pack last when an older storage write finishes slowly', async () => {
+    const values = new Map<string, string>();
+    let releaseOldWrite = () => {};
+    const oldWriteBlocked = new Promise<void>((resolve) => {
+      releaseOldWrite = resolve;
+    });
+    const storage = {
+      getItem: async (key: string) => values.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        const pack = JSON.parse(value) as ContentPack;
+        if (pack.version === 'pack-old') await oldWriteBlocked;
+        values.set(key, value);
+      },
+    };
+    const writeQueue = createContentPackWriteQueue(storage);
+    const oldPack = { ...generateOfflineContentPack(day), version: 'pack-old' };
+    const newPack = { ...generateOfflineContentPack(day), version: 'pack-new' };
+    const oldWrite = writeQueue(oldPack, () => true);
+    await Promise.resolve();
+    const newWrite = writeQueue(newPack, () => true);
+
+    releaseOldWrite();
+    await expect(oldWrite).resolves.toBe(true);
+    await expect(newWrite).resolves.toBe(true);
+    await expect(readCachedContentPack(storage)).resolves.toMatchObject({
+      version: 'pack-new',
+    });
   });
 });
 
