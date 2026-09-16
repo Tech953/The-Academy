@@ -1407,6 +1407,18 @@ function buildNpcSystemPrompt(npcName: string, npcTitle?: string, data?: any): s
 // ─── URL Metadata Route ──────────────────────────────────────────────────────
 // Called by the Citation Engine "URL Import" tab to extract page metadata
 
+const URL_METADATA_TIMEOUT_MS = 8000;
+
+function isUrlMetadataTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === 'AbortError' ||
+    error.name === 'TimeoutError' ||
+    error.name === 'ABORT_ERR' ||
+    /aborted|timed out|timeout/i.test(error.message)
+  );
+}
+
 async function registerUrlMetaRoute(app: Express) {
   app.get('/api/fetch-url-meta', async (req, res) => {
     const raw = (req.query.url as string) ?? '';
@@ -1414,14 +1426,17 @@ async function registerUrlMetaRoute(app: Express) {
       res.status(400).json({ error: 'Invalid or missing URL parameter' });
       return;
     }
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, URL_METADATA_TIMEOUT_MS);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
       const response = await fetch(raw, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AcademyCiteBot/1.0; +https://academy.app)' },
         signal: controller.signal,
       });
-      clearTimeout(timeout);
       if (!response.ok) {
         res.status(502).json({ error: `upstream ${response.status}` });
         return;
@@ -1456,8 +1471,18 @@ async function registerUrlMetaRoute(app: Express) {
       };
       res.json(result);
     } catch (e: unknown) {
+      if (timedOut || isUrlMetadataTimeout(e)) {
+        // 504 tells the citation UI this failure is temporary and safe to retry.
+        res.status(504).json({
+          error: 'URL metadata fetch timed out',
+          retryable: true,
+        });
+        return;
+      }
       const msg = e instanceof Error ? e.message : 'Fetch failed';
       res.status(500).json({ error: `Could not retrieve URL: ${msg}` });
+    } finally {
+      clearTimeout(timeout);
     }
   });
 }

@@ -361,6 +361,32 @@ describe("RSS and URL metadata routes", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { label: "an aborted fetch", name: "AbortError", message: "The operation was aborted" },
+    { label: "a timeout fetch", name: "TimeoutError", message: "The operation timed out" },
+  ])("returns a retryable 504 for $label", async ({ name, message }) => {
+    const fetchError = Object.assign(new Error(message), { name });
+    const upstreamFetch = vi.fn(async () => {
+      throw fetchError;
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Farticle",
+    );
+
+    expect(result.response.status).toBe(504);
+    expect(result.body).toEqual({
+      error: "URL metadata fetch timed out",
+      retryable: true,
+    });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("returns the upstream status when URL metadata responds with an error", async () => {
     const upstreamFetch = vi.fn(async () => new Response("temporarily unavailable", { status: 503 }));
     vi.stubGlobal("fetch", upstreamFetch);
