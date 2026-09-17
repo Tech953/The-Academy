@@ -22,4 +22,8 @@ describe("enrichment status", () => {
   it("reports local fallback after a failed configured request", () => {
     expect(getEnrichmentStatusForSource("offline")).toBe("fallback");
   });
+
+  it("reports a temporary rate limit without switching to raw server errors", () => {
+    expect(getEnrichmentStatusForSource("rate_limited")).toBe("rate_limited");
+  });
 });

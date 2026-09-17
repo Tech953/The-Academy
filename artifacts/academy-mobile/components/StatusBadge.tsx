@@ -19,6 +19,7 @@ export function StatusBadge({
     live: "LIVE AI",
     offline: "LOCAL MODE",
     fallback: "LOCAL FALLBACK",
+    rate_limited: "RETRY LATER",
   } satisfies Record<EnrichmentStatus, string>;
   const color =
     status === "live"

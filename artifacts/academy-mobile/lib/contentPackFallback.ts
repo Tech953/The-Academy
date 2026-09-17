@@ -7,6 +7,7 @@ import {
 } from "@workspace/game-engine";
 
 import type { ContentPack, ContentPackEvent } from "@workspace/game-engine";
+import { isRateLimitError } from "@workspace/api-client-react";
 import type { ContentSource } from "./enrichmentStatus";
 
 export const BULLETIN_EVENT_LIMIT = PACK_ACTIVE_EVENT_LIMIT;
@@ -260,10 +261,10 @@ export async function resolveContentPackRefresh(
       throw new Error("Content pack was not usable after normalization");
     }
     return { pack, source: "online" };
-  } catch {
+  } catch (error) {
     return {
       pack: fallbackAfterRefreshFailure(cachedPack, day),
-      source: "offline",
+      source: isRateLimitError(error) ? "rate_limited" : "offline",
     };
   }
 }

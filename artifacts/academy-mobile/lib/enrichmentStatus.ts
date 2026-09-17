@@ -1,6 +1,11 @@
-export type ContentSource = "online" | "offline";
+export type ContentSource = "online" | "offline" | "rate_limited";
 
-export type EnrichmentStatus = "checking" | "live" | "offline" | "fallback";
+export type EnrichmentStatus =
+  | "checking"
+  | "live"
+  | "offline"
+  | "fallback"
+  | "rate_limited";
 
 export function getInitialEnrichmentStatus(
   networkOnline: boolean,
@@ -12,5 +17,7 @@ export function getInitialEnrichmentStatus(
 export function getEnrichmentStatusForSource(
   source: ContentSource,
 ): EnrichmentStatus {
-  return source === "online" ? "live" : "fallback";
+  if (source === "online") return "live";
+  if (source === "rate_limited") return "rate_limited";
+  return "fallback";
 }

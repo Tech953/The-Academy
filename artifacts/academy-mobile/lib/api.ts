@@ -10,6 +10,12 @@
  */
 
 import type { ContentPack } from "@workspace/game-engine";
+import {
+  getRateLimitRetryDelayMs,
+  MAX_RATE_LIMIT_RETRIES,
+  RateLimitError,
+  waitForRateLimitRetry,
+} from "@workspace/api-client-react";
 export type {
   ContentPack,
   ContentPackEvent,
@@ -37,48 +43,49 @@ function getApiBaseUrl(): string | null {
   return domain ? `https://${domain}/api` : null;
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
+async function requestJson<T>(
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown,
+): Promise<T> {
   const baseUrl = getApiBaseUrl();
   if (!baseUrl) {
     throw new Error("No backend configured (EXPO_PUBLIC_DOMAIN unset) — using offline content.");
   }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${baseUrl}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
+        body: method === "POST" ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+      if (res.ok) return (await res.json()) as T;
+
+      const retryAfterMs =
+        res.status === 429 ? getRateLimitRetryDelayMs(res.headers) : null;
+      if (retryAfterMs !== null && attempt < MAX_RATE_LIMIT_RETRIES) {
+        await waitForRateLimitRetry(retryAfterMs, controller.signal);
+        continue;
+      }
+      if (res.status === 429) {
+        throw new RateLimitError(path, retryAfterMs);
+      }
       throw new Error(`Request to ${path} failed with status ${res.status}`);
+    } finally {
+      clearTimeout(timeout);
     }
-    return (await res.json()) as T;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  return requestJson<T>("POST", path, body);
+}
+
 async function getJson<T>(path: string): Promise<T> {
-  const baseUrl = getApiBaseUrl();
-  if (!baseUrl) {
-    throw new Error("No backend configured (EXPO_PUBLIC_DOMAIN unset) — using offline content.");
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${baseUrl}${path}`, {
-      method: "GET",
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      throw new Error(`Request to ${path} failed with status ${res.status}`);
-    }
-    return (await res.json()) as T;
-  } finally {
-    clearTimeout(timeout);
-  }
+  return requestJson<T>("GET", path);
 }
 
 export interface DescribeLocationParams {

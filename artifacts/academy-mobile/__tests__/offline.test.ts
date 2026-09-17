@@ -18,6 +18,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { RateLimitError } from '@workspace/api-client-react';
 
 // ── lib under test ─────────────────────────────────────────────────────────
 import {
@@ -232,6 +233,34 @@ describe('resolveLocationDescription() — production fallback (gameFallbacks.ts
 
     expect(result.source).toBe('offline');
     expect(result.text).toBe(fallback);
+    vi.unstubAllGlobals();
+    delete process.env.EXPO_PUBLIC_DOMAIN;
+  });
+
+  it('keeps bundled text and reports a safe rate-limited source', async () => {
+    process.env.EXPO_PUBLIC_DOMAIN = 'test.replit.dev';
+    const fetcher = vi.fn(async () =>
+      new Response(JSON.stringify({ error: 'raw middleware detail' }), {
+        status: 429,
+        headers: {
+          'content-type': 'application/json',
+          'retry-after': '0',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetcher);
+
+    const fallback = 'Squeaky floors and motivational posters.';
+    const result = await resolveLocationDescription(
+      { ...LOCATION_PARAMS, locationName: 'Gym', locationDescription: fallback },
+      fallback,
+    );
+
+    expect(result).toEqual({ source: 'rate_limited', text: fallback });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(new RateLimitError('/ai/describe', 0).message).not.toContain(
+      'raw middleware detail',
+    );
     vi.unstubAllGlobals();
     delete process.env.EXPO_PUBLIC_DOMAIN;
   });

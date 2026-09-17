@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBadge } from "@/components/StatusBadge";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
+import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
 import { useColors } from "@/hooks/useColors";
 import {
   focusSubjectKey,
@@ -100,19 +101,23 @@ function QuestionCard({
 function StudyAvailabilityNotice({
   status,
 }: {
-  status: "checking" | "live" | "offline" | "fallback";
+  status: EnrichmentStatus;
 }) {
   if (status === "checking" || status === "live") return null;
 
   return (
     <View style={styles.availabilityNotice}>
       <Text style={styles.availabilityTitle}>
-        {status === "fallback"
+        {status === "rate_limited"
+          ? "LIVE REQUEST PAUSED"
+          : status === "fallback"
           ? "LIVE ENRICHMENT UNAVAILABLE"
           : "OFFLINE STUDY MODE"}
       </Text>
       <Text style={styles.availabilityCopy}>
-        Bundled study content is active. You can keep answering questions.
+        {status === "rate_limited"
+          ? "Live requests are temporarily paused. Bundled study content is active."
+          : "Bundled study content is active. You can keep answering questions."}
       </Text>
     </View>
   );

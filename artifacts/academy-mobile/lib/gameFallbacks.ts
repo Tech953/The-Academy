@@ -7,7 +7,8 @@
  *  so the fallback wiring is testable without a React runtime.
  *
  *  Every function returns { text, source } so callers know
- *  whether content came from a live AI call or the bundled engine.
+ *  whether content came from a live AI call, the bundled engine,
+ *  or a temporarily rate-limited live request.
  * ═══════════════════════════════════════════════════════════
  */
 
@@ -19,6 +20,7 @@ import {
   type DescribeExamineParams,
   type NpcDialogueParams,
 } from './api';
+import { isRateLimitError } from '@workspace/api-client-react';
 
 export type { ContentSource } from './enrichmentStatus';
 import type { ContentSource } from './enrichmentStatus';
@@ -44,8 +46,11 @@ export async function resolveLocationDescription(
   try {
     const text = await fetchLocationDescription(params);
     return { text, source: 'online' };
-  } catch {
-    return { text: offlineFallback, source: 'offline' };
+  } catch (error) {
+    return {
+      text: offlineFallback,
+      source: isRateLimitError(error) ? 'rate_limited' : 'offline',
+    };
   }
 }
 
@@ -60,7 +65,8 @@ export interface ExamineDescriptionResult {
 
 /**
  * Try to fetch an AI-generated examine description.
- * Falls back to the bundled interactable description on any failure.
+ * Falls back to the bundled interactable description on any failure,
+ * preserving a rate-limited source marker when appropriate.
  */
 export async function resolveExamineDescription(
   params: DescribeExamineParams,
@@ -69,8 +75,11 @@ export async function resolveExamineDescription(
   try {
     const text = await fetchExamineDescription(params);
     return { text, source: 'online' };
-  } catch {
-    return { text: offlineFallback, source: 'offline' };
+  } catch (error) {
+    return {
+      text: offlineFallback,
+      source: isRateLimitError(error) ? 'rate_limited' : 'offline',
+    };
   }
 }
 
@@ -85,7 +94,8 @@ export interface NpcReplyResult {
 
 /**
  * Try to fetch an AI-generated NPC reply.
- * Falls back to a deterministically-generated offline line on any failure.
+ * Falls back to a deterministically-generated offline line on any failure,
+ * preserving a rate-limited source marker when appropriate.
  * The fallback is a thunk so the (cheap) offline generation only runs
  * when the online path has already failed.
  */
@@ -96,7 +106,10 @@ export async function resolveNpcReply(
   try {
     const text = await fetchNpcDialogue(params);
     return { text, source: 'online' };
-  } catch {
-    return { text: offlineFallback(), source: 'offline' };
+  } catch (error) {
+    return {
+      text: offlineFallback(),
+      source: isRateLimitError(error) ? 'rate_limited' : 'offline',
+    };
   }
 }

@@ -430,6 +430,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (!isCurrentRequest()) return;
         if (refreshResult.source === "online") {
           recordEnrichmentSource("online");
+        } else if (refreshResult.source === "rate_limited") {
+          recordEnrichmentSource("rate_limited");
         } else {
           recordOfflineContent();
         }

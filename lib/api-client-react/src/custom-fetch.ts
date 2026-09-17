@@ -8,6 +8,13 @@ export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
+import {
+  getRateLimitRetryDelayMs,
+  MAX_RATE_LIMIT_RETRIES,
+  RATE_LIMITED_USER_MESSAGE,
+  waitForRateLimitRetry,
+} from "./rate-limit";
+
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
@@ -180,13 +187,17 @@ export class ApiError<T = unknown> extends Error {
   readonly response: Response;
   readonly method: string;
   readonly url: string;
+  readonly isRateLimited: boolean;
+  readonly retryAfterMs: number | null;
+  readonly userMessage: string;
 
   constructor(
     response: Response,
     data: T | null,
     requestInfo: { method: string; url: string },
   ) {
-    super(buildErrorMessage(response, data));
+    const isRateLimited = response.status === 429;
+    super(isRateLimited ? RATE_LIMITED_USER_MESSAGE : buildErrorMessage(response, data));
     Object.setPrototypeOf(this, new.target.prototype);
 
     this.status = response.status;
@@ -196,6 +207,11 @@ export class ApiError<T = unknown> extends Error {
     this.response = response;
     this.method = requestInfo.method;
     this.url = response.url || requestInfo.url;
+    this.isRateLimited = isRateLimited;
+    this.retryAfterMs = isRateLimited
+      ? getRateLimitRetryDelayMs(response.headers)
+      : null;
+    this.userMessage = isRateLimited ? RATE_LIMITED_USER_MESSAGE : this.message;
   }
 }
 
@@ -360,9 +376,22 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  let response: Response;
+  for (let attempt = 0; ; attempt += 1) {
+    const fetchInput = isRequest(input) ? input.clone() : input;
+    response = await fetch(fetchInput, { ...init, method, headers });
 
-  if (!response.ok) {
+    if (response.ok) break;
+
+    const retryAfterMs =
+      response.status === 429
+        ? getRateLimitRetryDelayMs(response.headers)
+        : null;
+    if (retryAfterMs !== null && attempt < MAX_RATE_LIMIT_RETRIES) {
+      await waitForRateLimitRetry(retryAfterMs, init.signal ?? undefined);
+      continue;
+    }
+
     const errorData = await parseErrorBody(response, method);
     throw new ApiError(response, errorData, requestInfo);
   }
