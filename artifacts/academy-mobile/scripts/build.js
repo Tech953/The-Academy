@@ -8,6 +8,7 @@ const {
   findAvailableMetroPort,
   getConfiguredMetroPort,
 } = require("./metro-port");
+const { validateAndroidPreviewIdentity } = require("./check-release");
 
 let metroProcess = null;
 let metroPort = null;
@@ -529,6 +530,14 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+function validateGeneratedAndroidIdentity(options) {
+  const identity = validateAndroidPreviewIdentity(options);
+  console.log(
+    `[release-identity] Android package ${identity.androidPackage} matches app.json, EAS preview APK settings, and generated metadata.`,
+  );
+  return identity;
+}
+
 async function main() {
   console.log("Building static Expo Go deployment...");
 
@@ -579,6 +588,7 @@ async function main() {
 
   console.log("Updating manifests and creating landing page...");
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
+  validateGeneratedAndroidIdentity();
 
   console.log("Build complete! Deploy to:", baseUrl);
 
@@ -588,10 +598,16 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((error) => {
-  console.error("Build failed:", error.message);
-  if (metroProcess) {
-    metroProcess.kill();
-  }
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("Build failed:", error.message);
+    if (metroProcess) {
+      metroProcess.kill();
+    }
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  validateGeneratedAndroidIdentity,
+};
