@@ -12,8 +12,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   generateOfflineContentPack,
   isQuestionFocusMatched,
+  type ContentPack,
   type StudyQuestion,
 } from "@workspace/game-engine";
+import { resolveContentPackRefresh } from "../lib/contentPackFallback";
 
 const gameContextMock = vi.hoisted(() => ({
   useGame: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/hooks/useColors", () => ({
 import StudyScreen from "../app/(tabs)/study";
 
 const focusTopics = ["Linear Equations"];
+const connectedFocusTopics = ["Ratios & Proportions"];
 
 const focusedQuestion: StudyQuestion = {
   id: "focused-linear-equation",
@@ -77,20 +80,42 @@ const generalQuestion: StudyQuestion = {
   explanation: "One half is written as 1/2.",
 };
 
-function renderStudyScreen() {
-  const onAnswer = vi.fn(() => true);
+const connectedFocusedQuestion: StudyQuestion = {
+  ...focusedQuestion,
+  id: "connected-ratios",
+  topic: connectedFocusTopics[0],
+  question: "What is the ratio of 2 to 4 in simplest form?",
+  choices: ["1:2", "2:1", "2:4"],
+  answer: "1:2",
+  explanation: "Divide both terms by 2.",
+};
+
+function makeStudyPack(
+  version: string,
+  topic: string,
+  generatedBy: ContentPack["generatedBy"],
+): ContentPack {
   const basePack = generateOfflineContentPack(1);
-  const studyPack = {
+  return {
     ...basePack,
+    version,
+    generatedBy,
     gedFocusAreas: [
       {
         ...basePack.gedFocusAreas[0],
         subject: "Math Reasoning",
-        topic: focusTopics[0],
+        topic,
       },
       basePack.gedFocusAreas[1],
     ],
   };
+}
+
+function renderStudyScreen(
+  pack = makeStudyPack("offline-pack", focusTopics[0], "deterministic"),
+  questions: StudyQuestion[] = [focusedQuestion, generalQuestion],
+) {
+  const onAnswer = vi.fn(() => true);
   gameContextMock.useGame.mockReturnValue({
     isOnline: false,
     enrichmentStatus: "offline",
@@ -102,8 +127,8 @@ function renderStudyScreen() {
       science: { correct: 0, answered: 0 },
       social_studies: { correct: 0, answered: 0 },
     },
-    contentPack: studyPack,
-    getQuizSet: vi.fn(() => [focusedQuestion, generalQuestion]),
+    contentPack: pack,
+    getQuizSet: vi.fn(() => questions),
     answerQuestion: onAnswer,
   });
 
@@ -169,5 +194,48 @@ describe("Study question focus badges", () => {
       "CORRECT — One half is written as 1/2.",
     );
     expect(onAnswer).toHaveBeenCalledWith(generalQuestion, "1/2");
+  });
+
+  it("updates the connected focus topic and quiz cards in one visible transition", async () => {
+    const { renderer } = renderStudyScreen();
+    openMathStudy(renderer);
+
+    const connectedPack = makeStudyPack(
+      "connected-pack",
+      connectedFocusTopics[0],
+      "gpt",
+    );
+    const refresh = await resolveContentPackRefresh(
+      async () => connectedPack,
+      makeStudyPack("offline-pack", focusTopics[0], "deterministic"),
+      1,
+    );
+    expect(refresh.source).toBe("online");
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "live",
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: refresh.pack,
+      getQuizSet: vi.fn(() => [connectedFocusedQuestion, generalQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+
+    act(() => {
+      renderer.update(<StudyScreen />);
+    });
+
+    const currentText = visibleText(renderer);
+    expect(currentText).toContain("RATIOS & PROPORTIONS");
+    expect(currentText).toContain("WEEKLY FOCUS");
+    expect(currentText).not.toContain("LINEAR EQUATIONS");
+    expect(currentText).not.toContain("Solve 2x + 4 = 10.");
   });
 });

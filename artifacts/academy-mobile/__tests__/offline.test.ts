@@ -947,13 +947,17 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     });
     let activeRequest = 1;
     let renderedPack: ContentPack | null = visiblePack;
+    let renderedFocusTopic = visiblePack.gedFocusAreas[0].topic;
 
     const earlierRefresh = resolveContentPackRefresh(
       () => earlierFetch,
       null,
       day,
     ).then((result) => {
-      if (activeRequest === 1) renderedPack = result.pack;
+      if (activeRequest === 1) {
+        renderedPack = result.pack;
+        renderedFocusTopic = result.pack.gedFocusAreas[0].topic;
+      }
       return result;
     });
 
@@ -966,7 +970,10 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       null,
       day,
     ).then((result) => {
-      if (activeRequest === 2) renderedPack = result.pack;
+      if (activeRequest === 2) {
+        renderedPack = result.pack;
+        renderedFocusTopic = result.pack.gedFocusAreas[0].topic;
+      }
       return result;
     });
 
@@ -977,6 +984,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       source: 'online',
     });
     expect(renderedPack).toMatchObject({ version: 'latest-pack' });
+    expect(renderedFocusTopic).toBe(latestPack.gedFocusAreas[0].topic);
 
     releaseEarlier(earlierPack);
     await expect(earlierRefresh).resolves.toMatchObject({
@@ -984,6 +992,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       source: 'online',
     });
     expect(renderedPack).toMatchObject({ version: 'latest-pack' });
+    expect(renderedFocusTopic).toBe(latestPack.gedFocusAreas[0].topic);
   });
 
   it('replaces a missing activeEvents array with deterministic displayable events', () => {
