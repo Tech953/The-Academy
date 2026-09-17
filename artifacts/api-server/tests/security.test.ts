@@ -119,8 +119,14 @@ describe("forwarded-client rate limiting", () => {
     expect(normalizeRateLimitIp(distinctMappedIpv4)).toBe("198.51.100.51");
     expect(normalizeRateLimitIp("2001:db8:10::10")).toBe("2001:db8:10::10");
     expect(
-      rateLimitKeyGenerator({ ip: ipv4 }),
-    ).toBe(rateLimitKeyGenerator({ ip: mappedIpv4 }));
+      rateLimitKeyGenerator({
+        ip: ipv4,
+        socket: { remoteAddress: "192.0.2.1" },
+      }),
+    ).toBe(rateLimitKeyGenerator({
+      ip: mappedIpv4,
+      socket: { remoteAddress: "192.0.2.1" },
+    }));
 
     for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
       expect((await request(testServer, ipv4)).status).toBe(200);
@@ -128,6 +134,32 @@ describe("forwarded-client rate limiting", () => {
 
     expect((await request(testServer, mappedIpv4)).status).toBe(429);
     expect((await request(testServer, distinctMappedIpv4)).status).toBe(200);
+  });
+
+  it("falls back to the trusted socket for malformed forwarded identities", () => {
+    const trustedSocket = { remoteAddress: "192.0.2.44" };
+
+    expect(rateLimitKeyGenerator({
+      ip: "not-an-ip",
+      socket: trustedSocket,
+    })).toBe(rateLimitKeyGenerator({
+      ip: trustedSocket.remoteAddress,
+      socket: trustedSocket,
+    }));
+    expect(rateLimitKeyGenerator({
+      ip: "::ffff:not-an-ip",
+      socket: trustedSocket,
+    })).toBe(rateLimitKeyGenerator({
+      ip: trustedSocket.remoteAddress,
+      socket: trustedSocket,
+    }));
+    expect(rateLimitKeyGenerator({
+      ip: "not-an-ip",
+      socket: { remoteAddress: "::ffff:192.0.2.45" },
+    })).toBe(rateLimitKeyGenerator({
+      ip: "192.0.2.45",
+      socket: { remoteAddress: "192.0.2.45" },
+    }));
   });
 
   it("keeps IPv6 forwarded clients isolated from one another", async () => {
@@ -144,6 +176,28 @@ describe("forwarded-client rate limiting", () => {
     const blockedRequest = await request(testServer, firstClient);
     expect(blockedRequest.status).toBe(429);
     expect((await request(testServer, secondClient)).status).toBe(200);
+  });
+
+  it("uses only the configured trust depth from a multi-hop forwarded chain", async () => {
+    const testServer = await startRateLimitedServer();
+    const olderHop = "198.51.100.60";
+    const immediateClient = "198.51.100.61";
+    const alternateOlderHop = "203.0.113.200";
+    const distinctClient = "198.51.100.62";
+
+    for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
+      expect(
+        (await request(testServer, `${olderHop}, ${immediateClient}`)).status,
+      ).toBe(200);
+    }
+
+    // TRUST_PROXY_HOPS=1 means the rightmost forwarded address is the
+    // client identity; older forwarded entries cannot create another bucket.
+    expect((await request(testServer, immediateClient)).status).toBe(429);
+    expect(
+      (await request(testServer, `${alternateOlderHop}, ${immediateClient}`)).status,
+    ).toBe(429);
+    expect((await request(testServer, distinctClient)).status).toBe(200);
   });
 
   it("skips health and specialized routes from the general quota", () => {

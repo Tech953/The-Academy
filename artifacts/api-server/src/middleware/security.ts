@@ -33,8 +33,18 @@ export function normalizeRateLimitIp(ip: string): string {
   return mappedIpv4 && isIP(mappedIpv4) === 4 ? mappedIpv4 : ip;
 }
 
-export function rateLimitKeyGenerator(req: Pick<Request, 'ip'>): string {
-  return ipKeyGenerator(normalizeRateLimitIp(req.ip ?? 'unknown'));
+type RateLimitRequest = Pick<Request, 'ip'> & {
+  socket: Pick<Request['socket'], 'remoteAddress'>;
+};
+
+export function rateLimitKeyGenerator(req: RateLimitRequest): string {
+  const requestIp = normalizeRateLimitIp(req.ip ?? '');
+  if (isIP(requestIp) !== 0) return ipKeyGenerator(requestIp);
+
+  const trustedPeerIp = normalizeRateLimitIp(req.socket.remoteAddress ?? '');
+  return isIP(trustedPeerIp) !== 0
+    ? ipKeyGenerator(trustedPeerIp)
+    : 'unknown';
 }
 
 export const RATE_LIMIT_STORE_MAX_KEYS = 10_000;
