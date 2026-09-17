@@ -561,6 +561,14 @@ export interface EventTemplateValidationIssue {
   normalizedTag?: string;
 }
 
+export interface EventTemplateValidationScope {
+  validated: boolean;
+}
+
+export function createEventTemplateValidationScope(): EventTemplateValidationScope {
+  return { validated: false };
+}
+
 /**
  * Validate the canonical tag format used by headline matching.
  *
@@ -786,11 +794,18 @@ function formatEventTemplateValidationIssue(
 
 export function assertValidEventTemplates(
   templates: readonly WorldEventTemplate[] = ALL_EVENTS,
+  scope?: EventTemplateValidationScope,
 ): void {
-  const firstIssue = validateEventTemplates(templates)[0];
-  if (!firstIssue) return;
+  if (scope?.validated) return;
 
-  throw new Error(formatEventTemplateValidationIssue(firstIssue));
+  const firstIssue = validateEventTemplates(templates)[0];
+  if (firstIssue) {
+    throw new Error(formatEventTemplateValidationIssue(firstIssue));
+  }
+
+  if (scope) {
+    scope.validated = true;
+  }
 }
 
 /**
@@ -816,8 +831,12 @@ function normalizeEventMatchText(value: string): string {
 }
 
 /** Match a headline/topic string to the closest event templates by tag overlap */
-export function matchEventsByTags(tags: string[], maxResults = 3): WorldEventTemplate[] {
-  assertValidEventTemplates();
+export function matchEventsByTags(
+  tags: string[],
+  maxResults = 3,
+  scope?: EventTemplateValidationScope,
+): WorldEventTemplate[] {
+  assertValidEventTemplates(ALL_EVENTS, scope);
   const normalizedInputs = tags
     .map(normalizeEventMatchText)
     .filter(input =>

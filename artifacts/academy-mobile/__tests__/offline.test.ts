@@ -61,6 +61,8 @@ import {
   EVENT_TEMPLATES,
   validateEventTemplateTags,
   validateEventTemplates,
+  createEventTemplateValidationScope,
+  assertValidEventTemplates,
   type WorldEventTemplate,
   type OfflineWorldEvent,
 } from '@workspace/game-engine';
@@ -1038,6 +1040,15 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     expect(validateEventTemplates()).toEqual([]);
   });
 
+  it('validates a shared registry once per scope', () => {
+    const scope = createEventTemplateValidationScope();
+
+    assertValidEventTemplates(undefined, scope);
+    assertValidEventTemplates(undefined, scope);
+
+    expect(scope.validated).toBe(true);
+  });
+
   it('reports malformed tags with template identity and category', () => {
     const sourceTemplate = EVENT_TEMPLATES.academic[0];
     const issues = validateEventTemplateTags([
@@ -1165,6 +1176,22 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
           /Malformed event template tags: template "exam-week" in category "academic" tag " Malformed " is untrimmed/,
         );
       }
+    } finally {
+      sourceTemplate.tags = originalTags;
+    }
+  });
+
+  it('rechecks registry edits after a prior valid generation', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const originalTags = sourceTemplate.tags;
+
+    generateDailyEvents(42);
+    sourceTemplate.tags = [...originalTags, ' Malformed '];
+
+    try {
+      expect(() => generateDailyEvents(42)).toThrow(
+        /template "exam-week".*untrimmed.*field "tags"/,
+      );
     } finally {
       sourceTemplate.tags = originalTags;
     }

@@ -34,6 +34,8 @@ import {
   ALL_EVENTS,
   matchEventsByTags,
   assertValidEventTemplates,
+  createEventTemplateValidationScope,
+  EventTemplateValidationScope,
   WorldEventTemplate,
   EventCategory,
 } from './eventTemplates';
@@ -241,7 +243,16 @@ export function generateNPCLine(opts: {
  * Deterministic: same day number → same events, always.
  */
 export function generateDailyEvents(dayNumber: number, count = 2): OfflineWorldEvent[] {
-  assertValidEventTemplates();
+  const validationScope = createEventTemplateValidationScope();
+  return generateDailyEventsWithScope(dayNumber, count, validationScope);
+}
+
+function generateDailyEventsWithScope(
+  dayNumber: number,
+  count: number,
+  validationScope: EventTemplateValidationScope,
+): OfflineWorldEvent[] {
+  assertValidEventTemplates(ALL_EVENTS, validationScope);
   const rng = new SeededRandom(temporalSeed('world-events', dayNumber));
 
   // Weight event categories by day modulo patterns
@@ -286,14 +297,19 @@ export function generateDailyEvents(dayNumber: number, count = 2): OfflineWorldE
  */
 export function matchEventsToHeadlines(headlines: string[]): OfflineWorldEvent[] {
   const dayNumber = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-  return matchEventsToHeadlinesForDay(headlines, dayNumber);
+  return matchEventsToHeadlinesForDay(
+    headlines,
+    dayNumber,
+    createEventTemplateValidationScope(),
+  );
 }
 
 function matchEventsToHeadlinesForDay(
   headlines: string[],
   dayNumber: number,
+  validationScope: EventTemplateValidationScope,
 ): OfflineWorldEvent[] {
-  assertValidEventTemplates();
+  assertValidEventTemplates(ALL_EVENTS, validationScope);
 
   const rng = new SeededRandom(temporalSeed('rss-match', dayNumber));
 
@@ -318,7 +334,7 @@ function matchEventsToHeadlinesForDay(
     ];
   });
 
-  const matches = matchEventsByTags(allTags, 3);
+  const matches = matchEventsByTags(allTags, 3, validationScope);
   return matches.map((template, i) => ({
     id: template.id,
     instanceId: `${template.id}-rss-day${dayNumber}`,
@@ -341,12 +357,30 @@ export function generateBulletinEvents(
   headlines: string[] = [],
   count = 3,
 ): OfflineWorldEvent[] {
-  assertValidEventTemplates();
+  const validationScope = createEventTemplateValidationScope();
+  return generateBulletinEventsWithScope(dayNumber, headlines, count, validationScope);
+}
+
+function generateBulletinEventsWithScope(
+  dayNumber: number,
+  headlines: string[],
+  count: number,
+  validationScope: EventTemplateValidationScope,
+): OfflineWorldEvent[] {
+  assertValidEventTemplates(ALL_EVENTS, validationScope);
   const desiredCount = Math.max(0, Math.floor(count));
   if (desiredCount === 0) return [];
 
-  const matchedEvents = matchEventsToHeadlinesForDay(headlines, dayNumber);
-  const fallbackEvents = generateDailyEvents(dayNumber, desiredCount);
+  const matchedEvents = matchEventsToHeadlinesForDay(
+    headlines,
+    dayNumber,
+    validationScope,
+  );
+  const fallbackEvents = generateDailyEventsWithScope(
+    dayNumber,
+    desiredCount,
+    validationScope,
+  );
   const events: OfflineWorldEvent[] = [];
   const seenIds = new Set<string>();
 
@@ -421,11 +455,16 @@ export function getDailyStudyPrompt(dayNumber: number) {
  * Locally, it can also be generated deterministically client-side.
  */
 export function generateContentPack(dayNumber: number, npcIds: string[] = []): ContentPackSummary {
-  assertValidEventTemplates();
+  const validationScope = createEventTemplateValidationScope();
+  assertValidEventTemplates(ALL_EVENTS, validationScope);
   const rng = new SeededRandom(temporalSeed('content-pack', dayNumber));
 
   // Generate active world events
-  const activeEvents = generateDailyEvents(dayNumber, rng.int(1, 3));
+  const activeEvents = generateDailyEventsWithScope(
+    dayNumber,
+    rng.int(1, 3),
+    validationScope,
+  );
 
   // Generate NPC mood overrides for the day
   const emotionStates: EmotionState[] = ['happy', 'neutral', 'sad', 'angry', 'anxious', 'excited', 'focused', 'distracted'];
@@ -644,13 +683,19 @@ export function dayToWeek(day: number): number {
  * advances within a week), while the active events rotate each *day*.
  */
 export function generateOfflineContentPack(day: number, headlines: string[] = []): ContentPack {
-  assertValidEventTemplates();
+  const validationScope = createEventTemplateValidationScope();
+  assertValidEventTemplates(ALL_EVENTS, validationScope);
   const week = dayToWeek(day);
   const weekRng = new SeededRandom(temporalSeed('content-pack-week', week));
   const theme = weekRng.pick(WEEKLY_THEMES);
   const gedFocusAreas = WEEKLY_FOCUS_AREAS[(week - 1) % WEEKLY_FOCUS_AREAS.length];
 
-  const activeEvents: ContentPackEvent[] = generateBulletinEvents(day, headlines, 3).map((event) => ({
+  const activeEvents: ContentPackEvent[] = generateBulletinEventsWithScope(
+    day,
+    headlines,
+    3,
+    validationScope,
+  ).map((event) => ({
     id: event.id,
     title: event.title,
     description: event.description,
