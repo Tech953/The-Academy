@@ -22,6 +22,13 @@ export type ContentPackWriteQueue = (
   isCurrent: () => boolean,
 ) => Promise<boolean>;
 
+export type ContentPackWriteResult =
+  | { status: "written" }
+  | { status: "skipped" }
+  | { status: "failed"; reason: "invalid-pack" | "storage" };
+
+export type ContentPackStorageStatus = "unknown" | "stored" | "write-failed";
+
 /**
  * Runtime validation for event records received from the content-pack API.
  * TypeScript types do not protect the app from malformed JSON at this boundary.
@@ -102,14 +109,35 @@ export async function writeCachedContentPack(
   pack: ContentPack,
   now = Date.now(),
 ): Promise<boolean> {
-  if (!isUsableContentPack(pack, now)) return false;
+  const result = await writeCachedContentPackResult(storage, pack, now);
+  return result.status === "written";
+}
+
+export async function writeCachedContentPackResult(
+  storage: ContentPackStorage,
+  pack: ContentPack,
+  now = Date.now(),
+): Promise<ContentPackWriteResult> {
+  if (!isUsableContentPack(pack, now)) {
+    return { status: "failed", reason: "invalid-pack" };
+  }
 
   try {
     await storage.setItem(CONTENT_PACK_STORAGE_KEY, JSON.stringify(pack));
-    return true;
+    return { status: "written" };
   } catch {
-    return false;
+    return { status: "failed", reason: "storage" };
   }
+}
+
+export function getContentPackStorageStatus(
+  result: ContentPackWriteResult,
+): ContentPackStorageStatus {
+  return result.status === "written"
+    ? "stored"
+    : result.status === "failed"
+      ? "write-failed"
+      : "unknown";
 }
 
 /**
@@ -120,14 +148,26 @@ export async function writeCachedContentPack(
 export function createContentPackWriteQueue(
   storage: ContentPackStorage,
 ): ContentPackWriteQueue {
+  const detailedQueue = createContentPackWriteQueueWithResult(storage);
+
+  return async (pack, isCurrent) =>
+    (await detailedQueue(pack, isCurrent)).status === "written";
+}
+
+export function createContentPackWriteQueueWithResult(
+  storage: ContentPackStorage,
+): (
+  pack: ContentPack,
+  isCurrent: () => boolean,
+) => Promise<ContentPackWriteResult> {
   let tail: Promise<void> = Promise.resolve();
 
   return (pack, isCurrent) => {
     const operation = tail
       .catch(() => undefined)
       .then(async () => {
-        if (!isCurrent()) return false;
-        return writeCachedContentPack(storage, pack);
+        if (!isCurrent()) return { status: "skipped" } as const;
+        return writeCachedContentPackResult(storage, pack);
       });
 
     tail = operation.then(

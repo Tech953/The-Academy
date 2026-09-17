@@ -35,14 +35,17 @@ import {
 import {
   BULLETIN_EVENT_LIMIT,
   createContentPackWriteQueue,
+  createContentPackWriteQueueWithResult,
   ensureUsableContentPack,
   fallbackAfterRefreshFailure,
+  getContentPackStorageStatus,
   isDisplayableContentPackEvent,
   isUsableContentPack,
   parseCachedContentPack,
   readCachedContentPack,
   resolveContentPackRefresh,
   writeCachedContentPack,
+  writeCachedContentPackResult,
 } from '../lib/contentPackFallback';
 
 import {
@@ -881,6 +884,36 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     expect(parseCachedContentPack('{not-json', now)).toBeNull();
   });
 
+  it('reports rejected and unavailable storage writes without exposing raw errors', async () => {
+    const pack = generateOfflineContentPack(day);
+    const rejectedStorage = {
+      getItem: async () => null,
+      setItem: async () => {
+        throw new Error('permission denied: private storage detail');
+      },
+    };
+    const unavailableStorage = {
+      getItem: async () => null,
+    } as unknown as Parameters<typeof writeCachedContentPack>[0];
+
+    await expect(
+      writeCachedContentPackResult(rejectedStorage, pack),
+    ).resolves.toEqual({ status: 'failed', reason: 'storage' });
+    await expect(
+      writeCachedContentPackResult(unavailableStorage, pack),
+    ).resolves.toEqual({ status: 'failed', reason: 'storage' });
+    expect(
+      getContentPackStorageStatus({ status: 'failed', reason: 'storage' }),
+    ).toBe('write-failed');
+    expect(
+      getContentPackStorageStatus({ status: 'written' }),
+    ).toBe('stored');
+    expect(
+      getContentPackStorageStatus({ status: 'skipped' }),
+    ).toBe('unknown');
+    await expect(writeCachedContentPack(rejectedStorage, pack)).resolves.toBe(false);
+  });
+
   it('persists a remote bulletin through AsyncStorage across a relaunch fixture', async () => {
     const values = new Map<string, string>();
     const localStorage = {
@@ -994,6 +1027,27 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     await expect(readCachedContentPack(storage)).resolves.toMatchObject({
       version: 'pack-new',
     });
+  });
+
+  it('returns a diagnostic failure while keeping the write queue usable', async () => {
+    const storage = {
+      getItem: async () => null,
+      setItem: async () => {
+        throw new Error('storage unavailable');
+      },
+    };
+    const writeQueue = createContentPackWriteQueueWithResult(storage);
+    const pack = generateOfflineContentPack(day);
+
+    await expect(writeQueue(pack, () => true)).resolves.toEqual({
+      status: 'failed',
+      reason: 'storage',
+    });
+    expect(
+      getContentPackStorageStatus(
+        await writeQueue(pack, () => true),
+      ),
+    ).toBe('write-failed');
   });
 });
 

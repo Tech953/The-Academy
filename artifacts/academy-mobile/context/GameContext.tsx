@@ -32,9 +32,11 @@ import {
 } from "@/lib/enrichmentStatus";
 import {
   fallbackAfterRefreshFailure,
-  createContentPackWriteQueue,
+  createContentPackWriteQueueWithResult,
+  getContentPackStorageStatus,
   readCachedContentPack,
   resolveContentPackRefresh,
+  type ContentPackStorageStatus,
 } from "@/lib/contentPackFallback";
 import {
   analyzeDialogueTone,
@@ -205,6 +207,7 @@ interface GameContextValue {
   contentPack: ContentPack | null;
   contentPackLoading: boolean;
   bulletinEventsRepaired: boolean;
+  contentPackStorageStatus: ContentPackStorageStatus;
   enrichmentStatus: EnrichmentStatus;
   weeklyTheme: string;
   startGame: (name: string) => void;
@@ -239,9 +242,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [relationshipShifts, setRelationshipShifts] = useState<Record<string, RelationshipShift>>({});
   const [contentPack, setContentPack] = useState<ContentPack | null>(null);
   const [contentPackLoading, setContentPackLoading] = useState(false);
+  const [contentPackStorageStatus, setContentPackStorageStatus] =
+    useState<ContentPackStorageStatus>("unknown");
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
   const contentPackRequestRef = useRef(0);
-  const writeContentPack = useRef(createContentPackWriteQueue(AsyncStorage)).current;
+  const writeContentPack = useRef(
+    createContentPackWriteQueueWithResult(AsyncStorage),
+  ).current;
   const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
     getInitialEnrichmentStatus(networkOnline, apiConfigured),
   );
@@ -420,14 +427,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               source: "offline" as const,
             };
         if (!isCurrentRequest()) return;
-        await writeContentPack(refreshResult.pack, isCurrentRequest);
-        if (!isCurrentRequest()) return;
         if (refreshResult.source === "online") {
           recordEnrichmentSource("online");
         } else {
           recordOfflineContent();
         }
-        if (isCurrentRequest()) setContentPack(refreshResult.pack);
+        setContentPack(refreshResult.pack);
+        const writeResult = await writeContentPack(
+          refreshResult.pack,
+          isCurrentRequest,
+        );
+        if (!isCurrentRequest()) return;
+        setContentPackStorageStatus(getContentPackStorageStatus(writeResult));
       } catch {
         if (!isCurrentRequest()) return;
         recordOfflineContent();
@@ -718,6 +729,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       contentPack,
       contentPackLoading,
       bulletinEventsRepaired,
+      contentPackStorageStatus,
       enrichmentStatus,
       weeklyTheme,
       startGame,
@@ -742,6 +754,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       contentPack,
       contentPackLoading,
       bulletinEventsRepaired,
+      contentPackStorageStatus,
       enrichmentStatus,
       weeklyTheme,
       startGame,
