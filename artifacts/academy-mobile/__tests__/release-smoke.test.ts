@@ -109,6 +109,19 @@ const {
   ) => string;
 };
 
+const { validateGeneratedAndroidIdentity } = require("../scripts/build.js") as {
+  validateGeneratedAndroidIdentity: (options?: {
+    appConfig?: unknown;
+    easConfig?: unknown;
+    generatedManifest?: unknown;
+  }) => {
+    androidPackage: string;
+    generatedAndroidPackage: string;
+    previewDistribution: string;
+    previewBuildType: string;
+  };
+};
+
 const {
   normalizeBuildMetadata,
   parseArgs,
@@ -636,6 +649,28 @@ describe("release smoke check", () => {
   it("reports generated Android metadata drift before an APK handoff", () => {
     expect(() =>
       validateAndroidPreviewIdentity({
+        ...validIdentity(),
+        generatedManifest: {
+          extra: { expoClient: { android: { package: "com.theacademy.other" } } },
+        },
+      }),
+    ).toThrow(
+      /Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.other/,
+    );
+  });
+
+  it("runs the same Android identity validator used by the static build", () => {
+    expect(validateGeneratedAndroidIdentity(validIdentity())).toEqual({
+      androidPackage: "com.theacademy.mobile",
+      generatedAndroidPackage: "com.theacademy.mobile",
+      previewDistribution: "internal",
+      previewBuildType: "apk",
+    });
+  });
+
+  it("fails the static build identity step when regenerated metadata drifts", () => {
+    expect(() =>
+      validateGeneratedAndroidIdentity({
         ...validIdentity(),
         generatedManifest: {
           extra: { expoClient: { android: { package: "com.theacademy.other" } } },
