@@ -9,6 +9,7 @@ import { registerChatRoutes } from "../src/replit_integrations/chat/routes";
 import type { ChatStorage } from "../src/replit_integrations/chat/storage";
 import { registerAudioRoutes } from "../src/replit_integrations/audio/routes";
 import { registerImageRoutes } from "../src/replit_integrations/image/routes";
+import { apiLimiter } from "../src/middleware/security";
 
 type TestServer = {
   server: Server;
@@ -31,10 +32,14 @@ afterEach(async () => {
   openServers.clear();
 });
 
-async function startApp(register: (app: Express) => void | Promise<void>): Promise<TestServer> {
+async function startApp(
+  register: (app: Express) => void | Promise<void>,
+  options: { generalRateLimit?: boolean } = {},
+): Promise<TestServer> {
   const app = express();
   app.set("trust proxy", 1);
   app.use(express.json());
+  if (options.generalRateLimit) app.use("/api", apiLimiter);
   await register(app);
 
   const server = app.listen(0);
@@ -501,6 +506,76 @@ describe("main API routes", () => {
     });
     expectBlockedRateLimitHeaders(blocked.response, "10", 3600);
     expect(create).toHaveBeenCalledTimes(10);
+  });
+
+  it("keeps AI and content-refresh quotas isolated from each other and the general quota", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const create = vi.fn(async () => ({
+      choices: [{ message: { content: "A deterministic test response." } }],
+    }));
+    const testServer = await startApp(
+      app =>
+        registerRoutes(app, {
+          storage: makeStorage(),
+          openai: makeChatOpenAI(create),
+          skipContentRefresh: true,
+        }),
+      { generalRateLimit: true },
+    );
+    const aiClient = "198.51.100.120";
+    const refreshClient = "198.51.100.121";
+    const aiRequest = {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": aiClient,
+      },
+      body: JSON.stringify({ type: "location", locationName: "Library" }),
+    };
+
+    for (let requestNumber = 0; requestNumber < 30; requestNumber += 1) {
+      expect((await request(testServer, "/api/ai/describe", aiRequest)).response.status).toBe(200);
+    }
+    const blockedAi = await request(testServer, "/api/ai/describe", aiRequest);
+    expectBlockedRateLimitHeaders(blockedAi.response, "30", 900);
+
+    // AI traffic does not consume the general or content-refresh buckets.
+    expect(
+      (await request(testServer, "/api/locations", {
+        headers: { "x-forwarded-for": aiClient },
+      })).response.status,
+    ).toBe(200);
+    expect(
+      (await request(testServer, "/api/content-pack/refresh", {
+        method: "POST",
+        headers: { "x-forwarded-for": aiClient },
+      })).response.status,
+    ).toBe(200);
+
+    for (let requestNumber = 0; requestNumber < 10; requestNumber += 1) {
+      expect(
+        (await request(testServer, "/api/content-pack/refresh", {
+          method: "POST",
+          headers: { "x-forwarded-for": refreshClient },
+        })).response.status,
+      ).toBe(200);
+    }
+    const blockedRefresh = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+      headers: { "x-forwarded-for": refreshClient },
+    });
+    expectBlockedRateLimitHeaders(blockedRefresh.response, "10", 3600);
+
+    // Content refresh traffic does not consume the AI or general buckets.
+    expect((await request(testServer, "/api/locations", {
+      headers: { "x-forwarded-for": refreshClient },
+    })).response.status).toBe(200);
+    expect(
+      (await request(testServer, "/api/ai/describe", {
+        ...aiRequest,
+        headers: { ...aiRequest.headers, "x-forwarded-for": refreshClient },
+      })).response.status,
+    ).toBe(200);
   });
 });
 
