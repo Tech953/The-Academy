@@ -121,16 +121,13 @@ export function worldEventToResonance(event: WorldEvent): void {
   let energy: EnergyVector = {};
   
   switch (event.type) {
-    case 'exam':
+    case 'academic':
       energy = { force: 0.5, clarity: 0.6, order: 0.4, instability: 0.3 };
       break;
     case 'competition':
       energy = { force: 0.7, chaos: 0.3, growth: 0.4 };
       break;
-    case 'accident':
-      energy = { chaos: 0.8, fear: 0.6, entropy: 0.5 };
-      break;
-    case 'announcement':
+    case 'institutional':
       energy = { clarity: 0.5, order: 0.4 };
       break;
     case 'social':
@@ -138,6 +135,15 @@ export function worldEventToResonance(event: WorldEvent): void {
       break;
     case 'crisis':
       energy = { chaos: 0.9, fear: 0.7, instability: 0.8, entropy: 0.6 };
+      break;
+    case 'discovery':
+      energy = { clarity: 0.5, growth: 0.4 };
+      break;
+    case 'seasonal':
+      energy = { harmony: 0.4, growth: 0.3 };
+      break;
+    case 'mystery':
+      energy = { instability: 0.5, curiosity: 0.5 };
       break;
   }
   

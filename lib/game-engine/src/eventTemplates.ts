@@ -500,6 +500,15 @@ export const EVENT_TEMPLATES: Record<EventCategory, WorldEventTemplate[]> = {
   mystery:       MYSTERY_EVENTS,
 };
 
+export const EVENT_CATEGORIES = Object.keys(EVENT_TEMPLATES) as EventCategory[];
+
+export function isEventCategory(value: unknown): value is EventCategory {
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(EVENT_TEMPLATES, value)
+  );
+}
+
 export const ALL_EVENTS: WorldEventTemplate[] = Object.values(EVENT_TEMPLATES).flat();
 
 export type EventTemplateTagIssueReason =

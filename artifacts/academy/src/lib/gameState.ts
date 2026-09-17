@@ -86,6 +86,7 @@ import {
   type GEDSubject
 } from "./gedContent";
 import type { EngagementAnalytics, AdaptiveRecommendation, CourseProgress } from "@shared/schema";
+import { migrateRadiantAIState } from "./radiantAI";
 
 export interface GameState {
   character: Character;
@@ -139,6 +140,9 @@ export class GameStateManager {
         // Ensure engagementAnalytics exists (migration for older saves)
         if (!savedState.engagementAnalytics) {
           savedState.engagementAnalytics = createInitialAnalytics(character.id);
+        }
+        if (typeof savedState.radiantAIState === 'string') {
+          savedState.radiantAIState = migrateRadiantAIState(savedState.radiantAIState);
         }
         this.gameState = savedState;
         return savedState;

@@ -1,7 +1,7 @@
 // The Academy Radiant AI System
 // Based on the architectural diagram for autonomous NPC behavior
 
-import { EVENT_TEMPLATES } from '@workspace/game-engine';
+import { EVENT_TEMPLATES, isEventCategory } from '@workspace/game-engine';
 import type { EventCategory } from '@workspace/game-engine';
 
 // ============================================
@@ -109,7 +109,7 @@ export interface DialogueContext {
 }
 
 // World event that affects NPCs
-export type WorldEventType =
+export type LegacyWorldEventType =
   | 'exam'
   | 'competition'
   | 'accident'
@@ -120,6 +120,8 @@ export type WorldEventType =
   | 'institutional'
   | 'seasonal'
   | 'mystery';
+export type WorldEventType = EventCategory;
+export type RadiantEventType = WorldEventType | LegacyWorldEventType;
 
 export interface WorldEvent {
   id: string;
@@ -1121,7 +1123,7 @@ function describePersonality(p: NPCPersonality): string {
 // ============================================
 
 export function createWorldEvent(
-  type: WorldEventType,
+  type: RadiantEventType,
   name: string,
   description: string,
   durationMs: number,
@@ -1130,10 +1132,15 @@ export function createWorldEvent(
   playerInvolved: boolean
 ): WorldEvent {
   const now = Date.now();
+  const canonicalType = canonicalizeWorldEventType(type);
+
+  if (!canonicalType) {
+    throw new Error(`Unknown Radiant event type: ${type}`);
+  }
   
   return {
     id: `event_${now}_${Math.random().toString(36).substr(2, 9)}`,
-    type,
+    type: canonicalType,
     name,
     description,
     startTime: now,
@@ -1196,7 +1203,10 @@ const EVENT_LOCATIONS = ['Library', 'Courtyard', 'Lab', 'Gym', 'Auditorium', 'Ca
  * Template content itself is canonical in @workspace/game-engine so the web
  * and mobile bulletin paths cannot drift into separate vocabularies.
  */
-export const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
+export const RADIANT_EVENT_CATEGORIES: Record<
+  LegacyWorldEventType,
+  EventCategory
+> = {
   exam: 'academic',
   competition: 'competition',
   accident: 'crisis',
@@ -1209,6 +1219,18 @@ export const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
   mystery: 'mystery',
 };
 
+export function canonicalizeWorldEventType(
+  type: string,
+): EventCategory | null {
+  if (isEventCategory(type)) {
+    return type;
+  }
+
+  return (
+    RADIANT_EVENT_CATEGORIES[type as LegacyWorldEventType] ?? null
+  );
+}
+
 /**
  * Shared categories that intentionally do not have a legacy Radiant event
  * type must be listed here with the reason they are not web-compatible.
@@ -1216,6 +1238,53 @@ export const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
 export const RADIANT_EVENT_CATEGORY_EXCEPTIONS: Partial<
   Record<EventCategory, string>
 > = {};
+
+export const RADIANT_STATE_VERSION = 2;
+
+export function migrateWorldEvent(value: unknown): WorldEvent | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const event = value as Partial<WorldEvent> & { type?: unknown };
+  if (typeof event.type !== 'string') {
+    return null;
+  }
+
+  const canonicalType = canonicalizeWorldEventType(event.type);
+  if (!canonicalType) {
+    return null;
+  }
+
+  return {
+    ...event,
+    type: canonicalType,
+  } as WorldEvent;
+}
+
+export function migrateRadiantAIState(serializedState: string): string {
+  try {
+    const parsed = JSON.parse(serializedState) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') {
+      return serializedState;
+    }
+
+    const rawEvents: unknown[] = Array.isArray(parsed.events)
+      ? parsed.events
+      : [];
+    const events = rawEvents
+      .map((event: unknown) => migrateWorldEvent(event))
+      .filter((event): event is WorldEvent => event !== null);
+
+    return JSON.stringify({
+      ...parsed,
+      schemaVersion: RADIANT_STATE_VERSION,
+      events,
+    });
+  } catch {
+    return serializedState;
+  }
+}
 
 export interface EventChainConfig {
   chainProbability: number;  // 0-1 chance to spawn follow-up
@@ -1227,20 +1296,22 @@ export const DEFAULT_CHAIN_CONFIG: EventChainConfig = {
   maxChainDepth: 3
 };
 
-export function generateProceduralEvent(type?: WorldEventType, durationMs?: number): WorldEvent {
-  const eventTypes: WorldEventType[] = [
-    'exam',
-    'competition',
-    'social',
-    'announcement',
-    'crisis',
-    'discovery',
-    'institutional',
-    'seasonal',
-    'mystery',
-  ];
-  const selectedType = type || eventTypes[Math.floor(Math.random() * eventTypes.length)];
-  const category = RADIANT_EVENT_CATEGORIES[selectedType];
+export function generateProceduralEvent(
+  type?: RadiantEventType,
+  durationMs?: number,
+): WorldEvent {
+  const eventTypes: WorldEventType[] = Object.keys(
+    EVENT_TEMPLATES,
+  ) as WorldEventType[];
+  const selectedType = canonicalizeWorldEventType(
+    type || eventTypes[Math.floor(Math.random() * eventTypes.length)],
+  );
+
+  if (!selectedType) {
+    throw new Error(`Unknown Radiant event type: ${type}`);
+  }
+
+  const category = selectedType;
   const templates = EVENT_TEMPLATES[category];
   const template = templates[Math.floor(Math.random() * templates.length)];
   const location = EVENT_LOCATIONS[Math.floor(Math.random() * EVENT_LOCATIONS.length)];
@@ -1274,17 +1345,19 @@ export function chainEvent(
   // Determine follow-up event type based on trigger
   let followUpType: WorldEventType;
   switch (triggerEvent.type) {
-    case 'exam':
-      followUpType = Math.random() > 0.5 ? 'social' : 'announcement';
+    case 'academic':
+      followUpType = Math.random() > 0.5 ? 'social' : 'institutional';
       break;
     case 'crisis':
-      followUpType = 'announcement';
+      followUpType = 'institutional';
       break;
     case 'competition':
-      followUpType = Math.random() > 0.5 ? 'social' : 'announcement';
+      followUpType = Math.random() > 0.5 ? 'social' : 'institutional';
       break;
     default:
-      followUpType = ['exam', 'social', 'announcement'][Math.floor(Math.random() * 3)] as WorldEventType;
+      followUpType = ['academic', 'social', 'institutional'][
+        Math.floor(Math.random() * 3)
+      ] as WorldEventType;
   }
   
   const followUp = generateProceduralEvent(followUpType);
@@ -1723,6 +1796,7 @@ class RadiantAIManager {
   // Serialize state for persistence
   serialize(): string {
     return JSON.stringify({
+      schemaVersion: RADIANT_STATE_VERSION,
       npcs: Array.from(this.npcs.entries()),
       events: this.activeEvents,
       factions: this.emergentFactions,
@@ -1733,9 +1807,9 @@ class RadiantAIManager {
   // Deserialize state
   deserialize(data: string) {
     try {
-      const parsed = JSON.parse(data);
+      const parsed = JSON.parse(migrateRadiantAIState(data));
       this.npcs = new Map(parsed.npcs);
-      this.activeEvents = parsed.events || [];
+      this.activeEvents = Array.isArray(parsed.events) ? parsed.events : [];
       this.emergentFactions = parsed.factions || [];
       this.tickCounter = parsed.tickCounter || 0;
       this.notifyListeners();
