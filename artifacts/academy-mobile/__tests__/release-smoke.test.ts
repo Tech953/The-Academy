@@ -11,6 +11,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+  BULLETIN_SOURCE_MESSAGES,
+  DEFAULT_LOCALE,
+  getBulletinSourceMessage,
+  resolveLocale,
+  SUPPORTED_LOCALES,
+} from "../constants/locales";
+import {
   BULLETIN_REPAIR_ACCESSIBILITY_LABEL,
   getBulletinRepairAccessibility,
 } from "../lib/bulletinAccessibility";
@@ -198,6 +205,31 @@ describe("bulletin repair accessibility", () => {
 
   it("omits the cue from accessibility output for a fully remote bulletin", () => {
     expect(getBulletinRepairAccessibility(false)).toBeNull();
+  });
+});
+
+describe("bulletin source localization", () => {
+  it.each(SUPPORTED_LOCALES)(
+    "provides remote and repaired messages for %s",
+    (locale) => {
+      expect(BULLETIN_SOURCE_MESSAGES[locale].remote).toBeTruthy();
+      expect(BULLETIN_SOURCE_MESSAGES[locale].repaired).toBeTruthy();
+      expect(getBulletinSourceMessage(false, locale)).toBe(
+        BULLETIN_SOURCE_MESSAGES[locale].remote,
+      );
+      expect(getBulletinSourceMessage(true, locale)).toBe(
+        BULLETIN_SOURCE_MESSAGES[locale].repaired,
+      );
+    },
+  );
+
+  it("falls back to the default language for unknown or incomplete locales", () => {
+    expect(resolveLocale("pt-BR")).toBe(DEFAULT_LOCALE);
+    expect(
+      getBulletinSourceMessage(true, "es", {
+        es: {},
+      }),
+    ).toBe(BULLETIN_SOURCE_MESSAGES.en.repaired);
   });
 });
 

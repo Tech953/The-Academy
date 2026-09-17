@@ -1,5 +1,10 @@
+import {
+  getBulletinSourceMessage,
+  type SupportedLocale,
+} from "@/constants/locales";
+
 export const BULLETIN_REPAIR_ACCESSIBILITY_LABEL =
-  "Local events included. Bulletin continues.";
+  getBulletinSourceMessage(true, "en");
 
 export interface BulletinRepairAccessibility {
   accessible: true;
@@ -10,13 +15,14 @@ export interface BulletinRepairAccessibility {
 
 export function getBulletinRepairAccessibility(
   eventsRepaired: boolean,
+  locale?: SupportedLocale | string | null,
 ): BulletinRepairAccessibility | null {
   if (!eventsRepaired) return null;
 
   return {
     accessible: true,
     accessibilityRole: "text",
-    accessibilityLabel: BULLETIN_REPAIR_ACCESSIBILITY_LABEL,
+    accessibilityLabel: getBulletinSourceMessage(true, locale),
     accessibilityLiveRegion: "polite",
   };
 }

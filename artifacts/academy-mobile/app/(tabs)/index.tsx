@@ -13,6 +13,10 @@ import { CrtButton } from "@/components/CrtButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TerminalLine } from "@/components/TerminalLine";
 import { monoFont, monoFontBold } from "@/constants/fonts";
+import {
+  getBulletinSourceMessage,
+  getDeviceLocale,
+} from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
 import { getBulletinRepairAccessibility } from "@/lib/bulletinAccessibility";
@@ -84,8 +88,9 @@ export default function AdventureScreen() {
   const location = LOCATIONS[currentLocationId];
   const npcsHere = location.npcIds.map((id) => NPCS[id]).filter(Boolean);
   const headlineEvent = contentPack?.activeEvents[0];
+  const bulletinLocale = getDeviceLocale();
   const bulletinRepairAccessibility =
-    getBulletinRepairAccessibility(bulletinEventsRepaired);
+    getBulletinRepairAccessibility(bulletinEventsRepaired, bulletinLocale);
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -114,7 +119,7 @@ export default function AdventureScreen() {
                 {...bulletinRepairAccessibility}
                 style={[styles.bulletinRepair, { color: colors.accent }]}
               >
-                LOCAL EVENTS INCLUDED — BULLETIN CONTINUES
+                {getBulletinSourceMessage(true, bulletinLocale)}
               </Text>
             ) : null}
           </View>
