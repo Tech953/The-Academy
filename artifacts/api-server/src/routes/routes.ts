@@ -58,11 +58,56 @@ const RSS_FEEDS = [
   'https://phys.org/rss-feed/',
 ];
 
+const RSS_ALLOWED_DOMAINS = [
+  'nasa.gov', 'sciencedaily.com', 'wikipedia.org', 'hnrss.org',
+  'nationalgeographic.com', 'technologyreview.com', 'phys.org',
+];
+const RSS_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const RSS_MAX_REDIRECTS = 3;
+
+function isAllowedRssUrl(feedUrl: string): boolean {
+  try {
+    const parsed = new URL(feedUrl);
+    return RSS_ALLOWED_DOMAINS.some(
+      domain => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function fetchRssWithValidatedRedirects(
+  feedUrl: string,
+  init: RequestInit,
+): Promise<Response> {
+  let currentUrl = feedUrl;
+
+  for (let redirectCount = 0; ; redirectCount++) {
+    const resp = await fetch(currentUrl, { ...init, redirect: 'manual' });
+    if (!RSS_REDIRECT_STATUSES.has(resp.status)) return resp;
+
+    if (redirectCount >= RSS_MAX_REDIRECTS) {
+      throw new Error('too many RSS redirects');
+    }
+
+    const location = resp.headers.get('location');
+    if (!location) {
+      throw new Error('RSS redirect missing location');
+    }
+
+    const nextUrl = new URL(location, currentUrl).toString();
+    if (!isAllowedRssUrl(nextUrl)) {
+      throw new Error('feed redirect domain not allowed');
+    }
+    currentUrl = nextUrl;
+  }
+}
+
 async function fetchRSSHeadlines(): Promise<string[]> {
   const headlines: string[] = [];
   for (const url of RSS_FEEDS) {
     try {
-      const resp = await fetch(url, {
+      const resp = await fetchRssWithValidatedRedirects(url, {
         headers: { 'User-Agent': 'AcademyOS/1.0 RSS Pipeline', 'Accept': 'application/rss+xml, application/xml, text/xml' },
         signal: AbortSignal.timeout(5000),
       });
@@ -1174,16 +1219,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       res.status(400).json({ error: "invalid url" });
       return;
     }
-    const ALLOWED_DOMAINS = [
-      'nasa.gov', 'sciencedaily.com', 'wikipedia.org', 'hnrss.org',
-      'nationalgeographic.com', 'technologyreview.com', 'phys.org',
-    ];
     try {
-      const parsed = new URL(feedUrl);
-      const ok = ALLOWED_DOMAINS.some(
-        d => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`),
-      );
-      if (!ok) {
+      if (!isAllowedRssUrl(feedUrl)) {
         res.status(403).json({ error: "feed domain not allowed" });
         return;
       }
@@ -1192,7 +1229,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
       return;
     }
     try {
-      const resp = await fetch(feedUrl, {
+      const resp = await fetchRssWithValidatedRedirects(feedUrl, {
         headers: { 'User-Agent': 'AcademyOS/1.0 RSS Reader', 'Accept': 'application/rss+xml, application/xml, text/xml' },
         signal: AbortSignal.timeout(8000),
       });

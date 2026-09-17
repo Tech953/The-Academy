@@ -722,6 +722,73 @@ describe("RSS and URL metadata routes", () => {
 
     expect(upstreamFetch).toHaveBeenCalledTimes(2);
   });
+
+  it("validates each trusted RSS redirect before following it", async () => {
+    const initialUrl = "https://nasa.gov/feed.xml";
+    const redirectedUrl = "https://www.nasa.gov/feed.xml";
+    const xml = `
+      <rss><channel><item>
+        <title>Trusted redirect headline</title>
+        <link>https://www.nasa.gov/story</link>
+      </item></channel></rss>
+    `;
+    const upstreamFetch = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(init?.redirect).toBe("manual");
+      if (url === initialUrl) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: redirectedUrl },
+        });
+      }
+      expect(url).toBe(redirectedUrl);
+      return new Response(xml, { status: 200 });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      `/api/rss?url=${encodeURIComponent(initialUrl)}`,
+    );
+
+    expect(result.response.status).toBe(200);
+    expect(result.body.items).toEqual([
+      {
+        title: "Trusted redirect headline",
+        link: "https://www.nasa.gov/story",
+      },
+    ]);
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects an untrusted RSS redirect without fetching its final target", async () => {
+    const initialUrl = "https://nasa.gov/feed.xml";
+    const upstreamFetch = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(init?.redirect).toBe("manual");
+      if (url === initialUrl) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://nasa.gov.evil.example/feed.xml" },
+        });
+      }
+      throw new Error("final target must not be fetched");
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      `/api/rss?url=${encodeURIComponent(initialUrl)}`,
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "feed redirect domain not allowed" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("chat, image, and audio integration routes", () => {
