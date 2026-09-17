@@ -85,12 +85,55 @@ export function topicMatchesFocus(questionTopic: string, focusTopic: string): bo
   );
 }
 
+/**
+ * Weekly pack labels are written for learners, while bundled questions use
+ * shorter curriculum labels. Keep those intentional semantic bridges explicit
+ * and subject-scoped so a broad label cannot accidentally match another
+ * subject's questions.
+ */
+export const WEEKLY_FOCUS_TOPIC_ALIASES: Partial<
+  Record<GEDSubjectKey, Record<string, readonly string[]>>
+> = {
+  math: {
+    // Ratios & Proportions is represented by the bundled Fractions & Ratios set.
+    'ratios proportions': ['fractions ratios'],
+  },
+  language_arts: {
+    // Both labels practice evaluating support for a written argument.
+    'reading argument': ['evidence claims'],
+    // The bundled grammar questions are the available editing-for-clarity practice.
+    'editing clarity': ['grammar'],
+  },
+  science: {
+    // The bundled scientific-method questions include reading experiment results.
+    'interpreting data tables': ['scientific method'],
+    // Ecosystem questions explicitly test causal chains and resulting effects.
+    'cause effect': ['ecosystems'],
+  },
+  social_studies: {
+    // The bundled world-history questions are the closest primary-source context.
+    'reading primary sources': ['world history'],
+  },
+};
+
+function focusTopicCandidates(subject: GEDSubjectKey, focusTopic: string): string[] {
+  const normalizedFocus = normalizeTopic(focusTopic).join(' ');
+  return [
+    focusTopic,
+    ...(WEEKLY_FOCUS_TOPIC_ALIASES[subject]?.[normalizedFocus] ?? []),
+  ];
+}
+
 /** Return whether a question belongs to any of the supplied weekly focus topics. */
 export function isQuestionFocusMatched(
-  question: Pick<StudyQuestion, 'topic'>,
+  question: Pick<StudyQuestion, 'subject' | 'topic'>,
   focusTopics: readonly string[],
 ): boolean {
-  return focusTopics.some(focusTopic => topicMatchesFocus(question.topic, focusTopic));
+  return focusTopics.some(focusTopic =>
+    focusTopicCandidates(question.subject, focusTopic).some(candidate =>
+      topicMatchesFocus(question.topic, candidate),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────

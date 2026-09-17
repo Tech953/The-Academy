@@ -59,6 +59,7 @@ import {
   generateContentPack,
   generateOfflineContentPack,
   focusSubjectKey,
+  isQuestionFocusMatched,
   topicMatchesFocus,
   inferEmotionState,
   scoreToRelationshipTier,
@@ -552,6 +553,39 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
       const pack = generateOfflineContentPack(day);
       for (const focus of pack.gedFocusAreas) {
         expect(focusSubjectKey(focus.subject)).toBe(expectedSubjects.get(focus.subject));
+      }
+    }
+  });
+
+  it('connects every weekly focus topic to prioritized bundled questions', () => {
+    for (const day of [1, 8, 15, 22]) {
+      const pack = generateOfflineContentPack(day);
+
+      for (const focus of pack.gedFocusAreas) {
+        const subject = focusSubjectKey(focus.subject);
+        expect(subject).not.toBeNull();
+
+        const quiz = generateQuizSet(
+          subject!,
+          `weekly-focus-${day}-${focus.topic}`,
+          5,
+          [focus.topic],
+        );
+        const focusedCount = quiz.questions.filter(question =>
+          isQuestionFocusMatched(question, [focus.topic]),
+        ).length;
+
+        expect(focusedCount, `${focus.subject}: ${focus.topic}`).toBeGreaterThan(0);
+        expect(
+          quiz.questions.slice(0, focusedCount).every(question =>
+            isQuestionFocusMatched(question, [focus.topic]),
+          ),
+        ).toBe(true);
+        expect(
+          quiz.questions.slice(focusedCount).some(question =>
+            !isQuestionFocusMatched(question, [focus.topic]),
+          ),
+        ).toBe(true);
       }
     }
   });
