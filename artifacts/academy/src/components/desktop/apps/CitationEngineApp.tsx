@@ -1426,19 +1426,36 @@ function UrlImportTab() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryableError, setRetryableError] = useState(false);
+  const [retryUrl, setRetryUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<UrlMeta | null>(null);
   const { copied, copy } = useClipboard();
 
-  const fetchMeta = async () => {
-    if (!url.trim()) return;
-    setLoading(true); setError(null); setMeta(null);
+  const fetchMeta = async (requestedUrl = url) => {
+    const normalizedUrl = requestedUrl.trim();
+    if (!normalizedUrl) return;
+    setLoading(true);
+    setError(null);
+    setRetryableError(false);
+    setRetryUrl(null);
+    setMeta(null);
     try {
-      const res = await fetch(`/api/fetch-url-meta?url=${encodeURIComponent(url.trim())}`);
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? res.statusText); }
+      const res = await fetch(`/api/fetch-url-meta?url=${encodeURIComponent(normalizedUrl)}`);
+      if (!res.ok) {
+        const d: { error?: string; retryable?: boolean } = await res.json().catch(() => ({}));
+        const requestError = new Error(d.error ?? res.statusText) as Error & {
+          retryable?: boolean;
+        };
+        requestError.retryable = d.retryable === true;
+        throw requestError;
+      }
       const data: UrlMeta = await res.json();
       setMeta(data);
     } catch (e: unknown) {
-      setError((e as Error).message ?? 'Failed to fetch URL');
+      const requestError = e as Error & { retryable?: boolean };
+      setError(requestError.message ?? 'Failed to fetch URL');
+      setRetryableError(requestError.retryable === true);
+      setRetryUrl(requestError.retryable === true ? normalizedUrl : null);
     } finally {
       setLoading(false);
     }
@@ -1461,15 +1478,25 @@ function UrlImportTab() {
           placeholder="https://www.example.com/article..."
           style={{ ...FIELD_STYLE, flex: 1 }}
         />
-        <button onClick={fetchMeta} disabled={loading || !url.trim()} style={{ background: `${C.cyan}18`, border: `1px solid ${C.cyan}50`, color: loading ? '#555' : C.cyan, cursor: loading ? 'wait' : 'pointer', padding: '0 16px', borderRadius: 4, fontFamily: 'monospace', fontSize: 10, letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+        <button onClick={() => fetchMeta()} disabled={loading || !url.trim()} style={{ background: `${C.cyan}18`, border: `1px solid ${C.cyan}50`, color: loading ? '#555' : C.cyan, cursor: loading ? 'wait' : 'pointer', padding: '0 16px', borderRadius: 4, fontFamily: 'monospace', fontSize: 10, letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
           {loading ? <Loader size={11} className="animate-spin" /> : <Link size={11} />}
           {loading ? 'FETCHING...' : 'FETCH & CITE'}
         </button>
       </div>
 
       {error && (
-        <div style={{ background: '#100000', border: '1px solid #ff000030', borderRadius: 4, padding: 10, fontSize: 10, color: '#ff6666', fontFamily: 'monospace' }}>
-          SIGNAL LOST: {error}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#100000', border: '1px solid #ff000030', borderRadius: 4, padding: 10, fontSize: 10, color: '#ff6666', fontFamily: 'monospace' }}>
+          <span>SIGNAL LOST: {error}</span>
+          {retryableError && retryUrl && (
+            <button
+              onClick={() => fetchMeta(retryUrl)}
+              disabled={loading}
+              aria-label="Retry URL import"
+              style={{ background: `${C.cyan}18`, border: `1px solid ${C.cyan}50`, color: loading ? '#555' : C.cyan, cursor: loading ? 'wait' : 'pointer', padding: '5px 8px', borderRadius: 3, fontFamily: 'monospace', fontSize: 9, letterSpacing: 1, whiteSpace: 'nowrap' }}
+            >
+              RETRY
+            </button>
+          )}
         </div>
       )}
 
