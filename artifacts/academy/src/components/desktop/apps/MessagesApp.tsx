@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MessageCircle, User, ArrowLeft, Send, UserPlus, Wifi, WifiOff, Zap } from 'lucide-react';
 import { useGameState, DirectMessage, Conversation } from '@/contexts/GameStateContext';
 import { useRadiantAI } from '@/hooks/useRadiantAI';
@@ -10,6 +10,7 @@ const NEON_CYAN = '#00ffff';
 const NEON_AMBER = '#ffaa00';
 const NEON_RED = '#ff3366';
 const NEON_GOLD = '#ffd700';
+const VOICE_FAILURE_MARKER = '[Voice response failed. Please retry this message.]';
 
 export default function MessagesApp() {
   const { messages, conversations, markMessageRead, unreadMessageCount, sendMessage, addMessage, character, isEnrolled } = useGameState();
@@ -18,10 +19,12 @@ export default function MessagesApp() {
   const [replyText, setReplyText] = useState('');
   const [showDirectory, setShowDirectory] = useState(false);
   const [connectingNPC, setConnectingNPC] = useState<string | null>(null);
+  const [voiceRetryMessageId, setVoiceRetryMessageId] = useState<string | null>(null);
 
   const handleConversationClick = (conv: Conversation) => {
     setSelectedConversation(conv);
     setShowDirectory(false);
+    setVoiceRetryMessageId(null);
     conv.messages.forEach(m => {
       if (!m.read && !m.isFromPlayer) {
         markMessageRead(m.id);
@@ -175,36 +178,65 @@ export default function MessagesApp() {
             </div>
           ) : (
             currentConv.messages.map((msg) => (
-              <div
-                key={msg.id}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', gap: '12px',
-                  flexDirection: msg.isFromPlayer ? 'row-reverse' : 'row',
-                }}
-              >
-                <div style={{
-                  ...avatarStyle,
-                  background: msg.isFromPlayer ? `${NEON_CYAN}20` : msg.from === 'SYSTEM' ? '#ffffff08' : `${NEON_GREEN}20`,
-                  border: `1px solid ${msg.isFromPlayer ? NEON_CYAN : msg.from === 'SYSTEM' ? '#ffffff20' : NEON_GREEN}40`,
-                  width: 28, height: 28,
-                }}>
-                  {msg.from === 'SYSTEM' ? <Zap size={11} color="#ffffff40" /> : <User size={11} />}
-                </div>
-                <div style={{ flex: 1, maxWidth: '72%' }}>
-                  <div style={{ fontSize: '10px', opacity: 0.5, marginBottom: '4px', textAlign: msg.isFromPlayer ? 'right' : 'left' }}>
-                    {msg.isFromPlayer ? 'You' : msg.from} · {formatTime(msg.timestamp)}
+              (() => {
+                const isVoiceFailure = msg.content === VOICE_FAILURE_MARKER;
+                return (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '12px',
+                      flexDirection: msg.isFromPlayer ? 'row-reverse' : 'row',
+                    }}
+                  >
+                    <div style={{
+                      ...avatarStyle,
+                      background: msg.isFromPlayer ? `${NEON_CYAN}20` : msg.from === 'SYSTEM' ? '#ffffff08' : `${isVoiceFailure ? NEON_RED : NEON_GREEN}20`,
+                      border: `1px solid ${msg.isFromPlayer ? NEON_CYAN : msg.from === 'SYSTEM' ? '#ffffff20' : isVoiceFailure ? NEON_RED : NEON_GREEN}40`,
+                      width: 28, height: 28,
+                    }}>
+                      {msg.from === 'SYSTEM' ? <Zap size={11} color="#ffffff40" /> : <User size={11} />}
+                    </div>
+                    <div style={{ flex: 1, maxWidth: '72%' }}>
+                      <div style={{ fontSize: '10px', opacity: 0.5, marginBottom: '4px', textAlign: msg.isFromPlayer ? 'right' : 'left' }}>
+                        {msg.isFromPlayer ? 'You' : msg.from} · {formatTime(msg.timestamp)}
+                      </div>
+                      <div style={{
+                        background: msg.isFromPlayer ? `${NEON_CYAN}15` : msg.from === 'SYSTEM' ? `#ffffff06` : `${isVoiceFailure ? NEON_RED : NEON_GREEN}10`,
+                        border: `1px solid ${msg.isFromPlayer ? NEON_CYAN : msg.from === 'SYSTEM' ? '#ffffff15' : isVoiceFailure ? NEON_RED : NEON_GREEN}30`,
+                        padding: '10px 12px', fontSize: '12px', lineHeight: 1.5,
+                        color: msg.isFromPlayer ? NEON_CYAN : msg.from === 'SYSTEM' ? '#ffffff50' : isVoiceFailure ? NEON_RED : NEON_GREEN,
+                        fontStyle: msg.from === 'SYSTEM' ? 'italic' : 'normal',
+                      }}>
+                        {isVoiceFailure ? (
+                          <>
+                            <div>VOICE RESPONSE FAILED</div>
+                            <div style={{ marginTop: 4, fontSize: 10, opacity: 0.8 }}>
+                              Your voice message was saved. Record it again to retry.
+                            </div>
+                            <button
+                              onClick={() => setVoiceRetryMessageId(msg.id)}
+                              aria-label="Record voice message again"
+                              style={{
+                                marginTop: 8, background: `${NEON_RED}18`,
+                                border: `1px solid ${NEON_RED}70`, color: NEON_RED,
+                                cursor: 'pointer', padding: '4px 8px',
+                                fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+                              }}
+                            >
+                              RETRY
+                            </button>
+                            {voiceRetryMessageId === msg.id && (
+                              <div style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}>
+                                RECORD AGAIN: Use your voice input to record the original message, then submit it to this conversation.
+                              </div>
+                            )}
+                          </>
+                        ) : msg.content}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{
-                    background: msg.isFromPlayer ? `${NEON_CYAN}15` : msg.from === 'SYSTEM' ? `#ffffff06` : `${NEON_GREEN}10`,
-                    border: `1px solid ${msg.isFromPlayer ? NEON_CYAN : msg.from === 'SYSTEM' ? '#ffffff15' : NEON_GREEN}30`,
-                    padding: '10px 12px', fontSize: '12px', lineHeight: 1.5,
-                    color: msg.isFromPlayer ? NEON_CYAN : msg.from === 'SYSTEM' ? '#ffffff50' : NEON_GREEN,
-                    fontStyle: msg.from === 'SYSTEM' ? 'italic' : 'normal',
-                  }}>
-                    {msg.content}
-                  </div>
-                </div>
-              </div>
+                );
+              })()
             ))
           )}
         </div>
