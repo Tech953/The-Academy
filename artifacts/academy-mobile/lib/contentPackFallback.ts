@@ -1,13 +1,15 @@
 import {
   CONTENT_PACK_STORAGE_KEY,
   generateOfflineContentPack,
+  PACK_ACTIVE_EVENT_LIMIT,
   isDisplayableContentPackEvent as isSharedDisplayableContentPackEvent,
+  isUsableContentPack as isSharedUsableContentPack,
 } from "@workspace/game-engine";
 
 import type { ContentPack, ContentPackEvent } from "./api";
 import type { ContentSource } from "./enrichmentStatus";
 
-export const BULLETIN_EVENT_LIMIT = 3;
+export const BULLETIN_EVENT_LIMIT = PACK_ACTIVE_EVENT_LIMIT;
 export { CONTENT_PACK_STORAGE_KEY };
 
 export interface ContentPackStorage {
@@ -19,9 +21,6 @@ export type ContentPackWriteQueue = (
   pack: ContentPack,
   isCurrent: () => boolean,
 ) => Promise<boolean>;
-
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
 
 /**
  * Runtime validation for event records received from the content-pack API.
@@ -58,33 +57,6 @@ function safeHeadlines(value: unknown): string[] {
     : [];
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
-}
-
-function hasUsableMoodShift(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isNonEmptyString(value.npcId) &&
-    isNonEmptyString(value.npcName) &&
-    isNonEmptyString(value.emotionState) &&
-    isNonEmptyString(value.reason)
-  );
-}
-
-function hasUsableFocusArea(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  return (
-    isNonEmptyString(value.subject) &&
-    isNonEmptyString(value.topic) &&
-    isNonEmptyString(value.whyNow)
-  );
-}
-
 /**
  * Validate the complete shape needed by the mobile bulletin and study views.
  * This is intentionally stricter than event-only repair because cached JSON
@@ -94,30 +66,7 @@ export function isUsableContentPack(
   value: unknown,
   now = Date.now(),
 ): value is ContentPack {
-  if (!isRecord(value)) return false;
-
-  const pack = value as Partial<ContentPack>;
-  const events = Array.isArray(pack.activeEvents) ? pack.activeEvents : [];
-  const uniqueEvents = uniqueDisplayableEvents(events);
-
-  return (
-    isNonEmptyString(pack.version) &&
-    isFiniteNumber(pack.generatedAt) &&
-    isFiniteNumber(pack.expiresAt) &&
-    pack.expiresAt > now &&
-    isFiniteNumber(pack.worldSeed) &&
-    isNonEmptyString(pack.weeklyTheme) &&
-    isNonEmptyString(pack.themeContext) &&
-    events.length >= BULLETIN_EVENT_LIMIT &&
-    uniqueEvents.length === events.length &&
-    Array.isArray(pack.npcMoodShifts) &&
-    pack.npcMoodShifts.every(hasUsableMoodShift) &&
-    Array.isArray(pack.gedFocusAreas) &&
-    pack.gedFocusAreas.length > 0 &&
-    pack.gedFocusAreas.every(hasUsableFocusArea) &&
-    (pack.generatedBy === "gpt" || pack.generatedBy === "deterministic")
-    && (pack.eventsRepaired === undefined || typeof pack.eventsRepaired === "boolean")
-  );
+  return isSharedUsableContentPack(value, now);
 }
 
 export function parseCachedContentPack(

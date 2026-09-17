@@ -207,6 +207,104 @@ describe("main API routes", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    {
+      label: "mood metadata",
+      npcMoodShifts: [
+        { npcId: "one", npcName: "One", emotionState: "focused", reason: "" },
+        { npcId: "two", npcName: "Two", emotionState: "happy", reason: "news" },
+        { npcId: "three", npcName: "Three", emotionState: "sad", reason: "rain" },
+        { npcId: "four", npcName: "Four", emotionState: "calm", reason: "rest" },
+      ],
+      gedFocusAreas: [
+        { subject: "math", topic: "Algebra", whyNow: "Practice" },
+        { subject: "science", topic: "Biology", whyNow: "Review" },
+      ],
+    },
+    {
+      label: "GED focus metadata",
+      npcMoodShifts: [
+        { npcId: "one", npcName: "One", emotionState: "focused", reason: "work" },
+        { npcId: "two", npcName: "Two", emotionState: "happy", reason: "news" },
+        { npcId: "three", npcName: "Three", emotionState: "sad", reason: "rain" },
+        { npcId: "four", npcName: "Four", emotionState: "calm", reason: "rest" },
+      ],
+      gedFocusAreas: [
+        { subject: "history", topic: "Algebra", whyNow: "Practice" },
+        { subject: "science", topic: "Biology", whyNow: "Review" },
+      ],
+    },
+  ])("falls back when generated $label is malformed", async ({
+    npcMoodShifts,
+    gedFocusAreas,
+  }) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const create = vi.fn(async () => ({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            themeContext: "A week of tests.",
+            activeEvents: [
+              {
+                id: "valid-event-1",
+                title: "Valid Event One",
+                description: "A valid event.",
+                npcReaction: "I noticed.",
+                playerHook: "Look closer.",
+                category: "academic",
+                durationDays: 3,
+                tags: ["valid"],
+              },
+              {
+                id: "valid-event-2",
+                title: "Valid Event Two",
+                description: "Another valid event.",
+                npcReaction: "That matters.",
+                playerHook: "Take part.",
+                category: "social",
+                durationDays: 2,
+                tags: ["valid"],
+              },
+              {
+                id: "valid-event-3",
+                title: "Valid Event Three",
+                description: "A third valid event.",
+                npcReaction: "I can help.",
+                playerHook: "Join in.",
+                category: "discovery",
+                durationDays: 1,
+                tags: ["valid"],
+              },
+            ],
+            npcMoodShifts,
+            gedFocusAreas,
+          }),
+        },
+      }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+
+    const result = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(result.body.message).toContain("Pack refreshed:");
+    const refreshed = await request(testServer, "/api/content-pack");
+    expect(refreshed.response.status).toBe(200);
+    expect(refreshed.body.generatedBy).toBe("deterministic");
+    expect(refreshed.body.npcMoodShifts).toHaveLength(4);
+    expect(refreshed.body.gedFocusAreas).toHaveLength(2);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it("returns a shaped 404 for a missing character and stops before mutation", async () => {
     const getCharacter = vi.fn(async () => undefined);
     const updateCharacter = vi.fn();

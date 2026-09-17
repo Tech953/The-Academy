@@ -7,12 +7,13 @@ import { processNaturalLanguage, type GameContext } from "../nlp/commandProcesso
 import { calculateGPA, gradeAssignment, getAcademicStanding, numericToLetterGrade, letterGradeToPoints } from "../utils/academicUtils";
 import { generatePhysicalQuestions } from "../ai/characterQuestions";
 import OpenAI from "openai";
-import type { ContentPack } from "../shared/contentPack";
-import { PACK_TTL_MS, currentWeekKey, isPackFresh } from "../shared/contentPack";
 import {
-  isDisplayableContentPackEvent,
-  type PackWorldEvent,
+  isPackFresh,
+  isUsableContentPack,
+  PACK_TTL_MS,
+  currentWeekKey,
 } from "@workspace/game-engine";
+import type { ContentPack } from "@workspace/game-engine";
 import {
   aiLimiter,
   contentPackLimiter,
@@ -43,36 +44,11 @@ const WEEKLY_THEMES = [
   "The gap between what is taught and what is true",
 ];
 
-const contentPackEventSchema = z.unknown()
-  .refine(isDisplayableContentPackEvent, {
-    message: 'Active event is missing a required displayable field',
-  })
-  .transform(value => value as PackWorldEvent);
-const contentPackSchema = z.object({
-  version: z.string().min(1),
-  generatedAt: z.number().finite(),
-  expiresAt: z.number().finite(),
-  worldSeed: z.number().finite(),
-  weeklyTheme: z.string().min(1),
-  themeContext: z.string().min(1),
-  activeEvents: z.array(contentPackEventSchema).length(3),
-  npcMoodShifts: z.array(z.object({
-    npcId: z.string().min(1),
-    npcName: z.string().min(1),
-    emotionState: z.string().min(1),
-    reason: z.string().min(1),
-  })).length(4),
-  gedFocusAreas: z.array(z.object({
-    subject: z.string().min(1),
-    topic: z.string().min(1),
-    whyNow: z.string().min(1),
-  })).length(2),
-  generatedBy: z.enum(['gpt', 'deterministic']),
-  rssHeadlines: z.array(z.string().min(1)).optional(),
-});
-
 function validateContentPack(pack: unknown): ContentPack {
-  return contentPackSchema.parse(pack) as ContentPack;
+  if (!isUsableContentPack(pack)) {
+    throw new Error('Content pack failed the shared runtime contract');
+  }
+  return pack;
 }
 
 // ─── RSS Headline Fetcher (Phase 4: RSS → World Pipeline) ────────

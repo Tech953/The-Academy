@@ -38,6 +38,7 @@ import {
   ensureUsableContentPack,
   fallbackAfterRefreshFailure,
   isDisplayableContentPackEvent,
+  isUsableContentPack,
   parseCachedContentPack,
   readCachedContentPack,
   resolveContentPackRefresh,
@@ -646,6 +647,7 @@ describe('generateOfflineContentPack() — valid pack with no network', () => {
     expect(Array.isArray(pack.activeEvents)).toBe(true);
     expect(Array.isArray(pack.gedFocusAreas)).toBe(true);
     expect(pack.gedFocusAreas.length).toBeGreaterThan(0);
+    expect(isUsableContentPack(pack, pack.generatedAt + 1)).toBe(true);
   });
 
   it('active events have all required ContentPackEvent fields', () => {
@@ -682,6 +684,70 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       generatedBy: 'gpt',
     };
   }
+
+  it('accepts every field in a server-approved pack', () => {
+    const serverPack: ContentPack = {
+      ...generateOfflineContentPack(day),
+      version: 'pack-server-approved',
+      generatedBy: 'gpt',
+      eventsRepaired: false,
+    };
+
+    expect(isUsableContentPack(serverPack, serverPack.generatedAt + 1)).toBe(true);
+  });
+
+  it.each([
+    {
+      label: 'mood shift',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        npcMoodShifts: pack.npcMoodShifts.map((mood, index) =>
+          index === 0 ? { ...mood, reason: '' } : mood,
+        ),
+      }),
+    },
+    {
+      label: 'GED focus area',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        gedFocusAreas: pack.gedFocusAreas.map((focus, index) =>
+          index === 0 ? { ...focus, subject: 'history' } : focus,
+        ),
+      }),
+    },
+    {
+      label: 'expiry',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        expiresAt: pack.generatedAt,
+      }),
+    },
+  ])('rejects malformed $label metadata before it can be cached', async ({ mutate }) => {
+    const malformedPack = mutate(basePack());
+    const now = malformedPack.generatedAt + 1;
+
+    expect(isUsableContentPack(malformedPack, now)).toBe(false);
+    await expect(
+      resolveContentPackRefresh(async () => malformedPack, null, day),
+    ).resolves.toMatchObject({
+      source: 'offline',
+      pack: { generatedBy: 'deterministic' },
+    });
+  });
+
+  it('rejects duplicate event IDs in the shared contract while repairing them for display', () => {
+    const pack = basePack();
+    const duplicatePack = {
+      ...pack,
+      activeEvents: [pack.activeEvents[0], pack.activeEvents[0], pack.activeEvents[2]],
+    };
+
+    expect(isUsableContentPack(duplicatePack, pack.generatedAt + 1)).toBe(false);
+    const repaired = ensureUsableContentPack(duplicatePack, day);
+    expect(repaired.eventsRepaired).toBe(true);
+    expect(new Set(repaired.activeEvents.map(event => event.id)).size)
+      .toBe(BULLETIN_EVENT_LIMIT);
+  });
 
   function expectDisplayableUniqueBulletin(events: unknown[]) {
     expect(events).toHaveLength(BULLETIN_EVENT_LIMIT);

@@ -79,6 +79,18 @@ export interface ContentPack {
   eventsRepaired?: boolean;  // True when malformed/missing remote events were replaced offline
 }
 
+export const PACK_ACTIVE_EVENT_LIMIT = 3;
+export const PACK_NPC_MOOD_LIMIT = 4;
+export const PACK_GED_FOCUS_LIMIT = 2;
+
+const PACK_GED_SUBJECTS = new Set([
+  'math',
+  'math_reasoning',
+  'language_arts',
+  'science',
+  'social_studies',
+]);
+
 /** One week in milliseconds */
 export const PACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -87,6 +99,101 @@ export const CONTENT_PACK_STORAGE_KEY = 'academy-content-pack-v1';
 
 /** API endpoint */
 export const CONTENT_PACK_ENDPOINT = '/api/content-pack';
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const normalizedIdentity = (value: string): string =>
+  value.trim().toLowerCase();
+
+export function isDisplayablePackNpcMood(
+  value: unknown,
+): value is PackNpcMood {
+  if (!value || typeof value !== 'object') return false;
+
+  const mood = value as Partial<PackNpcMood>;
+  return (
+    isNonEmptyString(mood.npcId) &&
+    isNonEmptyString(mood.npcName) &&
+    isNonEmptyString(mood.emotionState) &&
+    isNonEmptyString(mood.reason)
+  );
+}
+
+export function isDisplayablePackGEDFocus(
+  value: unknown,
+): value is PackGEDFocus {
+  if (!value || typeof value !== 'object') return false;
+
+  const focus = value as Partial<PackGEDFocus>;
+  const normalizedSubject =
+    typeof focus.subject === 'string'
+      ? focus.subject.trim().toLowerCase().replace(/[-\s]+/g, '_')
+      : '';
+  return (
+    PACK_GED_SUBJECTS.has(normalizedSubject) &&
+    isNonEmptyString(focus.topic) &&
+    isNonEmptyString(focus.whyNow)
+  );
+}
+
+function hasUniqueIdentities(
+  values: readonly string[],
+): boolean {
+  const identities = values.map(normalizedIdentity);
+  return new Set(identities).size === identities.length;
+}
+
+/**
+ * Shared runtime contract for content packs crossing the API/cache boundary.
+ *
+ * The server uses this before caching or returning generated data, while
+ * mobile uses it before accepting remote or persisted JSON. Keep this stricter
+ * than the TypeScript interfaces: both callers receive untrusted runtime data.
+ */
+export function isUsableContentPack(
+  value: unknown,
+  now = Date.now(),
+): value is ContentPack {
+  if (!value || typeof value !== 'object') return false;
+
+  const pack = value as Partial<ContentPack>;
+  const events = pack.activeEvents;
+  const moods = pack.npcMoodShifts;
+  const focusAreas = pack.gedFocusAreas;
+
+  if (
+    !isNonEmptyString(pack.version) ||
+    !isFiniteNumber(pack.generatedAt) ||
+    !isFiniteNumber(pack.expiresAt) ||
+    pack.expiresAt <= pack.generatedAt ||
+    pack.expiresAt <= now ||
+    !isFiniteNumber(pack.worldSeed) ||
+    !isNonEmptyString(pack.weeklyTheme) ||
+    !isNonEmptyString(pack.themeContext) ||
+    !Array.isArray(events) ||
+    events.length !== PACK_ACTIVE_EVENT_LIMIT ||
+    !events.every(isDisplayableContentPackEvent) ||
+    !hasUniqueIdentities(events.map(event => event.id)) ||
+    !Array.isArray(moods) ||
+    moods.length !== PACK_NPC_MOOD_LIMIT ||
+    !moods.every(isDisplayablePackNpcMood) ||
+    !hasUniqueIdentities(moods.map(mood => mood.npcId)) ||
+    !Array.isArray(focusAreas) ||
+    focusAreas.length !== PACK_GED_FOCUS_LIMIT ||
+    !focusAreas.every(isDisplayablePackGEDFocus) ||
+    (pack.generatedBy !== 'gpt' && pack.generatedBy !== 'deterministic') ||
+    (pack.rssHeadlines !== undefined &&
+      (!Array.isArray(pack.rssHeadlines) ||
+        !pack.rssHeadlines.every(isNonEmptyString))) ||
+    (pack.eventsRepaired !== undefined &&
+      typeof pack.eventsRepaired !== 'boolean')
+  ) {
+    return false;
+  }
+
+  return true;
+}
 
 /** Is a pack still valid (not expired)? */
 export function isPackFresh(pack: ContentPack): boolean {

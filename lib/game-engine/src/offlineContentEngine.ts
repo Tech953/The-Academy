@@ -715,7 +715,32 @@ export function generateOfflineContentPack(day: number, headlines: string[] = []
     weeklyTheme: theme,
     themeContext: `Week ${week} at the Academy: ${theme.toLowerCase()}. Faculty and students alike are feeling the shift.`,
     activeEvents,
-    npcMoodShifts: [],
+    npcMoodShifts: [
+      {
+        npcId: 'the-scholar',
+        npcName: 'The Scholar',
+        emotionState: 'focused',
+        reason: 'a breakthrough in their research',
+      },
+      {
+        npcId: 'the-rebel',
+        npcName: 'The Rebel',
+        emotionState: 'anxious',
+        reason: 'consequences catching up to recent choices',
+      },
+      {
+        npcId: 'the-mentor',
+        npcName: 'The Mentor',
+        emotionState: 'focused',
+        reason: 'preparing someone for an important moment',
+      },
+      {
+        npcId: 'the-optimist',
+        npcName: 'The Optimist',
+        emotionState: 'happy',
+        reason: 'genuine good news they have not shared yet',
+      },
+    ],
     gedFocusAreas,
     generatedBy: 'deterministic',
     eventsRepaired: false,
