@@ -33,6 +33,7 @@ afterEach(async () => {
 
 async function startApp(register: (app: Express) => void | Promise<void>): Promise<TestServer> {
   const app = express();
+  app.set("trust proxy", 1);
   app.use(express.json());
   await register(app);
 
@@ -120,6 +121,22 @@ function makeChatOpenAI(create: ReturnType<typeof vi.fn>) {
   return {
     chat: { completions: { create } },
   } as unknown as Pick<OpenAI, "chat">;
+}
+
+function expectBlockedRateLimitHeaders(
+  response: Response,
+  limit: string,
+  windowSeconds: number,
+) {
+  expect(response.status).toBe(429);
+  expect(response.headers.get("ratelimit-limit")).toBe(limit);
+  expect(response.headers.get("ratelimit-remaining")).toBe("0");
+  expect(response.headers.get("ratelimit-policy")).toBe(`${limit};w=${windowSeconds}`);
+  expect(response.headers.get("ratelimit-reset")).toMatch(/^\d+$/);
+  expect(response.headers.get("retry-after")).toMatch(/^\d+$/);
+  expect(response.headers.get("x-ratelimit-limit")).toBeNull();
+  expect(response.headers.get("x-ratelimit-remaining")).toBeNull();
+  expect(response.headers.get("x-ratelimit-reset")).toBeNull();
 }
 
 describe("main API routes", () => {
@@ -420,6 +437,70 @@ describe("main API routes", () => {
     expect(result.response.status).toBe(200);
     expect(result.body).toEqual({ description: "A quiet room of lamps and old maps." });
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes retry metadata when the AI limiter blocks a client", async () => {
+    const create = vi.fn(async () => ({
+      choices: [{ message: { content: "A quiet room of lamps and old maps." } }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+    const headers = {
+      "content-type": "application/json",
+      "x-forwarded-for": "198.51.100.110",
+    };
+
+    for (let requestNumber = 0; requestNumber < 30; requestNumber += 1) {
+      const result = await request(testServer, "/api/ai/describe", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ type: "location", locationName: "Library" }),
+      });
+      expect(result.response.status).toBe(200);
+    }
+
+    const blocked = await request(testServer, "/api/ai/describe", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ type: "location", locationName: "Library" }),
+    });
+    expectBlockedRateLimitHeaders(blocked.response, "30", 900);
+    expect(create).toHaveBeenCalledTimes(30);
+  });
+
+  it("exposes retry metadata when the content-pack limiter blocks a client", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const create = vi.fn(async () => ({ choices: [] }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+    const headers = {
+      "x-forwarded-for": "198.51.100.111",
+    };
+
+    for (let requestNumber = 0; requestNumber < 10; requestNumber += 1) {
+      const result = await request(testServer, "/api/content-pack/refresh", {
+        method: "POST",
+        headers,
+      });
+      expect(result.response.status).toBe(200);
+    }
+
+    const blocked = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+      headers,
+    });
+    expectBlockedRateLimitHeaders(blocked.response, "10", 3600);
+    expect(create).toHaveBeenCalledTimes(10);
   });
 });
 
