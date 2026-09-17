@@ -10,6 +10,10 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import {
+  BULLETIN_REPAIR_ACCESSIBILITY_LABEL,
+  getBulletinRepairAccessibility,
+} from "../lib/bulletinAccessibility";
 
 const {
   getReleaseDomain,
@@ -181,6 +185,21 @@ const nativeHandoffPath = path.resolve(
   "../scripts/native-handoff.js",
 );
 const checkReleasePath = path.resolve(__dirname, "../scripts/check-release.js");
+
+describe("bulletin repair accessibility", () => {
+  it("announces the repaired state with a concise polite text cue", () => {
+    expect(getBulletinRepairAccessibility(true)).toEqual({
+      accessible: true,
+      accessibilityRole: "text",
+      accessibilityLabel: BULLETIN_REPAIR_ACCESSIBILITY_LABEL,
+      accessibilityLiveRegion: "polite",
+    });
+  });
+
+  it("omits the cue from accessibility output for a fully remote bulletin", () => {
+    expect(getBulletinRepairAccessibility(false)).toBeNull();
+  });
+});
 
 function createNativeHandoffSubprocessFixture() {
   const fixtureDirectory = mkdtempSync(
