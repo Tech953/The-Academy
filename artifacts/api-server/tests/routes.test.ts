@@ -1025,6 +1025,75 @@ describe("chat, image, and audio integration routes", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("completes a normal voice stream without aborting the provider on response close", async () => {
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
+      id: role === "user" ? 1 : 2,
+      conversationId,
+      role,
+      content,
+      createdAt: new Date(),
+    }));
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => "User transcript");
+    let providerSignal: AbortSignal | undefined;
+    const create = vi.fn(async (
+      _params: Record<string, unknown>,
+      options: { signal?: AbortSignal },
+    ) => {
+      providerSignal = options.signal;
+      return (async function* () {
+        yield {
+          choices: [{
+            delta: {
+              audio: {
+                transcript: "Normal reply",
+                data: "encoded-audio",
+              },
+            },
+          }],
+        };
+      })();
+    });
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({
+          createMessage,
+          getMessagesByConversation: vi.fn(async () => []),
+        }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const result = await request(testServer, "/api/conversations/7/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ audio: Buffer.from("audio").toString("base64") }),
+    });
+    const events = result.text
+      .trim()
+      .split("\n\n")
+      .map(event => JSON.parse(event.replace(/^data: /, "")));
+
+    await new Promise<void>(resolve => setImmediate(resolve));
+
+    expect(result.response.status).toBe(200);
+    expect(events).toEqual([
+      { type: "user_transcript", data: "User transcript" },
+      { type: "transcript", data: "Normal reply" },
+      { type: "audio", data: "encoded-audio" },
+      { type: "done", transcript: "Normal reply" },
+    ]);
+    expect(providerSignal).toBeDefined();
+    expect(providerSignal?.aborted).toBe(false);
+    expect(createMessage).toHaveBeenNthCalledWith(1, 7, "user", "User transcript");
+    expect(createMessage).toHaveBeenNthCalledWith(2, 7, "assistant", "Normal reply");
+  });
+
   it("aborts format conversion and skips transcription when the client disconnects early", async () => {
     const createMessage = vi.fn();
     const create = vi.fn();
