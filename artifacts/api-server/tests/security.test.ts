@@ -4,9 +4,11 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import router from "../src/routes";
 import { registerRoutes } from "../src/routes/routes";
+import { logger } from "../src/lib/logger";
 import {
   apiLimiter,
   BoundedMemoryStore,
+  RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS,
   normalizeRateLimitIp,
   rateLimitKeyGenerator,
   shouldUseSharedRateLimitStore,
@@ -102,6 +104,51 @@ describe("forwarded-client rate limiting", () => {
       expect(await store.get("second-client")).toBeUndefined();
       expect(await store.get("third-client")).toBeUndefined();
     } finally {
+      store.shutdown();
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports bounded-store pressure without logging normal traffic or every eviction", async () => {
+    vi.useFakeTimers();
+    const warning = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    const store = new BoundedMemoryStore(2);
+    store.init({ windowMs: 120_000 } as Parameters<NonNullable<typeof store.init>>[0]);
+
+    try {
+      await store.increment("first-client");
+      await store.increment("second-client");
+      expect(store.getStats()).toEqual({
+        activeKeys: 2,
+        maxKeys: 2,
+        capacityPressureEvents: 0,
+        evictionCount: 0,
+      });
+      expect(warning).not.toHaveBeenCalled();
+
+      await store.increment("third-client");
+      await store.increment("fourth-client");
+      expect(store.getStats()).toEqual({
+        activeKeys: 2,
+        maxKeys: 2,
+        capacityPressureEvents: 2,
+        evictionCount: 2,
+      });
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning.mock.calls[0]?.[0]).toMatchObject({
+        store: "bounded-memory-rate-limit",
+        maxKeys: 2,
+        activeKeys: 1,
+        capacityPressureEvents: 1,
+        evictionCount: 1,
+      });
+
+      vi.advanceTimersByTime(RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS + 1);
+      await store.increment("fifth-client");
+      expect(store.getStats().evictionCount).toBe(3);
+      expect(warning).toHaveBeenCalledTimes(2);
+    } finally {
+      warning.mockRestore();
       store.shutdown();
       vi.useRealTimers();
     }

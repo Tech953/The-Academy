@@ -7,6 +7,7 @@ import rateLimit, {
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 import { isIP } from 'node:net';
+import { logger } from '../lib/logger';
 
 export const SPECIALIZED_ROUTE_POLICY = {
   nlpProcess: {
@@ -74,9 +75,16 @@ export function rateLimitKeyGenerator(req: RateLimitRequest): string {
 }
 
 export const RATE_LIMIT_STORE_MAX_KEYS = 10_000;
+export const RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS = 60_000;
 const RATE_LIMIT_TABLE = 'academy_rate_limit_clients';
 
 type StoredClient = ClientRateLimitInfo;
+export interface BoundedMemoryStoreStats {
+  activeKeys: number;
+  maxKeys: number;
+  capacityPressureEvents: number;
+  evictionCount: number;
+}
 type RateLimitEnvironment = Partial<
   Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'DATABASE_URL'>
 >;
@@ -108,6 +116,9 @@ export class BoundedMemoryStore implements Store {
   private readonly clients = new Map<string, StoredClient>();
   private windowMs = 60_000;
   private interval?: NodeJS.Timeout;
+  private capacityPressureEvents = 0;
+  private evictionCount = 0;
+  private lastCapacityLogAt: number | null = null;
 
   readonly localKeys = true;
 
@@ -122,6 +133,15 @@ export class BoundedMemoryStore implements Store {
     if (this.interval) clearInterval(this.interval);
     this.interval = setInterval(() => this.pruneExpired(), this.windowMs);
     this.interval.unref?.();
+  }
+
+  getStats(): BoundedMemoryStoreStats {
+    return {
+      activeKeys: this.clients.size,
+      maxKeys: this.maxKeys,
+      capacityPressureEvents: this.capacityPressureEvents,
+      evictionCount: this.evictionCount,
+    };
   }
 
   get(key: string): StoredClient | undefined {
@@ -146,10 +166,17 @@ export class BoundedMemoryStore implements Store {
 
     if (!client) {
       this.pruneExpired(now);
+      let evictions = 0;
       while (this.clients.size >= this.maxKeys) {
         const oldestKey = this.clients.keys().next().value as string | undefined;
         if (oldestKey === undefined) break;
         this.clients.delete(oldestKey);
+        evictions += 1;
+      }
+      if (evictions > 0) {
+        this.capacityPressureEvents += 1;
+        this.evictionCount += evictions;
+        this.logCapacityPressure(now);
       }
       client = {
         totalHits: 0,
@@ -195,6 +222,27 @@ export class BoundedMemoryStore implements Store {
         this.clients.delete(key);
       }
     }
+  }
+
+  private logCapacityPressure(now: number): void {
+    if (
+      this.lastCapacityLogAt !== null &&
+      now - this.lastCapacityLogAt < RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    this.lastCapacityLogAt = now;
+    logger.warn(
+      {
+        store: 'bounded-memory-rate-limit',
+        maxKeys: this.maxKeys,
+        activeKeys: this.clients.size,
+        capacityPressureEvents: this.capacityPressureEvents,
+        evictionCount: this.evictionCount,
+      },
+      'Rate-limit store capacity pressure; evicting least-recently-used identities',
+    );
   }
 }
 
