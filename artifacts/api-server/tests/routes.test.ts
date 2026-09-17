@@ -723,6 +723,23 @@ describe("RSS and URL metadata routes", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("rejects HTTP RSS feeds before fetching", async () => {
+    const upstreamFetch = vi.fn();
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      `/api/rss?url=${encodeURIComponent("http://www.nasa.gov/feed.xml")}`,
+    );
+
+    expect(result.response.status).toBe(403);
+    expect(result.body).toEqual({ error: "feed must use https" });
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
   it("validates each trusted RSS redirect before following it", async () => {
     const initialUrl = "https://nasa.gov/feed.xml";
     const redirectedUrl = "https://www.nasa.gov/feed.xml";
@@ -770,7 +787,7 @@ describe("RSS and URL metadata routes", () => {
       if (url === initialUrl) {
         return new Response(null, {
           status: 302,
-          headers: { location: "https://nasa.gov.evil.example/feed.xml" },
+          headers: { location: "http://www.nasa.gov/feed.xml" },
         });
       }
       throw new Error("final target must not be fetched");

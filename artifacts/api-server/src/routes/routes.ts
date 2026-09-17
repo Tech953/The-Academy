@@ -68,7 +68,7 @@ const RSS_MAX_REDIRECTS = 3;
 function isAllowedRssUrl(feedUrl: string): boolean {
   try {
     const parsed = new URL(feedUrl);
-    return RSS_ALLOWED_DOMAINS.some(
+    return parsed.protocol === 'https:' && RSS_ALLOWED_DOMAINS.some(
       domain => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`),
     );
   } catch {
@@ -1220,6 +1220,11 @@ Write a 2–3 sentence examine description for this object that is immersive and
       return;
     }
     try {
+      const parsed = new URL(feedUrl);
+      if (parsed.protocol !== "https:") {
+        res.status(403).json({ error: "feed must use https" });
+        return;
+      }
       if (!isAllowedRssUrl(feedUrl)) {
         res.status(403).json({ error: "feed domain not allowed" });
         return;
