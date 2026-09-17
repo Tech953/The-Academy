@@ -9,12 +9,15 @@ import React, {
   useState,
 } from "react";
 
-import type { EmotionState, RelationshipTier } from "@workspace/game-engine";
+import type {
+  ContentPack,
+  EmotionState,
+  RelationshipTier,
+} from "@workspace/game-engine";
 import { LOCATIONS, NPCS, STARTING_LOCATION, type LocationId } from "@workspace/game-engine";
 import {
   fetchContentPack,
   hasApiConfig,
-  type ContentPack,
 } from "@/lib/api";
 import {
   resolveLocationDescription,

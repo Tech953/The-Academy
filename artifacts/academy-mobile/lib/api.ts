@@ -9,6 +9,15 @@
  * GameContext can transparently fall back to the offline content engine.
  */
 
+import type { ContentPack } from "@workspace/game-engine";
+export type {
+  ContentPack,
+  ContentPackEvent,
+  PackGEDFocus,
+  PackNpcMood,
+  PackWorldEvent,
+} from "@workspace/game-engine";
+
 const REQUEST_TIMEOUT_MS = 9000;
 
 /**
@@ -137,37 +146,6 @@ export async function fetchNpcDialogue(
     conversationHistory: params.conversationHistory,
   });
   return data.response;
-}
-
-export interface ContentPackEvent {
-  id: string;
-  title: string;
-  description: string;
-  npcReaction: string;
-  playerHook: string;
-  category: string;
-  durationDays: number;
-  tags: string[];
-}
-
-export interface ContentPack {
-  version: string;
-  generatedAt: number;
-  expiresAt: number;
-  worldSeed: number;
-  weeklyTheme: string;
-  themeContext: string;
-  activeEvents: ContentPackEvent[];
-  npcMoodShifts: Array<{
-    npcId: string;
-    npcName: string;
-    emotionState: string;
-    reason: string;
-  }>;
-  gedFocusAreas: Array<{ subject: string; topic: string; whyNow: string }>;
-  generatedBy: "gpt" | "deterministic";
-  rssHeadlines?: string[];
-  eventsRepaired?: boolean;
 }
 
 export async function fetchContentPack(): Promise<ContentPack> {

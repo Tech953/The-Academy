@@ -6,7 +6,7 @@ import {
   isUsableContentPack as isSharedUsableContentPack,
 } from "@workspace/game-engine";
 
-import type { ContentPack, ContentPackEvent } from "./api";
+import type { ContentPack, ContentPackEvent } from "@workspace/game-engine";
 import type { ContentSource } from "./enrichmentStatus";
 
 export const BULLETIN_EVENT_LIMIT = PACK_ACTIVE_EVENT_LIMIT;

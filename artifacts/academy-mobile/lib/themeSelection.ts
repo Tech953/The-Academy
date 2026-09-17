@@ -1,6 +1,6 @@
 import { generateOfflineContentPack } from "@workspace/game-engine";
 
-import type { ContentPack } from "./api";
+import type { ContentPack } from "@workspace/game-engine";
 
 /**
  * Keep the theme cue usable while a remote pack is still loading, then let a

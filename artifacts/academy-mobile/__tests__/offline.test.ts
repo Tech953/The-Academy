@@ -66,8 +66,9 @@ import {
   assertValidEventTemplates,
   type WorldEventTemplate,
   type OfflineWorldEvent,
+  type ContentPack,
+  type ContentPackEvent,
 } from '@workspace/game-engine';
-import type { ContentPack, ContentPackEvent } from '../lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared NPC dialogue params fixture
