@@ -1,10 +1,12 @@
 import rateLimit, {
+  ipKeyGenerator,
   type ClientRateLimitInfo,
   type Options,
   type Store,
 } from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
+import { isIP } from 'node:net';
 
 export const SPECIALIZED_API_PATHS = {
   nlpProcess: '/nlp/process',
@@ -24,6 +26,15 @@ const GENERAL_LIMIT_EXEMPT_PATHS = new Set([
 
 export function shouldSkipGeneralApiLimit(req: Pick<Request, 'path'>): boolean {
   return GENERAL_LIMIT_EXEMPT_PATHS.has(req.path);
+}
+
+export function normalizeRateLimitIp(ip: string): string {
+  const mappedIpv4 = ip.match(/^::ffff:(.+)$/i)?.[1];
+  return mappedIpv4 && isIP(mappedIpv4) === 4 ? mappedIpv4 : ip;
+}
+
+export function rateLimitKeyGenerator(req: Pick<Request, 'ip'>): string {
+  return ipKeyGenerator(normalizeRateLimitIp(req.ip ?? 'unknown'));
 }
 
 export const RATE_LIMIT_STORE_MAX_KEYS = 10_000;
@@ -134,6 +145,7 @@ export const apiLimiter = rateLimit({
   max: 200,
   store: new BoundedMemoryStore(),
   skip: shouldSkipGeneralApiLimit,
+  keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests — please try again in a few minutes.' },
@@ -143,6 +155,7 @@ export const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   store: new BoundedMemoryStore(),
+  keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'AI request limit reached. Please wait before sending more AI requests.' },
@@ -152,6 +165,7 @@ export const contentPackLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
   store: new BoundedMemoryStore(),
+  keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Content pack refresh limit reached. Packs refresh automatically each week.' },

@@ -7,6 +7,8 @@ import { registerRoutes } from "../src/routes/routes";
 import {
   apiLimiter,
   BoundedMemoryStore,
+  normalizeRateLimitIp,
+  rateLimitKeyGenerator,
   SPECIALIZED_LIMITED_PATHS,
   shouldSkipGeneralApiLimit,
 } from "../src/middleware/security";
@@ -105,6 +107,27 @@ describe("forwarded-client rate limiting", () => {
     expect(blockedRequest.headers.get("x-ratelimit-remaining")).toBeNull();
     expect(blockedRequest.headers.get("x-ratelimit-reset")).toBeNull();
     expect((await request(testServer, "203.0.113.11")).status).toBe(200);
+  });
+
+  it("shares quota between IPv4 and its IPv4-mapped IPv6 identity", async () => {
+    const testServer = await startRateLimitedServer();
+    const ipv4 = "198.51.100.50";
+    const mappedIpv4 = "::ffff:198.51.100.50";
+    const distinctMappedIpv4 = "::ffff:198.51.100.51";
+
+    expect(normalizeRateLimitIp(mappedIpv4)).toBe(ipv4);
+    expect(normalizeRateLimitIp(distinctMappedIpv4)).toBe("198.51.100.51");
+    expect(normalizeRateLimitIp("2001:db8:10::10")).toBe("2001:db8:10::10");
+    expect(
+      rateLimitKeyGenerator({ ip: ipv4 }),
+    ).toBe(rateLimitKeyGenerator({ ip: mappedIpv4 }));
+
+    for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
+      expect((await request(testServer, ipv4)).status).toBe(200);
+    }
+
+    expect((await request(testServer, mappedIpv4)).status).toBe(429);
+    expect((await request(testServer, distinctMappedIpv4)).status).toBe(200);
   });
 
   it("keeps IPv6 forwarded clients isolated from one another", async () => {
