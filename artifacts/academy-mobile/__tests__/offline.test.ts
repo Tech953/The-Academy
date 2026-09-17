@@ -1029,25 +1029,35 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     });
   });
 
-  it('returns a diagnostic failure while keeping the write queue usable', async () => {
+  it('recovers a newer write after an older storage operation rejects', async () => {
+    const values = new Map<string, string>();
+    let shouldReject = true;
     const storage = {
-      getItem: async () => null,
-      setItem: async () => {
-        throw new Error('storage unavailable');
+      getItem: async (key: string) => values.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        if (shouldReject) {
+          shouldReject = false;
+          throw new Error('storage unavailable');
+        }
+        values.set(key, value);
       },
     };
     const writeQueue = createContentPackWriteQueueWithResult(storage);
-    const pack = generateOfflineContentPack(day);
+    const oldPack = { ...generateOfflineContentPack(day), version: 'pack-old' };
+    const newPack = { ...generateOfflineContentPack(day), version: 'pack-new' };
 
-    await expect(writeQueue(pack, () => true)).resolves.toEqual({
+    await expect(writeQueue(oldPack, () => true)).resolves.toEqual({
       status: 'failed',
       reason: 'storage',
     });
     expect(
       getContentPackStorageStatus(
-        await writeQueue(pack, () => true),
+        await writeQueue(newPack, () => true),
       ),
-    ).toBe('write-failed');
+    ).toBe('stored');
+    await expect(readCachedContentPack(storage)).resolves.toMatchObject({
+      version: 'pack-new',
+    });
   });
 });
 
