@@ -10,6 +10,7 @@ import {
   normalizeRateLimitIp,
   rateLimitKeyGenerator,
   SPECIALIZED_LIMITED_PATHS,
+  SPECIALIZED_ROUTE_POLICY,
   shouldSkipGeneralApiLimit,
 } from "../src/middleware/security";
 import type { IStorage } from "../src/storage";
@@ -201,6 +202,11 @@ describe("forwarded-client rate limiting", () => {
   });
 
   it("skips health and specialized routes from the general quota", () => {
+    const policyEntries = Object.values(SPECIALIZED_ROUTE_POLICY);
+    expect(policyEntries.map(entry => entry.path)).toEqual(SPECIALIZED_LIMITED_PATHS);
+    expect(policyEntries.every(entry => entry.quotaBoundary.length > 0)).toBe(true);
+    expect(policyEntries.filter(entry => entry.limiterFamily === "ai")).toHaveLength(5);
+    expect(policyEntries.filter(entry => entry.limiterFamily === "content-pack")).toHaveLength(1);
     expect(shouldSkipGeneralApiLimit({ path: "/api/healthz" })).toBe(false);
     expect(shouldSkipGeneralApiLimit({ path: "/healthz" })).toBe(true);
     expect(shouldSkipGeneralApiLimit({ path: "/ai/describe" })).toBe(true);

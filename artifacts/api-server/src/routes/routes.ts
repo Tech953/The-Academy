@@ -17,7 +17,7 @@ import type { ContentPack } from "@workspace/game-engine";
 import {
   aiLimiter,
   contentPackLimiter,
-  SPECIALIZED_API_PATHS,
+  SPECIALIZED_ROUTE_POLICY,
 } from "../middleware/security";
 
 const defaultOpenai = new OpenAI({
@@ -488,7 +488,7 @@ export async function registerRoutes(
   });
 
   // Natural Language Processing route
-  app.post(`/api${SPECIALIZED_API_PATHS.nlpProcess}`, aiLimiter, async (req, res) => {
+  app.post(`/api${SPECIALIZED_ROUTE_POLICY.nlpProcess.path}`, aiLimiter, async (req, res) => {
     try {
       const { input, context } = req.body;
       
@@ -529,7 +529,7 @@ export async function registerRoutes(
   });
 
   // AI-enhanced description engine — education-aware narrative flavor
-  app.post(`/api${SPECIALIZED_API_PATHS.aiDescribe}`, aiLimiter, async (req, res) => {
+  app.post(`/api${SPECIALIZED_ROUTE_POLICY.aiDescribe.path}`, aiLimiter, async (req, res) => {
     try {
       const {
         type,           // 'location' | 'examine'
@@ -615,7 +615,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   // Character creation AI - Generate physical characteristic questions
-  app.post(`/api${SPECIALIZED_API_PATHS.characterQuestions}`, aiLimiter, async (req, res) => {
+  app.post(`/api${SPECIALIZED_ROUTE_POLICY.characterQuestions.path}`, aiLimiter, async (req, res) => {
     try {
       const { characterSummary } = req.body;
       
@@ -1079,7 +1079,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   // NPC Dialogue endpoint - AI-powered contextual responses
-  app.post(`/api${SPECIALIZED_API_PATHS.npcDialogue}`, aiLimiter, async (req, res) => {
+  app.post(`/api${SPECIALIZED_ROUTE_POLICY.npcDialogue.path}`, aiLimiter, async (req, res) => {
     try {
       const {
         npcName, npcTitle, playerMessage, conversationHistory,
@@ -1133,7 +1133,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
     }
   });
 
-  app.post(`/api${SPECIALIZED_API_PATHS.memoryVisualization}`, aiLimiter, async (req, res) => {
+  app.post(`/api${SPECIALIZED_ROUTE_POLICY.memoryVisualization.path}`, aiLimiter, async (req, res) => {
     try {
       const { memoryId, prompt } = req.body;
       if (!prompt || typeof prompt !== 'string') {
@@ -1248,7 +1248,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
   });
 
   // POST: force a fresh pack generation (admin use)
-  app.post(`/api${SPECIALIZED_API_PATHS.contentPackRefresh}`, contentPackLimiter, async (_req, res) => {
+  app.post(`/api${SPECIALIZED_ROUTE_POLICY.contentPackRefresh.path}`, contentPackLimiter, async (_req, res) => {
     try {
       cachedContentPack = null;
       const pack = await generateWeeklyContentPack(openai);

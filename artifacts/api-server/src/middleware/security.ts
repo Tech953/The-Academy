@@ -8,16 +8,42 @@ import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 import { isIP } from 'node:net';
 
-export const SPECIALIZED_API_PATHS = {
-  nlpProcess: '/nlp/process',
-  aiDescribe: '/ai/describe',
-  characterQuestions: '/character-creation/generate-questions',
-  npcDialogue: '/npc-dialogue',
-  memoryVisualization: '/memories/visualize',
-  contentPackRefresh: '/content-pack/refresh',
+export const SPECIALIZED_ROUTE_POLICY = {
+  nlpProcess: {
+    path: '/nlp/process',
+    limiterFamily: 'ai',
+    quotaBoundary: 'per-client AI requests',
+  },
+  aiDescribe: {
+    path: '/ai/describe',
+    limiterFamily: 'ai',
+    quotaBoundary: 'per-client AI requests',
+  },
+  characterQuestions: {
+    path: '/character-creation/generate-questions',
+    limiterFamily: 'ai',
+    quotaBoundary: 'per-client AI requests',
+  },
+  npcDialogue: {
+    path: '/npc-dialogue',
+    limiterFamily: 'ai',
+    quotaBoundary: 'per-client AI requests',
+  },
+  memoryVisualization: {
+    path: '/memories/visualize',
+    limiterFamily: 'ai',
+    quotaBoundary: 'per-client AI requests',
+  },
+  contentPackRefresh: {
+    path: '/content-pack/refresh',
+    limiterFamily: 'content-pack',
+    quotaBoundary: 'per-client content-pack refreshes',
+  },
 } as const;
 
-export const SPECIALIZED_LIMITED_PATHS = Object.values(SPECIALIZED_API_PATHS);
+export const SPECIALIZED_LIMITED_PATHS = Object.values(SPECIALIZED_ROUTE_POLICY).map(
+  route => route.path,
+);
 
 const GENERAL_LIMIT_EXEMPT_PATHS = new Set([
   '/healthz',
