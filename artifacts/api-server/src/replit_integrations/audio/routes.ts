@@ -12,6 +12,10 @@ const audioBodyParser = express.json({ limit: "50mb" });
 const VOICE_FAILURE_ERROR = "Failed to process voice message";
 const VOICE_FAILURE_MARKER = "[Voice response failed. Please retry this message.]";
 
+function isVoiceFailureMarker(content: string): boolean {
+  return content === VOICE_FAILURE_MARKER;
+}
+
 function routeParam(value: string | string[]): string {
   return Array.isArray(value) ? value[0] ?? "" : value;
 }
@@ -152,7 +156,7 @@ export function registerAudioRoutes(
 
       // 4. Get conversation history
       const existingMessages = await chatStorage.getMessagesByConversation(conversationId);
-      const chatHistory = existingMessages.map((m) => ({
+      const chatHistory = existingMessages.filter(m => !isVoiceFailureMarker(m.content)).map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));

@@ -1094,6 +1094,76 @@ describe("chat, image, and audio integration routes", () => {
     expect(createMessage).toHaveBeenNthCalledWith(2, 7, "assistant", "Normal reply");
   });
 
+  it("excludes the stored voice failure marker from the next provider prompt", async () => {
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
+      id: role === "user" ? 1 : 2,
+      conversationId,
+      role,
+      content,
+      createdAt: new Date(),
+    }));
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => "Retry transcript");
+    const getMessagesByConversation = vi.fn(async () => [
+      {
+        id: 1,
+        conversationId: 7,
+        role: "user",
+        content: "Earlier question",
+        createdAt: new Date(),
+      },
+      {
+        id: 2,
+        conversationId: 7,
+        role: "assistant",
+        content: "Earlier answer",
+        createdAt: new Date(),
+      },
+      {
+        id: 3,
+        conversationId: 7,
+        role: "assistant",
+        content: "[Voice response failed. Please retry this message.]",
+        createdAt: new Date(),
+      },
+    ]);
+    let providerParams: Record<string, unknown> | undefined;
+    const create = vi.fn(async (params: Record<string, unknown>) => {
+      providerParams = params;
+      return (async function* () {
+        yield { choices: [{ delta: { audio: { transcript: "Retry reply" } } }] };
+      })();
+    });
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({ createMessage, getMessagesByConversation }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const result = await request(testServer, "/api/conversations/7/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ audio: Buffer.from("audio").toString("base64") }),
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(providerParams?.messages).toEqual([
+      { role: "user", content: "Earlier question" },
+      { role: "assistant", content: "Earlier answer" },
+    ]);
+    expect(providerParams?.messages).not.toContainEqual({
+      role: "assistant",
+      content: "[Voice response failed. Please retry this message.]",
+    });
+    expect(getMessagesByConversation).toHaveBeenCalledWith(7);
+  });
+
   it("aborts format conversion and skips transcription when the client disconnects early", async () => {
     const createMessage = vi.fn();
     const create = vi.fn();
