@@ -74,8 +74,30 @@ export function rateLimitKeyGenerator(req: RateLimitRequest): string {
 }
 
 export const RATE_LIMIT_STORE_MAX_KEYS = 10_000;
+const RATE_LIMIT_TABLE = 'academy_rate_limit_clients';
 
 type StoredClient = ClientRateLimitInfo;
+type RateLimitEnvironment = Partial<
+  Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'DATABASE_URL'>
+>;
+type SharedPool = {
+  query<T extends Record<string, unknown>>(
+    text: string,
+    values?: unknown[],
+  ): Promise<{ rows: T[] }>;
+};
+
+export function shouldUseSharedRateLimitStore(
+  environment: RateLimitEnvironment = process.env,
+): boolean {
+  return environment.NODE_ENV === 'production' && Boolean(environment.DATABASE_URL);
+}
+
+function isProductionEnvironment(
+  environment: RateLimitEnvironment = process.env,
+): boolean {
+  return environment.NODE_ENV === 'production';
+}
 
 /**
  * Local development and single-instance deployments should not require a
@@ -176,10 +198,131 @@ export class BoundedMemoryStore implements Store {
   }
 }
 
+/**
+ * PostgreSQL-backed store for production. All instances use the same table,
+ * database clock, and atomic upsert so a client cannot split a quota across
+ * API processes.
+ */
+export class PostgresRateLimitStore implements Store {
+  private windowMs = 60_000;
+  private tableReady?: Promise<void>;
+  private pool?: Promise<SharedPool>;
+
+  constructor(private readonly limiterName: string) {}
+
+  init(options: Options): void {
+    this.windowMs = options.windowMs;
+  }
+
+  async get(key: string): Promise<StoredClient | undefined> {
+    await this.ensureTable();
+    const result = await (await this.getPool()).query<{
+      total_hits: number;
+      reset_time: string | Date;
+    }>(
+      `SELECT total_hits, reset_time
+       FROM ${RATE_LIMIT_TABLE}
+       WHERE limiter_name = $1 AND client_key = $2 AND reset_time > NOW()`,
+      [this.limiterName, key],
+    );
+    const row = result.rows[0];
+    if (!row) return undefined;
+    return {
+      totalHits: row.total_hits,
+      resetTime: new Date(row.reset_time),
+    };
+  }
+
+  async increment(key: string): Promise<StoredClient> {
+    await this.ensureTable();
+    const result = await (await this.getPool()).query<{
+      total_hits: number;
+      reset_time: string | Date;
+    }>(
+      `INSERT INTO ${RATE_LIMIT_TABLE}
+         (limiter_name, client_key, total_hits, reset_time)
+       VALUES ($1, $2, 1, NOW() + ($3::double precision * INTERVAL '1 millisecond'))
+       ON CONFLICT (limiter_name, client_key)
+       DO UPDATE SET
+         total_hits = CASE
+           WHEN ${RATE_LIMIT_TABLE}.reset_time <= NOW() THEN 1
+           ELSE ${RATE_LIMIT_TABLE}.total_hits + 1
+         END,
+         reset_time = CASE
+           WHEN ${RATE_LIMIT_TABLE}.reset_time <= NOW() THEN
+             NOW() + ($3::double precision * INTERVAL '1 millisecond')
+           ELSE ${RATE_LIMIT_TABLE}.reset_time
+         END
+       RETURNING total_hits, reset_time`,
+      [this.limiterName, key, this.windowMs],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error('Rate-limit store did not return an updated client');
+    return {
+      totalHits: row.total_hits,
+      resetTime: new Date(row.reset_time),
+    };
+  }
+
+  async decrement(key: string): Promise<void> {
+    await this.ensureTable();
+    await (await this.getPool()).query(
+      `UPDATE ${RATE_LIMIT_TABLE}
+       SET total_hits = GREATEST(total_hits - 1, 0)
+       WHERE limiter_name = $1 AND client_key = $2 AND reset_time > NOW()`,
+      [this.limiterName, key],
+    );
+  }
+
+  async resetKey(key: string): Promise<void> {
+    await this.ensureTable();
+    await (await this.getPool()).query(
+      `DELETE FROM ${RATE_LIMIT_TABLE}
+       WHERE limiter_name = $1 AND client_key = $2`,
+      [this.limiterName, key],
+    );
+  }
+
+  private async getPool(): Promise<SharedPool> {
+    this.pool ??= import('@workspace/db').then(({ pool }) => pool as SharedPool);
+    return this.pool;
+  }
+
+  private async ensureTable(): Promise<void> {
+    this.tableReady ??= (async () => {
+      await (await this.getPool()).query(`
+        CREATE TABLE IF NOT EXISTS ${RATE_LIMIT_TABLE} (
+          limiter_name TEXT NOT NULL,
+          client_key TEXT NOT NULL,
+          total_hits INTEGER NOT NULL,
+          reset_time TIMESTAMPTZ NOT NULL,
+          PRIMARY KEY (limiter_name, client_key)
+        )
+      `);
+    })();
+    await this.tableReady;
+  }
+}
+
+function createRateLimitStore(
+  limiterName: string,
+  environment: RateLimitEnvironment = process.env,
+): Store {
+  if (shouldUseSharedRateLimitStore(environment)) {
+    return new PostgresRateLimitStore(limiterName);
+  }
+  if (isProductionEnvironment(environment)) {
+    throw new Error(
+      'DATABASE_URL is required for production rate limiting; refusing to use a local store',
+    );
+  }
+  return new BoundedMemoryStore();
+}
+
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
-  store: new BoundedMemoryStore(),
+  store: createRateLimitStore('api'),
   skip: shouldSkipGeneralApiLimit,
   keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
@@ -190,7 +333,7 @@ export const apiLimiter = rateLimit({
 export const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  store: new BoundedMemoryStore(),
+  store: createRateLimitStore('ai'),
   keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
@@ -200,7 +343,7 @@ export const aiLimiter = rateLimit({
 export const contentPackLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
-  store: new BoundedMemoryStore(),
+  store: createRateLimitStore('content-pack'),
   keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,

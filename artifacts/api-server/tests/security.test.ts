@@ -9,6 +9,7 @@ import {
   BoundedMemoryStore,
   normalizeRateLimitIp,
   rateLimitKeyGenerator,
+  shouldUseSharedRateLimitStore,
   SPECIALIZED_LIMITED_PATHS,
   SPECIALIZED_ROUTE_POLICY,
   shouldSkipGeneralApiLimit,
@@ -63,6 +64,26 @@ async function request(
 }
 
 describe("forwarded-client rate limiting", () => {
+  it("uses PostgreSQL only for production environments with a database", () => {
+    expect(
+      shouldUseSharedRateLimitStore({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://example.invalid/academy",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseSharedRateLimitStore({
+        NODE_ENV: "development",
+        DATABASE_URL: "postgres://example.invalid/academy",
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseSharedRateLimitStore({
+        NODE_ENV: "production",
+      }),
+    ).toBe(false);
+  });
+
   it("bounds local rate-limit state and expires inactive identities", async () => {
     vi.useFakeTimers();
     const store = new BoundedMemoryStore(2);
