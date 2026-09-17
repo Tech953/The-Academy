@@ -60,6 +60,8 @@ import {
   matchEventsToHeadlines,
   EVENT_TEMPLATES,
   validateEventTemplateTags,
+  validateEventTemplates,
+  type WorldEventTemplate,
   type OfflineWorldEvent,
 } from '@workspace/game-engine';
 import type { ContentPack, ContentPackEvent } from '../lib/api';
@@ -1033,6 +1035,7 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
 
   it('keeps the complete event-template library ready for headline matching', () => {
     expect(validateEventTemplateTags()).toEqual([]);
+    expect(validateEventTemplates()).toEqual([]);
   });
 
   it('reports malformed tags with template identity and category', () => {
@@ -1078,6 +1081,65 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
         normalizedTag: 'math',
       }),
     ]));
+  });
+
+  it.each([
+    ['title', { title: '' }, 'blank'],
+    ['description', { description: '   ' }, 'whitespace-only'],
+    ['npcReactions', { npcReactions: [] }, 'empty-array'],
+    ['playerHooks', { playerHooks: [''] }, 'blank'],
+    ['duration', { duration: 'months' }, 'invalid'],
+  ] as const)(
+    'reports malformed narrative field %s with template identity, category, and reason',
+    (field, override, reason) => {
+      const sourceTemplate = EVENT_TEMPLATES.academic[0];
+      const fixture = {
+        ...sourceTemplate,
+        ...override,
+        id: `malformed-${field}-fixture`,
+      } as WorldEventTemplate;
+
+      const issues = validateEventTemplates([fixture]);
+
+      expect(issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          templateId: `malformed-${field}-fixture`,
+          category: 'academic',
+          field,
+          reason,
+        }),
+      ]));
+    },
+  );
+
+  it('fails offline generation before malformed narrative fields reach players', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const originalTemplate = { ...sourceTemplate };
+    const malformedFixtures: Array<{
+      field: string;
+      value: unknown;
+      reason: string;
+    }> = [
+      { field: 'title', value: '', reason: 'blank' },
+      { field: 'description', value: '   ', reason: 'whitespace-only' },
+      { field: 'npcReactions', value: [], reason: 'empty-array' },
+      { field: 'playerHooks', value: [''], reason: 'blank' },
+      { field: 'duration', value: 'months', reason: 'invalid' },
+    ];
+
+    try {
+      for (const fixture of malformedFixtures) {
+        Object.assign(sourceTemplate, { [fixture.field]: fixture.value });
+        expect(() => generateDailyEvents(42)).toThrow(
+          new RegExp(
+            `template "exam-week".*category "academic".*field "${fixture.field}".*${fixture.reason}`,
+          ),
+        );
+        Object.assign(sourceTemplate, originalTemplate);
+      }
+    } finally {
+      Object.assign(sourceTemplate, originalTemplate);
+    }
   });
 
   it('returns an empty array for an empty headline list', () => {

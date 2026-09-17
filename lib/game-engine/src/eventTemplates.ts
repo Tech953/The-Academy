@@ -516,15 +516,49 @@ export type EventTemplateTagIssueReason =
   | 'whitespace-only'
   | 'untrimmed'
   | 'not-lowercase'
-  | 'duplicate';
+  | 'duplicate'
+  | 'not-a-string'
+  | 'not-an-array';
 
 export interface EventTemplateTagIssue {
   templateId: string;
-  category: EventCategory;
+  category: EventCategory | string;
   tag: string;
   tagIndex: number;
   reason: EventTemplateTagIssueReason;
   normalizedTag: string;
+}
+
+export type EventTemplateValidationField =
+  | 'id'
+  | 'category'
+  | 'title'
+  | 'description'
+  | 'effects'
+  | 'npcReactions'
+  | 'playerHooks'
+  | 'duration'
+  | 'tags';
+
+export type EventTemplateValidationReason =
+  | 'missing'
+  | 'blank'
+  | 'whitespace-only'
+  | 'not-a-string'
+  | 'not-an-array'
+  | 'empty-array'
+  | 'invalid'
+  | EventTemplateTagIssueReason;
+
+export interface EventTemplateValidationIssue {
+  templateId: string;
+  category: EventCategory | string;
+  field: EventTemplateValidationField;
+  reason: EventTemplateValidationReason;
+  index?: number;
+  tag?: string;
+  tagIndex?: number;
+  normalizedTag?: string;
 }
 
 /**
@@ -540,7 +574,26 @@ export function validateEventTemplateTags(
   const issues: EventTemplateTagIssue[] = [];
 
   for (const template of templates) {
-    const normalizedTags = template.tags.map(tag => tag.trim().toLowerCase());
+    const templateId = typeof template.id === 'string' ? template.id : '<missing>';
+    const category = typeof template.category === 'string'
+      ? template.category
+      : '<missing>';
+
+    if (!Array.isArray(template.tags)) {
+      issues.push({
+        templateId,
+        category,
+        tag: '',
+        tagIndex: -1,
+        reason: 'not-an-array',
+        normalizedTag: '',
+      });
+      continue;
+    }
+
+    const normalizedTags = template.tags.map(tag =>
+      typeof tag === 'string' ? tag.trim().toLowerCase() : ''
+    );
     const tagCounts = new Map<string, number>();
 
     for (const normalizedTag of normalizedTags) {
@@ -553,14 +606,19 @@ export function validateEventTemplateTags(
       const normalizedTag = normalizedTags[tagIndex];
       const addIssue = (reason: EventTemplateTagIssueReason) => {
         issues.push({
-          templateId: template.id,
-          category: template.category,
-          tag,
+          templateId,
+          category,
+          tag: typeof tag === 'string' ? tag : String(tag),
           tagIndex,
           reason,
           normalizedTag,
         });
       };
+
+      if (typeof tag !== 'string') {
+        addIssue('not-a-string');
+        return;
+      }
 
       if (tag.length === 0) {
         addIssue('blank');
@@ -583,6 +641,156 @@ export function validateEventTemplateTags(
   }
 
   return issues;
+}
+
+function getTemplateId(template: WorldEventTemplate): string {
+  return typeof template.id === 'string' ? template.id : '<missing>';
+}
+
+function getTemplateCategory(template: WorldEventTemplate): EventCategory | string {
+  return typeof template.category === 'string'
+    ? template.category
+    : '<missing>';
+}
+
+function validateRequiredText(
+  value: unknown,
+  addIssue: (reason: EventTemplateValidationReason) => void,
+): void {
+  if (value === undefined || value === null) {
+    addIssue('missing');
+  } else if (typeof value !== 'string') {
+    addIssue('not-a-string');
+  } else if (value.length === 0) {
+    addIssue('blank');
+  } else if (value.trim().length === 0) {
+    addIssue('whitespace-only');
+  }
+}
+
+function validateRequiredStringArray(
+  value: unknown,
+  addIssue: (reason: EventTemplateValidationReason, index?: number) => void,
+): void {
+  if (!Array.isArray(value)) {
+    addIssue('not-an-array');
+    return;
+  }
+
+  if (value.length === 0) {
+    addIssue('empty-array');
+    return;
+  }
+
+  value.forEach((item, index) => {
+    if (typeof item !== 'string') {
+      addIssue('not-a-string', index);
+    } else if (item.length === 0) {
+      addIssue('blank', index);
+    } else if (item.trim().length === 0) {
+      addIssue('whitespace-only', index);
+    }
+  });
+}
+
+/**
+ * Validate every field used by offline event generation.
+ *
+ * This is intentionally separate from the tag-only validator so callers that
+ * only inspect RSS vocabulary can keep the narrower diagnostic shape while
+ * offline generation gets one complete safety gate.
+ */
+export function validateEventTemplates(
+  templates: readonly WorldEventTemplate[] = ALL_EVENTS,
+): EventTemplateValidationIssue[] {
+  const issues: EventTemplateValidationIssue[] = [];
+
+  for (const template of templates) {
+    const templateId = getTemplateId(template);
+    const category = getTemplateCategory(template);
+    const addIssue = (
+      field: EventTemplateValidationField,
+      reason: EventTemplateValidationReason,
+      index?: number,
+    ) => {
+      issues.push({ templateId, category, field, reason, ...(index === undefined ? {} : { index }) });
+    };
+
+    validateRequiredText(template.id, reason => addIssue('id', reason));
+
+    if (!isEventCategory(template.category)) {
+      addIssue(
+        'category',
+        template.category === undefined || template.category === null
+          ? 'missing'
+          : 'invalid',
+      );
+    }
+
+    validateRequiredText(template.title, reason => addIssue('title', reason));
+    validateRequiredText(template.description, reason => addIssue('description', reason));
+    validateRequiredStringArray(template.effects, (reason, index) => addIssue('effects', reason, index));
+    validateRequiredStringArray(
+      template.npcReactions,
+      (reason, index) => addIssue('npcReactions', reason, index),
+    );
+    validateRequiredStringArray(
+      template.playerHooks,
+      (reason, index) => addIssue('playerHooks', reason, index),
+    );
+
+    if (template.duration === undefined || template.duration === null) {
+      addIssue('duration', 'missing');
+    } else if (!['hours', 'days', 'weeks'].includes(template.duration)) {
+      addIssue('duration', 'invalid');
+    }
+
+    for (const tagIssue of validateEventTemplateTags([template])) {
+      issues.push({
+        templateId: tagIssue.templateId,
+        category: tagIssue.category,
+        field: 'tags',
+        reason: tagIssue.reason,
+        index: tagIssue.tagIndex >= 0 ? tagIssue.tagIndex : undefined,
+        tag: tagIssue.tag,
+        tagIndex: tagIssue.tagIndex,
+        normalizedTag: tagIssue.normalizedTag,
+      });
+    }
+  }
+
+  return issues;
+}
+
+function formatEventTemplateValidationIssue(
+  issue: EventTemplateValidationIssue,
+): string {
+  if (
+    issue.field === 'tags' &&
+    issue.tag !== undefined &&
+    issue.tagIndex !== undefined &&
+    ['blank', 'whitespace-only', 'untrimmed', 'not-lowercase', 'duplicate'].includes(issue.reason)
+  ) {
+    return (
+      `Malformed event template tags: template "${issue.templateId}" in category "${issue.category}" ` +
+      `tag "${issue.tag}" is ${issue.reason} (field "tags", index ${issue.tagIndex})`
+    );
+  }
+
+  const index = issue.index === undefined ? '' : ` at index ${issue.index}`;
+  return (
+    `Malformed event template: template "${issue.templateId}" in category "${issue.category}" ` +
+    `field "${issue.field}"${index} is ${issue.reason}`
+  );
+}
+
+export function assertValidEventTemplates(
+  templates: readonly WorldEventTemplate[] = ALL_EVENTS,
+): void {
+  const firstIssue = validateEventTemplates(templates)[0];
+  if (!firstIssue) return;
+
+  throw new Error(formatEventTemplateValidationIssue(firstIssue));
 }
 
 /**
@@ -609,7 +817,7 @@ function normalizeEventMatchText(value: string): string {
 
 /** Match a headline/topic string to the closest event templates by tag overlap */
 export function matchEventsByTags(tags: string[], maxResults = 3): WorldEventTemplate[] {
-  assertValidEventTemplateTags();
+  assertValidEventTemplates();
   const normalizedInputs = tags
     .map(normalizeEventMatchText)
     .filter(input =>

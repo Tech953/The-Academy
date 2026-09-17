@@ -33,7 +33,7 @@ import {
   EVENT_TEMPLATES,
   ALL_EVENTS,
   matchEventsByTags,
-  assertValidEventTemplateTags,
+  assertValidEventTemplates,
   WorldEventTemplate,
   EventCategory,
 } from './eventTemplates';
@@ -241,7 +241,7 @@ export function generateNPCLine(opts: {
  * Deterministic: same day number → same events, always.
  */
 export function generateDailyEvents(dayNumber: number, count = 2): OfflineWorldEvent[] {
-  assertValidEventTemplateTags();
+  assertValidEventTemplates();
   const rng = new SeededRandom(temporalSeed('world-events', dayNumber));
 
   // Weight event categories by day modulo patterns
@@ -293,7 +293,7 @@ function matchEventsToHeadlinesForDay(
   headlines: string[],
   dayNumber: number,
 ): OfflineWorldEvent[] {
-  assertValidEventTemplateTags();
+  assertValidEventTemplates();
 
   const rng = new SeededRandom(temporalSeed('rss-match', dayNumber));
 
@@ -341,7 +341,7 @@ export function generateBulletinEvents(
   headlines: string[] = [],
   count = 3,
 ): OfflineWorldEvent[] {
-  assertValidEventTemplateTags();
+  assertValidEventTemplates();
   const desiredCount = Math.max(0, Math.floor(count));
   if (desiredCount === 0) return [];
 
@@ -421,7 +421,7 @@ export function getDailyStudyPrompt(dayNumber: number) {
  * Locally, it can also be generated deterministically client-side.
  */
 export function generateContentPack(dayNumber: number, npcIds: string[] = []): ContentPackSummary {
-  assertValidEventTemplateTags();
+  assertValidEventTemplates();
   const rng = new SeededRandom(temporalSeed('content-pack', dayNumber));
 
   // Generate active world events
@@ -644,7 +644,7 @@ export function dayToWeek(day: number): number {
  * advances within a week), while the active events rotate each *day*.
  */
 export function generateOfflineContentPack(day: number, headlines: string[] = []): ContentPack {
-  assertValidEventTemplateTags();
+  assertValidEventTemplates();
   const week = dayToWeek(day);
   const weekRng = new SeededRandom(temporalSeed('content-pack-week', week));
   const theme = weekRng.pick(WEEKLY_THEMES);
