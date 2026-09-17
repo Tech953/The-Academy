@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Copy, CheckCircle, BookOpen, FlaskConical, FileText, RefreshCw, ChevronDown, ChevronUp, Link, Loader } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
