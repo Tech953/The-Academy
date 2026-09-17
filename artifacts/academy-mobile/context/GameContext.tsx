@@ -35,6 +35,7 @@ import {
   createContentPackWriteQueueWithResult,
   getContentPackStorageStatus,
   readCachedContentPack,
+  retainVisibleContentPack,
   resolveContentPackRefresh,
   type ContentPackStorageStatus,
 } from "@/lib/contentPackFallback";
@@ -416,9 +417,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       try {
         cachedPack = await readCachedContentPack(AsyncStorage);
         if (!isCurrentRequest()) return;
-        if (cachedPack) {
-          setContentPack(cachedPack);
-        }
+        setContentPack((visiblePack) =>
+          retainVisibleContentPack(visiblePack, cachedPack),
+        );
 
         const refreshResult = isOnline
           ? await resolveContentPackRefresh(fetchContentPack, cachedPack, state.day)

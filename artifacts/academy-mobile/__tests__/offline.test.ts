@@ -43,6 +43,7 @@ import {
   isUsableContentPack,
   parseCachedContentPack,
   readCachedContentPack,
+  retainVisibleContentPack,
   resolveContentPackRefresh,
   writeCachedContentPack,
   writeCachedContentPackResult,
@@ -813,6 +814,65 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       source: 'offline',
       pack: { generatedBy: 'deterministic' },
     });
+  });
+
+  it('keeps the visible bulletin while a superseded refresh is in flight', async () => {
+    const makeUsablePack = (version: string): ContentPack => ({
+      ...generateOfflineContentPack(day),
+      version,
+      generatedBy: 'gpt',
+      eventsRepaired: false,
+    });
+    const visiblePack = makeUsablePack('visible-pack');
+    const earlierPack = makeUsablePack('earlier-pack');
+    const latestPack = makeUsablePack('latest-pack');
+    let releaseEarlier!: (pack: ContentPack) => void;
+    let releaseLatest!: (pack: ContentPack) => void;
+    const earlierFetch = new Promise<ContentPack>((resolve) => {
+      releaseEarlier = resolve;
+    });
+    const latestFetch = new Promise<ContentPack>((resolve) => {
+      releaseLatest = resolve;
+    });
+    let activeRequest = 1;
+    let renderedPack: ContentPack | null = visiblePack;
+
+    const earlierRefresh = resolveContentPackRefresh(
+      () => earlierFetch,
+      null,
+      day,
+    ).then((result) => {
+      if (activeRequest === 1) renderedPack = result.pack;
+      return result;
+    });
+
+    activeRequest = 2;
+    renderedPack = retainVisibleContentPack(renderedPack, null);
+    expect(renderedPack).toBe(visiblePack);
+
+    const latestRefresh = resolveContentPackRefresh(
+      () => latestFetch,
+      null,
+      day,
+    ).then((result) => {
+      if (activeRequest === 2) renderedPack = result.pack;
+      return result;
+    });
+
+    expect(renderedPack).toBe(visiblePack);
+    releaseLatest(latestPack);
+    await expect(latestRefresh).resolves.toMatchObject({
+      pack: latestPack,
+      source: 'online',
+    });
+    expect(renderedPack).toMatchObject({ version: 'latest-pack' });
+
+    releaseEarlier(earlierPack);
+    await expect(earlierRefresh).resolves.toMatchObject({
+      pack: earlierPack,
+      source: 'online',
+    });
+    expect(renderedPack).toMatchObject({ version: 'latest-pack' });
   });
 
   it('replaces a missing activeEvents array with deterministic displayable events', () => {

@@ -227,6 +227,18 @@ export function fallbackAfterRefreshFailure(
   return cachedPack ?? generateOfflineContentPack(day);
 }
 
+/**
+ * Keep the last usable bulletin visible while a refresh is waiting on the
+ * network. A fresh cache can replace it immediately; an unavailable cache
+ * must not clear an already-rendered bulletin.
+ */
+export function retainVisibleContentPack(
+  visiblePack: ContentPack | null,
+  cachedPack: ContentPack | null,
+): ContentPack | null {
+  return cachedPack ?? visiblePack;
+}
+
 export interface ContentPackRefreshResult {
   pack: ContentPack;
   source: ContentSource;
