@@ -1196,7 +1196,7 @@ const EVENT_LOCATIONS = ['Library', 'Courtyard', 'Lab', 'Gym', 'Auditorium', 'Ca
  * Template content itself is canonical in @workspace/game-engine so the web
  * and mobile bulletin paths cannot drift into separate vocabularies.
  */
-const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
+export const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
   exam: 'academic',
   competition: 'competition',
   accident: 'crisis',
@@ -1208,6 +1208,14 @@ const RADIANT_EVENT_CATEGORIES: Record<WorldEventType, EventCategory> = {
   seasonal: 'seasonal',
   mystery: 'mystery',
 };
+
+/**
+ * Shared categories that intentionally do not have a legacy Radiant event
+ * type must be listed here with the reason they are not web-compatible.
+ */
+export const RADIANT_EVENT_CATEGORY_EXCEPTIONS: Partial<
+  Record<EventCategory, string>
+> = {};
 
 export interface EventChainConfig {
   chainProbability: number;  // 0-1 chance to spawn follow-up
