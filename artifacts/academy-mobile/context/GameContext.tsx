@@ -47,6 +47,7 @@ import {
   generateOfflineContentPack,
   generateOfflineConversation,
   generateQuizSet,
+  hasSupportedFocusSubjects,
   scoreToRelationshipTier,
   type GEDSubjectKey,
   type StudyQuestion,
@@ -59,6 +60,19 @@ export type { RelationshipShift };
 export { selectWeeklyTheme };
 
 const STORAGE_KEY = "academy-mobile-state-v1";
+
+/**
+ * Never let an unrecognized server label disappear from Study silently. The
+ * shared content-pack validator normally catches this earlier; this guard also
+ * protects state restored by older clients or direct test fixtures.
+ */
+export function resolveStudyContentPack(
+  pack: ContentPack | null,
+  day: number,
+): ContentPack | null {
+  if (!pack || hasSupportedFocusSubjects(pack.gedFocusAreas)) return pack;
+  return generateOfflineContentPack(day);
+}
 
 export type StatKey =
   | "quickness"
@@ -418,7 +432,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         cachedPack = await readCachedContentPack(AsyncStorage);
         if (!isCurrentRequest()) return;
         setContentPack((visiblePack) =>
-          retainVisibleContentPack(visiblePack, cachedPack),
+          resolveStudyContentPack(
+            retainVisibleContentPack(visiblePack, cachedPack),
+            state.day,
+          ),
         );
 
         const refreshResult = isOnline
@@ -428,16 +445,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               source: "offline" as const,
             };
         if (!isCurrentRequest()) return;
-        if (refreshResult.source === "online") {
+        const studyPack = resolveStudyContentPack(refreshResult.pack, state.day);
+        if (studyPack !== refreshResult.pack || refreshResult.source === "offline") {
+          recordOfflineContent();
+        } else if (refreshResult.source === "online") {
           recordEnrichmentSource("online");
         } else if (refreshResult.source === "rate_limited") {
           recordEnrichmentSource("rate_limited");
         } else {
           recordOfflineContent();
         }
-        setContentPack(refreshResult.pack);
+        setContentPack(studyPack);
         const writeResult = await writeContentPack(
-          refreshResult.pack,
+          studyPack!,
           isCurrentRequest,
         );
         if (!isCurrentRequest()) return;
@@ -445,7 +465,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       } catch {
         if (!isCurrentRequest()) return;
         recordOfflineContent();
-        setContentPack(fallbackAfterRefreshFailure(cachedPack, state.day));
+        setContentPack(
+          resolveStudyContentPack(
+            fallbackAfterRefreshFailure(cachedPack, state.day),
+            state.day,
+          ),
+        );
       } finally {
         if (isCurrentRequest()) setContentPackLoading(false);
       }

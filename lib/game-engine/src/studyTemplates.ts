@@ -34,27 +34,63 @@ export interface StudyPrompt {
   connections: string[];      // Related topics
 }
 
-/** Map server/content-pack subject labels to the local GED subject key. */
+/**
+ * Subject labels accepted from server/content-pack metadata.
+ *
+ * Keep this registry explicit instead of using substring matching: a new label
+ * should either be added here deliberately or rejected at the content-pack
+ * boundary and replaced with deterministic offline content.
+ */
+export const FOCUS_SUBJECT_ALIASES: Record<GEDSubjectKey, readonly string[]> = {
+  math: ['math', 'math reasoning', 'mathematics', 'mathematical reasoning'],
+  language_arts: [
+    'language arts',
+    'english language arts',
+    'reasoning through language arts',
+    'rla',
+    'ela',
+    'reading',
+    'writing',
+  ],
+  science: ['science', 'physical science', 'life science', 'life science and biology'],
+  social_studies: [
+    'social studies',
+    'social',
+    'social science',
+    'us history',
+    'united states history',
+    'civics',
+  ],
+};
+
+function normalizeSubjectLabel(subject: string): string {
+  return subject
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+/** Map an accepted server/content-pack label to the local GED subject key. */
 export function focusSubjectKey(subject: string): GEDSubjectKey | null {
-  const normalized = subject.trim().toLowerCase().replace(/[-\s]+/g, "_");
-  if (normalized === "math" || normalized.includes("math")) return "math";
-  if (
-    normalized === "language_arts" ||
-    normalized.includes("language") ||
-    normalized.includes("reading") ||
-    normalized.includes("writing")
-  ) {
-    return "language_arts";
-  }
-  if (normalized === "science" || normalized.includes("science")) return "science";
-  if (
-    normalized === "social_studies" ||
-    normalized.includes("social") ||
-    normalized.includes("history")
-  ) {
-    return "social_studies";
+  const normalized = normalizeSubjectLabel(subject);
+  for (const [key, aliases] of Object.entries(FOCUS_SUBJECT_ALIASES) as [
+    GEDSubjectKey,
+    readonly string[],
+  ][]) {
+    if (aliases.some(alias => normalizeSubjectLabel(alias) === normalized)) {
+      return key;
+    }
   }
   return null;
+}
+
+/** Return false when a pack contains a subject label mobile study cannot map. */
+export function hasSupportedFocusSubjects(
+  focusAreas: readonly Pick<{ subject: string }, 'subject'>[],
+): boolean {
+  return focusAreas.every(focus => focusSubjectKey(focus.subject) !== null);
 }
 
 const TOPIC_STOP_WORDS = new Set(["a", "an", "and", "for", "in", "of", "on", "the", "to"]);

@@ -58,7 +58,9 @@ import {
   generateBulletinEvents,
   generateContentPack,
   generateOfflineContentPack,
+  FOCUS_SUBJECT_ALIASES,
   focusSubjectKey,
+  hasSupportedFocusSubjects,
   isQuestionFocusMatched,
   topicMatchesFocus,
   inferEmotionState,
@@ -555,6 +557,52 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
         expect(focusSubjectKey(focus.subject)).toBe(expectedSubjects.get(focus.subject));
       }
     }
+  });
+
+  it.each([
+    ['Math', 'math'],
+    ['Math Reasoning', 'math'],
+    ['Mathematics', 'math'],
+    ['Language Arts', 'language_arts'],
+    ['Reasoning Through Language Arts', 'language_arts'],
+    ['RLA', 'language_arts'],
+    ['Science', 'science'],
+    ['Physical Science', 'science'],
+    ['Social Studies', 'social_studies'],
+    ['United States History', 'social_studies'],
+    ['Civics', 'social_studies'],
+  ] as const)('maps supported focus subject alias %s', (label, expected) => {
+    expect(focusSubjectKey(label)).toBe(expected);
+  });
+
+  it('keeps the supported subject vocabulary explicit and rejects unknown labels', () => {
+    expect(Object.keys(FOCUS_SUBJECT_ALIASES).sort()).toEqual([
+      'language_arts',
+      'math',
+      'science',
+      'social_studies',
+    ]);
+    expect(focusSubjectKey('Astronomy')).toBeNull();
+    expect(focusSubjectKey('Reading for Argument')).toBeNull();
+    expect(focusSubjectKey('History')).toBeNull();
+    expect(focusSubjectKey('')).toBeNull();
+    expect(hasSupportedFocusSubjects([
+      { subject: 'Math Reasoning' },
+      { subject: 'RLA' },
+    ])).toBe(true);
+    expect(hasSupportedFocusSubjects([
+      { subject: 'Math Reasoning' },
+      { subject: 'Astronomy' },
+    ])).toBe(false);
+
+    const aliasPack = generateOfflineContentPack(1);
+    const rlaPack = {
+      ...aliasPack,
+      gedFocusAreas: aliasPack.gedFocusAreas.map((focus, index) =>
+        index === 0 ? { ...focus, subject: 'RLA' } : focus,
+      ),
+    };
+    expect(isUsableContentPack(rlaPack, rlaPack.generatedAt + 1)).toBe(true);
   });
 
   it('connects every weekly focus topic to prioritized bundled questions', () => {

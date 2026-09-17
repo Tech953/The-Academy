@@ -5,6 +5,7 @@
  *  Generated weekly by cron, distributed to all installs.
  * ═══════════════════════════════════════════════════════════
  */
+import { focusSubjectKey } from './studyTemplates';
 
 export interface PackWorldEvent {
   id: string;
@@ -83,14 +84,6 @@ export const PACK_ACTIVE_EVENT_LIMIT = 3;
 export const PACK_NPC_MOOD_LIMIT = 4;
 export const PACK_GED_FOCUS_LIMIT = 2;
 
-const PACK_GED_SUBJECTS = new Set([
-  'math',
-  'math_reasoning',
-  'language_arts',
-  'science',
-  'social_studies',
-]);
-
 /** One week in milliseconds */
 export const PACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -126,12 +119,9 @@ export function isDisplayablePackGEDFocus(
   if (!value || typeof value !== 'object') return false;
 
   const focus = value as Partial<PackGEDFocus>;
-  const normalizedSubject =
-    typeof focus.subject === 'string'
-      ? focus.subject.trim().toLowerCase().replace(/[-\s]+/g, '_')
-      : '';
   return (
-    PACK_GED_SUBJECTS.has(normalizedSubject) &&
+    typeof focus.subject === 'string' &&
+    focusSubjectKey(focus.subject) !== null &&
     isNonEmptyString(focus.topic) &&
     isNonEmptyString(focus.whyNow)
   );
