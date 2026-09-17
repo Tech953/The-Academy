@@ -20,6 +20,7 @@ const {
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
+  writeReleaseReport,
 } = require("../scripts/check-release.js") as {
   getReleaseDomain: (config: unknown, profile: string) => string;
   getReleaseProfiles: (config: unknown) => string[];
@@ -102,6 +103,10 @@ const {
       error: string | null;
     }>;
   };
+  writeReleaseReport: (
+    reportPath: string,
+    report: Record<string, unknown>,
+  ) => string;
 };
 
 const {
@@ -278,6 +283,58 @@ function runNativeHandoffSubprocess(
       },
     },
   );
+}
+
+function assertStableReleaseReport(
+  report: Record<string, unknown>,
+  expectedStatus: "passed" | "failed",
+  expectedProfiles: string[],
+) {
+  expect(report.status).toBe(expectedStatus);
+  const summary = report.summary as {
+    status: string;
+    profiles: Array<{
+      profile: string;
+      domain: string | null;
+      status: string;
+      error: string | null;
+    }>;
+  };
+  expect(summary.status).toBe(expectedStatus);
+  expect(summary.profiles.map(({ profile }) => profile)).toEqual(
+    expectedProfiles,
+  );
+
+  for (const entry of summary.profiles) {
+    expect(typeof entry.profile).toBe("string");
+    expect("domain" in entry).toBe(true);
+    expect(entry.domain === null || typeof entry.domain === "string").toBe(true);
+    expect(["passed", "failed"]).toContain(entry.status);
+    expect(entry.error === null || typeof entry.error === "string").toBe(true);
+  }
+}
+
+function archiveReleaseSummary(summary: {
+  status: string;
+  profiles: unknown[];
+}) {
+  const reportDirectory = mkdtempSync(
+    path.join(tmpdir(), "academy-release-report-"),
+  );
+  const reportPath = path.join(reportDirectory, "release-smoke.json");
+  try {
+    writeReleaseReport(reportPath, {
+      command: "check-release --all",
+      status: summary.status,
+      summary,
+    });
+    return JSON.parse(readFileSync(reportPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+  } finally {
+    rmSync(reportDirectory, { recursive: true, force: true });
+  }
 }
 
 describe("native handoff build metadata", () => {
@@ -793,6 +850,71 @@ describe("release smoke check", () => {
           status: "failed",
           healthUrl: null,
           aiUrl: null,
+          error: "HTTP 503",
+        },
+      ],
+    });
+  });
+
+  it("archives an all-pass report with the stable profile contract", () => {
+    const report = archiveReleaseSummary(
+      summarizeReleaseSmokeResult({
+        profiles: ["preview", "production"],
+        passed: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+          },
+          {
+            profile: "production",
+            domain: "production.example.com",
+            healthUrl: "https://production.example.com/api/healthz",
+            aiUrl: "https://production.example.com/api/ai/describe",
+          },
+        ],
+        failed: [],
+      }),
+    );
+
+    assertStableReleaseReport(report, "passed", ["preview", "production"]);
+    expect(
+      (report.summary as { profiles: Array<{ error: string | null }> }).profiles
+        .map(({ error }) => error),
+    ).toEqual([null, null]);
+  });
+
+  it("archives mixed results without losing the failed profile details", () => {
+    const report = archiveReleaseSummary(
+      summarizeReleaseSmokeResult({
+        profiles: ["preview", "production"],
+        passed: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+          },
+        ],
+        failed: [
+          {
+            profile: "production",
+            domain: "production.example.com",
+            error: new Error("HTTP 503"),
+          },
+        ],
+      }),
+    );
+
+    assertStableReleaseReport(report, "failed", ["preview", "production"]);
+    expect(report.summary).toMatchObject({
+      profiles: [
+        { profile: "preview", status: "passed", error: null },
+        {
+          profile: "production",
+          domain: "production.example.com",
+          status: "failed",
           error: "HTTP 503",
         },
       ],
