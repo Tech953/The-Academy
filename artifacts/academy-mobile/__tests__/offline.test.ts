@@ -77,6 +77,7 @@ import {
   type ContentPack,
   type ContentPackEvent,
 } from '@workspace/game-engine';
+import { selectWeeklyTheme } from '../lib/themeSelection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared NPC dialogue params fixture
@@ -1094,7 +1095,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     await expect(writeCachedContentPack(rejectedStorage, pack)).resolves.toBe(false);
   });
 
-  it('persists a remote bulletin through AsyncStorage across a relaunch fixture', async () => {
+  it('persists a remote bulletin and weekly theme through AsyncStorage across a relaunch fixture', async () => {
     const values = new Map<string, string>();
     const localStorage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -1130,14 +1131,19 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       await expect(writeCachedContentPack(AsyncStorage, remotePack, now)).resolves.toBe(true);
 
       // A fresh provider instance gets the same device-backed value before any
-      // network refresh is attempted.
-      await expect(readCachedContentPack(AsyncStorage, now)).resolves.toEqual(remotePack);
+      // network refresh is attempted, so its theme starts with the synced cue.
+      const restoredPack = await readCachedContentPack(AsyncStorage, now);
+      expect(restoredPack).toEqual(remotePack);
+      expect(selectWeeklyTheme(restoredPack, day)).toBe(remotePack.weeklyTheme);
 
       localStorage.setItem(
         'academy-content-pack-v1',
         JSON.stringify({ ...remotePack, expiresAt: now }),
       );
       await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
+      expect(selectWeeklyTheme(null, day)).toBe(
+        generateOfflineContentPack(day).weeklyTheme,
+      );
 
       localStorage.setItem('academy-content-pack-v1', '{not-json');
       await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
