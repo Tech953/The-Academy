@@ -1025,6 +1025,129 @@ describe("chat, image, and audio integration routes", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("aborts format conversion and skips transcription when the client disconnects early", async () => {
+    const createMessage = vi.fn();
+    const create = vi.fn();
+    let conversionSignal: AbortSignal | undefined;
+    let resolveConversionStarted: (() => void) | undefined;
+    const conversionStarted = new Promise<void>(resolve => {
+      resolveConversionStarted = resolve;
+    });
+    const ensureCompatibleFormat = vi.fn(async (
+      _audio: Buffer,
+      signal?: AbortSignal,
+    ) => {
+      conversionSignal = signal;
+      resolveConversionStarted?.();
+      await new Promise<never>((_resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new Error("conversion aborted"));
+          return;
+        }
+        signal?.addEventListener("abort", () => reject(new Error("conversion aborted")), {
+          once: true,
+        });
+      });
+    });
+    const speechToText = vi.fn();
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({ createMessage }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const clientClosed = new Promise<void>((resolve, reject) => {
+      const client = httpRequest(
+        `${testServer.baseUrl}/api/conversations/7/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+        },
+        response => response.once("close", resolve),
+      );
+      client.once("error", error => {
+        if ((error as NodeJS.ErrnoException).code === "ECONNRESET") resolve();
+        else reject(error);
+      });
+      client.end(JSON.stringify({ audio: Buffer.from("audio").toString("base64") }));
+      void conversionStarted.then(() => client.destroy());
+    });
+
+    await clientClosed;
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(conversionSignal?.aborted).toBe(true);
+    expect(speechToText).not.toHaveBeenCalled();
+    expect(createMessage).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("aborts transcription and skips storage when the client disconnects before streaming", async () => {
+    const createMessage = vi.fn();
+    const create = vi.fn();
+    let transcriptionSignal: AbortSignal | undefined;
+    let resolveTranscriptionStarted: (() => void) | undefined;
+    const transcriptionStarted = new Promise<void>(resolve => {
+      resolveTranscriptionStarted = resolve;
+    });
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async (
+      _audio: Buffer,
+      _format: "wav" | "mp3" | "webm",
+      signal?: AbortSignal,
+    ) => {
+      transcriptionSignal = signal;
+      resolveTranscriptionStarted?.();
+      await new Promise<never>((_resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new Error("transcription aborted"));
+          return;
+        }
+        signal?.addEventListener("abort", () => reject(new Error("transcription aborted")), {
+          once: true,
+        });
+      });
+    });
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({ createMessage }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const clientClosed = new Promise<void>((resolve, reject) => {
+      const client = httpRequest(
+        `${testServer.baseUrl}/api/conversations/7/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+        },
+        response => response.once("close", resolve),
+      );
+      client.once("error", error => {
+        if ((error as NodeJS.ErrnoException).code === "ECONNRESET") resolve();
+        else reject(error);
+      });
+      client.end(JSON.stringify({ audio: Buffer.from("audio").toString("base64") }));
+      void transcriptionStarted.then(() => client.destroy());
+    });
+
+    await clientClosed;
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(transcriptionSignal?.aborted).toBe(true);
+    expect(createMessage).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("emits an SSE error and avoids the assistant write when streaming fails", async () => {
     const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
       id: role === "user" ? 1 : 2,

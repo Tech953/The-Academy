@@ -128,12 +128,19 @@ export function registerAudioRoutes(
 
       // 1. Auto-detect format and convert to OpenAI-compatible format
       const rawBuffer = Buffer.from(audio, "base64");
-      const { buffer: audioBuffer, format: inputFormat } = await ensureCompatibleFormat(rawBuffer);
+      const { buffer: audioBuffer, format: inputFormat } = await ensureCompatibleFormat(
+        rawBuffer,
+        disconnectController.signal,
+      );
 
       if (clientDisconnected) return;
 
       // 2. Transcribe user audio
-      const userTranscript = await speechToText(audioBuffer, inputFormat);
+      const userTranscript = await speechToText(
+        audioBuffer,
+        inputFormat,
+        disconnectController.signal,
+      );
 
       if (clientDisconnected) return;
 

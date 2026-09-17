@@ -13,6 +13,16 @@ export const openai = new OpenAI({
 
 export type AudioFormat = "wav" | "mp3" | "webm" | "mp4" | "ogg" | "unknown";
 
+function createAbortError(): Error {
+  const error = new Error("The operation was aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw createAbortError();
+}
+
 /**
  * Detect audio format from buffer magic bytes.
  * Supports: WAV, MP3, WebM (Chrome/Firefox), MP4/M4A/MOV (Safari/iOS), OGG
@@ -51,16 +61,22 @@ export function detectAudioFormat(buffer: Buffer): AudioFormat {
  * Uses temp files instead of pipes because video containers (MP4/MOV)
  * require seeking to find the audio track.
  */
-export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
+export async function convertToWav(
+  audioBuffer: Buffer,
+  signal?: AbortSignal,
+): Promise<Buffer> {
   const inputPath = join(tmpdir(), `input-${randomUUID()}`);
   const outputPath = join(tmpdir(), `output-${randomUUID()}.wav`);
 
   try {
+    throwIfAborted(signal);
     // Write input to temp file (required for video containers that need seeking)
     await writeFile(inputPath, audioBuffer);
+    throwIfAborted(signal);
 
     // Run ffmpeg with file paths
     await new Promise<void>((resolve, reject) => {
+      let settled = false;
       const ffmpeg = spawn("ffmpeg", [
         "-i", inputPath,
         "-vn",              // Extract audio only (ignore video track)
@@ -71,17 +87,35 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
         "-y",               // Overwrite output
         outputPath,
       ]);
+      const abort = () => {
+        if (settled) return;
+        ffmpeg.kill("SIGTERM");
+        settled = true;
+        reject(createAbortError());
+      };
+      const finish = (callback: () => void) => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener("abort", abort);
+        callback();
+      };
 
       ffmpeg.stderr.on("data", () => {}); // Suppress logs
       ffmpeg.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`ffmpeg exited with code ${code}`));
+        finish(() => {
+          if (code === 0) resolve();
+          else reject(new Error(`ffmpeg exited with code ${code}`));
+        });
       });
-      ffmpeg.on("error", reject);
+      ffmpeg.on("error", error => finish(() => reject(error)));
+      signal?.addEventListener("abort", abort, { once: true });
+      if (signal?.aborted) abort();
     });
 
     // Read converted audio
-    return await readFile(outputPath);
+    const convertedAudio = await readFile(outputPath);
+    throwIfAborted(signal);
+    return convertedAudio;
   } finally {
     // Clean up temp files
     await unlink(inputPath).catch(() => {});
@@ -95,13 +129,15 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
  * - WebM/MP4/OGG: Convert to WAV via ffmpeg
  */
 export async function ensureCompatibleFormat(
-  audioBuffer: Buffer
+  audioBuffer: Buffer,
+  signal?: AbortSignal,
 ): Promise<{ buffer: Buffer; format: "wav" | "mp3" }> {
+  throwIfAborted(signal);
   const detected = detectAudioFormat(audioBuffer);
   if (detected === "wav") return { buffer: audioBuffer, format: "wav" };
   if (detected === "mp3") return { buffer: audioBuffer, format: "mp3" };
   // Convert WebM, MP4, OGG, or unknown to WAV
-  const wavBuffer = await convertToWav(audioBuffer);
+  const wavBuffer = await convertToWav(audioBuffer, signal);
   return { buffer: wavBuffer, format: "wav" };
 }
 
@@ -239,13 +275,16 @@ export async function textToSpeechStream(
  */
 export async function speechToText(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav"
+  format: "wav" | "mp3" | "webm" = "wav",
+  signal?: AbortSignal,
 ): Promise<string> {
+  throwIfAborted(signal);
   const file = await toFile(audioBuffer, `audio.${format}`);
+  throwIfAborted(signal);
   const response = await openai.audio.transcriptions.create({
     file,
     model: "gpt-4o-mini-transcribe",
-  });
+  }, { signal });
   return response.text;
 }
 
