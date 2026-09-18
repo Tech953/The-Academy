@@ -66,6 +66,8 @@ export interface PackGEDFocus {
 }
 
 export interface ContentPack {
+  /** Schema marker for persisted packs; absent means the legacy v1 shape. */
+  schemaVersion?: number;
   version: string;           // "pack-2026-W11"
   generatedAt: number;       // Unix ms
   expiresAt: number;         // Unix ms (generatedAt + 7 days)
@@ -83,6 +85,7 @@ export interface ContentPack {
 export const PACK_ACTIVE_EVENT_LIMIT = 3;
 export const PACK_NPC_MOOD_LIMIT = 4;
 export const PACK_GED_FOCUS_LIMIT = 2;
+export const CONTENT_PACK_SCHEMA_VERSION = 1;
 
 /** One week in milliseconds */
 export const PACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -103,6 +106,7 @@ export function createContentPackContractFixture(
   generatedAt = Date.now(),
 ): ContentPack {
   return {
+    schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     version: 'pack-contract-fixture',
     generatedAt,
     expiresAt: generatedAt + PACK_TTL_MS,
@@ -232,6 +236,7 @@ function hasUniqueIdentities(
 
 export type ContentPackValidationIssueCode =
   | 'pack'
+  | 'schemaVersion'
   | 'version'
   | 'generatedAt'
   | 'expiresAt'
@@ -265,6 +270,13 @@ export function getContentPackValidationIssues(
   const moods = pack.npcMoodShifts;
   const focusAreas = pack.gedFocusAreas;
 
+  if (
+    pack.schemaVersion !== undefined &&
+    (pack.schemaVersion !== CONTENT_PACK_SCHEMA_VERSION ||
+      !Number.isInteger(pack.schemaVersion))
+  ) {
+    issues.push('schemaVersion');
+  }
   if (!isNonEmptyString(pack.version)) issues.push('version');
   if (!isFiniteNumber(pack.generatedAt)) issues.push('generatedAt');
   if (
@@ -339,6 +351,35 @@ export function isUsableContentPack(
   now = Date.now(),
 ): value is ContentPack {
   return getContentPackValidationIssues(value, now).length === 0;
+}
+
+/**
+ * Migrate a persisted pack into the current schema without trusting its
+ * contents. Packs from before the schema marker are legacy v1; anything that
+ * cannot satisfy the current contract is rejected for deterministic fallback.
+ */
+export function migrateContentPack(
+  value: unknown,
+  now = Date.now(),
+): ContentPack | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const pack = value as Partial<ContentPack>;
+  if (
+    pack.schemaVersion !== undefined &&
+    pack.schemaVersion !== CONTENT_PACK_SCHEMA_VERSION
+  ) {
+    return null;
+  }
+
+  const migrated = {
+    ...pack,
+    schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
+    eventsRepaired: pack.eventsRepaired ?? false,
+  };
+  return isUsableContentPack(migrated, now)
+    ? migrated
+    : null;
 }
 
 /** Is a pack still valid (not expired)? */

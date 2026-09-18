@@ -1,6 +1,7 @@
 import {
   CONTENT_PACK_STORAGE_KEY,
   generateOfflineContentPack,
+  migrateContentPack,
   PACK_ACTIVE_EVENT_LIMIT,
   getContentPackValidationIssues as getSharedContentPackValidationIssues,
   isDisplayableContentPackEvent as isSharedDisplayableContentPackEvent,
@@ -112,9 +113,7 @@ export function parseCachedContentPack(
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    return getCachedContentPackIssueCodes(raw, now).length === 0
-      ? parsed as ContentPack
-      : null;
+    return migrateContentPack(parsed, now);
   } catch {
     return null;
   }

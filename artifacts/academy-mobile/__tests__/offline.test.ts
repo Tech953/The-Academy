@@ -1080,6 +1080,39 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     expect(parseCachedContentPack('{not-json', now)).toBeNull();
   });
 
+  it('migrates legacy cached packs and falls back when a newer field is missing', () => {
+    const generatedAt = 1_700_000_000_000;
+    const currentPack = createContentPackContractFixture(generatedAt);
+    const legacyPack = {
+      ...currentPack,
+      version: 'pack-legacy-week',
+    } as Record<string, unknown>;
+    delete legacyPack.schemaVersion;
+    delete legacyPack.eventsRepaired;
+
+    const migrated = parseCachedContentPack(
+      JSON.stringify(legacyPack),
+      generatedAt + 1,
+    );
+    expect(migrated).toMatchObject({
+      version: 'pack-legacy-week',
+      schemaVersion: 1,
+      eventsRepaired: false,
+    });
+
+    const oldMissingField = {
+      ...legacyPack,
+      themeContext: undefined,
+    };
+    const rejected = parseCachedContentPack(
+      JSON.stringify(oldMissingField),
+      generatedAt + 1,
+    );
+    expect(rejected).toBeNull();
+    expect(fallbackAfterRefreshFailure(rejected, 5).generatedBy)
+      .toBe('deterministic');
+  });
+
   it('reports only safe issue categories for rejected cache metadata', () => {
     const generatedAt = 1_700_000_000_000;
     const pack = createContentPackContractFixture(generatedAt);

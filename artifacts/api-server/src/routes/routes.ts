@@ -10,6 +10,7 @@ import OpenAI from "openai";
 import {
   isPackFresh,
   getContentPackValidationIssues,
+  CONTENT_PACK_SCHEMA_VERSION,
   PACK_TTL_MS,
   currentWeekKey,
 } from "@workspace/game-engine";
@@ -220,6 +221,7 @@ Rules:
     const raw = JSON.parse(choice?.message?.content ?? '{}');
 
     const pack: ContentPack = {
+      schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
       version: `pack-${weekKey}`,
       generatedAt: now,
       expiresAt: now + PACK_TTL_MS,
@@ -263,6 +265,7 @@ Rules:
 
 function generateDeterministicPack(weekKey: string, weeklyTheme: string, now: number): ContentPack {
   const pack: ContentPack = {
+    schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     version: `pack-${weekKey}`,
     generatedAt: now,
     expiresAt: now + PACK_TTL_MS,

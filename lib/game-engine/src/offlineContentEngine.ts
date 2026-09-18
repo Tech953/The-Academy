@@ -39,7 +39,11 @@ import {
 } from './eventTemplates';
 import * as eventTemplateRegistry from './eventTemplates';
 
-import type { ContentPack, ContentPackEvent } from './contentPack';
+import {
+  CONTENT_PACK_SCHEMA_VERSION,
+  type ContentPack,
+  type ContentPackEvent,
+} from './contentPack';
 
 import {
   STUDY_QUESTIONS,
@@ -707,6 +711,7 @@ export function generateOfflineContentPack(day: number, headlines: string[] = []
 
   const now = Date.now();
   return {
+    schemaVersion: CONTENT_PACK_SCHEMA_VERSION,
     version: `offline-w${week}`,
     generatedAt: now,
     expiresAt: now + 24 * 60 * 60 * 1000,
