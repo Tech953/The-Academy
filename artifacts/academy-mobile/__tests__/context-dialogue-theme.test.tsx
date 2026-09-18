@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   fetchContentPack: vi.fn(),
+  apiConfigured: true,
   generateNPCLine: vi.fn((options: { weeklyTheme?: string }) =>
     `Generated with ${options.weeklyTheme ?? "offline fallback"}`,
   ),
@@ -25,7 +26,7 @@ vi.mock("@/hooks/useNetworkStatus", () => ({
 
 vi.mock("@/lib/api", () => ({
   fetchContentPack: mocks.fetchContentPack,
-  hasApiConfig: () => true,
+  hasApiConfig: () => mocks.apiConfigured,
 }));
 
 vi.mock("@/lib/gameFallbacks", () => ({
@@ -109,6 +110,7 @@ async function waitFor(
 describe("GameProvider NPC dialogue weekly theme", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.apiConfigured = true;
   });
 
   afterEach(() => {
@@ -230,5 +232,81 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     expect(game?.studyProgress).toEqual(initialProgress);
     expect(mocks.fetchContentPack).toHaveBeenCalledTimes(2);
     renderer.unmount();
+  });
+
+  it("restores answered offline study progress after a provider relaunch", async () => {
+    const localStorage = createLocalStorageFixture();
+    mocks.apiConfigured = false;
+    localStorage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({ hasStarted: true, day: 1 }),
+    );
+
+    let firstGame: Game | undefined;
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      firstRenderer = TestRenderer.create(
+        <GameProvider>
+          <ThemeProbe onUpdate={game => (firstGame = game)} />
+        </GameProvider>,
+      );
+    });
+    await waitFor(
+      () =>
+        firstGame?.ready === true &&
+        firstGame.contentPackLoading === false &&
+        firstGame.isOnline === false,
+      firstRenderer,
+    );
+
+    const question = firstGame!.getQuizSet("math")[0];
+    let answerResult = false;
+    await act(async () => {
+      answerResult = firstGame!.answerQuestion(question, question.answer);
+    });
+    expect(answerResult).toBe(true);
+    await waitFor(
+      () =>
+        firstGame?.studyProgress.math.answered === 1 &&
+        firstGame.studyProgress.math.correct === 1,
+      firstRenderer,
+    );
+    await waitFor(
+      () => {
+        const persisted = JSON.parse(
+          localStorage.getItem("academy-mobile-state-v1") ?? "{}",
+        ) as {
+          studyProgress?: { math?: { answered?: number; correct?: number } };
+        };
+        return (
+          persisted.studyProgress?.math?.answered === 1 &&
+          persisted.studyProgress.math.correct === 1
+        );
+      },
+      firstRenderer,
+    );
+    firstRenderer.unmount();
+
+    let relaunchedGame: Game | undefined;
+    let relaunchedRenderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      relaunchedRenderer = TestRenderer.create(
+        <GameProvider>
+          <ThemeProbe onUpdate={game => (relaunchedGame = game)} />
+        </GameProvider>,
+      );
+    });
+    await waitFor(
+      () =>
+        relaunchedGame?.ready === true &&
+        relaunchedGame.studyProgress.math.answered === 1 &&
+        relaunchedGame.studyProgress.math.correct === 1,
+      relaunchedRenderer,
+    );
+
+    expect(relaunchedGame?.isOnline).toBe(false);
+    expect(relaunchedGame?.getQuizSet("math")[0]).toBeDefined();
+    expect(mocks.fetchContentPack).not.toHaveBeenCalled();
+    relaunchedRenderer.unmount();
   });
 });
