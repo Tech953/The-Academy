@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Linking } from "react-native";
 
 import type {
   ContentPack,
@@ -55,6 +56,11 @@ import {
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { computeRelationshipShift, type RelationshipShift } from "@/lib/relationshipShift";
 import { selectWeeklyTheme } from "@/lib/themeSelection";
+import {
+  ANDROID_LANE_ENABLED,
+  applyAndroidLaneStorageCommand,
+  getAndroidLaneCommand,
+} from "@/lib/androidLane";
 import {
   BULLETIN_LOCALE_STORAGE_KEY,
   getDeviceLocale,
@@ -307,6 +313,41 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!ANDROID_LANE_ENABLED) return;
+
+    let active = true;
+    const handleUrl = async (url: string) => {
+      if (!active) return;
+      const command = getAndroidLaneCommand(url);
+      if (command === "seed") {
+        setState((previous) =>
+          previous.hasStarted ? previous : { ...previous, hasStarted: true },
+        );
+        return;
+      }
+      if (command !== "corrupt" && command !== "expired") return;
+      await applyAndroidLaneStorageCommand(
+        AsyncStorage,
+        command,
+        state.day,
+      );
+    };
+
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (url) void handleUrl(url);
+      })
+      .catch(() => {});
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      void handleUrl(url);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [state.day]);
 
   useEffect(() => {
     let active = true;

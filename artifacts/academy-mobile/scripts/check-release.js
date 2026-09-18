@@ -181,6 +181,7 @@ function getReleaseProfiles(config) {
       return (
         env &&
         typeof env === "object" &&
+        env.EXPO_PUBLIC_ANDROID_LANE !== "1" &&
         Object.prototype.hasOwnProperty.call(env, "EXPO_PUBLIC_DOMAIN")
       );
     })

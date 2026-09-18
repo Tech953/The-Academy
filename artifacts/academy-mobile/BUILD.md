@@ -53,6 +53,30 @@ For a production iOS build, use the matching guarded command:
 pnpm run release:production:ios
 ```
 
+## Android bulletin relaunch lane
+
+The repeatable native cache lane uses a separate internal APK profile so normal
+preview and production builds never point at a local test server. Build the
+lane APK with EAS, then install and exercise it on one attached emulator or
+device:
+
+```bash
+npx eas-cli build --profile preview-lane --platform android
+pnpm --filter @workspace/academy-mobile run android:bulletin-lane -- \
+  --apk /path/to/preview-lane.apk
+```
+
+The runner requires `adb` and exactly one ready device unless `--device SERIAL`
+is supplied. It fails with setup instructions when Android platform-tools, the
+APK, or a device is missing; it never silently skips the lane.
+
+The lane maps port 8765 with `adb reverse`, seeds a valid remote bulletin,
+force-stops and relaunches while the refresh response is held open, and checks
+that the cached bulletin is visible before the response completes. It then
+corrupts and expires the native content-pack value through the lane-only deep
+link harness and confirms both cases reach the deterministic local fallback.
+The lane APK is intentionally separate from the normal `preview` profile.
+
 All four native release commands run the credential-free connectivity check
 for every configured EAS profile before starting EAS. A failed health or AI
 enrichment request stops the command and prints the profile plus the exact URL

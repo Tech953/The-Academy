@@ -20,6 +20,16 @@
         "EXPO_PUBLIC_DOMAIN": "TheeAcademy.replit.app"
       }
     },
+    "preview-lane": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "http://127.0.0.1:8765",
+        "EXPO_PUBLIC_ANDROID_LANE": "1"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {

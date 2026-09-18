@@ -40,7 +40,8 @@ export function hasApiConfig(): boolean {
 
 function getApiBaseUrl(): string | null {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  return domain ? `https://${domain}/api` : null;
+  if (!domain) return null;
+  return `${domain.includes("://") ? domain : `https://${domain}`}/api`;
 }
 
 async function requestJson<T>(
