@@ -16,6 +16,7 @@ test("runs export validation last and forwards explicit export paths", () => {
   ]);
 
   assert.deepEqual(commands.at(-1), {
+    gate: "Exports",
     command: "pnpm",
     args: [
       "run",
@@ -51,7 +52,7 @@ test("stops the handoff when a prerequisite command fails", () => {
           throw new Error("simulated base-path validation failure");
         }
       }),
-    /simulated base-path validation failure/,
+    /Release gate "Base path" failed: simulated base-path validation failure/,
   );
 
   assert.equal(seen.at(-1)?.args[1], "validate-base-path");
@@ -72,7 +73,7 @@ test("stops the handoff when imported chart fixtures fail", () => {
           throw new Error("simulated imported chart fixture failure");
         }
       }),
-    /simulated imported chart fixture failure/,
+    /Release gate "Imported chart fixtures" failed: simulated imported chart fixture failure/,
   );
 
   assert.equal(seen.at(-1)?.args[1], "test:imported-chart");
@@ -80,4 +81,28 @@ test("stops the handoff when imported chart fixtures fail", () => {
     seen.some((command) => command.args.includes("validate-slides")),
     false,
   );
+});
+
+test("labels every release gate before executing it", () => {
+  const messages: Array<string> = [];
+  const originalLog = console.log;
+  console.log = (message?: unknown) => {
+    messages.push(String(message));
+  };
+
+  try {
+    runReleaseCheck(() => {});
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.deepEqual(messages, [
+    "[release] Starting gate: Typecheck",
+    "[release] Starting gate: Imported chart fixtures",
+    "[release] Starting gate: Slide manifest",
+    "[release] Starting gate: Base path",
+    "[release] Starting gate: Bundle",
+    "[release] Starting gate: Routes",
+    "[release] Starting gate: Exports",
+  ]);
 });

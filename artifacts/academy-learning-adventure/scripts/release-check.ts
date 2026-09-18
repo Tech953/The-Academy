@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type ReleaseCheckCommand = {
+  gate: string;
   command: string;
   args: Array<string>;
 };
@@ -11,13 +12,29 @@ export function releaseCheckCommands(
   exportArgs: Array<string> = [],
 ): Array<ReleaseCheckCommand> {
   return [
-    { command: "pnpm", args: ["run", "typecheck"] },
-    { command: "pnpm", args: ["run", "test:imported-chart"] },
-    { command: "pnpm", args: ["run", "validate-slides", "--", "--check"] },
-    { command: "pnpm", args: ["run", "validate-base-path"] },
-    { command: "pnpm", args: ["run", "validate-bundle"] },
-    { command: "pnpm", args: ["run", "validate-routes"] },
-    { command: "pnpm", args: ["run", "validate-exports", "--", ...exportArgs] },
+    { gate: "Typecheck", command: "pnpm", args: ["run", "typecheck"] },
+    {
+      gate: "Imported chart fixtures",
+      command: "pnpm",
+      args: ["run", "test:imported-chart"],
+    },
+    {
+      gate: "Slide manifest",
+      command: "pnpm",
+      args: ["run", "validate-slides", "--", "--check"],
+    },
+    {
+      gate: "Base path",
+      command: "pnpm",
+      args: ["run", "validate-base-path"],
+    },
+    { gate: "Bundle", command: "pnpm", args: ["run", "validate-bundle"] },
+    { gate: "Routes", command: "pnpm", args: ["run", "validate-routes"] },
+    {
+      gate: "Exports",
+      command: "pnpm",
+      args: ["run", "validate-exports", "--", ...exportArgs],
+    },
   ];
 }
 
@@ -26,7 +43,13 @@ export function runReleaseCheck(
   exportArgs: Array<string> = process.argv.slice(2),
 ): void {
   for (const command of releaseCheckCommands(exportArgs)) {
-    runCommand(command);
+    console.log(`[release] Starting gate: ${command.gate}`);
+    try {
+      runCommand(command);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Release gate "${command.gate}" failed: ${message}`);
+    }
   }
 }
 
@@ -38,11 +61,13 @@ function runReleaseCommand({ command, args }: ReleaseCheckCommand): void {
 
   if (result.error) {
     throw new Error(
-      `Release check could not start "${command} ${args.join(" ")}": ${result.error.message}`,
+      `Release command could not start "${command} ${args.join(" ")}": ${result.error.message}`,
     );
   }
   if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+    throw new Error(
+      `Release command exited with status ${result.status ?? 1}: "${command} ${args.join(" ")}"`,
+    );
   }
 }
 
