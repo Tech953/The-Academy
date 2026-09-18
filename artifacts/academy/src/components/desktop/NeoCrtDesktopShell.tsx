@@ -94,7 +94,9 @@ const GRID_MARGIN_Y = 12;
 const TASKBAR_RESERVE = 60;
 const ICON_W = 92;
 const ICON_H = 82;
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v10';
+// Bump this when the layout contract changes so a broken saved arrangement
+// cannot survive a reset of the desktop icon grid.
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v11';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -284,14 +286,30 @@ const AMBIENT_WIDGETS: AmbientWidgetDef[] = [
   { id: 'w-rss',      widgetType: 'rss-feed',     defaultCol: 6,  defaultRow: 2, widgetWidth: 210, widgetHeight: 200 },
 ];
 
-function getDefaultPositions(): Record<string, { x: number; y: number }> {
+function getResponsiveIconColumns(vw: number): number {
+  const gap = 8;
+  return Math.max(
+    1,
+    Math.min(6, Math.floor((vw - GRID_MARGIN_X * 2 + gap) / (ICON_W + gap))),
+  );
+}
+
+function getDefaultPositions(
+  vw = window.innerWidth,
+  vh = window.innerHeight,
+): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
-  DESKTOP_ICONS.forEach(icon => {
-    positions[icon.id] = gridToPixel(icon.defaultCol, icon.defaultRow);
+  const columns = getResponsiveIconColumns(vw);
+  DESKTOP_ICONS.forEach((icon, index) => {
+    positions[icon.id] = gridToPixel(
+      index % columns,
+      Math.floor(index / columns),
+    );
   });
   AMBIENT_WIDGETS.forEach(w => {
     positions[w.id] = gridToPixel(w.defaultCol, w.defaultRow);
   });
+  void vh;
   return positions;
 }
 
@@ -302,22 +320,47 @@ function clampPosition(x: number, y: number, vw: number, vh: number): { x: numbe
   };
 }
 
+function normalizeDesktopPositions(
+  rawPositions: Record<string, { x: number; y: number }>,
+  vw: number,
+  vh: number,
+): Record<string, { x: number; y: number }> {
+  const defaults = getDefaultPositions(vw, vh);
+  const candidates = { ...defaults, ...rawPositions };
+  const normalized: Record<string, { x: number; y: number }> = {};
+
+  const place = (id: string) => {
+    const candidate = candidates[id] ?? defaults[id] ?? { x: 4, y: 4 };
+    const x = Number.isFinite(candidate.x) ? candidate.x : 4;
+    const y = Number.isFinite(candidate.y) ? candidate.y : 4;
+    const clamped = clampPosition(x, y, vw, vh);
+    normalized[id] = findNearestFreePosition(
+      id,
+      clamped.x,
+      clamped.y,
+      normalized,
+      vw,
+      vh,
+    );
+  };
+
+  // Program icons are placed first so decorative widgets never displace an
+  // accessible launcher when the viewport is narrow.
+  DESKTOP_ICONS.forEach(icon => place(icon.id));
+  AMBIENT_WIDGETS.forEach(widget => place(widget.id));
+  return normalized;
+}
+
 function loadIconPositions(): Record<string, { x: number; y: number }> {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   try {
     const stored = localStorage.getItem(DESKTOP_POSITIONS_KEY);
-    const defaults = getDefaultPositions();
-    const raw = stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
-    // Only clamp to viewport — no grid re-snapping so saved positions are preserved exactly
-    const clamped: Record<string, { x: number; y: number }> = {};
-    for (const [id, pos] of Object.entries(raw)) {
-      const p = pos as { x: number; y: number };
-      clamped[id] = clampPosition(p.x, p.y, vw, vh);
-    }
-    return clamped;
+    const parsed = stored ? JSON.parse(stored) : {};
+    const raw = parsed && typeof parsed === 'object' ? parsed : {};
+    return normalizeDesktopPositions(raw as Record<string, { x: number; y: number }>, vw, vh);
   } catch {/* ignore */}
-  return getDefaultPositions();
+  return normalizeDesktopPositions({}, vw, vh);
 }
 
 const TASKBAR_QUICK_APPS: DesktopIconConfig[] = [
@@ -421,6 +464,21 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
       onMouseDown={onMouseDown}
       onDoubleClick={(e) => { e.stopPropagation(); if (!locked) onOpen(); }}
       onContextMenu={onContextMenu}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !locked) {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="neo-desktop-icon"
+      role="button"
+      tabIndex={0}
+      aria-disabled={locked}
+      aria-label={
+        locked
+          ? `${label}. Locked. Enroll in a class to unlock.`
+          : `${label}. Press Enter or Space to open.`
+      }
       title={locked ? `${label} — enroll in a class to unlock` : label}
       data-testid={isAcademy ? 'academy-game-launcher' : undefined}
       style={{
@@ -468,7 +526,7 @@ const DraggableDesktopIcon = memo(function DraggableDesktopIcon({
         {icon.imageIcon ? (
           <img
             src={icon.imageIcon}
-            alt={icon.id}
+            alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.4 : 1, display: 'block' }}
             draggable={false}
           />
@@ -1356,15 +1414,7 @@ export default function NeoCrtDesktopShell() {
   const resetIconLayout = useCallback(() => {
     const vw = viewport.width;
     const vh = viewport.height;
-    const positions: Record<string, { x: number; y: number }> = {};
-    DESKTOP_ICONS.forEach(icon => {
-      const raw = gridToPixel(icon.defaultCol, icon.defaultRow);
-      positions[icon.id] = snapPixelToGrid(raw.x, raw.y, vw, vh);
-    });
-    AMBIENT_WIDGETS.forEach(w => {
-      const raw = gridToPixel(w.defaultCol, w.defaultRow);
-      positions[w.id] = snapPixelToGrid(raw.x, raw.y, vw, vh);
-    });
+    const positions = normalizeDesktopPositions({}, vw, vh);
     setIconPositions(positions);
     localStorage.removeItem(DESKTOP_POSITIONS_KEY);
   }, [viewport]);
@@ -1959,7 +2009,7 @@ export default function NeoCrtDesktopShell() {
         );
       })}
 
-      {uiMode === 'student' && viewport.width > 700 && AMBIENT_WIDGETS.map((widget) => {
+      {uiMode === 'student' && viewport.width > 960 && AMBIENT_WIDGETS.map((widget) => {
         if (widget.unlockLevel && widget.unlockLevel > characterLevel) return null;
         if (hiddenWidgets.includes(widget.id)) return null;
         const pos = iconPositions[widget.id] ?? gridToPixel(widget.defaultCol, widget.defaultRow);

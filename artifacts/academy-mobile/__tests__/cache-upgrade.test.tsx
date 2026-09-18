@@ -134,6 +134,99 @@ describe("native bulletin cache across app upgrades", () => {
     renderer.unmount();
   });
 
+  it("keeps the bulletin visible while provider cache health recovers", async () => {
+    const storage = createNativeStorageFixture();
+    storage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({ hasStarted: true, day: 1 }),
+    );
+
+    const failedWritePack = {
+      ...generateOfflineContentPack(1),
+      version: "pack-visible-after-write-failure",
+    };
+    const recoveredPack = {
+      ...generateOfflineContentPack(1),
+      version: "pack-written-after-recovery",
+    };
+    let allowContentPackWrites = false;
+    const setItemSpy = vi.spyOn(AsyncStorage, "setItem").mockImplementation(
+      async (key, value) => {
+        if (key === CONTENT_PACK_STORAGE_KEY && !allowContentPackWrites) {
+          throw new Error("native storage unavailable");
+        }
+        storage.setItem(key, value);
+      },
+    );
+    mocks.fetchContentPack.mockResolvedValueOnce(failedWritePack);
+
+    let releaseRecovery!: (pack: typeof recoveredPack) => void;
+    mocks.fetchContentPack.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseRecovery = resolve;
+        }),
+    );
+
+    let game: Game | undefined;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    try {
+      await act(async () => {
+        renderer = TestRenderer.create(
+          <GameProvider>
+            <UpgradeProbe onUpdate={(nextGame) => (game = nextGame)} />
+          </GameProvider>,
+        );
+      });
+
+      await waitFor(
+        () =>
+          game?.ready === true &&
+          game.contentPackLoading === false &&
+          game.contentPack?.version === failedWritePack.version &&
+          game.contentPackStorageStatus === "write-failed",
+        renderer,
+      );
+      expect(game?.contentPack?.version).toBe(failedWritePack.version);
+      expect(game?.contentPackStorageStatus).toBe("write-failed");
+
+      allowContentPackWrites = true;
+      await act(async () => {
+        void game?.refreshContentPack();
+        await Promise.resolve();
+      });
+      await waitFor(
+        () =>
+          mocks.fetchContentPack.mock.calls.length === 2 &&
+          game?.contentPackLoading === true &&
+          game.contentPack?.version === failedWritePack.version &&
+          game.contentPackStorageStatus === "write-failed",
+        renderer,
+      );
+      expect(game?.contentPack?.version).toBe(failedWritePack.version);
+      expect(game?.contentPackStorageStatus).toBe("write-failed");
+
+      await act(async () => {
+        releaseRecovery(recoveredPack);
+      });
+      await waitFor(
+        () =>
+          game?.contentPackLoading === false &&
+          game.contentPackStorageStatus === "stored" &&
+          game.contentPack?.version === recoveredPack.version,
+        renderer,
+      );
+      expect(game?.contentPackStorageStatus).toBe("stored");
+      expect(setItemSpy).toHaveBeenCalledWith(
+        CONTENT_PACK_STORAGE_KEY,
+        expect.stringContaining(recoveredPack.version),
+      );
+    } finally {
+      renderer?.unmount();
+      setItemSpy.mockRestore();
+    }
+  });
+
   it.each([
     {
       label: "expired",
