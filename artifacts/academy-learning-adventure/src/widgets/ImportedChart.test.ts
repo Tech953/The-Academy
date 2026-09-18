@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
   chartRows,
+  default as ImportedChart,
   pieData,
   scatterPoints,
   type ImportedChartModel,
@@ -62,4 +65,30 @@ test('scatter points omit null coordinates while defaulting missing bubble size'
   assert.deepEqual(scatterPoints(series, 'bubble'), [
     { x: 1, y: 10, z: 5 },
   ]);
+});
+
+test('radar charts use categorical rows and render through the fallback', () => {
+  const chart: ImportedChartModel = {
+    type: 'radar',
+    series: [
+      {
+        name: 'Current readiness',
+        categories: ['Reasoning', 'Language', 'Science'],
+        values: [72, null, 64],
+      },
+      {
+        name: 'Target readiness',
+        values: [90, 80, null],
+      },
+    ],
+  };
+
+  assert.deepEqual(chartRows(chart), [
+    { category: 'Reasoning', 'series-0': 72, 'series-1': 90 },
+    { category: 'Language', 'series-0': null, 'series-1': 80 },
+    { category: 'Science', 'series-0': 64, 'series-1': null },
+  ]);
+  assert.doesNotThrow(() =>
+    renderToStaticMarkup(createElement(ImportedChart, { chart })),
+  );
 });
