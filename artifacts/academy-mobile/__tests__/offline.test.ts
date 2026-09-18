@@ -35,6 +35,7 @@ import {
 } from '../lib/gameFallbacks';
 import {
   BULLETIN_EVENT_LIMIT,
+  CONTENT_PACK_WRITE_RETRY_DELAYS_MS,
   createContentPackWriteQueue,
   createContentPackWriteQueueWithResult,
   ensureUsableContentPack,
@@ -1312,6 +1313,116 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     await expect(readCachedContentPack(storage)).resolves.toMatchObject({
       version: 'pack-new',
     });
+  });
+
+  it('retries a transient storage failure in the background and reports recovery', async () => {
+    vi.useFakeTimers();
+    try {
+      const values = new Map<string, string>();
+      let attempts = 0;
+      const storage = {
+        getItem: async (key: string) => values.get(key) ?? null,
+        setItem: async (key: string, value: string) => {
+          attempts += 1;
+          if (attempts === 1) throw new Error('temporary storage outage');
+          values.set(key, value);
+        },
+      };
+      const onRetrySuccess = vi.fn();
+      const writeQueue = createContentPackWriteQueueWithResult(storage, {
+        retryDelaysMs: [25],
+        onRetrySuccess,
+      });
+      const pack = { ...generateOfflineContentPack(day), version: 'pack-retry' };
+
+      await expect(writeQueue(pack, () => true)).resolves.toEqual({
+        status: 'failed',
+        reason: 'storage',
+      });
+      expect(attempts).toBe(1);
+      expect(onRetrySuccess).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(25);
+
+      expect(attempts).toBe(2);
+      expect(onRetrySuccess).toHaveBeenCalledTimes(1);
+      await expect(readCachedContentPack(storage)).resolves.toMatchObject({
+        version: 'pack-retry',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops after the bounded retry budget for a permanent storage failure', async () => {
+    vi.useFakeTimers();
+    try {
+      let attempts = 0;
+      const storage = {
+        getItem: async () => null,
+        setItem: async () => {
+          attempts += 1;
+          throw new Error('storage permanently unavailable');
+        },
+      };
+      const onRetrySuccess = vi.fn();
+      const writeQueue = createContentPackWriteQueueWithResult(storage, {
+        onRetrySuccess,
+      });
+      const pack = generateOfflineContentPack(day);
+
+      await expect(writeQueue(pack, () => true)).resolves.toEqual({
+        status: 'failed',
+        reason: 'storage',
+      });
+      await vi.advanceTimersByTimeAsync(
+        CONTENT_PACK_WRITE_RETRY_DELAYS_MS.reduce((sum, delay) => sum + delay, 0),
+      );
+
+      expect(attempts).toBe(1 + CONTENT_PACK_WRITE_RETRY_DELAYS_MS.length);
+      expect(onRetrySuccess).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not let a scheduled older retry replace a newer pack', async () => {
+    vi.useFakeTimers();
+    try {
+      const values = new Map<string, string>();
+      let shouldRejectOldWrite = true;
+      const storage = {
+        getItem: async (key: string) => values.get(key) ?? null,
+        setItem: async (key: string, value: string) => {
+          const pack = JSON.parse(value) as ContentPack;
+          if (pack.version === 'pack-old' && shouldRejectOldWrite) {
+            shouldRejectOldWrite = false;
+            throw new Error('temporary storage outage');
+          }
+          values.set(key, value);
+        },
+      };
+      const writeQueue = createContentPackWriteQueueWithResult(storage, {
+        retryDelaysMs: [25],
+      });
+      const oldPack = { ...generateOfflineContentPack(day), version: 'pack-old' };
+      const newPack = { ...generateOfflineContentPack(day), version: 'pack-new' };
+
+      await expect(writeQueue(oldPack, () => true)).resolves.toMatchObject({
+        status: 'failed',
+        reason: 'storage',
+      });
+      await expect(writeQueue(newPack, () => true)).resolves.toMatchObject({
+        status: 'written',
+      });
+      await vi.advanceTimersByTimeAsync(25);
+
+      await expect(readCachedContentPack(storage)).resolves.toMatchObject({
+        version: 'pack-new',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

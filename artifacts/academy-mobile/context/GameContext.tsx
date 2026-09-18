@@ -280,7 +280,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
   const contentPackRequestRef = useRef(0);
   const writeContentPack = useRef(
-    createContentPackWriteQueueWithResult(AsyncStorage),
+    createContentPackWriteQueueWithResult(AsyncStorage, {
+      onRetrySuccess: () => setContentPackStorageStatus("stored"),
+    }),
   ).current;
   const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
     getInitialEnrichmentStatus(networkOnline, apiConfigured),

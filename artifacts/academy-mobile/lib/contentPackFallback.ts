@@ -29,12 +29,26 @@ export type ContentPackWriteQueue = (
   isCurrent: () => boolean,
 ) => Promise<boolean>;
 
+export interface ContentPackWriteQueueOptions {
+  /**
+   * Delays for storage retries after the initial write. Keeping this list
+   * finite makes a persistent native-storage failure self-limiting.
+   */
+  retryDelaysMs?: readonly number[];
+  /**
+   * Called only when a background retry successfully stores the pack.
+   * Storage errors stay coarse and are intentionally not forwarded.
+   */
+  onRetrySuccess?: () => void;
+}
+
 export type ContentPackWriteResult =
   | { status: "written" }
   | { status: "skipped" }
   | { status: "failed"; reason: "invalid-pack" | "storage" };
 
 export type ContentPackStorageStatus = "unknown" | "stored" | "write-failed";
+export const CONTENT_PACK_WRITE_RETRY_DELAYS_MS = [250, 1_000, 4_000] as const;
 
 /**
  * Runtime validation for event records received from the content-pack API.
@@ -185,25 +199,75 @@ export function createContentPackWriteQueue(
 
 export function createContentPackWriteQueueWithResult(
   storage: ContentPackStorage,
+  options: ContentPackWriteQueueOptions = {},
 ): (
   pack: ContentPack,
   isCurrent: () => boolean,
 ) => Promise<ContentPackWriteResult> {
+  const retryDelaysMs =
+    options.retryDelaysMs ?? CONTENT_PACK_WRITE_RETRY_DELAYS_MS;
   let tail: Promise<void> = Promise.resolve();
+  let nextOperationId = 0;
+  let latestOperationId = 0;
 
-  return (pack, isCurrent) => {
+  const enqueue = (
+    task: () => Promise<ContentPackWriteResult>,
+  ): Promise<ContentPackWriteResult> => {
     const operation = tail
       .catch(() => undefined)
-      .then(async () => {
-        if (!isCurrent()) return { status: "skipped" } as const;
-        return writeCachedContentPackResult(storage, pack);
-      });
-
+      .then(task);
     tail = operation.then(
       () => undefined,
       () => undefined,
     );
     return operation;
+  };
+
+  return (pack, isCurrent) => {
+    const operationId = ++nextOperationId;
+    latestOperationId = operationId;
+
+    const isCurrentRequest = () => isCurrent();
+    const isActiveRetry = () =>
+      isCurrentRequest() && latestOperationId === operationId;
+
+    const scheduleRetry = (retryNumber: number) => {
+      const delayMs = retryDelaysMs[retryNumber];
+      if (delayMs === undefined) return;
+
+      setTimeout(() => {
+        if (!isActiveRetry()) return;
+
+        void enqueue(async () => {
+          if (!isActiveRetry()) return { status: "skipped" } as const;
+
+          const result = await writeCachedContentPackResult(storage, pack);
+          if (
+            result.status === "failed" &&
+            result.reason === "storage"
+          ) {
+            scheduleRetry(retryNumber + 1);
+          } else if (result.status === "written" && isActiveRetry()) {
+            options.onRetrySuccess?.();
+          }
+          return result;
+        }).catch(() => {
+          // writeCachedContentPackResult normalizes storage failures. This
+          // guard keeps an unexpected queue error from becoming an unhandled
+          // rejection in the background retry.
+        });
+      }, delayMs);
+    };
+
+    return enqueue(async () => {
+      if (!isCurrentRequest()) return { status: "skipped" } as const;
+
+      const result = await writeCachedContentPackResult(storage, pack);
+      if (result.status === "failed" && result.reason === "storage") {
+        scheduleRetry(0);
+      }
+      return result;
+    });
   };
 }
 
