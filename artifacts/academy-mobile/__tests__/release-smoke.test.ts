@@ -326,6 +326,10 @@ function createNativeHandoffSubprocessFixture() {
     easCommandPath,
     `#!/usr/bin/env node
 const fs = require("node:fs");
+const platform = process.env.RELEASE_PLATFORM || "android";
+const profile = process.env.RELEASE_PROFILE || "preview";
+const artifactExtension =
+  platform === "ios" ? "ipa" : profile === "production" ? "aab" : "apk";
 fs.writeFileSync(
   process.env.EAS_RECORD_PATH,
   JSON.stringify({ args: process.argv.slice(2) }),
@@ -333,12 +337,12 @@ fs.writeFileSync(
 process.stdout.write(JSON.stringify([{
   id: "stub-build",
   status: "finished",
-  profile: "preview",
+  profile,
   appVersion: "1.0.0",
   appIdentifier: "com.theacademy.mobile",
   completedAt: "2026-09-16T12:00:00.000Z",
   buildDetailsPageUrl: "https://expo.dev/builds/stub-build",
-  artifactUrl: "https://expo.dev/builds/stub-build.apk"
+  artifactUrl: "https://expo.dev/builds/stub-build." + artifactExtension
 }]));
 const exitCode = Number(process.env.EAS_EXIT_CODE || "0");
 if (exitCode !== 0) {
@@ -410,6 +414,8 @@ function runNativeHandoffSubprocess(
   fixture: ReturnType<typeof createNativeHandoffSubprocessFixture>,
   preflightResult: "failed" | "passed",
   easExitCode = "0",
+  platform: "android" | "ios" = "android",
+  profile = "preview",
 ) {
   return spawnSync(
     process.execPath,
@@ -417,10 +423,10 @@ function runNativeHandoffSubprocess(
       "--require",
       fixture.preloadPath,
       nativeHandoffPath,
-      "--platform",
-      "android",
+       "--platform",
+       platform,
       "--profile",
-      "preview",
+       profile,
     ],
     {
       cwd: path.resolve(__dirname, ".."),
@@ -431,6 +437,8 @@ function runNativeHandoffSubprocess(
         EAS_RECORD_PATH: fixture.easRecordPath,
         RELEASE_PREFLIGHT_RESULT: preflightResult,
         EAS_EXIT_CODE: easExitCode,
+        RELEASE_PLATFORM: platform,
+        RELEASE_PROFILE: profile,
         RELEASE_REPORT_PATH: fixture.reportPath,
       },
     },
@@ -1808,6 +1816,27 @@ describe("release smoke check", () => {
     }
   });
 
+  it("does not invoke iOS EAS when the all-profile preflight fails", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "failed",
+        "0",
+        "ios",
+        "preview",
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /Release connectivity failed before EAS build: production: HTTP 503/,
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(false);
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("invokes the stubbed EAS command after every subprocess preflight passes", () => {
     const fixture = createNativeHandoffSubprocessFixture();
     try {
@@ -1862,6 +1891,56 @@ describe("release smoke check", () => {
           },
         ],
       });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("invokes iOS EAS after preflight and preserves the iOS bundle identifier", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "ios",
+        "preview",
+      );
+
+      expect(result.status).toBe(0);
+      expect(JSON.parse(readFileSync(fixture.easRecordPath, "utf8"))).toEqual({
+        args: [
+          "build",
+          "--platform",
+          "ios",
+          "--profile",
+          "preview",
+          "--json",
+        ],
+      });
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        platform: string;
+        profile: string;
+        appId: string;
+        build: {
+          package: string;
+          installerUrl: string | null;
+        };
+      };
+      expect(report).toMatchObject({
+        status: "completed",
+        platform: "ios",
+        profile: "preview",
+        appId: "com.theacademy.mobile",
+        build: {
+          package: "com.theacademy.mobile",
+        },
+      });
+      expect(report.build.installerUrl).toMatch(/\.ipa$/);
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
