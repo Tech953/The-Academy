@@ -31,6 +31,7 @@ test("runs export validation last and forwards explicit export paths", () => {
     commands.slice(0, -1).map(({ command, args }) => [command, args]),
     [
       ["pnpm", ["run", "typecheck"]],
+      ["pnpm", ["run", "test:imported-chart"]],
       ["pnpm", ["run", "validate-slides", "--", "--check"]],
       ["pnpm", ["run", "validate-base-path"]],
       ["pnpm", ["run", "validate-bundle"]],
@@ -56,6 +57,27 @@ test("stops the handoff when a prerequisite command fails", () => {
   assert.equal(seen.at(-1)?.args[1], "validate-base-path");
   assert.equal(
     seen.some((command) => command.args.includes("validate-exports")),
+    false,
+  );
+});
+
+test("stops the handoff when imported chart fixtures fail", () => {
+  const seen: Array<ReleaseCheckCommand> = [];
+
+  assert.throws(
+    () =>
+      runReleaseCheck((command) => {
+        seen.push(command);
+        if (command.args.includes("test:imported-chart")) {
+          throw new Error("simulated imported chart fixture failure");
+        }
+      }),
+    /simulated imported chart fixture failure/,
+  );
+
+  assert.equal(seen.at(-1)?.args[1], "test:imported-chart");
+  assert.equal(
+    seen.some((command) => command.args.includes("validate-slides")),
     false,
   );
 });

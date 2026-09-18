@@ -12,6 +12,7 @@ export function releaseCheckCommands(
 ): Array<ReleaseCheckCommand> {
   return [
     { command: "pnpm", args: ["run", "typecheck"] },
+    { command: "pnpm", args: ["run", "test:imported-chart"] },
     { command: "pnpm", args: ["run", "validate-slides", "--", "--check"] },
     { command: "pnpm", args: ["run", "validate-base-path"] },
     { command: "pnpm", args: ["run", "validate-bundle"] },
