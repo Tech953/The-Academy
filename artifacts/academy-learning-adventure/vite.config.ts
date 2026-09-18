@@ -21,6 +21,10 @@ export default defineConfig({
   base: basePath,
   plugins: [
     react(),
+    // Path-based preview rule: runtime-error-modal derives @vite/client from
+    // Vite's resolved base, and cartographer only injects development metadata
+    // plus external CDN code. dev-banner hardcodes /@replit/... and may run
+    // only for a root preview, never for this nested artifact path.
     runtimeErrorOverlay(),
     tailwindcss(),
     sdmVitePlugin(),
