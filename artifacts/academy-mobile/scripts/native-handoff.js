@@ -176,6 +176,18 @@ function normalizeBuildMetadata(
   const extracted = extractBuildMetadata(output);
   const record = extracted.easRecords.at(-1) ?? {};
   const expo = appConfig?.expo ?? appConfig ?? {};
+  const expectedArtifactExtension =
+    platform === "android" && profile === "production"
+      ? "aab"
+      : platform === "android"
+        ? "apk"
+        : "ipa";
+  const expectedArtifactLabel =
+    platform === "android" && profile === "production"
+      ? "production Android App Bundle (.aab)"
+      : platform === "android"
+        ? "preview Android APK (.apk)"
+        : "iOS IPA (.ipa)";
   const configuredPackage =
     platform === "ios" ? expo.ios?.bundleIdentifier : expo.android?.package;
   const outputPackage = findFirstValue(record, [
@@ -194,11 +206,35 @@ function normalizeBuildMetadata(
     "createdAt",
     "timestamp",
   ]);
-  const installerUrl = extracted.installerUrls[0] ?? null;
-  const installerPath = extracted.installerPaths[0] ?? null;
+  const installerCandidates = [
+    ...extracted.installerUrls.map((value) => ({ kind: "url", value })),
+    ...extracted.installerPaths.map((value) => ({ kind: "path", value })),
+  ];
+  const expectedInstaller = installerCandidates.find(({ value }) =>
+    new RegExp(`\\.${expectedArtifactExtension}(?:[?#]|$)`, "i").test(value),
+  );
+  const installerUrl =
+    expectedInstaller?.kind === "url" ? expectedInstaller.value : null;
+  const installerPath =
+    expectedInstaller?.kind === "path" ? expectedInstaller.value : null;
   const missing = [];
 
-  if (!installerUrl && !installerPath) missing.push("installer URL or local APK path");
+  if (!installerUrl && !installerPath) {
+    if (installerCandidates.length > 0) {
+      throw new Error(
+        `[native-handoff] Incomplete EAS build metadata: expected ${expectedArtifactLabel}; found ${installerCandidates
+          .map(({ value }) => value)
+          .join(", ")}.`,
+      );
+    }
+    missing.push(
+      platform === "android" && profile === "production"
+        ? "installer URL or local AAB path"
+        : platform === "android"
+          ? "installer URL or local APK path"
+          : "installer URL or local IPA path",
+    );
+  }
   if (!version) missing.push("version");
   if (!configuredPackage && !outputPackage) missing.push("package identity");
   if (!profile) missing.push("profile");
@@ -211,6 +247,11 @@ function normalizeBuildMetadata(
   if (outputPackage && configuredPackage && outputPackage !== configuredPackage) {
     throw new Error(
       `[native-handoff] EAS package identity "${outputPackage}" does not match app.json "${configuredPackage}".`,
+    );
+  }
+  if (expo.version && String(version) !== String(expo.version)) {
+    throw new Error(
+      `[native-handoff] EAS version "${version}" does not match app.json "${expo.version}".`,
     );
   }
   if (outputProfile && outputProfile !== profile) {

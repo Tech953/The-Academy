@@ -169,11 +169,20 @@ network request:
 
 ```bash
 pnpm --filter @workspace/academy-mobile run check-release:handoff
+RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-release:handoff
 ```
 
-This reads the native handoff report (override it with
-`RELEASE_HANDOFF_PATH`) and confirms that the record is a completed Android
-preview build, that `preview` remains an internal APK profile, and that the
-recorded version, package identity, profile, timestamp, and installer
-reference are consistent. Validation failures list every actionable mismatch
-and write a failed release report instead of passing.
+For the production shortcut, use:
+
+```bash
+pnpm --filter @workspace/academy-mobile run check-release:handoff:production
+```
+
+The selected profile reads the native handoff report (override it with
+`RELEASE_HANDOFF_PATH`) and applies the matching distribution contract:
+`preview` must remain an internal APK handoff, while `production` must remain a
+store-distribution Android App Bundle handoff. Both profiles must keep the
+recorded version and Android package aligned with `app.json`; EAS Android
+version-code auto-increment metadata is allowed alongside that app version.
+Validation failures list every actionable mismatch and write a failed release
+report instead of passing.

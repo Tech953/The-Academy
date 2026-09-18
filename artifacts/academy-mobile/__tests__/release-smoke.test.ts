@@ -41,6 +41,7 @@ const {
     handoffReport?: unknown;
     appConfig?: unknown;
     easConfig?: unknown;
+    profile?: string;
   }) => {
     status: string;
     platform: string;
@@ -495,6 +496,69 @@ describe("native handoff build metadata", () => {
     });
   });
 
+  it("normalizes a production AAB while allowing EAS auto-increment metadata", () => {
+    const output = {
+      stdout: JSON.stringify([
+        {
+          id: "production-build-123",
+          status: "finished",
+          profile: "production",
+          appVersion: "1.0.0",
+          androidVersionCode: 42,
+          appIdentifier: "com.theacademy.mobile",
+          completedAt: "2026-09-15T15:00:00.000Z",
+          buildDetailsPageUrl: "https://expo.dev/builds/production-build-123",
+          artifacts: {
+            buildUrl: "https://example.invalid/academy-production.aab",
+          },
+        },
+      ]),
+      stderr: "",
+    };
+
+    expect(
+      normalizeBuildMetadata(output, {
+        platform: "android",
+        profile: "production",
+        appConfig,
+        capturedAt: "2026-09-15T15:01:00.000Z",
+      }),
+    ).toMatchObject({
+      installerUrl: "https://example.invalid/academy-production.aab",
+      version: "1.0.0",
+      package: "com.theacademy.mobile",
+      profile: "production",
+    });
+  });
+
+  it("rejects an APK when a production handoff expects an AAB", () => {
+    expect(() =>
+      normalizeBuildMetadata(
+        {
+          stdout: JSON.stringify([
+            {
+              id: "production-apk",
+              status: "finished",
+              profile: "production",
+              appVersion: "1.0.0",
+              appIdentifier: "com.theacademy.mobile",
+              artifacts: {
+                buildUrl: "https://example.invalid/academy-production.apk",
+              },
+            },
+          ]),
+          stderr: "",
+        },
+        {
+          platform: "android",
+          profile: "production",
+          appConfig,
+          capturedAt: "2026-09-15T15:01:00.000Z",
+        },
+      ),
+    ).toThrow(/expected production Android App Bundle \(\.aab\); found .*\.apk/);
+  });
+
   it("fails clearly instead of creating a handoff without an installer", () => {
     expect(() =>
       normalizeBuildMetadata(
@@ -598,6 +662,7 @@ describe("release smoke check", () => {
       timestamp: string;
       buildId: string | null;
       buildDetailsPageUrl: string | null;
+      androidVersionCode?: number;
     };
   } => ({
       status: "completed",
@@ -634,6 +699,54 @@ describe("release smoke check", () => {
       timestamp: "2026-09-15T15:00:00.000Z",
       buildId: "build-123",
     });
+  });
+
+  it("accepts a complete production AAB handoff with auto-increment metadata", () => {
+    const report = validHandoffReport();
+    report.profile = "production";
+    report.build.profile = "production";
+    report.build.installerUrl =
+      "https://example.invalid/academy-production.aab?sig=redacted";
+    report.build.androidVersionCode = 42;
+
+    expect(
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        profile: "production",
+        handoffReport: report,
+      }),
+    ).toEqual({
+      status: "passed",
+      platform: "android",
+      profile: "production",
+      distribution: "store",
+      buildType: "app-bundle",
+      version: "1.0.0",
+      androidPackage: "com.theacademy.mobile",
+      installerUrl:
+        "https://example.invalid/academy-production.aab?sig=redacted",
+      installerPath: null,
+      timestamp: "2026-09-15T15:00:00.000Z",
+      buildId: "build-123",
+    });
+  });
+
+  it("rejects an APK reference in a production handoff", () => {
+    const report = validHandoffReport();
+    report.profile = "production";
+    report.build.profile = "production";
+    report.build.installerUrl =
+      "https://example.invalid/academy-production.apk?sig=redacted";
+
+    expect(() =>
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        profile: "production",
+        handoffReport: report,
+      }),
+    ).toThrow(
+      /installer reference must be a production Android App Bundle \(\.aab\) for store distribution; found .*\.apk/,
+    );
   });
 
   it("accepts an EAS artifact URL when build metadata identifies the build", () => {

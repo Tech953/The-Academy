@@ -441,6 +441,7 @@ function validateNativeHandoff({
   handoffReport,
   appConfig,
   easConfig,
+  profile = "preview",
   handoffReportPath = DEFAULT_HANDOFF_REPORT_PATH,
 } = {}) {
   const resolvedAppConfig =
@@ -452,21 +453,34 @@ function validateNativeHandoff({
     readJsonFile(handoffReportPath, "native handoff report");
   const configuredPackage = resolvedAppConfig?.expo?.android?.package;
   const configuredVersion = resolvedAppConfig?.expo?.version;
-  const previewProfile = resolvedEasConfig?.build?.preview;
+  const releaseProfile = resolvedEasConfig?.build?.[profile];
+  const isProduction = profile === "production";
+  const expectedBuildType = isProduction ? "app-bundle" : "apk";
+  const expectedArtifactExtension = isProduction ? "aab" : "apk";
+  const expectedDistribution = isProduction ? "store" : "internal";
+  const expectedArtifactLabel = isProduction
+    ? "a production Android App Bundle (.aab) for store distribution"
+    : "a preview internal APK (.apk)";
   const build = report?.build;
   const errors = [];
 
-  if (!previewProfile || typeof previewProfile !== "object") {
-    errors.push('EAS profile "preview" is missing from eas.json');
+  if (!releaseProfile || typeof releaseProfile !== "object") {
+    errors.push(`EAS profile "${profile}" is missing from eas.json`);
   } else {
-    if (previewProfile.distribution !== "internal") {
+    if (isProduction) {
+      if (releaseProfile.distribution === "internal") {
+        errors.push(
+          'production distribution must be "store" for an Android App Bundle (found internal)',
+        );
+      }
+    } else if (releaseProfile.distribution !== "internal") {
       errors.push(
-        `preview distribution must be "internal" (found ${previewProfile.distribution || "missing"})`,
+        `preview distribution must be "internal" for an APK handoff (found ${releaseProfile.distribution || "missing"})`,
       );
     }
-    if (previewProfile.android?.buildType !== "apk") {
+    if (releaseProfile.android?.buildType !== expectedBuildType) {
       errors.push(
-        `preview Android buildType must be "apk" (found ${previewProfile.android?.buildType || "missing"})`,
+        `${profile} Android buildType must be "${expectedBuildType}" for ${expectedArtifactLabel}; found ${releaseProfile.android?.buildType || "missing"}`,
       );
     }
   }
@@ -481,9 +495,9 @@ function validateNativeHandoff({
       `handoff platform must be "android" (found ${report?.platform || "missing"})`,
     );
   }
-  if (report?.profile !== "preview") {
+  if (report?.profile !== profile) {
     errors.push(
-      `handoff profile must be "preview" (found ${report?.profile || "missing"})`,
+      `handoff profile must be "${profile}" (found ${report?.profile || "missing"})`,
     );
   }
   if (!build || typeof build !== "object") {
@@ -494,7 +508,13 @@ function validateNativeHandoff({
     const installerPath =
       typeof build.installerPath === "string" ? build.installerPath.trim() : "";
     const installerReference = installerUrl || installerPath;
-    const hasExpectedArtifactType = /\.apk(?:[?#]|$)/i.test(installerReference);
+    const hasExpectedArtifactType = new RegExp(
+      `\\.${expectedArtifactExtension}(?:[?#]|$)`,
+      "i",
+    ).test(installerReference);
+    const hasKnownArtifactType = /\.(?:apk|aab|ipa)(?:[?#]|$)/i.test(
+      installerReference,
+    );
     const hasEasBuildMetadata =
       typeof build.buildId === "string" &&
       build.buildId.trim().length > 0 &&
@@ -503,9 +523,12 @@ function validateNativeHandoff({
 
     if (!installerReference) {
       errors.push("installerUrl or installerPath is missing");
-    } else if (!hasExpectedArtifactType && !hasEasBuildMetadata) {
+    } else if (
+      !hasExpectedArtifactType &&
+      (isProduction || !hasEasBuildMetadata || hasKnownArtifactType)
+    ) {
       errors.push(
-        "installer reference is not an .apk and has no EAS buildId/buildDetailsPageUrl metadata",
+        `installer reference must be ${expectedArtifactLabel}; found ${installerReference}`,
       );
     }
     if (!configuredVersion) {
@@ -522,9 +545,9 @@ function validateNativeHandoff({
         `build package "${build.package || "missing"}" does not match app.json "${configuredPackage}"`,
       );
     }
-    if (typeof build.profile !== "string" || build.profile !== "preview") {
+    if (typeof build.profile !== "string" || build.profile !== profile) {
       errors.push(
-        `build profile must be "preview" (found ${build.profile || "missing"})`,
+        `build profile must be "${profile}" (found ${build.profile || "missing"})`,
       );
     }
     if (
@@ -544,9 +567,10 @@ function validateNativeHandoff({
   return {
     status: "passed",
     platform: "android",
-    profile: "preview",
-    distribution: "internal",
-    buildType: "apk",
+    profile,
+    distribution:
+      releaseProfile?.distribution || expectedDistribution,
+    buildType: expectedBuildType,
     version: String(build.version),
     androidPackage: configuredPackage,
     installerUrl: build.installerUrl || null,
@@ -609,7 +633,10 @@ if (require.main === module) {
     const handoffReportPath =
       process.env.RELEASE_HANDOFF_PATH || DEFAULT_HANDOFF_REPORT_PATH;
     try {
-      const handoff = validateNativeHandoff({ handoffReportPath });
+      const handoff = validateNativeHandoff({
+        handoffReportPath,
+        profile,
+      });
       const report = writeReleaseReport(reportPath, {
         command: "check-release --handoff",
         status: "passed",
