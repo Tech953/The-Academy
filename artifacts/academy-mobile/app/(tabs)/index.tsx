@@ -16,7 +16,6 @@ import { TerminalLine } from "@/components/TerminalLine";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import {
   getBulletinSourceMessage,
-  getDeviceLocale,
 } from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
@@ -79,6 +78,7 @@ export default function AdventureScreen() {
     examineLoading,
     contentPack,
     bulletinEventsRepaired,
+    bulletinLocale,
     travelTo,
     refreshLocationDescription,
     examine,
@@ -86,7 +86,6 @@ export default function AdventureScreen() {
   } = useGame();
   const scrollRef = useRef<ScrollView>(null);
   const wasBulletinRepaired = useRef(false);
-  const bulletinLocale = getDeviceLocale();
 
   useEffect(() => {
     if (

@@ -53,6 +53,10 @@ vi.mock("@workspace/game-engine", async () => {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { generateOfflineContentPack } from "@workspace/game-engine";
+import {
+  BULLETIN_LOCALE_STORAGE_KEY,
+  getDeviceLocale,
+} from "../constants/locales";
 import { GameProvider, useGame } from "../context/GameContext";
 
 type Game = ReturnType<typeof useGame>;
@@ -308,5 +312,41 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     expect(relaunchedGame?.getQuizSet("math")[0]).toBeDefined();
     expect(mocks.fetchContentPack).not.toHaveBeenCalled();
     relaunchedRenderer.unmount();
+  });
+
+  it("persists a selected bulletin language and resets to the device locale", async () => {
+    const localStorage = createLocalStorageFixture();
+    mocks.apiConfigured = false;
+    localStorage.setItem(BULLETIN_LOCALE_STORAGE_KEY, "es");
+
+    let game: Game | undefined;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <GameProvider>
+          <ThemeProbe onUpdate={nextGame => (game = nextGame)} />
+        </GameProvider>,
+      );
+    });
+    await waitFor(
+      () =>
+        game?.ready === true &&
+        game.bulletinLocalePreference === "es" &&
+        game.bulletinLocale === "es",
+      renderer,
+    );
+
+    await act(async () => {
+      game!.setBulletinLocalePreference(null);
+    });
+    await waitFor(
+      () =>
+        game?.bulletinLocalePreference === null &&
+        game.bulletinLocale === getDeviceLocale(),
+      renderer,
+    );
+
+    expect(localStorage.getItem(BULLETIN_LOCALE_STORAGE_KEY)).toBeNull();
+    renderer.unmount();
   });
 });

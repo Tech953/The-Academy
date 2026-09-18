@@ -5,6 +5,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { CrtButton } from "@/components/CrtButton";
 import { StatBar } from "@/components/StatBar";
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  BULLETIN_LOCALE_OPTIONS,
+  type SupportedLocale,
+} from "@/constants/locales";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { STAT_DEFS, useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
@@ -23,6 +27,9 @@ export default function StatsScreen() {
     visitedLocationIds,
     examinedIds,
     resetGame,
+    bulletinLocale,
+    bulletinLocalePreference,
+    setBulletinLocalePreference,
   } =
     useGame();
 
@@ -90,6 +97,54 @@ export default function StatsScreen() {
           )}
         </View>
 
+        <Text style={[styles.sectionTitle, { color: colors.accent }]}>BULLETIN LANGUAGE</Text>
+        <View style={[styles.card, { borderColor: colors.border }]}>
+          <Text style={[styles.languageHint, { color: colors.mutedForeground }]}>
+            CURRENT: {BULLETIN_LOCALE_OPTIONS.find((option) => option.value === bulletinLocale)?.label ?? "English"}
+          </Text>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: bulletinLocalePreference === null }}
+            onPress={() => setBulletinLocalePreference(null)}
+            style={[
+              styles.languageOption,
+              bulletinLocalePreference === null && {
+                borderColor: colors.accent,
+                backgroundColor: colors.accent + "22",
+              },
+            ]}
+          >
+            <Text style={[styles.languageOptionText, { color: colors.foreground }]}>
+              DEVICE DEFAULT
+            </Text>
+            <Text style={[styles.languageOptionDetail, { color: colors.mutedForeground }]}>
+              Follow the device language
+            </Text>
+          </Pressable>
+          {BULLETIN_LOCALE_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: bulletinLocalePreference === option.value }}
+              onPress={() => setBulletinLocalePreference(option.value as SupportedLocale)}
+              style={[
+                styles.languageOption,
+                bulletinLocalePreference === option.value && {
+                  borderColor: colors.accent,
+                  backgroundColor: colors.accent + "22",
+                },
+              ]}
+            >
+              <Text style={[styles.languageOptionText, { color: colors.foreground }]}>
+                {option.label}
+              </Text>
+              <Text style={[styles.languageOptionDetail, { color: colors.mutedForeground }]}>
+                {option.value.toUpperCase()}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         <CrtButton label="WITHDRAW & RESTART" icon="log-out" variant="accent" onPress={confirmReset} />
       </ScrollView>
     </View>
@@ -146,6 +201,29 @@ const styles = StyleSheet.create({
   emptyText: {
     ...monoFont,
     fontSize: 12,
+  },
+  languageHint: {
+    ...monoFont,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  languageOption: {
+    borderWidth: 1,
+    borderColor: "transparent",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    marginTop: 5,
+    gap: 3,
+  },
+  languageOptionText: {
+    ...monoFontBold,
+    fontSize: 12,
+  },
+  languageOptionDetail: {
+    ...monoFont,
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
   itemRow: {
     paddingVertical: 10,

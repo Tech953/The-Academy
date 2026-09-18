@@ -55,6 +55,12 @@ import {
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { computeRelationshipShift, type RelationshipShift } from "@/lib/relationshipShift";
 import { selectWeeklyTheme } from "@/lib/themeSelection";
+import {
+  BULLETIN_LOCALE_STORAGE_KEY,
+  getDeviceLocale,
+  parseStoredBulletinLocale,
+  type SupportedLocale,
+} from "@/constants/locales";
 
 export type { RelationshipShift };
 export { selectWeeklyTheme };
@@ -224,6 +230,9 @@ interface GameContextValue {
   refreshContentPack: () => Promise<void>;
   bulletinEventsRepaired: boolean;
   contentPackStorageStatus: ContentPackStorageStatus;
+  bulletinLocale: SupportedLocale;
+  bulletinLocalePreference: SupportedLocale | null;
+  setBulletinLocalePreference: (locale: SupportedLocale | null) => void;
   enrichmentStatus: EnrichmentStatus;
   weeklyTheme: string;
   startGame: (name: string) => void;
@@ -260,6 +269,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const [contentPackStorageStatus, setContentPackStorageStatus] =
     useState<ContentPackStorageStatus>("unknown");
+  const [bulletinLocalePreference, setBulletinLocalePreferenceState] =
+    useState<SupportedLocale | null>(null);
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
   const contentPackRequestRef = useRef(0);
   const writeContentPack = useRef(
@@ -273,6 +284,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     () => selectWeeklyTheme(contentPack, state.day),
     [contentPack, state.day],
   );
+  const bulletinLocale = bulletinLocalePreference ?? getDeviceLocale();
 
   useEffect(() => {
     setEnrichmentStatus(
@@ -297,6 +309,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(BULLETIN_LOCALE_STORAGE_KEY)
+      .then((raw) => {
+        if (active) {
+          setBulletinLocalePreferenceState(parseStoredBulletinLocale(raw));
+        }
+      })
+      .catch(() => {
+        // Missing or corrupt preference — use the device locale.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!ready) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
   }, [state, ready]);
@@ -315,6 +343,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const recordOfflineContent = useCallback(() => {
     setEnrichmentStatus(isOnline ? "fallback" : "offline");
   }, [isOnline]);
+
+  const setBulletinLocalePreference = useCallback(
+    (locale: SupportedLocale | null) => {
+      setBulletinLocalePreferenceState(locale);
+      const write = locale
+        ? AsyncStorage.setItem(BULLETIN_LOCALE_STORAGE_KEY, locale)
+        : AsyncStorage.removeItem(BULLETIN_LOCALE_STORAGE_KEY);
+      write.catch(() => {});
+    },
+    [],
+  );
 
   const startGame = useCallback((name: string) => {
     const trimmed = name.trim() || "Recruit";
@@ -763,6 +802,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       refreshContentPack,
       bulletinEventsRepaired,
       contentPackStorageStatus,
+      bulletinLocale,
+      bulletinLocalePreference,
+      setBulletinLocalePreference,
       enrichmentStatus,
       weeklyTheme,
       startGame,
@@ -789,6 +831,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       refreshContentPack,
       bulletinEventsRepaired,
       contentPackStorageStatus,
+      bulletinLocale,
+      bulletinLocalePreference,
+      setBulletinLocalePreference,
       enrichmentStatus,
       weeklyTheme,
       startGame,

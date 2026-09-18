@@ -2,6 +2,18 @@ export const DEFAULT_LOCALE = "en";
 
 export const SUPPORTED_LOCALES = ["en", "es", "fr", "de", "ja"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+export const BULLETIN_LOCALE_STORAGE_KEY = "academy-bulletin-locale-v1";
+
+export const BULLETIN_LOCALE_OPTIONS: ReadonlyArray<{
+  value: SupportedLocale;
+  label: string;
+}> = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Español" },
+  { value: "fr", label: "Français" },
+  { value: "de", label: "Deutsch" },
+  { value: "ja", label: "日本語" },
+];
 
 export type BulletinSourceMessages = {
   remote: string;
@@ -62,6 +74,15 @@ export function getDeviceLocale(): SupportedLocale {
   } catch {
     return DEFAULT_LOCALE;
   }
+}
+
+export function parseStoredBulletinLocale(
+  value: string | null | undefined,
+): SupportedLocale | null {
+  if (!value) return null;
+  return SUPPORTED_LOCALES.includes(value as SupportedLocale)
+    ? (value as SupportedLocale)
+    : null;
 }
 
 export function getBulletinSourceMessage(

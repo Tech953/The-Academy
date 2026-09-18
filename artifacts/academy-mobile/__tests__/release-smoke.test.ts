@@ -17,6 +17,7 @@ import {
   BULLETIN_SOURCE_MESSAGES,
   DEFAULT_LOCALE,
   getBulletinSourceMessage,
+  parseStoredBulletinLocale,
   resolveLocale,
   SUPPORTED_LOCALES,
 } from "../constants/locales";
@@ -330,6 +331,12 @@ describe("bulletin source localization", () => {
         es: {},
       }),
     ).toBe(BULLETIN_SOURCE_MESSAGES.en.repaired);
+  });
+
+  it("accepts only supported persisted bulletin language values", () => {
+    expect(parseStoredBulletinLocale("es")).toBe("es");
+    expect(parseStoredBulletinLocale("pt")).toBeNull();
+    expect(parseStoredBulletinLocale(null)).toBeNull();
   });
 });
 
