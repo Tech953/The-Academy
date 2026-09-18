@@ -232,6 +232,15 @@ function generatedAssetUrls(document: string, extension: string): string[] {
     }
   }
 
+  const workerPattern =
+    /\b(?:new\s+)?(?:SharedWorker|Worker)\s*\(\s*(?:(["'`])(\/[^"'`\s)]*)\1|new\s+URL\(\s*(["'`])(\/[^"'`\s)]*)\3)/g;
+  for (const match of document.matchAll(workerPattern)) {
+    const value = match[2] ?? match[4];
+    if (value) {
+      urls.add(value);
+    }
+  }
+
   if (extension.toLowerCase() === ".css") {
     const cssUrlPattern =
       /url\(\s*(?:(["'])(\/[^"')\s]+)\1|(\/[^"')\s]+))\s*\)/gi;

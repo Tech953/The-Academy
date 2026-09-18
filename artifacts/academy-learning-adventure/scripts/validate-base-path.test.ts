@@ -119,6 +119,47 @@ test("does not reject route strings or prefixed dynamic imports", () => {
   );
 });
 
+test("rejects root-relative Worker and SharedWorker URLs with the generated file and URL", () => {
+  withOutputDirectory(
+    {
+      "assets/main.js": `
+        const worker = new Worker("/workers/slide-worker");
+        const sharedWorker = new SharedWorker("/workers/shared-study");
+        const moduleWorker = new Worker(new URL("/workers/module-study", import.meta.url));
+        const prefixedWorker = new Worker("/academy-learning-adventure/workers/prefixed");
+      `,
+    },
+    (directory) => {
+      assert.throws(
+        () => validateGeneratedAssetReferences(previewPath, directory),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes("assets/main.js: /workers/slide-worker") &&
+          error.message.includes("assets/main.js: /workers/shared-study") &&
+          error.message.includes("assets/main.js: /workers/module-study") &&
+          !error.message.includes("prefixed"),
+      );
+    },
+  );
+});
+
+test("does not reject route strings or already-prefixed worker URLs", () => {
+  withOutputDirectory(
+    {
+      "assets/main.js": `
+        const route = "/study-room";
+        const worker = new Worker("/academy-learning-adventure/workers/slide-worker");
+        const sharedWorker = new SharedWorker("/academy-learning-adventure/workers/shared-study");
+      `,
+    },
+    (directory) => {
+      assert.doesNotThrow(() =>
+        validateGeneratedAssetReferences(previewPath, directory),
+      );
+    },
+  );
+});
+
 test("rejects root-relative CSS URLs and accepts prefixed generated assets", () => {
   withOutputDirectory(
     {
