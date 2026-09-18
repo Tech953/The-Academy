@@ -43,11 +43,18 @@ const slidesManifestPath = path.join(
   'src/data/slides-manifest.json',
 );
 
-type ValidationIssue = {
+export type ValidationIssue = {
   message: string;
 };
 
 type ValidationMode = 'fix' | 'check';
+
+export type SourceTitleEntry = {
+  position: number;
+  filepath: string;
+  title: string;
+  kind?: string;
+};
 
 type PendingRepair = {
   relativePath: string;
@@ -345,6 +352,81 @@ function validateOrphanedSlideFiles(issues: ValidationIssue[]) {
   }
 }
 
+function decodeJsxText(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;|&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function flattenJsxText(value: string): string {
+  return decodeJsxText(value.replace(/<[^>]*>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function extractSourceTitle(source: string): string | undefined {
+  const slideFrameTitle = /<SlideFrame\b[^>]*\btitle\s*=\s*(?:"([^"]*)"|'([^']*)'|\{(["'])(.*?)\4\})/s.exec(
+    source,
+  );
+  const frameTitle =
+    slideFrameTitle?.[1] ??
+    slideFrameTitle?.[2] ??
+    slideFrameTitle?.[5];
+  if (frameTitle !== undefined && frameTitle.trim()) {
+    return decodeJsxText(frameTitle).trim();
+  }
+
+  const heading = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(source)?.[1];
+  if (heading !== undefined) {
+    const headingTitle = flattenJsxText(heading);
+    return headingTitle || undefined;
+  }
+
+  return undefined;
+}
+
+export function findSourceTitleIssues(
+  entries: Array<SourceTitleEntry>,
+  readSource: (filepath: string) => string | undefined,
+): Array<ValidationIssue> {
+  return entries
+    .filter((entry) => entry.kind !== 'sdm')
+    .flatMap((entry) => {
+      const source = readSource(entry.filepath);
+      const currentTitle =
+        source === undefined ? '<unreadable source>' : extractSourceTitle(source);
+      const displayTitle = currentTitle ?? '<missing>';
+
+      if (currentTitle === entry.title) {
+        return [];
+      }
+
+      return [
+        {
+          message:
+            currentTitle === '<unreadable source>'
+              ? `Slide ${entry.position} source title could not be read in ${entry.filepath}: expected "${entry.title}", found "${displayTitle}"`
+              : `Slide ${entry.position} source title drift in ${entry.filepath}: expected "${entry.title}", found "${displayTitle}"`,
+        },
+      ];
+    });
+}
+
+function validateSourceTitles(issues: ValidationIssue[]) {
+  issues.push(
+    ...findSourceTitleIssues(jsxSlides(), (filepath) => {
+      try {
+        return readFileSync(path.join(projectRoot, filepath), 'utf8');
+      } catch {
+        return undefined;
+      }
+    }),
+  );
+}
+
 function validateSdmSlides(
   issues: ValidationIssue[],
   warnings: Array<string>,
@@ -500,6 +582,7 @@ async function main() {
   validateContiguousPositions(issues);
   validateFilepaths(issues);
   validateOrphanedSlideFiles(issues);
+  validateSourceTitles(issues);
   const warnings: Array<string> = [];
   const rollups: Array<string> = [];
   validateSdmSlides(issues, warnings, rollups);
