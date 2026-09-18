@@ -186,4 +186,49 @@ describe("GameProvider NPC dialogue weekly theme", () => {
 
     restoredRenderer.unmount();
   });
+
+  it("lets an online learner retry a failed content refresh without changing progress", async () => {
+    const localStorage = createLocalStorageFixture();
+    localStorage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({ hasStarted: true, day: 1 }),
+    );
+    const connectedPack = {
+      ...generateOfflineContentPack(1),
+      version: "pack-after-retry",
+      generatedBy: "gpt" as const,
+      eventsRepaired: false,
+    };
+    mocks.fetchContentPack
+      .mockRejectedValueOnce(new Error("initial refresh unavailable"))
+      .mockResolvedValueOnce(connectedPack);
+
+    let game: Game | undefined;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <GameProvider>
+          <ThemeProbe onUpdate={nextGame => (game = nextGame)} />
+        </GameProvider>,
+      );
+    });
+    await waitFor(
+      () =>
+        game?.ready === true &&
+        game.enrichmentStatus === "fallback" &&
+        game.contentPackLoading === false,
+      renderer,
+    );
+
+    const initialProgress = game!.studyProgress;
+    await act(async () => {
+      await game!.refreshContentPack();
+    });
+
+    expect(game?.enrichmentStatus).toBe("live");
+    expect(game?.contentPack?.version).toBe("pack-after-retry");
+    expect(game?.studyProgress).toEqual(initialProgress);
+    expect(mocks.fetchContentPack).toHaveBeenCalledTimes(2);
+    renderer.unmount();
+  });
 });

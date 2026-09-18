@@ -239,3 +239,147 @@ describe("Study question focus badges", () => {
     expect(currentText).not.toContain("Solve 2x + 4 = 10.");
   });
 });
+
+describe("Study enrichment retry", () => {
+  it("offers an online retry without replacing the active questions", async () => {
+    const refreshContentPack = vi.fn(async () => {});
+    const fallbackPack = makeStudyPack(
+      "fallback-pack",
+      focusTopics[0],
+      "deterministic",
+    );
+    const connectedPack = makeStudyPack(
+      "connected-pack",
+      connectedFocusTopics[0],
+      "gpt",
+    );
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "fallback",
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: fallbackPack,
+      getQuizSet: vi.fn(() => [focusedQuestion, generalQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<StudyScreen />);
+    });
+
+    expect(visibleText(renderer)).toContain("LIVE ENRICHMENT UNAVAILABLE");
+    openMathStudy(renderer);
+    expect(visibleText(renderer)).toContain("Solve 2x + 4 = 10.");
+    const retryButton = renderer.root
+      .findAll((instance) => String(instance.type) === "Pressable")
+      .find((pressable) => textContent(pressable).includes("RETRY LIVE REFRESH"));
+    expect(retryButton).toBeDefined();
+
+    act(() => {
+      retryButton?.props.onPress();
+    });
+    expect(refreshContentPack).toHaveBeenCalledTimes(1);
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "live",
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: connectedPack,
+      getQuizSet: vi.fn(() => [connectedFocusedQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+
+    act(() => {
+      renderer.update(<StudyScreen />);
+    });
+
+    expect(visibleText(renderer)).toContain("Solve 2x + 4 = 10.");
+    expect(visibleText(renderer)).not.toContain(
+      "What is the ratio of 2 to 4 in simplest form?",
+    );
+  });
+
+  it("keeps the fallback notice after a retry fails again", async () => {
+    const refreshContentPack = vi.fn(async () => {});
+    const fallbackPack = makeStudyPack(
+      "fallback-pack",
+      focusTopics[0],
+      "deterministic",
+    );
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "fallback",
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: fallbackPack,
+      getQuizSet: vi.fn(() => [focusedQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<StudyScreen />);
+    });
+    openMathStudy(renderer);
+
+    const retryButton = renderer.root
+      .findAll((instance) => String(instance.type) === "Pressable")
+      .find((pressable) => textContent(pressable).includes("RETRY LIVE REFRESH"));
+    await act(async () => {
+      await retryButton?.props.onPress();
+    });
+    expect(refreshContentPack).toHaveBeenCalledTimes(1);
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "fallback",
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: fallbackPack,
+      getQuizSet: vi.fn(() => [focusedQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+    act(() => {
+      renderer.update(<StudyScreen />);
+    });
+
+    expect(visibleText(renderer)).toContain("LIVE ENRICHMENT UNAVAILABLE");
+    expect(visibleText(renderer)).toContain("Solve 2x + 4 = 10.");
+  });
+});

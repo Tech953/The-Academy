@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { StatusBadge } from "@/components/StatusBadge";
@@ -100,8 +100,14 @@ function QuestionCard({
 
 function StudyAvailabilityNotice({
   status,
+  isOnline,
+  onRetry,
+  retryLoading,
 }: {
   status: EnrichmentStatus;
+  isOnline: boolean;
+  onRetry?: () => void;
+  retryLoading: boolean;
 }) {
   if (status === "checking" || status === "live") return null;
 
@@ -119,6 +125,22 @@ function StudyAvailabilityNotice({
           ? "Live requests are temporarily paused. Bundled study content is active."
           : "Bundled study content is active. You can keep answering questions."}
       </Text>
+      {status === "fallback" && isOnline ? (
+        <Pressable
+          accessibilityLabel="Retry live enrichment"
+          accessibilityRole="button"
+          disabled={retryLoading}
+          onPress={onRetry}
+          style={({ pressed }) => [
+            styles.retryButton,
+            { opacity: pressed || retryLoading ? 0.6 : 1 },
+          ]}
+        >
+          <Text style={styles.retryButtonText}>
+            {retryLoading ? "RETRYING LIVE REFRESH..." : "RETRY LIVE REFRESH"}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -128,14 +150,18 @@ export default function StudyScreen() {
   const {
     isOnline,
     enrichmentStatus,
+    contentPackLoading,
     day,
     week,
     studyProgress,
     contentPack,
     getQuizSet,
     answerQuestion,
+    refreshContentPack,
   } = useGame();
   const [subject, setSubject] = useState<GEDSubjectKey | null>(null);
+  const [questions, setQuestions] = useState<StudyQuestion[]>([]);
+  const preserveQuestionsAfterRetryRef = useRef(false);
 
   // Show the bundled pack immediately, then replace it with the synced pack
   // when available. This keeps the weekly focus useful while fully offline.
@@ -160,11 +186,24 @@ export default function StudyScreen() {
       ),
     [focusBySubject],
   );
-  const questions = useMemo(() => (subject ? getQuizSet(subject) : []), [getQuizSet, subject]);
   const currentFocusTopics = useMemo(
     () => (subject ? (focusBySubject[subject] ?? []).map((focus) => focus.topic) : []),
     [focusBySubject, subject],
   );
+  const selectSubject = useCallback((nextSubject: GEDSubjectKey) => {
+    preserveQuestionsAfterRetryRef.current = false;
+    setSubject(nextSubject);
+    setQuestions(getQuizSet(nextSubject));
+  }, [getQuizSet]);
+  const retryLiveRefresh = useCallback(async () => {
+    preserveQuestionsAfterRetryRef.current = true;
+    await refreshContentPack();
+  }, [refreshContentPack]);
+
+  useEffect(() => {
+    if (!subject || preserveQuestionsAfterRetryRef.current) return;
+    setQuestions(getQuizSet(subject));
+  }, [getQuizSet, subject]);
 
   if (!subject) {
     return (
@@ -176,7 +215,12 @@ export default function StudyScreen() {
           <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
-          <StudyAvailabilityNotice status={enrichmentStatus} />
+          <StudyAvailabilityNotice
+            status={enrichmentStatus}
+            isOnline={isOnline}
+            onRetry={retryLiveRefresh}
+            retryLoading={contentPackLoading}
+          />
           <View style={[styles.focusPanel, { borderColor: colors.accent }]}>
             <Text style={[styles.focusLabel, { color: colors.accent }]}>
               WEEK {week} STUDY FOCUS
@@ -202,7 +246,7 @@ export default function StudyScreen() {
             return (
               <Pressable
                 key={s.key}
-                onPress={() => setSubject(s.key)}
+                onPress={() => selectSubject(s.key)}
                 style={({ pressed }) => [
                   styles.subjectRow,
                   {
@@ -252,7 +296,12 @@ export default function StudyScreen() {
         <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
       </View>
       <ScrollView contentContainerStyle={styles.listContent}>
-        <StudyAvailabilityNotice status={enrichmentStatus} />
+        <StudyAvailabilityNotice
+          status={enrichmentStatus}
+          isOnline={isOnline}
+          onRetry={retryLiveRefresh}
+          retryLoading={contentPackLoading}
+        />
         {questions.map((q) => (
           <QuestionCard
             key={q.id}
@@ -302,6 +351,20 @@ const styles = StyleSheet.create({
     color: "#86aa8b",
     fontSize: 10,
     lineHeight: 14,
+  },
+  retryButton: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#00ff66",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  retryButtonText: {
+    ...monoFontBold,
+    color: "#00ff66",
+    fontSize: 9,
+    letterSpacing: 0.5,
   },
   focusPanel: { borderWidth: 1, padding: 12, gap: 8 },
   focusLabel: { ...monoFontBold, fontSize: 10, letterSpacing: 1 },

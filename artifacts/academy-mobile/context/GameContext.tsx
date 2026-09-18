@@ -221,6 +221,7 @@ interface GameContextValue {
   dialogueLoading: boolean;
   contentPack: ContentPack | null;
   contentPackLoading: boolean;
+  refreshContentPack: () => Promise<void>;
   bulletinEventsRepaired: boolean;
   contentPackStorageStatus: ContentPackStorageStatus;
   enrichmentStatus: EnrichmentStatus;
@@ -419,75 +420,78 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, state.hasStarted]);
 
-  useEffect(() => {
-    if (!ready || !state.hasStarted) return;
-    let cancelled = false;
+  const refreshContentPack = useCallback(async () => {
+    if (!state.hasStarted) return;
+
     const requestId = ++contentPackRequestRef.current;
     const isCurrentRequest = () =>
-      !cancelled && contentPackRequestRef.current === requestId;
+      contentPackRequestRef.current === requestId;
     setContentPackLoading(true);
-    (async () => {
-      let cachedPack: ContentPack | null = null;
-      try {
-        cachedPack = await readCachedContentPack(AsyncStorage);
-        if (!isCurrentRequest()) return;
-        setContentPack((visiblePack) =>
-          resolveStudyContentPack(
-            retainVisibleContentPack(visiblePack, cachedPack),
-            state.day,
-          ),
-        );
+    setEnrichmentStatus(isOnline ? "checking" : "offline");
 
-        const refreshResult = isOnline
-          ? await resolveContentPackRefresh(fetchContentPack, cachedPack, state.day)
-          : {
-              pack: fallbackAfterRefreshFailure(cachedPack, state.day),
-              source: "offline" as const,
-            };
-        if (!isCurrentRequest()) return;
-        const studyPack = resolveStudyContentPack(refreshResult.pack, state.day);
-        if (studyPack !== refreshResult.pack || refreshResult.source === "offline") {
-          recordOfflineContent();
-        } else if (refreshResult.source === "online") {
-          recordEnrichmentSource("online");
-        } else if (refreshResult.source === "rate_limited") {
-          recordEnrichmentSource("rate_limited");
-        } else {
-          recordOfflineContent();
-        }
-        setContentPack(studyPack);
-        const writeResult = await writeContentPack(
-          studyPack!,
-          isCurrentRequest,
-        );
-        if (!isCurrentRequest()) return;
-        setContentPackStorageStatus(getContentPackStorageStatus(writeResult));
-      } catch {
-        if (!isCurrentRequest()) return;
+    let cachedPack: ContentPack | null = null;
+    try {
+      cachedPack = await readCachedContentPack(AsyncStorage);
+      if (!isCurrentRequest()) return;
+      setContentPack((visiblePack) =>
+        resolveStudyContentPack(
+          retainVisibleContentPack(visiblePack, cachedPack),
+          state.day,
+        ),
+      );
+
+      const refreshResult = isOnline
+        ? await resolveContentPackRefresh(fetchContentPack, cachedPack, state.day)
+        : {
+            pack: fallbackAfterRefreshFailure(cachedPack, state.day),
+            source: "offline" as const,
+          };
+      if (!isCurrentRequest()) return;
+      const studyPack = resolveStudyContentPack(refreshResult.pack, state.day);
+      if (studyPack !== refreshResult.pack || refreshResult.source === "offline") {
         recordOfflineContent();
-        setContentPack(
-          resolveStudyContentPack(
-            fallbackAfterRefreshFailure(cachedPack, state.day),
-            state.day,
-          ),
-        );
-      } finally {
-        if (isCurrentRequest()) setContentPackLoading(false);
+      } else if (refreshResult.source === "online") {
+        recordEnrichmentSource("online");
+      } else if (refreshResult.source === "rate_limited") {
+        recordEnrichmentSource("rate_limited");
+      } else {
+        recordOfflineContent();
       }
-    })();
+      setContentPack(studyPack);
+      const writeResult = await writeContentPack(
+        studyPack!,
+        isCurrentRequest,
+      );
+      if (!isCurrentRequest()) return;
+      setContentPackStorageStatus(getContentPackStorageStatus(writeResult));
+    } catch {
+      if (!isCurrentRequest()) return;
+      recordOfflineContent();
+      setContentPack(
+        resolveStudyContentPack(
+          fallbackAfterRefreshFailure(cachedPack, state.day),
+          state.day,
+        ),
+      );
+    } finally {
+      if (isCurrentRequest()) setContentPackLoading(false);
+    }
+  }, [
+    isOnline,
+    recordEnrichmentSource,
+    recordOfflineContent,
+    state.day,
+    state.hasStarted,
+    writeContentPack,
+  ]);
+
+  useEffect(() => {
+    if (!ready || !state.hasStarted) return;
+    void refreshContentPack();
     return () => {
-      cancelled = true;
+      contentPackRequestRef.current += 1;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-      ready,
-      state.hasStarted,
-      isOnline,
-      recordEnrichmentSource,
-      recordOfflineContent,
-      state.day,
-      writeContentPack,
-    ]);
+  }, [ready, refreshContentPack, state.hasStarted]);
 
   const examine = useCallback(
     async (interactableId: string) => {
@@ -756,6 +760,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      refreshContentPack,
       bulletinEventsRepaired,
       contentPackStorageStatus,
       enrichmentStatus,
@@ -781,6 +786,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       dialogueLoading,
       contentPack,
       contentPackLoading,
+      refreshContentPack,
       bulletinEventsRepaired,
       contentPackStorageStatus,
       enrichmentStatus,
