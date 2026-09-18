@@ -240,9 +240,14 @@ function validateRequiredReleaseProfileHosts(config) {
   }
 }
 
-async function fetchWithTimeout(fetchImpl, url, init) {
+async function fetchWithTimeout(
+  fetchImpl,
+  url,
+  init,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetchImpl(url, { ...init, signal: controller.signal });
@@ -263,11 +268,20 @@ async function fetchWithRetry(
   fetchImpl,
   url,
   init,
-  { retryDelayMs = RETRY_DELAY_MS, sleepImpl = sleep } = {},
+  {
+    retryDelayMs = RETRY_DELAY_MS,
+    sleepImpl = sleep,
+    requestTimeoutMs = REQUEST_TIMEOUT_MS,
+  } = {},
 ) {
   for (let attempt = 1; attempt <= MAX_REQUEST_ATTEMPTS; attempt += 1) {
     try {
-      const response = await fetchWithTimeout(fetchImpl, url, init);
+      const response = await fetchWithTimeout(
+        fetchImpl,
+        url,
+        init,
+        requestTimeoutMs,
+      );
       if (!isRetryableResponse(response) || attempt === MAX_REQUEST_ATTEMPTS) {
         return { response, attempts: attempt };
       }
@@ -309,6 +323,7 @@ async function runReleaseSmokeCheck({
   fetchImpl = fetch,
   retryDelayMs = RETRY_DELAY_MS,
   sleepImpl = sleep,
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
 } = {}) {
   const config = readReleaseConfig(configPath);
   const domain = validateReleaseProfileHost(config, profile);
@@ -326,7 +341,7 @@ async function runReleaseSmokeCheck({
         method: "GET",
         headers: { Accept: "application/json" },
       },
-      { retryDelayMs, sleepImpl },
+      { retryDelayMs, sleepImpl, requestTimeoutMs },
     );
     healthResponse = healthResult.response;
     healthAttempts = healthResult.attempts;
@@ -381,7 +396,7 @@ async function runReleaseSmokeCheck({
           interactables: [],
         }),
       },
-      { retryDelayMs, sleepImpl },
+      { retryDelayMs, sleepImpl, requestTimeoutMs },
     );
     aiResponse = aiResult.response;
     aiAttempts = aiResult.attempts;

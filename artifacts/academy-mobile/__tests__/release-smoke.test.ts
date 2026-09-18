@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 import {
   chmodSync,
   existsSync,
@@ -98,6 +99,7 @@ const {
     fetchImpl: typeof fetch;
     retryDelayMs?: number;
     sleepImpl?: (delayMs: number) => Promise<void>;
+    requestTimeoutMs?: number;
   }) => Promise<{
     profile: string;
     domain: string;
@@ -111,6 +113,7 @@ const {
     fetchImpl: typeof fetch;
     retryDelayMs?: number;
     sleepImpl?: (delayMs: number) => Promise<void>;
+    requestTimeoutMs?: number;
   }) => Promise<{
     profiles: string[];
     passed: Array<{
@@ -1350,6 +1353,115 @@ describe("release smoke check", () => {
     });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(sleepImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a timed-out local health request and continues after recovery", async () => {
+    let healthRequests = 0;
+    const server = createServer((request, response) => {
+      if (request.url === "/api/healthz") {
+        healthRequests += 1;
+        if (healthRequests === 1) {
+          setTimeout(() => {
+            response.writeHead(200, { "Content-Type": "application/json" });
+            response.end(JSON.stringify({ status: "ok" }));
+          }, 80);
+          return;
+        }
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ status: "ok" }));
+        return;
+      }
+
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ description: "Recovered locally." }));
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Local timeout fixture did not expose a port.");
+      }
+      const fetchImpl = ((url: string, init?: RequestInit) =>
+        fetch(
+          `http://127.0.0.1:${address.port}${new URL(url).pathname}`,
+          init,
+        )) as typeof fetch;
+
+      await expect(
+        runReleaseSmokeCheck({
+          fetchImpl,
+          requestTimeoutMs: 15,
+          retryDelayMs: 0,
+          sleepImpl: async () => {},
+        }),
+      ).resolves.toMatchObject({
+        profile: "preview",
+        healthAttempts: 2,
+        aiAttempts: 1,
+      });
+      expect(healthRequests).toBe(2);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it("bounds persistent local timeouts and preserves the final health error", async () => {
+    let healthRequests = 0;
+    const server = createServer((request, response) => {
+      if (request.url === "/api/healthz") {
+        healthRequests += 1;
+        setTimeout(() => {
+          response.writeHead(200, { "Content-Type": "application/json" });
+          response.end(JSON.stringify({ status: "ok" }));
+        }, 60);
+        return;
+      }
+
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ description: "Should not be reached." }));
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Local timeout fixture did not expose a port.");
+      }
+      const fetchImpl = ((url: string, init?: RequestInit) =>
+        fetch(
+          `http://127.0.0.1:${address.port}${new URL(url).pathname}`,
+          init,
+        )) as typeof fetch;
+
+      await expect(
+        runReleaseSmokeCheck({
+          fetchImpl,
+          requestTimeoutMs: 15,
+          retryDelayMs: 0,
+          sleepImpl: async () => {},
+        }),
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(
+          /Health check could not reach https:\/\/theeacademy\.replit\.app\/api\/healthz/,
+        ),
+        healthAttempts: 3,
+        aiAttempts: 0,
+      });
+      expect(healthRequests).toBe(3);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 
   it("checks every configured domain profile and reports each profile", async () => {

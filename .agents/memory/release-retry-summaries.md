@@ -8,3 +8,5 @@ Stable release profile summaries should record separate health and AI attempt co
 **Why:** Operators need to distinguish an immediate pass from a transient outage without mistaking an exhausted retry sequence for recovery.
 
 **How to apply:** When changing mobile release retries or report schemas, preserve both counters through standalone smoke reports and native handoff summaries, and keep legacy report fields compatible where possible.
+
+Timeout behavior can be tested against a real delayed local HTTP server by injecting a short request timeout; production keeps the normal 15-second default.
