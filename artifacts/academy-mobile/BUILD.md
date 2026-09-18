@@ -172,9 +172,19 @@ network request:
 ```bash
 pnpm --filter @workspace/academy-mobile run check-release:handoff
 RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-release:handoff
+RELEASE_PLATFORM=ios pnpm --filter @workspace/academy-mobile run check-release:handoff
+RELEASE_PLATFORM=ios RELEASE_PROFILE=production \
+  pnpm --filter @workspace/academy-mobile run check-release -- --handoff
 ```
 
-For the production shortcut, use:
+You can also pass the platform directly:
+
+```bash
+pnpm --filter @workspace/academy-mobile run check-release -- \
+  --handoff --platform ios --profile preview
+```
+
+For the Android production shortcut, use:
 
 ```bash
 pnpm --filter @workspace/academy-mobile run check-release:handoff:production
@@ -182,10 +192,14 @@ pnpm --filter @workspace/academy-mobile run check-release:handoff:production
 
 The selected profile reads the native handoff report (override it with
 `RELEASE_HANDOFF_PATH`) and applies the matching distribution contract:
-`preview` must remain an internal APK handoff, while `production` must remain a
-store-distribution Android App Bundle handoff. Both profiles must keep the
-recorded version and Android package aligned with `app.json`; EAS Android
-version-code auto-increment metadata is allowed alongside that app version.
+Android `preview` must remain an internal APK handoff, while Android
+`production` must remain a store-distribution App Bundle handoff. For iOS,
+`preview` must remain an internal IPA handoff and `production` must remain a
+store-distribution IPA handoff. Each platform must keep the completed status,
+selected profile, recorded version, installer type, and platform-specific
+package identity aligned with `app.json` (`expo.android.package` or
+`expo.ios.bundleIdentifier`). EAS Android version-code auto-increment metadata is
+allowed alongside that app version.
 Validation failures list every actionable mismatch and write a failed release
 report instead of passing.
 

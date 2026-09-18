@@ -44,6 +44,7 @@ const {
     appConfig?: unknown;
     easConfig?: unknown;
     profile?: string;
+    platform?: "android" | "ios";
   }) => {
     status: string;
     platform: string;
@@ -51,7 +52,8 @@ const {
     distribution: string;
     buildType: string;
     version: string;
-    androidPackage: string;
+    androidPackage?: string;
+    iosBundleIdentifier?: string;
     installerUrl: string | null;
     installerPath: string | null;
     timestamp: string;
@@ -730,6 +732,39 @@ describe("release smoke check", () => {
       },
     });
 
+  const validIosHandoffConfig = () => ({
+    appConfig: {
+      expo: {
+        version: "1.0.0",
+        ios: { bundleIdentifier: "com.theacademy.mobile" },
+      },
+    },
+    easConfig: {
+      build: {
+        preview: {
+          distribution: "internal",
+        },
+        production: {},
+      },
+    },
+  });
+
+  const validIosHandoffReport = () => ({
+    status: "completed",
+    platform: "ios",
+    profile: "preview",
+    build: {
+      installerUrl: "https://example.invalid/academy-preview.ipa?sig=redacted",
+      installerPath: null,
+      version: "1.0.0",
+      package: "com.theacademy.mobile",
+      profile: "preview",
+      timestamp: "2026-09-15T15:00:00.000Z",
+      buildId: "ios-build-123",
+      buildDetailsPageUrl: "https://expo.dev/builds/ios-build-123",
+    },
+  });
+
   it("accepts a complete preview APK handoff without contacting a device", () => {
     expect(
       validateNativeHandoff({
@@ -749,6 +784,62 @@ describe("release smoke check", () => {
       timestamp: "2026-09-15T15:00:00.000Z",
       buildId: "build-123",
     });
+  });
+
+  it("accepts a complete iOS preview IPA handoff without contacting a device", () => {
+    expect(
+      validateNativeHandoff({
+        ...validIosHandoffConfig(),
+        platform: "ios",
+        handoffReport: validIosHandoffReport(),
+      }),
+    ).toMatchObject({
+      status: "passed",
+      platform: "ios",
+      profile: "preview",
+      distribution: "internal",
+      buildType: "ipa",
+      version: "1.0.0",
+      iosBundleIdentifier: "com.theacademy.mobile",
+      installerUrl: "https://example.invalid/academy-preview.ipa?sig=redacted",
+      installerPath: null,
+    });
+  });
+
+  it("rejects a non-IPA reference in an iOS handoff", () => {
+    const report = validIosHandoffReport();
+    report.build.installerUrl =
+      "https://example.invalid/academy-preview.apk?sig=redacted";
+
+    expect(() =>
+      validateNativeHandoff({
+        ...validIosHandoffConfig(),
+        platform: "ios",
+        handoffReport: report,
+      }),
+    ).toThrow(
+      /installer reference must be a preview internal iOS IPA \(\.ipa\); found .*\.apk/,
+    );
+  });
+
+  it("reports iOS status, platform, profile, version, and bundle-ID drift", () => {
+    const report = validIosHandoffReport();
+    report.status = "starting";
+    report.platform = "android";
+    report.profile = "production";
+    report.build.profile = "production";
+    report.build.version = "0.9.0";
+    report.build.package = "com.theacademy.old";
+
+    expect(() =>
+      validateNativeHandoff({
+        ...validIosHandoffConfig(),
+        platform: "ios",
+        handoffReport: report,
+      }),
+    ).toThrow(
+      /handoff status must be "completed".*handoff platform must be "ios".*handoff profile must be "preview".*build version "0\.9\.0" does not match app\.json "1\.0\.0".*build bundle identifier "com\.theacademy\.old" does not match app\.json "com\.theacademy\.mobile".*build profile must be "preview"/s,
+    );
   });
 
   it("verifies a downloaded installer against the recorded SHA-256", () => {

@@ -443,6 +443,7 @@ function validateNativeHandoff({
   appConfig,
   easConfig,
   profile = "preview",
+  platform = "android",
   handoffReportPath = DEFAULT_HANDOFF_REPORT_PATH,
 } = {}) {
   const resolvedAppConfig =
@@ -452,37 +453,62 @@ function validateNativeHandoff({
   const report =
     handoffReport ??
     readJsonFile(handoffReportPath, "native handoff report");
-  const configuredPackage = resolvedAppConfig?.expo?.android?.package;
+  if (platform !== "android" && platform !== "ios") {
+    throw new Error(
+      `[release-handoff] Unsupported handoff platform "${platform}". Expected "android" or "ios".`,
+    );
+  }
+  const isIos = platform === "ios";
+  const configuredPackage = isIos
+    ? resolvedAppConfig?.expo?.ios?.bundleIdentifier
+    : resolvedAppConfig?.expo?.android?.package;
   const configuredVersion = resolvedAppConfig?.expo?.version;
   const releaseProfile = resolvedEasConfig?.build?.[profile];
   const isProduction = profile === "production";
-  const expectedBuildType = isProduction ? "app-bundle" : "apk";
-  const expectedArtifactExtension = isProduction ? "aab" : "apk";
+  const expectedBuildType = isIos
+    ? "ipa"
+    : isProduction
+      ? "app-bundle"
+      : "apk";
+  const expectedArtifactExtension = isIos ? "ipa" : isProduction ? "aab" : "apk";
   const expectedDistribution = isProduction ? "store" : "internal";
-  const expectedArtifactLabel = isProduction
-    ? "a production Android App Bundle (.aab) for store distribution"
-    : "a preview internal APK (.apk)";
+  const expectedArtifactLabel = isIos
+    ? `a ${isProduction ? "production store" : "preview internal"} iOS IPA (.ipa)`
+    : isProduction
+      ? "a production Android App Bundle (.aab) for store distribution"
+      : "a preview internal APK (.apk)";
   const build = report?.build;
   const errors = [];
 
   if (!releaseProfile || typeof releaseProfile !== "object") {
     errors.push(`EAS profile "${profile}" is missing from eas.json`);
   } else {
-    if (isProduction) {
-      if (releaseProfile.distribution === "internal") {
+    if (isIos) {
+      if (
+        (isProduction && releaseProfile.distribution === "internal") ||
+        (!isProduction && releaseProfile.distribution !== "internal")
+      ) {
         errors.push(
-          'production distribution must be "store" for an Android App Bundle (found internal)',
+          `${profile} distribution must be "${expectedDistribution}" for ${expectedArtifactLabel} (found ${releaseProfile.distribution || "missing"})`,
         );
       }
-    } else if (releaseProfile.distribution !== "internal") {
-      errors.push(
-        `preview distribution must be "internal" for an APK handoff (found ${releaseProfile.distribution || "missing"})`,
-      );
-    }
-    if (releaseProfile.android?.buildType !== expectedBuildType) {
-      errors.push(
-        `${profile} Android buildType must be "${expectedBuildType}" for ${expectedArtifactLabel}; found ${releaseProfile.android?.buildType || "missing"}`,
-      );
+    } else {
+      if (isProduction) {
+        if (releaseProfile.distribution === "internal") {
+          errors.push(
+            'production distribution must be "store" for an Android App Bundle (found internal)',
+          );
+        }
+      } else if (releaseProfile.distribution !== "internal") {
+        errors.push(
+          `preview distribution must be "internal" for an APK handoff (found ${releaseProfile.distribution || "missing"})`,
+        );
+      }
+      if (releaseProfile.android?.buildType !== expectedBuildType) {
+        errors.push(
+          `${profile} Android buildType must be "${expectedBuildType}" for ${expectedArtifactLabel}; found ${releaseProfile.android?.buildType || "missing"}`,
+        );
+      }
     }
   }
 
@@ -491,9 +517,9 @@ function validateNativeHandoff({
       `handoff status must be "completed" (found ${report?.status || "missing"})`,
     );
   }
-  if (report?.platform !== "android") {
+  if (report?.platform !== platform) {
     errors.push(
-      `handoff platform must be "android" (found ${report?.platform || "missing"})`,
+      `handoff platform must be "${platform}" (found ${report?.platform || "missing"})`,
     );
   }
   if (report?.profile !== profile) {
@@ -526,7 +552,7 @@ function validateNativeHandoff({
       errors.push("installerUrl or installerPath is missing");
     } else if (
       !hasExpectedArtifactType &&
-      (isProduction || !hasEasBuildMetadata || hasKnownArtifactType)
+      (isIos || isProduction || !hasEasBuildMetadata || hasKnownArtifactType)
     ) {
       errors.push(
         `installer reference must be ${expectedArtifactLabel}; found ${installerReference}`,
@@ -539,11 +565,20 @@ function validateNativeHandoff({
         `build version "${build.version || "missing"}" does not match app.json "${configuredVersion}"`,
       );
     }
+    const buildPackage = isIos
+      ? build.bundleIdentifier ?? build.package
+      : build.package;
     if (!configuredPackage) {
-      errors.push("app.json expo.android.package is missing");
-    } else if (build.package !== configuredPackage) {
       errors.push(
-        `build package "${build.package || "missing"}" does not match app.json "${configuredPackage}"`,
+        isIos
+          ? "app.json expo.ios.bundleIdentifier is missing"
+          : "app.json expo.android.package is missing",
+      );
+    } else if (buildPackage !== configuredPackage) {
+      errors.push(
+        isIos
+          ? `build bundle identifier "${buildPackage || "missing"}" does not match app.json "${configuredPackage}"`
+          : `build package "${buildPackage || "missing"}" does not match app.json "${configuredPackage}"`,
       );
     }
     if (typeof build.profile !== "string" || build.profile !== profile) {
@@ -574,13 +609,15 @@ function validateNativeHandoff({
 
   return {
     status: "passed",
-    platform: "android",
+    platform,
     profile,
     distribution:
       releaseProfile?.distribution || expectedDistribution,
     buildType: expectedBuildType,
     version: String(build.version),
-    androidPackage: configuredPackage,
+    ...(isIos
+      ? { iosBundleIdentifier: configuredPackage }
+      : { androidPackage: configuredPackage }),
     installerUrl: build.installerUrl || null,
     installerPath: build.installerPath || null,
     timestamp: build.timestamp,
@@ -673,12 +710,22 @@ if (require.main === module) {
     args.find(
       (argument, index) =>
         !argument.startsWith("--") &&
-        !["--report", "--verify-checksum", "--profile"].includes(
+        ![
+          "--report",
+          "--verify-checksum",
+          "--profile",
+          "--platform",
+        ].includes(
           args[index - 1],
         ),
     ) ||
     process.env.RELEASE_PROFILE ||
     DEFAULT_PROFILE;
+  const platformFlagIndex = args.indexOf("--platform");
+  const platform =
+    (platformFlagIndex >= 0 ? args[platformFlagIndex + 1] : undefined) ||
+    process.env.RELEASE_PLATFORM ||
+    "android";
   const reportFlagIndex = args.indexOf("--report");
   if (
     reportFlagIndex >= 0 &&
@@ -725,6 +772,7 @@ if (require.main === module) {
       const handoff = validateNativeHandoff({
         handoffReportPath,
         profile,
+        platform,
       });
       const report = writeReleaseReport(reportPath, {
         command: "check-release --handoff",
