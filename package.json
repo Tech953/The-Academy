@@ -7,7 +7,8 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "test:offline": "pnpm --filter @workspace/academy-mobile run test",
-    "typecheck": "pnpm run typecheck:libs && pnpm run test:offline && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "validate:content-pack": "node scripts/validate-content-pack-boundary.mjs",
+    "typecheck": "pnpm run typecheck:libs && pnpm run validate:content-pack && pnpm run test:offline && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
   "devDependencies": {
