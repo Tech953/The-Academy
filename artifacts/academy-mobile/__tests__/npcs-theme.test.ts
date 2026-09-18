@@ -1,9 +1,13 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { gameState } = vi.hoisted(() => ({
-  gameState: { weeklyTheme: "" },
+  gameState: {
+    weeklyTheme: "",
+    dialogueHistory: {} as Record<string, Array<{ role: "player" | "npc"; text: string; timestamp: number }>>,
+  },
 }));
 
 vi.mock("react-native", async () => {
@@ -20,19 +24,30 @@ vi.mock("react-native", async () => {
     },
     Pressable: ({
       children,
+      disabled,
+      onPress,
     }: {
       children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
+      disabled?: boolean;
+      onPress?: () => void;
     }) =>
       React.createElement(
         "button",
-        null,
+        { disabled, onPress },
         typeof children === "function" ? children({ pressed: false }) : children,
       ),
     ScrollView: primitive("section"),
     StyleSheet: { create: <T,>(styles: T): T => styles },
     Text: primitive("span"),
-    TextInput: ({ placeholder }: { placeholder?: string }) =>
-      React.createElement("input", { placeholder }),
+    TextInput: ({
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      onChangeText?: (value: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) => React.createElement("input", { onChangeText, placeholder, value }),
     View: primitive("div"),
   };
 });
@@ -65,7 +80,7 @@ vi.mock("@/hooks/useColors", () => ({
 
 vi.mock("@/context/GameContext", () => ({
   useGame: () => ({
-    dialogueHistory: {},
+    dialogueHistory: gameState.dialogueHistory,
     dialogueLoading: false,
     enrichmentStatus: "offline",
     isOnline: false,
@@ -87,6 +102,7 @@ const NpcScreenWithInitialNpc = NpcScreen as React.ComponentType<{
 describe("NPC directory weekly theme cue", () => {
   beforeEach(() => {
     gameState.weeklyTheme = "";
+    gameState.dialogueHistory = {};
   });
 
   it("renders the deterministic offline weekly theme before opening a conversation", () => {
@@ -128,5 +144,54 @@ describe("NPC directory weekly theme cue", () => {
     expect(markup).toContain(syncedTheme);
     expect(markup).toContain("Say something...");
     expect(markup).not.toContain("CAMPUS DIRECTORY");
+  });
+
+  it("updates an open chat cue without losing its draft or dialogue history", () => {
+    const offlineTheme = selectWeeklyTheme(null, 8);
+    const syncedTheme = "Student Showcase Week";
+    gameState.weeklyTheme = offlineTheme;
+    gameState.dialogueHistory = {
+      receptionist_emily: [
+        { role: "npc", text: "Welcome back to the Academy.", timestamp: 1 },
+      ],
+    };
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    const input = renderer.root.findByType("input");
+    act(() => {
+      input.props.onChangeText("I want to ask about the new theme.");
+    });
+
+    expect(renderer.root.findByType("input").props.value).toBe(
+      "I want to ask about the new theme.",
+    );
+
+    gameState.weeklyTheme = syncedTheme;
+    act(() => {
+      renderer.update(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    const renderedText = renderer.root
+      .findAll((instance: ReactTestInstance) => typeof instance.type === "string")
+      .map(instance => instance.children.filter(child => typeof child === "string").join(""))
+      .join(" ");
+
+    expect(renderedText).toContain(syncedTheme);
+    expect(renderedText).toContain("Welcome back to the Academy.");
+    expect(renderer.root.findByType("input").props.value).toBe(
+      "I want to ask about the new theme.",
+    );
   });
 });
