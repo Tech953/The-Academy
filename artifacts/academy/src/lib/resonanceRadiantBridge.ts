@@ -116,36 +116,21 @@ export function npcActionToResonance(
   resonanceEngine.emitAction(npcId, resonanceAction, targetNpcId);
 }
 
+export const WORLD_EVENT_ENERGY: Readonly<
+  Record<WorldEvent['type'], EnergyVector>
+> = {
+  academic: { force: 0.5, clarity: 0.6, order: 0.4, instability: 0.3 },
+  competition: { force: 0.7, chaos: 0.3, growth: 0.4 },
+  institutional: { clarity: 0.5, order: 0.4 },
+  social: { connection: 0.6, harmony: 0.4, growth: 0.3 },
+  crisis: { chaos: 0.9, fear: 0.7, instability: 0.8, entropy: 0.6 },
+  discovery: { clarity: 0.5, growth: 0.4 },
+  seasonal: { harmony: 0.4, growth: 0.3 },
+  mystery: { instability: 0.5, curiosity: 0.5 },
+};
+
 export function worldEventToResonance(event: WorldEvent): void {
-  // Generate energy based on event type
-  let energy: EnergyVector = {};
-  
-  switch (event.type) {
-    case 'academic':
-      energy = { force: 0.5, clarity: 0.6, order: 0.4, instability: 0.3 };
-      break;
-    case 'competition':
-      energy = { force: 0.7, chaos: 0.3, growth: 0.4 };
-      break;
-    case 'institutional':
-      energy = { clarity: 0.5, order: 0.4 };
-      break;
-    case 'social':
-      energy = { connection: 0.6, harmony: 0.4, growth: 0.3 };
-      break;
-    case 'crisis':
-      energy = { chaos: 0.9, fear: 0.7, instability: 0.8, entropy: 0.6 };
-      break;
-    case 'discovery':
-      energy = { clarity: 0.5, growth: 0.4 };
-      break;
-    case 'seasonal':
-      energy = { harmony: 0.4, growth: 0.3 };
-      break;
-    case 'mystery':
-      energy = { instability: 0.5, curiosity: 0.5 };
-      break;
-  }
+  const energy = { ...WORLD_EVENT_ENERGY[event.type] };
   
   // Propagate to affected NPCs
   for (const npcId of event.affectedNPCs) {
