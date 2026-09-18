@@ -4,9 +4,69 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { validateGeneratedAssetReferences } from "./validate-base-path";
+import {
+  validateDevelopmentConfiguration,
+  validateDevelopmentHtml,
+  validateGeneratedAssetReferences,
+} from "./validate-base-path";
 
 const previewPath = "/academy-learning-adventure/";
+
+test("accepts the nested Vite development configuration", () => {
+  assert.doesNotThrow(() =>
+    validateDevelopmentConfiguration(
+      `
+        const basePath = process.env.BASE_PATH ?? '/academy-learning-adventure/';
+        export default defineConfig({
+          base: basePath,
+          plugins: [
+            ...(process.env.NODE_ENV !== 'production' && basePath === '/'
+              ? [devBanner()]
+              : []),
+          ],
+        });
+      `,
+      previewPath,
+    ),
+  );
+});
+
+test("rejects a Vite config that enables the dev banner for nested previews", () => {
+  assert.throws(
+    () =>
+      validateDevelopmentConfiguration(
+        `
+          const basePath = process.env.BASE_PATH ?? '/academy-learning-adventure/';
+          export default defineConfig({
+            base: basePath,
+            plugins: [devBanner()],
+          });
+        `,
+        previewPath,
+      ),
+    /dev banner must remain disabled/,
+  );
+});
+
+test("rejects root-only Replit helpers in development HTML", () => {
+  assert.throws(
+    () =>
+      validateDevelopmentHtml(
+        '<script id="replit-dev-banner" src="/@replit/vite-plugin-dev-banner/banner-script.js"></script>',
+        previewPath,
+      ),
+    /root-only Replit helper URLs.*vite-plugin-dev-banner/,
+  );
+});
+
+test("accepts a base-prefixed Replit helper in development HTML", () => {
+  assert.doesNotThrow(() =>
+    validateDevelopmentHtml(
+      '<script src="/academy-learning-adventure/@replit/vite-plugin-dev-banner/banner-script.js"></script>',
+      previewPath,
+    ),
+  );
+});
 
 function withOutputDirectory(
   files: Record<string, string>,

@@ -10,6 +10,7 @@ const artifactConfigPath = path.join(
   ".replit-artifact",
   "artifact.toml",
 );
+const viteConfigPath = path.join(projectRoot, "vite.config.ts");
 const buildOutputDirectory = path.join(projectRoot, "dist", "public");
 const builtIndexPath = path.join(buildOutputDirectory, "index.html");
 
@@ -35,6 +36,62 @@ function readPreviewPath(): string {
   }
 
   return `/${previewPath.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function validateDevelopmentConfiguration(
+  viteConfig: string,
+  previewPath: string,
+): void {
+  const escapedPreviewPath = escapeRegExp(previewPath);
+  if (
+    !new RegExp(
+      `process\\.env\\.BASE_PATH\\s*\\?\\?\\s*['"]${escapedPreviewPath}['"]`,
+    ).test(viteConfig)
+  ) {
+    throw new Error(
+      `Vite development configuration must default BASE_PATH to ${previewPath}.`,
+    );
+  }
+  if (!/\bbase\s*:\s*basePath\b/.test(viteConfig)) {
+    throw new Error(
+      "Vite development configuration must use the shared basePath value.",
+    );
+  }
+  if (
+    !/basePath\s*===\s*['"]\/['"][\s\S]*devBanner\s*\(/.test(viteConfig)
+  ) {
+    throw new Error(
+      "The Replit dev banner must remain disabled for the nested Academy base path.",
+    );
+  }
+}
+
+export function validateDevelopmentHtml(
+  document: string,
+  previewPath: string,
+): void {
+  const rootOnlyHelpers = [...document.matchAll(
+    /\b(?:src|href)\s*=\s*["'](\/[^"']+)["']/gi,
+  )]
+    .map((match) => match[1])
+    .filter(
+      (value): value is string =>
+        value !== undefined &&
+        value.startsWith("/@replit/") &&
+        !value.startsWith(previewPath),
+    );
+
+  if (rootOnlyHelpers.length > 0) {
+    throw new Error(
+      `Development HTML injects root-only Replit helper URLs that bypass ${previewPath}: ${[
+        ...new Set(rootOnlyHelpers),
+      ].join(", ")}`,
+    );
+  }
 }
 
 function attributeValue(tag: string, name: string): string | undefined {
@@ -213,6 +270,19 @@ export function validateGeneratedAssetReferences(
 
 function validate(): void {
   const previewPath = readPreviewPath();
+  validateDevelopmentConfiguration(
+    readFileSync(viteConfigPath, "utf8"),
+    previewPath,
+  );
+
+  const developmentHtmlPath = process.env.DEV_HTML_PATH;
+  if (developmentHtmlPath) {
+    validateDevelopmentHtml(
+      readFileSync(path.resolve(developmentHtmlPath), "utf8"),
+      previewPath,
+    );
+  }
+
   if (!existsSync(builtIndexPath) || !statSync(builtIndexPath).isFile()) {
     throw new Error(
       `Built index is missing at ${builtIndexPath}; run the production build first.`,
