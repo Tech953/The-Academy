@@ -36,6 +36,7 @@ const DEFAULT_HANDOFF_REPORT_PATH = path.resolve(
   "outputs",
   "academy-mobile-native-handoff.json",
 );
+let reportWriteSequence = 0;
 
 function readReleaseConfig(configPath = EAS_CONFIG_PATH) {
   try {
@@ -770,12 +771,17 @@ function verifyInstallerChecksum({
   };
 }
 
-function writeReleaseReport(reportPath, report) {
+function writeReleaseReport(
+  reportPath,
+  report,
+  { writeFileSyncImpl = fs.writeFileSync } = {},
+) {
   const resolvedPath = path.resolve(reportPath);
-  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-  fs.writeFileSync(
-    resolvedPath,
-    `${JSON.stringify(
+  const temporaryPath = `${resolvedPath}.tmp-${process.pid}-${reportWriteSequence++}`;
+
+  try {
+    fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    const serialized = `${JSON.stringify(
       {
         ...report,
         schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
@@ -783,10 +789,42 @@ function writeReleaseReport(reportPath, report) {
       },
       null,
       2,
-    )}\n`,
-    "utf8",
-  );
-  return resolvedPath;
+    )}\n`;
+    JSON.parse(serialized);
+    writeFileSyncImpl(temporaryPath, serialized, "utf8");
+    JSON.parse(fs.readFileSync(temporaryPath, "utf8"));
+    fs.renameSync(temporaryPath, resolvedPath);
+    return resolvedPath;
+  } catch (error) {
+    try {
+      fs.rmSync(temporaryPath, { force: true });
+    } catch {
+      // Preserve the archival error even if temporary-file cleanup fails.
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `[release-report] Could not archive report at ${resolvedPath}: ${message}`,
+    );
+  }
+}
+
+function handleReleaseFailure(reportPath, report, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  try {
+    writeReleaseReport(reportPath, {
+      ...report,
+      status: "failed",
+      error: message,
+    });
+  } catch (archiveError) {
+    const archiveMessage =
+      archiveError instanceof Error ? archiveError.message : String(archiveError);
+    console.error(
+      `[release-report] Could not archive failure report: ${archiveMessage}`,
+    );
+  }
+  console.error(message);
+  process.exitCode = 1;
 }
 
 if (require.main === module) {
@@ -878,14 +916,11 @@ if (require.main === module) {
         `[release-handoff] Installer handoff passed. Report written to ${report}`,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      writeReleaseReport(reportPath, {
-        command: "check-release --handoff",
-        status: "failed",
-        error: message,
-      });
-      console.error(message);
-      process.exitCode = 1;
+      handleReleaseFailure(
+        reportPath,
+        { command: "check-release --handoff" },
+        error,
+      );
     }
     return;
   }
@@ -908,13 +943,11 @@ if (require.main === module) {
       return;
     }
   } catch (error) {
-    writeReleaseReport(reportPath, {
-      command: `check-release ${identityOnly ? "--identity-only" : profile}`,
-      status: "failed",
-      error: error instanceof Error ? error.message : String(error),
-    });
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+    handleReleaseFailure(
+      reportPath,
+      { command: `check-release ${identityOnly ? "--identity-only" : profile}` },
+      error,
+    );
     return;
   }
 
@@ -960,13 +993,11 @@ if (require.main === module) {
 
   check
     .catch((error) => {
-      writeReleaseReport(reportPath, {
-        command: `check-release ${allProfiles ? "--all" : profile}`,
-        status: "failed",
-        error: error instanceof Error ? error.message : String(error),
-      });
-      console.error(error.message);
-      process.exitCode = 1;
+      handleReleaseFailure(
+        reportPath,
+        { command: `check-release ${allProfiles ? "--all" : profile}` },
+        error,
+      );
     });
 }
 

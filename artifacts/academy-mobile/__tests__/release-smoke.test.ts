@@ -1,9 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";
+import * as fs from "node:fs";
 import {
   chmodSync,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -165,6 +167,13 @@ const {
   writeReleaseReport: (
     reportPath: string,
     report: Record<string, unknown>,
+    options?: {
+      writeFileSyncImpl?: (
+        filePath: string,
+        data: string,
+        encoding: "utf8",
+      ) => void;
+    },
   ) => string;
 };
 
@@ -499,6 +508,69 @@ function archiveReleaseSummary(summary: {
     rmSync(reportDirectory, { recursive: true, force: true });
   }
 }
+
+describe("release report archival", () => {
+  it("preserves the existing report when a write is interrupted", () => {
+    const reportDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-report-interrupted-"),
+    );
+    const reportPath = path.join(reportDirectory, "release.json");
+    const existingReport = '{"schemaVersion":1,"status":"passed"}\n';
+    writeFileSync(reportPath, existingReport, "utf8");
+    const interruptedWrite = (filePath: string, data: string) => {
+      const descriptor = fs.openSync(filePath, "w");
+      fs.writeSync(descriptor, data.slice(0, 20));
+      fs.closeSync(descriptor);
+      throw new Error("simulated interruption");
+    };
+
+    try {
+      expect(() =>
+        writeReleaseReport(reportPath, {
+          command: "check-release --all",
+          status: "failed",
+        }, { writeFileSyncImpl: interruptedWrite }),
+      ).toThrow(/Could not archive report/);
+      expect(readFileSync(reportPath, "utf8")).toBe(existingReport);
+      expect(readdirSync(reportDirectory)).toEqual(["release.json"]);
+    } finally {
+      rmSync(reportDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the original check failure visible when the failure report cannot be archived", () => {
+    const reportDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-report-unwritable-"),
+    );
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          checkReleasePath,
+          "--profile",
+          "missing-profile",
+          "--report",
+          reportDirectory,
+        ],
+        {
+          cwd: path.resolve(__dirname, ".."),
+          encoding: "utf8",
+        },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /Unsupported Android release profile "missing-profile"/,
+      );
+      expect(result.stderr).toMatch(
+        /Could not archive failure report: \[release-report\] Could not archive report/,
+      );
+      expect(readdirSync(reportDirectory)).toEqual([]);
+    } finally {
+      rmSync(reportDirectory, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("native handoff build metadata", () => {
   const appConfig = {
