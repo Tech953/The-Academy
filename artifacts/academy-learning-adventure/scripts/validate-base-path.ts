@@ -13,6 +13,11 @@ const artifactConfigPath = path.join(
 const viteConfigPath = path.join(projectRoot, "vite.config.ts");
 const buildOutputDirectory = path.join(projectRoot, "dist", "public");
 const builtIndexPath = path.join(buildOutputDirectory, "index.html");
+const browserMetadataBasenames = new Set([
+  "manifest.json",
+  "asset-manifest.json",
+  "metadata.json",
+]);
 
 type AssetKind = "script" | "stylesheet" | "favicon";
 
@@ -197,7 +202,11 @@ function generatedAssetFiles(directory: string): string[] {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       files.push(...generatedAssetFiles(entryPath));
-    } else if (/\.(?:css|js|mjs)$/i.test(entry.name)) {
+    } else if (
+      /\.(?:css|js|mjs)$/i.test(entry.name) ||
+      browserMetadataBasenames.has(entry.name.toLowerCase()) ||
+      /\.webmanifest$/i.test(entry.name)
+    ) {
       files.push(entryPath);
     }
   }
@@ -216,10 +225,11 @@ function isAssetLikeUrl(value: string): boolean {
 
 function generatedAssetUrls(document: string, extension: string): string[] {
   const urls = new Set<string>();
+  const isBrowserMetadata = /\.(?:json|webmanifest)$/i.test(extension);
   const quotedUrlPattern = /(["'`])(\/[^"'`\s)]*)\1/g;
   for (const match of document.matchAll(quotedUrlPattern)) {
     const value = match[2];
-    if (value && isAssetLikeUrl(value)) {
+    if (value && (isBrowserMetadata || isAssetLikeUrl(value))) {
       urls.add(value);
     }
   }
@@ -259,20 +269,30 @@ export function validateGeneratedAssetReferences(
   previewPath: string,
   outputDirectory = buildOutputDirectory,
 ): void {
-  const escapes: string[] = [];
+  const assetEscapes: string[] = [];
+  const metadataEscapes: string[] = [];
 
   for (const filePath of generatedAssetFiles(outputDirectory)) {
     const document = readFileSync(filePath, "utf8");
+    const isBrowserMetadata = /\.(?:json|webmanifest)$/i.test(
+      path.extname(filePath),
+    );
     for (const value of generatedAssetUrls(document, path.extname(filePath))) {
       if (!value.startsWith(previewPath)) {
-        escapes.push(`${path.relative(outputDirectory, filePath)}: ${value}`);
+        const escape = `${path.relative(outputDirectory, filePath)}: ${value}`;
+        (isBrowserMetadata ? metadataEscapes : assetEscapes).push(escape);
       }
     }
   }
 
-  if (escapes.length > 0) {
+  if (metadataEscapes.length > 0) {
     throw new Error(
-      `Generated chunks contain asset URLs that bypass ${previewPath}: ${escapes.join(", ")}`,
+      `Generated metadata files contain URLs that bypass ${previewPath}: ${metadataEscapes.join(", ")}`,
+    );
+  }
+  if (assetEscapes.length > 0) {
+    throw new Error(
+      `Generated chunks contain asset URLs that bypass ${previewPath}: ${assetEscapes.join(", ")}`,
     );
   }
 }

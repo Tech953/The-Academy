@@ -160,6 +160,47 @@ test("does not reject route strings or already-prefixed worker URLs", () => {
   );
 });
 
+test("rejects root-relative URLs in browser-consumed metadata", () => {
+  withOutputDirectory(
+    {
+      ".vite/manifest.json": `
+        {
+          "entry": "/academy-learning-adventure/assets/index.js",
+          "lazy": "/metadata/slide-2"
+        }
+      `,
+      "assets/debug.json": '{"debugRoute":"/debug-only"}',
+      "assets/source.map": '{"sources":["/debug-only"]}',
+    },
+    (directory) => {
+      assert.throws(
+        () => validateGeneratedAssetReferences(previewPath, directory),
+        /Generated metadata files contain URLs that bypass .*\.vite\/manifest\.json: \/metadata\/slide-2/,
+      );
+    },
+  );
+});
+
+test("accepts prefixed browser metadata and ignores debug-only metadata", () => {
+  withOutputDirectory(
+    {
+      "assets/asset-manifest.json": `
+        {
+          "entry": "/academy-learning-adventure/assets/index.js",
+          "metadata": "/academy-learning-adventure/assets/slide-2.json"
+        }
+      `,
+      "assets/debug.json": '{"debugRoute":"/debug-only"}',
+      "assets/source.map": '{"sources":["/debug-only"]}',
+    },
+    (directory) => {
+      assert.doesNotThrow(() =>
+        validateGeneratedAssetReferences(previewPath, directory),
+      );
+    },
+  );
+});
+
 test("rejects root-relative CSS URLs and accepts prefixed generated assets", () => {
   withOutputDirectory(
     {
