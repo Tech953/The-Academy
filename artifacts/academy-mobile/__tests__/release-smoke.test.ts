@@ -26,6 +26,8 @@ const {
   getReleaseDomain,
   getReleaseProfiles,
   readReleaseConfig,
+  validateReleaseProfileHost,
+  validateRequiredReleaseProfileHosts,
   validateNativeHandoff,
   computeFileSha256: computeReleaseFileSha256,
   verifyInstallerChecksum,
@@ -39,6 +41,8 @@ const {
   getReleaseDomain: (config: unknown, profile: string) => string;
   getReleaseProfiles: (config: unknown) => string[];
   readReleaseConfig: (configPath?: string) => Record<string, unknown>;
+  validateReleaseProfileHost: (config: unknown, profile: string) => string;
+  validateRequiredReleaseProfileHosts: (config: unknown) => void;
   validateNativeHandoff: (options: {
     handoffReport?: unknown;
     appConfig?: unknown;
@@ -1106,6 +1110,88 @@ describe("release smoke check", () => {
   it("reads the preview hostname from eas.json", () => {
     const config = readReleaseConfig();
     expect(getReleaseDomain(config, "preview")).toBe("theeacademy.replit.app");
+  });
+
+  it("requires the published Academy hostname for preview and production", () => {
+    const config = readReleaseConfig();
+
+    expect(() => validateRequiredReleaseProfileHosts(config)).not.toThrow();
+    expect(validateReleaseProfileHost(config, "preview")).toBe(
+      "theeacademy.replit.app",
+    );
+    expect(validateReleaseProfileHost(config, "production")).toBe(
+      "theeacademy.replit.app",
+    );
+
+    for (const profile of ["preview", "production"]) {
+      const driftedConfig = JSON.parse(JSON.stringify(config)) as {
+        build: Record<string, { env: Record<string, string> }>;
+      };
+      driftedConfig.build[profile].env.EXPO_PUBLIC_DOMAIN =
+        "https://wrong.example.com";
+
+      expect(() => validateRequiredReleaseProfileHosts(driftedConfig)).toThrow(
+        new RegExp(
+          `Profile "${profile}" must target the published Academy hostname "theeacademy\\.replit\\.app" over HTTPS; found "wrong\\.example\\.com"`,
+        ),
+      );
+    }
+
+    const missingHostConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    delete missingHostConfig.build.production.env.EXPO_PUBLIC_DOMAIN;
+    expect(() => validateRequiredReleaseProfileHosts(missingHostConfig)).toThrow(
+      /Profile "production" must define build\.production\.env\.EXPO_PUBLIC_DOMAIN/,
+    );
+  });
+
+  it("blocks smoke requests when a required profile host drifts", async () => {
+    const configDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-host-"),
+    );
+    const configPath = path.join(configDirectory, "eas.json");
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+
+    try {
+      writeFileSync(
+        configPath,
+        JSON.stringify({
+          build: {
+            preview: {
+              distribution: "internal",
+              env: { EXPO_PUBLIC_DOMAIN: "wrong.example.com" },
+            },
+            production: {
+              env: { EXPO_PUBLIC_DOMAIN: "TheeAcademy.replit.app" },
+            },
+          },
+        }),
+        "utf8",
+      );
+
+      await expect(
+        runReleaseSmokeChecks({ configPath, fetchImpl }),
+      ).rejects.toThrow(
+        /Profile "preview" must target the published Academy hostname/,
+      );
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      rmSync(configDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps iOS and Android release commands on the shared handoff preflight", () => {
+    const scripts = JSON.parse(
+      readFileSync(path.resolve(__dirname, "../package.json"), "utf8"),
+    ).scripts as Record<string, string>;
+
+    expect(scripts["release:preview"]).toContain("RELEASE_PLATFORM=android");
+    expect(scripts["release:production"]).toContain("RELEASE_PLATFORM=android");
+    expect(scripts["release:preview:ios"]).toContain("RELEASE_PLATFORM=ios");
+    expect(scripts["release:production:ios"]).toContain("RELEASE_PLATFORM=ios");
+    expect(scripts["release:preview:ios"]).toContain("native-handoff");
+    expect(scripts["release:production:ios"]).toContain("native-handoff");
   });
 
   it("discovers only build profiles that define a public domain", () => {

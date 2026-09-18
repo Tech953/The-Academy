@@ -7,6 +7,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
 const EXPECTED_ANDROID_PACKAGE = "com.theacademy.mobile";
+const EXPECTED_RELEASE_HOSTNAME = "theeacademy.replit.app";
 const APP_CONFIG_PATH = path.resolve(__dirname, "..", "app.json");
 const EAS_CONFIG_PATH = path.resolve(__dirname, "..", "eas.json");
 const GENERATED_ANDROID_MANIFEST_PATH = path.resolve(
@@ -218,6 +219,27 @@ function getReleaseDomain(config, profile) {
   return parsed.hostname;
 }
 
+function validateReleaseProfileHost(config, profile) {
+  const domain = getReleaseDomain(config, profile);
+  if (domain !== EXPECTED_RELEASE_HOSTNAME) {
+    throw new Error(
+      `[release-smoke] Profile "${profile}" must target the published Academy hostname "${EXPECTED_RELEASE_HOSTNAME}" over HTTPS; found "${domain}". Update build.${profile}.env.EXPO_PUBLIC_DOMAIN in eas.json.`,
+    );
+  }
+  return domain;
+}
+
+function validateRequiredReleaseProfileHosts(config) {
+  for (const profile of ["preview", "production"]) {
+    if (!config?.build?.[profile] || typeof config.build[profile] !== "object") {
+      throw new Error(
+        `[release-smoke] Required release profile "${profile}" is missing from eas.json.`,
+      );
+    }
+    validateReleaseProfileHost(config, profile);
+  }
+}
+
 async function fetchWithTimeout(fetchImpl, url, init) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -279,7 +301,7 @@ async function runReleaseSmokeCheck({
   sleepImpl = sleep,
 } = {}) {
   const config = readReleaseConfig(configPath);
-  const domain = getReleaseDomain(config, profile);
+  const domain = validateReleaseProfileHost(config, profile);
   const baseUrl = `https://${domain}`;
   const healthUrl = `${baseUrl}/api/healthz`;
   const aiUrl = `${baseUrl}/api/ai/describe`;
@@ -369,6 +391,7 @@ async function runReleaseSmokeChecks({
   sleepImpl = sleep,
 } = {}) {
   const config = readReleaseConfig(configPath);
+  validateRequiredReleaseProfileHosts(config);
   const profiles = getReleaseProfiles(config);
 
   if (profiles.length === 0) {
@@ -876,9 +899,12 @@ if (require.main === module) {
 }
 
 module.exports = {
+  EXPECTED_RELEASE_HOSTNAME,
   EXPECTED_ANDROID_PACKAGE,
   getReleaseDomain,
   getReleaseProfiles,
+  validateReleaseProfileHost,
+  validateRequiredReleaseProfileHosts,
   readReleaseConfig,
   validateNativeHandoff,
   computeFileSha256,
