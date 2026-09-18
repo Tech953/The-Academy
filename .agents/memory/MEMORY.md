@@ -5,3 +5,4 @@
 - [IPv6 rate-limit identity](ipv6-rate-limit.md) — IPv6 quotas are subnet-grouped; isolation tests need distinct prefixes.
 - [Nested preview helpers](nested-preview-helpers.md) — Root-relative Replit Vite helpers do not work through a path-based artifact preview.
 - [Release retry summaries](release-retry-summaries.md) — Stable profile archives carry health/AI attempt counts and mark recovery only for eventual passes.
+- [Native handoff failure stages](native-handoff-failure-stages.md) — Keep preflight connectivity success separate from later EAS build failures in archived reports.

@@ -500,8 +500,19 @@ async function main() {
     ...reportWithConnectivity,
     status: result.status === 0 ? "completed" : "failed",
     easExitCode: result.status,
+    ...(result.status !== 0
+      ? {
+          failureStage: "eas-build",
+          error: `[native-handoff] EAS build failed with exit code ${result.status ?? "unknown"}.`,
+        }
+      : {}),
     ...(buildMetadata ? { build: buildMetadata } : {}),
   });
+  if (result.status !== 0) {
+    console.error(
+      `[native-handoff] EAS build failed with exit code ${result.status ?? "unknown"}.`,
+    );
+  }
   console.log(`[native-handoff] Report written to ${reportPath}`);
   if (result.status !== 0) {
     process.exitCode = result.status ?? 1;

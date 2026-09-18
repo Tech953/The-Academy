@@ -340,6 +340,10 @@ process.stdout.write(JSON.stringify([{
   buildDetailsPageUrl: "https://expo.dev/builds/stub-build",
   artifactUrl: "https://expo.dev/builds/stub-build.apk"
 }]));
+const exitCode = Number(process.env.EAS_EXIT_CODE || "0");
+if (exitCode !== 0) {
+  process.exit(exitCode);
+}
 `,
     "utf8",
   );
@@ -405,6 +409,7 @@ require.cache[require.resolve(checkReleasePath)].exports = {
 function runNativeHandoffSubprocess(
   fixture: ReturnType<typeof createNativeHandoffSubprocessFixture>,
   preflightResult: "failed" | "passed",
+  easExitCode = "0",
 ) {
   return spawnSync(
     process.execPath,
@@ -425,6 +430,7 @@ function runNativeHandoffSubprocess(
         EAS_CLI_COMMAND: fixture.easCommandPath,
         EAS_RECORD_PATH: fixture.easRecordPath,
         RELEASE_PREFLIGHT_RESULT: preflightResult,
+        EAS_EXIT_CODE: easExitCode,
         RELEASE_REPORT_PATH: fixture.reportPath,
       },
     },
@@ -1855,6 +1861,50 @@ describe("release smoke check", () => {
             error: null,
           },
         ],
+      });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("reports an EAS build failure after a successful preflight", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(fixture, "passed", "23");
+
+      expect(result.status).toBe(23);
+      expect(result.stdout).toMatch(
+        /Release connectivity passed for profile "preview"/,
+      );
+      expect(result.stderr).toMatch(
+        /EAS build failed with exit code 23/,
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(true);
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        easExitCode: number;
+        failureStage: string;
+        error: string;
+        summary: {
+          status: string;
+          profiles: Array<{ profile: string; status: string }>;
+        };
+      };
+      expect(report).toMatchObject({
+        status: "failed",
+        easExitCode: 23,
+        failureStage: "eas-build",
+        error: "[native-handoff] EAS build failed with exit code 23.",
+        summary: {
+          status: "passed",
+          profiles: [
+            { profile: "preview", status: "passed" },
+            { profile: "production", status: "passed" },
+          ],
+        },
       });
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
