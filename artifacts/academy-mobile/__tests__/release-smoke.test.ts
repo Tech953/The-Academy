@@ -27,6 +27,8 @@ const {
   getReleaseProfiles,
   readReleaseConfig,
   validateNativeHandoff,
+  computeFileSha256: computeReleaseFileSha256,
+  verifyInstallerChecksum,
   validateAndroidPreviewIdentity,
   validateAndroidProductionIdentity,
   runReleaseSmokeCheck,
@@ -54,6 +56,16 @@ const {
     installerPath: string | null;
     timestamp: string;
     buildId: string | null;
+  };
+  computeFileSha256: (filePath: string) => string;
+  verifyInstallerChecksum: (options: {
+    artifactPath: string;
+    handoffReport?: unknown;
+    handoffReportPath?: string;
+  }) => {
+    status: string;
+    artifactPath: string;
+    installerSha256: string;
   };
   validateAndroidPreviewIdentity: (options?: {
     appConfig?: unknown;
@@ -146,6 +158,8 @@ const { validateGeneratedAndroidIdentity } = require("../scripts/build.js") as {
 
 const {
   normalizeBuildMetadata,
+  computeFileSha256,
+  attachInstallerChecksum,
   parseArgs,
   validatePlatformIdentity,
   verifyAllProfileConnectivity,
@@ -167,7 +181,17 @@ const {
     timestamp: string;
     buildId: string | null;
     buildDetailsPageUrl: string | null;
+      installerSha256?: string | null;
   };
+  computeFileSha256: (filePath: string) => Promise<string>;
+  attachInstallerChecksum: (buildMetadata: {
+    installerPath: string | null;
+    [key: string]: unknown;
+  }) => Promise<
+    Record<string, unknown> & {
+      installerSha256: string | null;
+    }
+  >;
   parseArgs: (args: string[]) => {
     platform: string;
     profile: string;
@@ -496,6 +520,31 @@ describe("native handoff build metadata", () => {
     });
   });
 
+  it("records a SHA-256 for a local installer and leaves cloud-only handoffs valid", async () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-installer-"),
+    );
+    const artifactPath = path.join(artifactDirectory, "academy-preview.apk");
+    writeFileSync(artifactPath, "test installer contents\n", "utf8");
+
+    try {
+      const expectedChecksum = await computeFileSha256(artifactPath);
+      const localMetadata = await attachInstallerChecksum({
+        installerUrl: null,
+        installerPath: artifactPath,
+      });
+      const cloudMetadata = await attachInstallerChecksum({
+        installerUrl: "https://example.invalid/academy-preview.apk",
+        installerPath: null,
+      });
+
+      expect(localMetadata.installerSha256).toBe(expectedChecksum);
+      expect(cloudMetadata.installerSha256).toBeNull();
+    } finally {
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("normalizes a production AAB while allowing EAS auto-increment metadata", () => {
     const output = {
       stdout: JSON.stringify([
@@ -663,6 +712,7 @@ describe("release smoke check", () => {
       buildId: string | null;
       buildDetailsPageUrl: string | null;
       androidVersionCode?: number;
+      installerSha256?: string | null;
     };
   } => ({
       status: "completed",
@@ -699,6 +749,39 @@ describe("release smoke check", () => {
       timestamp: "2026-09-15T15:00:00.000Z",
       buildId: "build-123",
     });
+  });
+
+  it("verifies a downloaded installer against the recorded SHA-256", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-checksum-"),
+    );
+    const artifactPath = path.join(artifactDirectory, "academy-preview.apk");
+    writeFileSync(artifactPath, "downloaded installer contents\n", "utf8");
+    const report = validHandoffReport();
+    report.build.installerSha256 = computeReleaseFileSha256(artifactPath);
+
+    try {
+      expect(
+        verifyInstallerChecksum({
+          artifactPath,
+          handoffReport: report,
+        }),
+      ).toEqual({
+        status: "passed",
+        artifactPath,
+        installerSha256: report.build.installerSha256,
+      });
+
+      writeFileSync(artifactPath, "tampered installer contents\n", "utf8");
+      expect(() =>
+        verifyInstallerChecksum({
+          artifactPath,
+          handoffReport: report,
+        }),
+      ).toThrow(/SHA-256 mismatch/);
+    } finally {
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
   });
 
   it("accepts a complete production AAB handoff with auto-increment metadata", () => {

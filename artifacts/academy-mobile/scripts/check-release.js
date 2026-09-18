@@ -1,4 +1,5 @@
 const fs = require("fs");
+const crypto = require("crypto");
 const path = require("path");
 
 const DEFAULT_PROFILE = "preview";
@@ -556,6 +557,13 @@ function validateNativeHandoff({
     ) {
       errors.push("build timestamp is missing or invalid");
     }
+    if (
+      build.installerSha256 !== undefined &&
+      build.installerSha256 !== null &&
+      !/^[a-f0-9]{64}$/i.test(build.installerSha256)
+    ) {
+      errors.push("installerSha256 must be a 64-character SHA-256 hex digest");
+    }
   }
 
   if (errors.length > 0) {
@@ -577,6 +585,57 @@ function validateNativeHandoff({
     installerPath: build.installerPath || null,
     timestamp: build.timestamp,
     buildId: build.buildId || null,
+  };
+}
+
+function computeFileSha256(filePath) {
+  try {
+    return crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(filePath))
+      .digest("hex");
+  } catch (error) {
+    throw new Error(
+      `[release-checksum] Could not read installer artifact at ${filePath}: ${error.message}`,
+    );
+  }
+}
+
+function verifyInstallerChecksum({
+  artifactPath,
+  handoffReport,
+  handoffReportPath = DEFAULT_HANDOFF_REPORT_PATH,
+} = {}) {
+  const report =
+    handoffReport ??
+    readJsonFile(handoffReportPath, "native handoff report");
+  const expectedChecksum = report?.build?.installerSha256;
+
+  if (!artifactPath) {
+    throw new Error(
+      "[release-checksum] An installer artifact path is required.",
+    );
+  }
+  if (
+    typeof expectedChecksum !== "string" ||
+    !/^[a-f0-9]{64}$/i.test(expectedChecksum)
+  ) {
+    throw new Error(
+      "[release-checksum] The handoff report has no local installer checksum; cloud-only handoffs remain valid without one.",
+    );
+  }
+
+  const actualChecksum = computeFileSha256(artifactPath);
+  if (actualChecksum.toLowerCase() !== expectedChecksum.toLowerCase()) {
+    throw new Error(
+      `[release-checksum] SHA-256 mismatch for ${artifactPath}: expected ${expectedChecksum}, found ${actualChecksum}.`,
+    );
+  }
+
+  return {
+    status: "passed",
+    artifactPath,
+    installerSha256: actualChecksum,
   };
 }
 
@@ -603,14 +662,20 @@ if (require.main === module) {
   const identityOnly = args.includes("--identity-only");
   const handoffOnly =
     args.includes("--handoff") || args.includes("--validate-handoff");
+  const verifyChecksumIndex = args.indexOf("--verify-checksum");
   const allProfiles =
     args.includes("--all") ||
     args.includes("--all-profiles") ||
     process.env.RELEASE_PROFILE === "all";
+  const profileFlagIndex = args.indexOf("--profile");
   const profile =
+    (profileFlagIndex >= 0 ? args[profileFlagIndex + 1] : undefined) ||
     args.find(
       (argument, index) =>
-        !argument.startsWith("--") && args[index - 1] !== "--report",
+        !argument.startsWith("--") &&
+        !["--report", "--verify-checksum", "--profile"].includes(
+          args[index - 1],
+        ),
     ) ||
     process.env.RELEASE_PROFILE ||
     DEFAULT_PROFILE;
@@ -628,6 +693,30 @@ if (require.main === module) {
     reportFlagIndex >= 0
       ? args[reportFlagIndex + 1]
       : process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
+
+  if (verifyChecksumIndex >= 0) {
+    const artifactPath = args[verifyChecksumIndex + 1];
+    if (!artifactPath || artifactPath.startsWith("--")) {
+      console.error("[release-checksum] --verify-checksum requires a file path.");
+      process.exitCode = 1;
+      return;
+    }
+    const handoffReportPath =
+      process.env.RELEASE_HANDOFF_PATH || DEFAULT_HANDOFF_REPORT_PATH;
+    try {
+      const verification = verifyInstallerChecksum({
+        artifactPath,
+        handoffReportPath,
+      });
+      console.log(
+        `[release-checksum] SHA-256 verified for ${verification.artifactPath}: ${verification.installerSha256}`,
+      );
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   if (handoffOnly) {
     const handoffReportPath =
@@ -744,6 +833,8 @@ module.exports = {
   getReleaseProfiles,
   readReleaseConfig,
   validateNativeHandoff,
+  computeFileSha256,
+  verifyInstallerChecksum,
   validateAndroidProfileIdentity,
   validateAndroidPreviewIdentity,
   validateAndroidProductionIdentity,

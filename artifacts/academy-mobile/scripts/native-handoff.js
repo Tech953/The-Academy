@@ -1,4 +1,5 @@
 const { spawnSync } = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -272,6 +273,31 @@ function normalizeBuildMetadata(
   };
 }
 
+function computeFileSha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+}
+
+async function attachInstallerChecksum(buildMetadata) {
+  if (!buildMetadata.installerPath) {
+    return { ...buildMetadata, installerSha256: null };
+  }
+
+  try {
+    return {
+      ...buildMetadata,
+      installerSha256: await computeFileSha256(buildMetadata.installerPath),
+    };
+  } catch {
+    return { ...buildMetadata, installerSha256: null };
+  }
+}
+
 function parseArgs(args) {
   const effectiveArgs = args[0] === "--" ? args.slice(1) : args;
   const parsed = {
@@ -420,11 +446,13 @@ async function main() {
   let buildMetadata = null;
   if (result.status === 0) {
     try {
-      buildMetadata = normalizeBuildMetadata(output, {
-        platform,
-        profile,
-        appConfig,
-      });
+      buildMetadata = await attachInstallerChecksum(
+        normalizeBuildMetadata(output, {
+          platform,
+          profile,
+          appConfig,
+        }),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       writeReleaseReport(reportPath, {
@@ -460,6 +488,8 @@ if (require.main === module) {
 module.exports = {
   extractBuildMetadata,
   normalizeBuildMetadata,
+  computeFileSha256,
+  attachInstallerChecksum,
   parseArgs,
   summarizeConnectivity,
   validatePlatformIdentity,
