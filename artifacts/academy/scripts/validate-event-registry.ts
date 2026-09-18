@@ -12,12 +12,31 @@ import {
 
 const WEB_COMPATIBILITY_PATH = 'artifacts/academy/src/lib/radiantAI.ts';
 
-export function validateWebEventRegistry(): void {
-  const categories = Object.keys(EVENT_TEMPLATES) as EventCategory[];
-  const categorySources = new Map<EventCategory, WorldEventType>();
+type EventTemplateRegistry = Record<
+  string,
+  ReadonlyArray<{ title: string }>
+>;
+type EventCategoryMapping = Record<string, string>;
+type EventCategoryExceptions = Partial<Record<string, string>>;
 
-  for (const [eventType, category] of Object.entries(RADIANT_EVENT_CATEGORIES)) {
-    if (!(category in EVENT_TEMPLATES)) {
+export interface WebEventRegistryValidationOptions {
+  eventTemplates?: EventTemplateRegistry;
+  categoryMappings?: EventCategoryMapping;
+  exceptions?: EventCategoryExceptions;
+  generateEvent?: (eventType: string, seed: number) => { name: string };
+}
+
+export function validateWebEventRegistry({
+  eventTemplates = EVENT_TEMPLATES,
+  categoryMappings = RADIANT_EVENT_CATEGORIES,
+  exceptions = RADIANT_EVENT_CATEGORY_EXCEPTIONS,
+  generateEvent = generateProceduralEvent,
+}: WebEventRegistryValidationOptions = {}): void {
+  const categories = Object.keys(eventTemplates) as EventCategory[];
+  const categorySources = new Map<EventCategory, string>();
+
+  for (const [eventType, category] of Object.entries(categoryMappings)) {
+    if (!(category in eventTemplates)) {
       throw new Error(
         `Web Radiant AI compatibility path "${WEB_COMPATIBILITY_PATH}" maps legacy event "${eventType}" to missing shared "${category}" category.`,
       );
@@ -26,14 +45,16 @@ export function validateWebEventRegistry(): void {
   }
 
   for (const category of categories) {
-    const templates = EVENT_TEMPLATES[category];
+    const templates = eventTemplates[category];
     if (templates.length === 0) {
       throw new Error(`Shared ${category} event registry is empty.`);
     }
 
     const sourceType = categorySources.get(category);
-    const exception = RADIANT_EVENT_CATEGORY_EXCEPTIONS[category];
-    if (!sourceType && !exception) {
+    const exception = exceptions[category];
+    const hasDocumentedException =
+      typeof exception === 'string' && exception.trim().length > 0;
+    if (!sourceType && !hasDocumentedException) {
       throw new Error(
         `Web Radiant AI compatibility path "${WEB_COMPATIBILITY_PATH}" has no mapping for shared "${category}" event category. Add a legacy event mapping or document an intentional exception in RADIANT_EVENT_CATEGORY_EXCEPTIONS.`,
       );
@@ -43,7 +64,7 @@ export function validateWebEventRegistry(): void {
       continue;
     }
 
-    const event = generateProceduralEvent(sourceType, 60_000);
+    const event = generateEvent(sourceType, 60_000);
     if (!templates.some((template) => template.title === event.name)) {
       throw new Error(
         `Web event "${event.name}" for legacy ${sourceType} is not from the shared ${category} registry.`,
