@@ -1440,7 +1440,7 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     },
   );
 
-  it('fails offline generation before malformed narrative fields reach players', () => {
+  it('rejects malformed narrative fields across every offline event entry point', () => {
     const sourceTemplate = EVENT_TEMPLATES.academic[0];
     const originalTemplate = { ...sourceTemplate };
     const malformedFixtures: Array<{
@@ -1454,20 +1454,58 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
       { field: 'playerHooks', value: [''], reason: 'blank' },
       { field: 'duration', value: 'months', reason: 'invalid' },
     ];
+    const generators = [
+      {
+        name: 'daily event generation',
+        generate: () => generateDailyEvents(day),
+      },
+      {
+        name: 'headline matching',
+        generate: () => matchEventsToHeadlines(['exam assessment study']),
+      },
+      {
+        name: 'bulletin assembly',
+        generate: () => generateBulletinEvents(day, ['exam assessment study']),
+      },
+      {
+        name: 'legacy content-pack generation',
+        generate: () => generateContentPack(day),
+      },
+      {
+        name: 'offline content-pack generation',
+        generate: () => generateOfflineContentPack(day, ['exam assessment study']),
+      },
+    ];
 
     try {
       for (const fixture of malformedFixtures) {
         Object.assign(sourceTemplate, { [fixture.field]: fixture.value });
-        expect(() => generateDailyEvents(42)).toThrow(
-          new RegExp(
-            `template "exam-week".*category "academic".*field "${fixture.field}".*${fixture.reason}`,
-          ),
-        );
+        for (const generator of generators) {
+          expect(generator.generate, generator.name).toThrow(
+            new RegExp(
+              `template "exam-week".*category "academic".*field "${fixture.field}".*${fixture.reason}`,
+            ),
+          );
+        }
         Object.assign(sourceTemplate, originalTemplate);
       }
     } finally {
       Object.assign(sourceTemplate, originalTemplate);
     }
+  });
+
+  it('keeps valid event output deterministic across every offline event entry point', () => {
+    const headlines = ['Exam assessment study academic pressure'];
+
+    expect(generateDailyEvents(day, 3)).toEqual(generateDailyEvents(day, 3));
+    expect(matchEventsToHeadlines(headlines)).toEqual(matchEventsToHeadlines(headlines));
+    expect(generateBulletinEvents(day, headlines, 3)).toEqual(
+      generateBulletinEvents(day, headlines, 3),
+    );
+    expect(generateContentPack(day)).toEqual(generateContentPack(day));
+    expect(generateOfflineContentPack(day, headlines)).toEqual(
+      generateOfflineContentPack(day, headlines),
+    );
   });
 
   it('returns an empty array for an empty headline list', () => {
