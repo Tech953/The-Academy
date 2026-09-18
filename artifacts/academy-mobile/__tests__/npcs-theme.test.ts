@@ -13,7 +13,13 @@ const { gameState } = vi.hoisted(() => ({
 vi.mock("react-native", async () => {
   const React = await import("react");
   const primitive = (tag: string) =>
-    ({ children }: { children?: React.ReactNode }) => React.createElement(tag, null, children);
+    ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement(tag, props, children);
 
   return {
     KeyboardAvoidingView: primitive("main"),
@@ -193,5 +199,48 @@ describe("NPC directory weekly theme cue", () => {
     expect(renderer.root.findByType("input").props.value).toBe(
       "I want to ask about the new theme.",
     );
+  });
+
+  it("lets a long theme wrap inside the compact cue on narrow layouts", () => {
+    const longTheme =
+      "Community Science Showcase and Evening Study Sessions";
+    gameState.weeklyTheme = longTheme;
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    const themeValue = renderer.root
+      .findAllByType("span")
+      .find(instance => instance.children.includes(longTheme));
+    expect(themeValue).toBeDefined();
+    expect(themeValue?.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          flex: 1,
+          flexShrink: 1,
+          minWidth: 0,
+        }),
+      ]),
+    );
+
+    const themeCue = renderer.root
+      .findAllByType("div")
+      .find(instance =>
+        Array.isArray(instance.props.style) &&
+        instance.props.style.some(
+          (style: unknown) =>
+            Boolean(style) &&
+            typeof style === "object" &&
+            "alignItems" in (style as object) &&
+            (style as { alignItems?: string }).alignItems === "flex-start",
+        ),
+      );
+    expect(themeCue).toBeDefined();
   });
 });

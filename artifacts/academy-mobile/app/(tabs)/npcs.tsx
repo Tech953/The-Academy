@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   chatThemeCue: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     marginHorizontal: 16,
     marginTop: 6,
@@ -359,10 +359,13 @@ const styles = StyleSheet.create({
     ...monoFontBold,
     fontSize: 9,
     letterSpacing: 0.7,
+    flexShrink: 0,
   },
   chatThemeValue: {
     ...monoFont,
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 10,
     lineHeight: 14,
   },
