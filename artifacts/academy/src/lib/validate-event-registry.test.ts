@@ -1,9 +1,24 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { validateWebEventRegistry } from '../../scripts/validate-event-registry';
 
 const template = (title: string) => [{ title }];
+const packageJson = JSON.parse(
+  readFileSync(
+    fileURLToPath(new URL('../../package.json', import.meta.url)),
+    'utf8',
+  ),
+) as { scripts: Record<string, string> };
 
 describe('validateWebEventRegistry', () => {
+  it('runs registry validation before the Academy web bundle', () => {
+    expect(packageJson.scripts.prebuild).toBe(
+      'pnpm run validate-event-registry',
+    );
+    expect(packageJson.scripts.build).toContain('vite build');
+  });
+
   it('allows an intentionally unsupported category with a documented exception', () => {
     expect(() =>
       validateWebEventRegistry({
