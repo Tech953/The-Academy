@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useTransition, startTransition, useCallback, useMemo } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import CommandPalette from './CommandPalette';
+import type { TerminalLine } from '@/lib/terminalLine';
 
 const DIR_ABBREV: Record<string, string> = {
   NORTH: 'N', SOUTH: 'S', EAST: 'E', WEST: 'W',
@@ -10,12 +11,6 @@ const DIR_ABBREV: Record<string, string> = {
 
 function abbrevDir(d: string): string {
   return DIR_ABBREV[d.toUpperCase()] ?? d.slice(0, 4);
-}
-
-interface TerminalLine {
-  id: string;
-  text: string;
-  type: 'output' | 'command' | 'system' | 'error' | 'narrative';
 }
 
 interface TerminalInterfaceProps {

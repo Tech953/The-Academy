@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
 import TerminalInterface from './TerminalInterface';
 import { useI18n } from '../contexts/I18nContext';
+import type { TerminalLine } from '@/lib/terminalLine';
 
 interface TextCharacterCreationProps {
   onComplete: (character: any) => void;
-}
-
-interface TerminalLine {
-  id: string;
-  text: string;
-  type: 'output' | 'command' | 'system' | 'error';
 }
 
 interface PhysicalQuestion {

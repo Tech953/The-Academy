@@ -88,6 +88,8 @@ import {
 import type { EngagementAnalytics, AdaptiveRecommendation, CourseProgress } from "@shared/schema";
 import { migrateRadiantAIState } from "./radiantAI";
 
+export type { TerminalLine } from "./terminalLine";
+
 export interface GameState {
   character: Character;
   currentLocation: Location;
@@ -101,12 +103,6 @@ export interface GameState {
   crisisMode: CrisisModeState;
   engagementAnalytics: EngagementAnalytics;
   radiantAIState?: string; // Serialized Radiant AI NPC state
-}
-
-export interface TerminalLine {
-  id: string;
-  text: string;
-  type: 'output' | 'command' | 'system' | 'error' | 'narrative';
 }
 
 export class GameStateManager {

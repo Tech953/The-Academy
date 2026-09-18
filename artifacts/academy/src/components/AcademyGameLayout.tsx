@@ -3,6 +3,7 @@ import { Minus, Plus, PanelLeftClose, PanelLeft, Maximize2, Minimize2, ArrowLeft
 import TerminalInterface from './TerminalInterface';
 import { Character } from './CharacterSheet';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
+import type { TerminalLine } from '@/lib/terminalLine';
 import { 
   PHYSICAL_STATS, 
   MENTAL_STATS, 
@@ -12,12 +13,6 @@ import {
   type FullCharacterStats,
   type StatCategory
 } from '@shared/stats';
-
-interface TerminalLine {
-  id: string;
-  text: string;
-  type: 'output' | 'command' | 'system' | 'error';
-}
 
 interface AcademyGameLayoutProps {
   character: Character | null;
