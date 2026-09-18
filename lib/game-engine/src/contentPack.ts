@@ -230,6 +230,103 @@ function hasUniqueIdentities(
   return new Set(identities).size === identities.length;
 }
 
+export type ContentPackValidationIssueCode =
+  | 'pack'
+  | 'version'
+  | 'generatedAt'
+  | 'expiresAt'
+  | 'worldSeed'
+  | 'weeklyTheme'
+  | 'themeContext'
+  | 'activeEvents'
+  | 'activeEventIds'
+  | 'npcMoodShifts'
+  | 'npcMoodIds'
+  | 'gedFocusAreas'
+  | 'generatedBy'
+  | 'rssHeadlines'
+  | 'eventsRepaired';
+
+/**
+ * Return stable field-level categories for an unusable pack.
+ *
+ * This intentionally reports no values, indexes, or generated text. It is safe
+ * to use in server logs and client diagnostics at an untrusted JSON boundary.
+ */
+export function getContentPackValidationIssues(
+  value: unknown,
+  now = Date.now(),
+): ContentPackValidationIssueCode[] {
+  if (!value || typeof value !== 'object') return ['pack'];
+
+  const pack = value as Partial<ContentPack>;
+  const issues: ContentPackValidationIssueCode[] = [];
+  const events = pack.activeEvents;
+  const moods = pack.npcMoodShifts;
+  const focusAreas = pack.gedFocusAreas;
+
+  if (!isNonEmptyString(pack.version)) issues.push('version');
+  if (!isFiniteNumber(pack.generatedAt)) issues.push('generatedAt');
+  if (
+    !isFiniteNumber(pack.expiresAt) ||
+    !isFiniteNumber(pack.generatedAt) ||
+    pack.expiresAt <= pack.generatedAt ||
+    pack.expiresAt <= now
+  ) {
+    issues.push('expiresAt');
+  }
+  if (!isFiniteNumber(pack.worldSeed)) issues.push('worldSeed');
+  if (!isNonEmptyString(pack.weeklyTheme)) issues.push('weeklyTheme');
+  if (!isNonEmptyString(pack.themeContext)) issues.push('themeContext');
+
+  if (
+    !Array.isArray(events) ||
+    events.length !== PACK_ACTIVE_EVENT_LIMIT ||
+    !events.every(isDisplayableContentPackEvent)
+  ) {
+    issues.push('activeEvents');
+  } else if (!hasUniqueIdentities(events.map(event => event.id))) {
+    issues.push('activeEventIds');
+  }
+
+  if (
+    !Array.isArray(moods) ||
+    moods.length !== PACK_NPC_MOOD_LIMIT ||
+    !moods.every(isDisplayablePackNpcMood)
+  ) {
+    issues.push('npcMoodShifts');
+  } else if (!hasUniqueIdentities(moods.map(mood => mood.npcId))) {
+    issues.push('npcMoodIds');
+  }
+
+  if (
+    !Array.isArray(focusAreas) ||
+    focusAreas.length !== PACK_GED_FOCUS_LIMIT ||
+    !focusAreas.every(isDisplayablePackGEDFocus)
+  ) {
+    issues.push('gedFocusAreas');
+  }
+
+  if (pack.generatedBy !== 'gpt' && pack.generatedBy !== 'deterministic') {
+    issues.push('generatedBy');
+  }
+  if (
+    pack.rssHeadlines !== undefined &&
+    (!Array.isArray(pack.rssHeadlines) ||
+      !pack.rssHeadlines.every(isNonEmptyString))
+  ) {
+    issues.push('rssHeadlines');
+  }
+  if (
+    pack.eventsRepaired !== undefined &&
+    typeof pack.eventsRepaired !== 'boolean'
+  ) {
+    issues.push('eventsRepaired');
+  }
+
+  return issues;
+}
+
 /**
  * Shared runtime contract for content packs crossing the API/cache boundary.
  *
@@ -241,44 +338,7 @@ export function isUsableContentPack(
   value: unknown,
   now = Date.now(),
 ): value is ContentPack {
-  if (!value || typeof value !== 'object') return false;
-
-  const pack = value as Partial<ContentPack>;
-  const events = pack.activeEvents;
-  const moods = pack.npcMoodShifts;
-  const focusAreas = pack.gedFocusAreas;
-
-  if (
-    !isNonEmptyString(pack.version) ||
-    !isFiniteNumber(pack.generatedAt) ||
-    !isFiniteNumber(pack.expiresAt) ||
-    pack.expiresAt <= pack.generatedAt ||
-    pack.expiresAt <= now ||
-    !isFiniteNumber(pack.worldSeed) ||
-    !isNonEmptyString(pack.weeklyTheme) ||
-    !isNonEmptyString(pack.themeContext) ||
-    !Array.isArray(events) ||
-    events.length !== PACK_ACTIVE_EVENT_LIMIT ||
-    !events.every(isDisplayableContentPackEvent) ||
-    !hasUniqueIdentities(events.map(event => event.id)) ||
-    !Array.isArray(moods) ||
-    moods.length !== PACK_NPC_MOOD_LIMIT ||
-    !moods.every(isDisplayablePackNpcMood) ||
-    !hasUniqueIdentities(moods.map(mood => mood.npcId)) ||
-    !Array.isArray(focusAreas) ||
-    focusAreas.length !== PACK_GED_FOCUS_LIMIT ||
-    !focusAreas.every(isDisplayablePackGEDFocus) ||
-    (pack.generatedBy !== 'gpt' && pack.generatedBy !== 'deterministic') ||
-    (pack.rssHeadlines !== undefined &&
-      (!Array.isArray(pack.rssHeadlines) ||
-        !pack.rssHeadlines.every(isNonEmptyString))) ||
-    (pack.eventsRepaired !== undefined &&
-      typeof pack.eventsRepaired !== 'boolean')
-  ) {
-    return false;
-  }
-
-  return true;
+  return getContentPackValidationIssues(value, now).length === 0;
 }
 
 /** Is a pack still valid (not expired)? */

@@ -2,11 +2,16 @@ import {
   CONTENT_PACK_STORAGE_KEY,
   generateOfflineContentPack,
   PACK_ACTIVE_EVENT_LIMIT,
+  getContentPackValidationIssues as getSharedContentPackValidationIssues,
   isDisplayableContentPackEvent as isSharedDisplayableContentPackEvent,
   isUsableContentPack as isSharedUsableContentPack,
 } from "@workspace/game-engine";
 
-import type { ContentPack, ContentPackEvent } from "@workspace/game-engine";
+import type {
+  ContentPack,
+  ContentPackEvent,
+  ContentPackValidationIssueCode,
+} from "@workspace/game-engine";
 import { isRateLimitError } from "@workspace/api-client-react";
 import type { ContentSource } from "./enrichmentStatus";
 
@@ -77,6 +82,28 @@ export function isUsableContentPack(
   return isSharedUsableContentPack(value, now);
 }
 
+export type ContentPackCacheIssueCode =
+  | ContentPackValidationIssueCode
+  | "empty-cache"
+  | "invalid-json";
+
+/**
+ * Safe diagnostics for persisted or remote JSON. Only stable categories leave
+ * this boundary; malformed values and generated text are never returned.
+ */
+export function getCachedContentPackIssueCodes(
+  raw: string | null,
+  now = Date.now(),
+): ContentPackCacheIssueCode[] {
+  if (!raw) return ["empty-cache"];
+
+  try {
+    return getSharedContentPackValidationIssues(JSON.parse(raw), now);
+  } catch {
+    return ["invalid-json"];
+  }
+}
+
 export function parseCachedContentPack(
   raw: string | null,
   now = Date.now(),
@@ -85,7 +112,9 @@ export function parseCachedContentPack(
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isUsableContentPack(parsed, now) ? parsed : null;
+    return getCachedContentPackIssueCodes(raw, now).length === 0
+      ? parsed as ContentPack
+      : null;
   } catch {
     return null;
   }

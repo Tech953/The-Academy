@@ -39,6 +39,7 @@ import {
   createContentPackWriteQueueWithResult,
   ensureUsableContentPack,
   fallbackAfterRefreshFailure,
+  getCachedContentPackIssueCodes,
   getContentPackStorageStatus,
   isDisplayableContentPackEvent,
   isUsableContentPack,
@@ -1077,6 +1078,26 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       now,
     )).toBeNull();
     expect(parseCachedContentPack('{not-json', now)).toBeNull();
+  });
+
+  it('reports only safe issue categories for rejected cache metadata', () => {
+    const generatedAt = 1_700_000_000_000;
+    const pack = createContentPackContractFixture(generatedAt);
+
+    expect(getCachedContentPackIssueCodes(JSON.stringify(pack), generatedAt + 1))
+      .toEqual([]);
+    expect(getCachedContentPackIssueCodes(
+      JSON.stringify({ ...pack, activeEvents: [] }),
+      generatedAt + 1,
+    )).toEqual(['activeEvents']);
+    expect(getCachedContentPackIssueCodes(
+      JSON.stringify({ ...pack, expiresAt: generatedAt + 1 }),
+      generatedAt + 1,
+    )).toEqual(['expiresAt']);
+    expect(getCachedContentPackIssueCodes('{not-json', generatedAt + 1))
+      .toEqual(['invalid-json']);
+    expect(getCachedContentPackIssueCodes(null, generatedAt + 1))
+      .toEqual(['empty-cache']);
   });
 
   it('reports rejected and unavailable storage writes without exposing raw errors', async () => {

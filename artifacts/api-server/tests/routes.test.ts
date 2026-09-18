@@ -25,6 +25,7 @@ const requestFetch = globalThis.fetch.bind(globalThis);
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   await Promise.all(
     [...openServers].map(
       server =>
@@ -152,6 +153,7 @@ describe("main API routes", () => {
   it("falls back deterministically when a generated bulletin event is malformed", async () => {
     const upstreamFetch = vi.fn(async () => new Response("", { status: 503 }));
     vi.stubGlobal("fetch", upstreamFetch);
+    const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const create = vi.fn(async () => ({
       choices: [{
@@ -231,6 +233,9 @@ describe("main API routes", () => {
     expect(result.body.activeEvents.map((event: { id: string }) => event.id))
       .not.toContain("malformed-event");
     expect(create).toHaveBeenCalledTimes(1);
+    expect(warningSpy).toHaveBeenCalledWith(
+      "[ContentPack] GPT response rejected (activeEvents); using deterministic fallback",
+    );
   });
 
   it("returns a pack accepted by the mobile cache contract", async () => {

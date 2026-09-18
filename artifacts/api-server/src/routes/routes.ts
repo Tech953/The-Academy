@@ -9,11 +9,14 @@ import { generatePhysicalQuestions } from "../ai/characterQuestions";
 import OpenAI from "openai";
 import {
   isPackFresh,
-  isUsableContentPack,
+  getContentPackValidationIssues,
   PACK_TTL_MS,
   currentWeekKey,
 } from "@workspace/game-engine";
-import type { ContentPack } from "@workspace/game-engine";
+import type {
+  ContentPack,
+  ContentPackValidationIssueCode,
+} from "@workspace/game-engine";
 import {
   aiLimiter,
   contentPackLimiter,
@@ -44,11 +47,27 @@ const WEEKLY_THEMES = [
   "The gap between what is taught and what is true",
 ];
 
-function validateContentPack(pack: unknown): ContentPack {
-  if (!isUsableContentPack(pack)) {
-    throw new Error('Content pack failed the shared runtime contract');
+class ContentPackValidationError extends Error {
+  constructor(
+    readonly issueCodes: ContentPackValidationIssueCode[],
+  ) {
+    super('Content pack failed the shared runtime contract');
+    this.name = 'ContentPackValidationError';
   }
-  return pack;
+}
+
+function validateContentPack(pack: unknown): ContentPack {
+  const issueCodes = getContentPackValidationIssues(pack);
+  if (issueCodes.length > 0) {
+    throw new ContentPackValidationError(issueCodes);
+  }
+  return pack as ContentPack;
+}
+
+function validationIssueSummary(error: unknown): string {
+  return error instanceof ContentPackValidationError
+    ? error.issueCodes.join(',')
+    : 'unknown';
 }
 
 // ─── RSS Headline Fetcher (Phase 4: RSS → World Pipeline) ────────
@@ -232,7 +251,12 @@ Rules:
     return validatedPack;
 
   } catch (err) {
-    console.warn('[ContentPack] GPT generation failed, using deterministic fallback:', err);
+    const issueSummary = validationIssueSummary(err);
+    console.warn(
+      issueSummary === 'unknown'
+        ? '[ContentPack] GPT generation unavailable; using deterministic fallback'
+        : `[ContentPack] GPT response rejected (${issueSummary}); using deterministic fallback`,
+    );
     return generateDeterministicPack(weekKey, weeklyTheme, now);
   }
 }
@@ -1279,14 +1303,16 @@ Write a 2–3 sentence examine description for this object that is immersive and
           res.json(validateContentPack(cachedContentPack));
           return;
         } catch (err) {
-          console.warn('[ContentPack] Cached pack failed final validation, regenerating:', err);
+          console.warn(
+            `[ContentPack] Cached pack failed final validation (${validationIssueSummary(err)}); regenerating`,
+          );
           cachedContentPack = null;
         }
       }
       const pack = await generateWeeklyContentPack(openai);
       res.json(pack);
-    } catch (err) {
-      console.error('[ContentPack] Endpoint error:', err);
+    } catch {
+      console.error('[ContentPack] Endpoint error; returning generation failure');
       res.status(500).json({ error: 'Content pack generation failed' });
     }
   });
@@ -1297,8 +1323,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       cachedContentPack = null;
       const pack = await generateWeeklyContentPack(openai);
       res.json({ message: `Pack refreshed: ${pack.version}`, generatedBy: pack.generatedBy });
-    } catch (err) {
-      console.error('[ContentPack] Refresh error:', err);
+    } catch {
+      console.error('[ContentPack] Refresh error; returning refresh failure');
       res.status(500).json({ error: 'Refresh failed' });
     }
   });
