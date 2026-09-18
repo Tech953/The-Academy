@@ -17,6 +17,10 @@ const WEB_COMPATIBILITY_PATH = 'artifacts/academy/src/lib/radiantAI.ts';
 
 type EventTemplateRegistry = Record<
   string,
+  ReadonlyArray<{ title: string }>
+>;
+type CompleteEventTemplateRegistry = Record<
+  string,
   ReadonlyArray<WorldEventTemplate>
 >;
 type EventCategoryMapping = Record<string, string>;
@@ -30,7 +34,7 @@ export interface WebEventRegistryValidationOptions {
 }
 
 export function validateEventTemplateRegistry(
-  eventTemplates: EventTemplateRegistry = EVENT_TEMPLATES,
+  eventTemplates: CompleteEventTemplateRegistry = EVENT_TEMPLATES,
 ): void {
   const issues = validateEventTemplates(
     Object.values(eventTemplates).flat(),
@@ -54,7 +58,6 @@ export function validateWebEventRegistry({
   exceptions = RADIANT_EVENT_CATEGORY_EXCEPTIONS,
   generateEvent = generateProceduralEvent,
 }: WebEventRegistryValidationOptions = {}): void {
-  validateEventTemplateRegistry(eventTemplates);
   const categories = Object.keys(eventTemplates) as EventCategory[];
   const categorySources = new Map<EventCategory, string>();
 
@@ -102,6 +105,7 @@ export function validateWebEventRegistry({
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
+    validateEventTemplateRegistry();
     validateWebEventRegistry();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

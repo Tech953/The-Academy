@@ -78,7 +78,7 @@ import {
   type ContentPackEvent,
 } from '@workspace/game-engine';
 import { selectWeeklyTheme } from '../lib/themeSelection';
-import { validateWebEventRegistry } from '../../academy/scripts/validate-event-registry';
+import { validateEventTemplateRegistry } from '../../academy/scripts/validate-event-registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared NPC dialogue params fixture
@@ -1458,7 +1458,7 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
 
     let report = '';
     try {
-      validateWebEventRegistry({ eventTemplates });
+      validateEventTemplateRegistry(eventTemplates);
     } catch (error) {
       report = error instanceof Error ? error.message : String(error);
     }
