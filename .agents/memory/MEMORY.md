@@ -8,3 +8,4 @@
 - [Native handoff failure stages](native-handoff-failure-stages.md) — Keep preflight connectivity success separate from later EAS build failures in archived reports.
 - [Release report schema](release-report-schema.md) — Archived release reports carry an explicit version; field additions and shape changes require an intentional bump.
 - [Atomic release reports](atomic-release-reports.md) — Write reports to validated temporary JSON and rename atomically so interruptions preserve the prior archive.
+- [Static build identity gate](static-build-identity-gate.md) — Keep build orchestration injectable so subprocess fixtures can prove manifest generation precedes identity validation.

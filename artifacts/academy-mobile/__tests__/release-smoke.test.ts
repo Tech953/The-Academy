@@ -283,6 +283,7 @@ const nativeHandoffPath = path.resolve(
   "../scripts/native-handoff.js",
 );
 const checkReleasePath = path.resolve(__dirname, "../scripts/check-release.js");
+const buildScriptPath = path.resolve(__dirname, "../scripts/build.js");
 
 describe("bulletin repair accessibility", () => {
   it("announces the repaired state with a concise polite text cue", () => {
@@ -454,6 +455,94 @@ function runNativeHandoffSubprocess(
       },
     },
   );
+}
+
+function runStaticBuildIdentitySubprocess() {
+  const fixtureDirectory = mkdtempSync(
+    path.join(tmpdir(), "academy-static-build-identity-"),
+  );
+  const fixtureScriptPath = path.join(fixtureDirectory, "run-build-fixture.cjs");
+  const manifestPath = path.join(fixtureDirectory, "android-manifest.json");
+
+  writeFileSync(
+    fixtureScriptPath,
+    `const fs = require("node:fs");
+const { runBuild, validateGeneratedAndroidIdentity } = require(${JSON.stringify(buildScriptPath)});
+const manifestPath = ${JSON.stringify(manifestPath)};
+const events = [];
+const appConfig = {
+  expo: { android: { package: "com.theacademy.mobile" } }
+};
+const easConfig = {
+  build: {
+    preview: {
+      distribution: "internal",
+      android: { buildType: "apk" }
+    }
+  }
+};
+
+runBuild({
+  timestamp: "fixture-timestamp",
+  getDeploymentDomainImpl: () => "fixture.example.com",
+  getExpoPublicReplIdImpl: () => undefined,
+  prepareDirectoriesImpl: () => events.push("prepare"),
+  clearMetroCacheImpl: () => events.push("clear-cache"),
+  startMetroImpl: async () => events.push("start-metro"),
+  downloadBundlesAndManifestsImpl: async () => {
+    events.push("download");
+    return { ios: {}, android: {} };
+  },
+  extractAssetsImpl: () => {
+    events.push("extract-assets");
+    return [];
+  },
+  downloadAssetsImpl: async () => {
+    events.push("download-assets");
+    return 0;
+  },
+  updateBundleUrlsImpl: () => events.push("update-bundles"),
+  updateManifestsImpl: () => {
+    events.push("write-manifest");
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        extra: { expoClient: { android: { package: "com.theacademy.drifted" } } }
+      }),
+    );
+  },
+  validateGeneratedAndroidIdentityImpl: () => {
+    events.push("validate-identity");
+    const generatedManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return validateGeneratedAndroidIdentity({
+      appConfig,
+      easConfig,
+      generatedManifest,
+    });
+  },
+}).then(() => {
+  console.log("__RESULT__" + JSON.stringify({
+    events,
+    manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
+  }));
+}).catch((error) => {
+  console.log("__RESULT__" + JSON.stringify({
+    events,
+    manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
+  }));
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});
+`,
+    "utf8",
+  );
+
+  const result = spawnSync(process.execPath, [fixtureScriptPath], {
+    cwd: path.resolve(__dirname, ".."),
+    encoding: "utf8",
+  });
+
+  return { fixtureDirectory, result };
 }
 
 function assertStableReleaseReport(
@@ -1227,6 +1316,79 @@ describe("release smoke check", () => {
     ).toThrow(
       /Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.other/,
     );
+  });
+
+  it("writes static metadata before the subprocess identity guard runs", () => {
+    const { fixtureDirectory, result } = runStaticBuildIdentitySubprocess();
+    try {
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.drifted/,
+      );
+
+      const marker = result.stdout.match(/__RESULT__(\{.*\})\s*$/s);
+      expect(marker).not.toBeNull();
+      const details = JSON.parse(marker?.[1] ?? "") as {
+        events: string[];
+        manifest: {
+          extra: { expoClient: { android: { package: string } } };
+        };
+      };
+      expect(details.events).toEqual([
+        "prepare",
+        "clear-cache",
+        "start-metro",
+        "download",
+        "extract-assets",
+        "download-assets",
+        "write-manifest",
+        "validate-identity",
+      ]);
+      expect(details.manifest.extra.expoClient.android.package).toBe(
+        "com.theacademy.drifted",
+      );
+    } finally {
+      rmSync(fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the standalone check-release identity report workflow covered", () => {
+    const reportDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-identity-report-"),
+    );
+    const reportPath = path.join(reportDirectory, "identity.json");
+    try {
+      const result = spawnSync(
+        "pnpm",
+        ["run", "check-release:identity", "--", "--report", reportPath],
+        {
+          cwd: path.resolve(__dirname, ".."),
+          encoding: "utf8",
+        },
+      );
+
+      expect(result.status).toBe(0);
+      const report = JSON.parse(
+        readFileSync(reportPath, "utf8"),
+      ) as {
+        command: string;
+        status: string;
+        androidIdentity: {
+          androidPackage: string;
+          generatedAndroidPackage: string;
+        };
+      };
+      expect(report).toMatchObject({
+        command: "check-release --identity-only",
+        status: "passed",
+        androidIdentity: {
+          androidPackage: "com.theacademy.mobile",
+          generatedAndroidPackage: "com.theacademy.mobile",
+        },
+      });
+    } finally {
+      rmSync(reportDirectory, { recursive: true, force: true });
+    }
   });
 
   it("reads the preview hostname from eas.json", () => {

@@ -538,25 +538,35 @@ function validateGeneratedAndroidIdentity(options) {
   return identity;
 }
 
-async function main() {
-  console.log("Building static Expo Go deployment...");
-
-  setupSignalHandlers();
-
-  const domain = getDeploymentDomain();
-  const expoPublicReplId = getExpoPublicReplId();
+async function runBuild({
+  getDeploymentDomainImpl = getDeploymentDomain,
+  getExpoPublicReplIdImpl = getExpoPublicReplId,
+  prepareDirectoriesImpl = prepareDirectories,
+  clearMetroCacheImpl = clearMetroCache,
+  startMetroImpl = startMetro,
+  downloadBundlesAndManifestsImpl = downloadBundlesAndManifests,
+  extractAssetsImpl = extractAssets,
+  downloadAssetsImpl = downloadAssets,
+  updateBundleUrlsImpl = updateBundleUrls,
+  updateManifestsImpl = updateManifests,
+  validateGeneratedAndroidIdentityImpl = validateGeneratedAndroidIdentity,
+  identityOptions,
+  timestamp = `${Date.now()}-${process.pid}`,
+} = {}) {
+  const domain = getDeploymentDomainImpl();
+  const expoPublicReplId = getExpoPublicReplIdImpl();
   const baseUrl = `https://${domain}`;
-  const timestamp = `${Date.now()}-${process.pid}`;
 
-  prepareDirectories(timestamp);
-  clearMetroCache();
+  prepareDirectoriesImpl(timestamp);
+  clearMetroCacheImpl();
 
-  await startMetro(domain, expoPublicReplId);
+  await startMetroImpl(domain, expoPublicReplId);
 
   const downloadTimeout = 600000;
-  const downloadPromise = downloadBundlesAndManifests(timestamp);
+  const downloadPromise = downloadBundlesAndManifestsImpl(timestamp);
+  let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => {
+    timeoutId = setTimeout(() => {
       reject(
         new Error(
           `Overall download timeout after ${downloadTimeout / 1000} seconds. ` +
@@ -566,10 +576,15 @@ async function main() {
     }, downloadTimeout);
   });
 
-  const manifests = await Promise.race([downloadPromise, timeoutPromise]);
+  let manifests;
+  try {
+    manifests = await Promise.race([downloadPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   console.log("Processing assets...");
-  const assets = extractAssets(timestamp);
+  const assets = extractAssetsImpl(timestamp);
   console.log("Found", assets.length, "unique asset(s)");
 
   const assetsByHash = new Map();
@@ -580,17 +595,27 @@ async function main() {
     });
   }
 
-  const assetCount = await downloadAssets(assets, timestamp);
+  const assetCount = await downloadAssetsImpl(assets, timestamp);
 
   if (assetCount > 0) {
-    updateBundleUrls(timestamp, baseUrl);
+    updateBundleUrlsImpl(timestamp, baseUrl);
   }
 
   console.log("Updating manifests and creating landing page...");
-  updateManifests(manifests, timestamp, baseUrl, assetsByHash);
-  validateGeneratedAndroidIdentity();
+  updateManifestsImpl(manifests, timestamp, baseUrl, assetsByHash);
+  validateGeneratedAndroidIdentityImpl(identityOptions);
 
-  console.log("Build complete! Deploy to:", baseUrl);
+  return { domain, timestamp, manifests, assetCount };
+}
+
+async function main() {
+  console.log("Building static Expo Go deployment...");
+
+  setupSignalHandlers();
+
+  const { domain } = await runBuild();
+
+  console.log("Build complete! Deploy to:", `https://${domain}`);
 
   if (metroProcess) {
     metroProcess.kill();
@@ -609,5 +634,6 @@ if (require.main === module) {
 }
 
 module.exports = {
+  runBuild,
   validateGeneratedAndroidIdentity,
 };
