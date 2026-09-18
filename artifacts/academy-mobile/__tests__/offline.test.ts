@@ -77,6 +77,7 @@ import {
   type ContentPack,
   type ContentPackEvent,
 } from '@workspace/game-engine';
+import * as eventTemplateModule from '../../../lib/game-engine/src/eventTemplates';
 import { selectWeeklyTheme } from '../lib/themeSelection';
 import { validateEventTemplateRegistry } from '../../academy/scripts/validate-event-registry';
 
@@ -1365,6 +1366,38 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     assertValidEventTemplates(undefined, scope);
 
     expect(scope.validated).toBe(true);
+  });
+
+  it('uses one fresh validation scope per public path and shares it with nested helpers', () => {
+    const assertSpy = vi.spyOn(eventTemplateModule, 'assertValidEventTemplates');
+    const headlines = ['exam assessment study'];
+    const publicPaths = [
+      () => generateDailyEvents(day),
+      () => matchEventsToHeadlines(headlines),
+      () => generateBulletinEvents(day, headlines),
+      () => generateContentPack(day),
+      () => generateOfflineContentPack(day, headlines),
+    ];
+    const scopes = new Set<object>();
+
+    try {
+      for (const generate of publicPaths) {
+        const callsBefore = assertSpy.mock.calls.length;
+        generate();
+        const pathScopes = assertSpy.mock.calls
+          .slice(callsBefore)
+          .map(([, scope]) => scope)
+          .filter((scope): scope is object => typeof scope === 'object' && scope !== null);
+
+        expect(pathScopes.length).toBeGreaterThan(0);
+        expect(new Set(pathScopes).size).toBe(1);
+        const [pathScope] = pathScopes;
+        expect(scopes.has(pathScope)).toBe(false);
+        scopes.add(pathScope);
+      }
+    } finally {
+      assertSpy.mockRestore();
+    }
   });
 
   it('reports malformed tags with template identity and category', () => {
