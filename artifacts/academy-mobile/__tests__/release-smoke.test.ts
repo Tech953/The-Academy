@@ -103,6 +103,8 @@ const {
     domain: string;
     healthUrl: string;
     aiUrl: string;
+    healthAttempts: number;
+    aiAttempts: number;
   }>;
   runReleaseSmokeChecks: (options: {
     configPath?: string;
@@ -116,8 +118,16 @@ const {
       domain: string;
       healthUrl: string;
       aiUrl: string;
+      healthAttempts: number;
+      aiAttempts: number;
     }>;
-    failed: Array<{ profile: string; domain: string | null; error: Error }>;
+    failed: Array<{
+      profile: string;
+      domain: string | null;
+      healthAttempts: number;
+      aiAttempts: number;
+      error: Error;
+    }>;
   }>;
   summarizeReleaseSmokeResult: (result: {
     profiles: string[];
@@ -126,10 +136,14 @@ const {
       domain: string;
       healthUrl: string;
       aiUrl: string;
+      healthAttempts?: number;
+      aiAttempts?: number;
     }>;
     failed: Array<{
       profile: string;
       domain: string | null;
+      healthAttempts?: number;
+      aiAttempts?: number;
       error: Error;
     }>;
   }) => {
@@ -230,6 +244,9 @@ const {
         status: string;
         healthUrl: string | null;
         aiUrl: string | null;
+        healthAttempts: number;
+        aiAttempts: number;
+        recovered: boolean;
         error: string | null;
       }>;
     };
@@ -342,6 +359,8 @@ const result = failed
       failed: [{
         profile: "production",
         domain: "production.example.com",
+         healthAttempts: 3,
+         aiAttempts: 0,
         error: new Error("HTTP 503")
       }]
     }
@@ -1279,9 +1298,13 @@ describe("release smoke check", () => {
         retryDelayMs: 0,
         sleepImpl: async () => {},
       }),
-    ).rejects.toThrow(
-      /AI enrichment check failed.*https:\/\/theeacademy\.replit\.app\/api\/ai\/describe.*HTTP 503/i,
-    );
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(
+        /AI enrichment check failed.*https:\/\/theeacademy\.replit\.app\/api\/ai\/describe.*HTTP 503/i,
+      ),
+      healthAttempts: 1,
+      aiAttempts: 3,
+    });
   });
 
   it("retries a transient AI 5xx response and succeeds", async () => {
@@ -1298,7 +1321,11 @@ describe("release smoke check", () => {
         retryDelayMs: 0,
         sleepImpl,
       }),
-    ).resolves.toMatchObject({ profile: "preview" });
+    ).resolves.toMatchObject({
+      profile: "preview",
+      healthAttempts: 1,
+      aiAttempts: 2,
+    });
 
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(sleepImpl).toHaveBeenCalledTimes(1);
@@ -1316,9 +1343,11 @@ describe("release smoke check", () => {
         retryDelayMs: 0,
         sleepImpl,
       }),
-    ).rejects.toThrow(
-      /Health check could not reach .*socket reset/,
-    );
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/Health check could not reach .*socket reset/),
+      healthAttempts: 3,
+      aiAttempts: 0,
+    });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(sleepImpl).toHaveBeenCalledTimes(2);
   });
@@ -1362,8 +1391,17 @@ describe("release smoke check", () => {
     expect(result.failed[0]).toMatchObject({ profile: "preview" });
     expect(result.failed[0].error.message).toMatch(/HTTP 503/);
     expect(result.failed[0].domain).toBe("theeacademy.replit.app");
+    expect(result.failed[0]).toMatchObject({
+      healthAttempts: 3,
+      aiAttempts: 0,
+    });
     expect(result.passed).toMatchObject([
-      { profile: "production", domain: "theeacademy.replit.app" },
+      {
+        profile: "production",
+        domain: "theeacademy.replit.app",
+        healthAttempts: 1,
+        aiAttempts: 1,
+      },
     ]);
   });
 
@@ -1377,12 +1415,16 @@ describe("release smoke check", () => {
             domain: "preview.example.com",
             healthUrl: "https://preview.example.com/api/healthz",
             aiUrl: "https://preview.example.com/api/ai/describe",
+            healthAttempts: 1,
+            aiAttempts: 2,
           },
         ],
         failed: [
           {
             profile: "production",
             domain: "production.example.com",
+            healthAttempts: 3,
+            aiAttempts: 0,
             error: new Error("HTTP 503"),
           },
         ],
@@ -1396,6 +1438,9 @@ describe("release smoke check", () => {
           status: "passed",
           healthUrl: "https://preview.example.com/api/healthz",
           aiUrl: "https://preview.example.com/api/ai/describe",
+          healthAttempts: 1,
+          aiAttempts: 2,
+          recovered: true,
           error: null,
         },
         {
@@ -1404,6 +1449,9 @@ describe("release smoke check", () => {
           status: "failed",
           healthUrl: null,
           aiUrl: null,
+          healthAttempts: 3,
+          aiAttempts: 0,
+          recovered: false,
           error: "HTTP 503",
         },
       ],
@@ -1542,6 +1590,9 @@ describe("release smoke check", () => {
             status: "passed",
             healthUrl: "https://preview.example.com/api/healthz",
             aiUrl: "https://preview.example.com/api/ai/describe",
+            healthAttempts: 1,
+            aiAttempts: 1,
+            recovered: false,
             error: null,
           },
           {
@@ -1550,6 +1601,9 @@ describe("release smoke check", () => {
             status: "passed",
             healthUrl: "https://production.example.com/api/healthz",
             aiUrl: "https://production.example.com/api/ai/describe",
+            healthAttempts: 1,
+            aiAttempts: 1,
+            recovered: false,
             error: null,
           },
         ],
@@ -1601,6 +1655,9 @@ describe("release smoke check", () => {
             status: "passed",
             healthUrl: "https://preview.example.com/api/healthz",
             aiUrl: "https://preview.example.com/api/ai/describe",
+            healthAttempts: 1,
+            aiAttempts: 1,
+            recovered: false,
             error: null,
           },
           {
@@ -1609,6 +1666,9 @@ describe("release smoke check", () => {
             status: "failed",
             healthUrl: null,
             aiUrl: null,
+            healthAttempts: 3,
+            aiAttempts: 0,
+            recovered: false,
             error: "HTTP 503",
           },
         ],
@@ -1666,6 +1726,9 @@ describe("release smoke check", () => {
             status: "passed",
             healthUrl: "https://preview.example.com/api/healthz",
             aiUrl: "https://preview.example.com/api/ai/describe",
+            healthAttempts: 1,
+            aiAttempts: 1,
+            recovered: false,
             error: null,
           },
           {
@@ -1674,6 +1737,9 @@ describe("release smoke check", () => {
             status: "passed",
             healthUrl: "https://production.example.com/api/healthz",
             aiUrl: "https://production.example.com/api/ai/describe",
+            healthAttempts: 1,
+            aiAttempts: 1,
+            recovered: false,
             error: null,
           },
         ],

@@ -269,11 +269,14 @@ async function fetchWithRetry(
     try {
       const response = await fetchWithTimeout(fetchImpl, url, init);
       if (!isRetryableResponse(response) || attempt === MAX_REQUEST_ATTEMPTS) {
-        return response;
+        return { response, attempts: attempt };
       }
     } catch (error) {
       if (attempt === MAX_REQUEST_ATTEMPTS) {
-        throw error;
+        const retryError =
+          error instanceof Error ? error : new Error(String(error));
+        retryError.attempts = attempt;
+        throw retryError;
       }
     }
 
@@ -281,6 +284,13 @@ async function fetchWithRetry(
   }
 
   throw new Error(`[release-smoke] Request retry limit reached for ${url}.`);
+}
+
+function withAttemptCounts(error, healthAttempts, aiAttempts) {
+  const annotated = error instanceof Error ? error : new Error(String(error));
+  annotated.healthAttempts = healthAttempts;
+  annotated.aiAttempts = aiAttempts;
+  return annotated;
 }
 
 async function readJson(response, label) {
@@ -307,8 +317,9 @@ async function runReleaseSmokeCheck({
   const aiUrl = `${baseUrl}/api/ai/describe`;
 
   let healthResponse;
+  let healthAttempts = 0;
   try {
-    healthResponse = await fetchWithRetry(
+    const healthResult = await fetchWithRetry(
       fetchImpl,
       healthUrl,
       {
@@ -317,28 +328,43 @@ async function runReleaseSmokeCheck({
       },
       { retryDelayMs, sleepImpl },
     );
+    healthResponse = healthResult.response;
+    healthAttempts = healthResult.attempts;
   } catch (error) {
-    throw new Error(
-      `[release-smoke] Health check could not reach ${healthUrl}: ${error.message}`,
+    throw withAttemptCounts(
+      new Error(
+        `[release-smoke] Health check could not reach ${healthUrl}: ${error.message}`,
+      ),
+      error.attempts ?? MAX_REQUEST_ATTEMPTS,
+      0,
     );
   }
 
   if (!healthResponse.ok) {
-    throw new Error(
-      `[release-smoke] Health check failed for profile "${profile}" at ${healthUrl}: HTTP ${healthResponse.status}.`,
+    throw withAttemptCounts(
+      new Error(
+        `[release-smoke] Health check failed for profile "${profile}" at ${healthUrl}: HTTP ${healthResponse.status}.`,
+      ),
+      healthAttempts,
+      0,
     );
   }
 
-  const health = await readJson(healthResponse, "Health endpoint");
-  if (health?.status !== "ok") {
-    throw new Error(
-      `[release-smoke] Health endpoint ${healthUrl} returned an unexpected payload; expected {"status":"ok"}.`,
-    );
+  try {
+    const health = await readJson(healthResponse, "Health endpoint");
+    if (health?.status !== "ok") {
+      throw new Error(
+        `[release-smoke] Health endpoint ${healthUrl} returned an unexpected payload; expected {"status":"ok"}.`,
+      );
+    }
+  } catch (error) {
+    throw withAttemptCounts(error, healthAttempts, 0);
   }
 
   let aiResponse;
+  let aiAttempts = 0;
   try {
-    aiResponse = await fetchWithRetry(
+    const aiResult = await fetchWithRetry(
       fetchImpl,
       aiUrl,
       {
@@ -357,23 +383,40 @@ async function runReleaseSmokeCheck({
       },
       { retryDelayMs, sleepImpl },
     );
+    aiResponse = aiResult.response;
+    aiAttempts = aiResult.attempts;
   } catch (error) {
-    throw new Error(
-      `[release-smoke] AI enrichment check could not reach ${aiUrl}: ${error.message}`,
+    throw withAttemptCounts(
+      new Error(
+        `[release-smoke] AI enrichment check could not reach ${aiUrl}: ${error.message}`,
+      ),
+      healthAttempts,
+      error.attempts ?? MAX_REQUEST_ATTEMPTS,
     );
   }
 
   if (!aiResponse.ok) {
-    throw new Error(
-      `[release-smoke] AI enrichment check failed for profile "${profile}" at ${aiUrl}: HTTP ${aiResponse.status}.`,
+    throw withAttemptCounts(
+      new Error(
+        `[release-smoke] AI enrichment check failed for profile "${profile}" at ${aiUrl}: HTTP ${aiResponse.status}.`,
+      ),
+      healthAttempts,
+      aiAttempts,
     );
   }
 
-  const aiPayload = await readJson(aiResponse, "AI enrichment endpoint");
-  if (typeof aiPayload?.description !== "string" || !aiPayload.description.trim()) {
-    throw new Error(
-      `[release-smoke] AI enrichment endpoint ${aiUrl} returned no description.`,
-    );
+  try {
+    const aiPayload = await readJson(aiResponse, "AI enrichment endpoint");
+    if (
+      typeof aiPayload?.description !== "string" ||
+      !aiPayload.description.trim()
+    ) {
+      throw new Error(
+        `[release-smoke] AI enrichment endpoint ${aiUrl} returned no description.`,
+      );
+    }
+  } catch (error) {
+    throw withAttemptCounts(error, healthAttempts, aiAttempts);
   }
 
   return {
@@ -381,6 +424,8 @@ async function runReleaseSmokeCheck({
     domain,
     healthUrl,
     aiUrl,
+    healthAttempts,
+    aiAttempts,
   };
 }
 
@@ -424,6 +469,8 @@ async function runReleaseSmokeChecks({
       failed.push({
         profile,
         domain,
+        healthAttempts: error.healthAttempts ?? 0,
+        aiAttempts: error.aiAttempts ?? 0,
         error: error instanceof Error ? error : new Error(String(error)),
       });
     }
@@ -445,12 +492,20 @@ function summarizeReleaseSmokeResult(result) {
     profiles: result.profiles.map((profile) => {
       const passed = passedByProfile.get(profile);
       const failed = failedByProfile.get(profile);
+      const healthAttempts =
+        passed?.healthAttempts ?? failed?.healthAttempts ?? (passed ? 1 : 0);
+      const aiAttempts =
+        passed?.aiAttempts ?? failed?.aiAttempts ?? (passed ? 1 : 0);
       return {
         profile,
         domain: passed?.domain ?? failed?.domain ?? null,
         status: passed ? "passed" : "failed",
         healthUrl: passed?.healthUrl ?? null,
         aiUrl: passed?.aiUrl ?? null,
+        healthAttempts,
+        aiAttempts,
+        recovered:
+          Boolean(passed) && (healthAttempts > 1 || aiAttempts > 1),
         error: failed
           ? failed.error instanceof Error
             ? failed.error.message
