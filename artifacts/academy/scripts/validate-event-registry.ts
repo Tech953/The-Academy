@@ -1,7 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import {
   EVENT_TEMPLATES,
+  formatEventTemplateValidationIssues,
+  validateEventTemplates,
   type EventCategory,
+  type WorldEventTemplate,
 } from '@workspace/game-engine';
 import {
   RADIANT_EVENT_CATEGORIES,
@@ -14,7 +17,7 @@ const WEB_COMPATIBILITY_PATH = 'artifacts/academy/src/lib/radiantAI.ts';
 
 type EventTemplateRegistry = Record<
   string,
-  ReadonlyArray<{ title: string }>
+  ReadonlyArray<WorldEventTemplate>
 >;
 type EventCategoryMapping = Record<string, string>;
 type EventCategoryExceptions = Partial<Record<string, string>>;
@@ -26,12 +29,32 @@ export interface WebEventRegistryValidationOptions {
   generateEvent?: (eventType: string, seed: number) => { name: string };
 }
 
+export function validateEventTemplateRegistry(
+  eventTemplates: EventTemplateRegistry = EVENT_TEMPLATES,
+): void {
+  const issues = validateEventTemplates(
+    Object.values(eventTemplates).flat(),
+  );
+  if (issues.length === 0) return;
+
+  throw new Error(
+    [
+      `Shared event-template authoring validation found ${issues.length} issue(s):`,
+      formatEventTemplateValidationIssues(issues)
+        .split('\n')
+        .map((issue) => `- ${issue}`)
+        .join('\n'),
+    ].join('\n'),
+  );
+}
+
 export function validateWebEventRegistry({
   eventTemplates = EVENT_TEMPLATES,
   categoryMappings = RADIANT_EVENT_CATEGORIES,
   exceptions = RADIANT_EVENT_CATEGORY_EXCEPTIONS,
   generateEvent = generateProceduralEvent,
 }: WebEventRegistryValidationOptions = {}): void {
+  validateEventTemplateRegistry(eventTemplates);
   const categories = Object.keys(eventTemplates) as EventCategory[];
   const categorySources = new Map<EventCategory, string>();
 

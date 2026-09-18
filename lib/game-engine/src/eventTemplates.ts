@@ -770,7 +770,7 @@ export function validateEventTemplates(
   return issues;
 }
 
-function formatEventTemplateValidationIssue(
+export function formatEventTemplateValidationIssue(
   issue: EventTemplateValidationIssue,
 ): string {
   if (
@@ -790,6 +790,12 @@ function formatEventTemplateValidationIssue(
     `Malformed event template: template "${issue.templateId}" in category "${issue.category}" ` +
     `field "${issue.field}"${index} is ${issue.reason}`
   );
+}
+
+export function formatEventTemplateValidationIssues(
+  issues: readonly EventTemplateValidationIssue[],
+): string {
+  return issues.map(formatEventTemplateValidationIssue).join('\n');
 }
 
 export function assertValidEventTemplates(

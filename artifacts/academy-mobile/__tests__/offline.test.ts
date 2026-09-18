@@ -78,6 +78,7 @@ import {
   type ContentPackEvent,
 } from '@workspace/game-engine';
 import { selectWeeklyTheme } from '../lib/themeSelection';
+import { validateWebEventRegistry } from '../../academy/scripts/validate-event-registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared NPC dialogue params fixture
@@ -1439,6 +1440,45 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
       ]));
     },
   );
+
+  it('reports every malformed narrative field in one authoring-check failure', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const eventTemplates = {
+      ...EVENT_TEMPLATES,
+      academic: [{
+        ...sourceTemplate,
+        id: 'malformed-authoring-fixture',
+        title: '',
+        description: '   ',
+        npcReactions: [],
+        playerHooks: [''],
+        duration: 'months',
+      }],
+    } as typeof EVENT_TEMPLATES;
+
+    let report = '';
+    try {
+      validateWebEventRegistry({ eventTemplates });
+    } catch (error) {
+      report = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(report).toContain(
+      'template "malformed-authoring-fixture" in category "academic" field "title" is blank',
+    );
+    expect(report).toContain(
+      'template "malformed-authoring-fixture" in category "academic" field "description" is whitespace-only',
+    );
+    expect(report).toContain(
+      'template "malformed-authoring-fixture" in category "academic" field "npcReactions" is empty-array',
+    );
+    expect(report).toContain(
+      'template "malformed-authoring-fixture" in category "academic" field "playerHooks" at index 0 is blank',
+    );
+    expect(report).toContain(
+      'template "malformed-authoring-fixture" in category "academic" field "duration" is invalid',
+    );
+  });
 
   it('rejects malformed narrative fields across every offline event entry point', () => {
     const sourceTemplate = EVENT_TEMPLATES.academic[0];
