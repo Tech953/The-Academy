@@ -24,6 +24,33 @@ export type SlideExpectation = {
   title: string;
 };
 
+export function exportDirectoryIssue(
+  directory: string,
+  pptxCount: number,
+  pdfCount: number,
+): string | undefined {
+  if (pptxCount === 1 && pdfCount === 1) {
+    return undefined;
+  }
+
+  const problems: Array<string> = [];
+  if (pptxCount === 0) {
+    problems.push('missing a PPTX (.pptx) export');
+  } else if (pptxCount !== 1) {
+    problems.push(`found ${pptxCount} PPTX (.pptx) exports; expected exactly one`);
+  }
+  if (pdfCount === 0) {
+    problems.push('missing a PDF (.pdf) export');
+  } else if (pdfCount !== 1) {
+    problems.push(`found ${pdfCount} PDF (.pdf) exports; expected exactly one`);
+  }
+
+  return (
+    `Export preflight failed for ${directory}: ${problems.join('; ')}. ` +
+    'Expected exactly one PPTX (.pptx) and one PDF (.pdf) in this output directory.'
+  );
+}
+
 function usage(): string {
   return [
     'Usage: pnpm run validate-exports -- [--dir <directory>]',
@@ -133,7 +160,8 @@ function resolveExportPaths(args: {
   const directory = path.resolve(args.directory ?? defaultOutputDirectory);
   if (!existsSync(directory) || !statSync(directory).isDirectory()) {
     throw new Error(
-      `Export directory is missing: ${directory}\n` +
+      `Export preflight failed for ${directory}: output directory is missing. ` +
+        'Expected exactly one PPTX (.pptx) and one PDF (.pdf) in this output directory.\n' +
         'Provide reviewed files with --pptx and --pdf, or export them into this directory.',
     );
   }
@@ -142,11 +170,13 @@ function resolveExportPaths(args: {
   const pptxFiles = files.filter((file) => file.toLowerCase().endsWith('.pptx'));
   const pdfFiles = files.filter((file) => file.toLowerCase().endsWith('.pdf'));
 
-  if (pptxFiles.length !== 1 || pdfFiles.length !== 1) {
-    throw new Error(
-      `Expected exactly one PPTX and one PDF in ${directory}; found ` +
-        `${pptxFiles.length} PPTX and ${pdfFiles.length} PDF files.`,
-    );
+  const issue = exportDirectoryIssue(
+    directory,
+    pptxFiles.length,
+    pdfFiles.length,
+  );
+  if (issue !== undefined) {
+    throw new Error(issue);
   }
 
   return { pptx: pptxFiles[0], pdf: pdfFiles[0] };

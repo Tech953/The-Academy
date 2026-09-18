@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  exportDirectoryIssue,
   readSlideManifest,
   validateSlideContent,
   type SlideExpectation,
@@ -11,6 +12,21 @@ const representativeExpectations: Array<SlideExpectation> = [
   { position: 1, title: 'The Academy' },
   { position: 30, title: 'Make the return visit worth making.' },
 ];
+
+test('explains missing export types and the expected output directory', () => {
+  assert.equal(
+    exportDirectoryIssue('/reviewed/outputs', 0, 0),
+    'Export preflight failed for /reviewed/outputs: missing a PPTX (.pptx) export; missing a PDF (.pdf) export. Expected exactly one PPTX (.pptx) and one PDF (.pdf) in this output directory.',
+  );
+});
+
+test('explains incomplete export directories without accepting them', () => {
+  assert.match(
+    exportDirectoryIssue('/reviewed/outputs', 2, 0) ?? '',
+    /Export preflight failed for \/reviewed\/outputs: found 2 PPTX \(\.pptx\) exports; expected exactly one; missing a PDF \(\.pdf\) export/,
+  );
+  assert.equal(exportDirectoryIssue('/reviewed/outputs', 1, 1), undefined);
+});
 
 test('validates representative PPTX content, including wrapped closing titles', () => {
   assert.doesNotThrow(() =>
