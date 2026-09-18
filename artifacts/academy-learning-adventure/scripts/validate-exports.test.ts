@@ -32,13 +32,41 @@ test('validates representative PDF content and reports the failing slide', () =>
       validateSlideContent(
         [
           'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
-          'SYSTEM STATUS Make the return visit possible. The Academy is a playable place',
+          'SYSTEM STATUS\nMake the return visit possible. The Academy is a playable place',
         ],
         representativeExpectations,
         'PDF',
         '/reviewed/academy.pdf',
       ),
-    /PDF export slide 30 is missing expected title "Make the return visit worth making\."/,
+    /PDF export slide 30 is missing expected title "Make the return visit worth making\."; extracted text excerpt: "SYSTEM STATUS Make the return visit possible\. The Academy is a playable place"/,
+  );
+});
+
+test('bounds and sanitizes title mismatch excerpts', () => {
+  const longTail = ' unrelated content '.repeat(30);
+
+  assert.throws(
+    () =>
+      validateSlideContent(
+        [
+          'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
+          `Wrong title\n${longTail}`,
+        ],
+        representativeExpectations,
+        'PPTX',
+        '/reviewed/academy.pptx',
+      ),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.match(
+        error.message,
+        /extracted text excerpt: "Wrong title unrelated content/,
+      );
+      assert.ok(error.message.includes('...'));
+      assert.ok(!error.message.includes(longTail));
+      assert.ok(error.message.length < 400);
+      return true;
+    },
   );
 });
 

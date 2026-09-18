@@ -189,6 +189,23 @@ function normalizeText(value: string): string {
     .trim();
 }
 
+const MAX_TEXT_EXCERPT_LENGTH = 160;
+
+function textExcerpt(value: string): string {
+  const sanitized = value
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (sanitized.length <= MAX_TEXT_EXCERPT_LENGTH) {
+    return sanitized;
+  }
+
+  return `${sanitized
+    .slice(0, MAX_TEXT_EXCERPT_LENGTH - 3)
+    .trimEnd()}...`;
+}
+
 function expectedTitleFound(text: string, title: string): boolean {
   const normalizedText = normalizeText(text);
   const normalizedTitle = normalizeText(title);
@@ -225,7 +242,7 @@ export function validateSlideContent(
     }
     if (!expectedTitleFound(text, expectation.title)) {
       throw new Error(
-        `${format} export slide ${expectation.position} is missing expected title "${expectation.title}": ${filePath}`,
+        `${format} export slide ${expectation.position} is missing expected title "${expectation.title}"; extracted text excerpt: "${textExcerpt(text)}": ${filePath}`,
       );
     }
   }
