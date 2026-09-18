@@ -10,6 +10,10 @@ import type { ChatStorage } from "../src/replit_integrations/chat/storage";
 import { registerAudioRoutes } from "../src/replit_integrations/audio/routes";
 import { registerImageRoutes } from "../src/replit_integrations/image/routes";
 import { apiLimiter } from "../src/middleware/security";
+import {
+  createContentPackContractFixture,
+  isUsableContentPack,
+} from "@workspace/game-engine";
 
 type TestServer = {
   server: Server;
@@ -227,6 +231,57 @@ describe("main API routes", () => {
     expect(result.body.activeEvents.map((event: { id: string }) => event.id))
       .not.toContain("malformed-event");
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a pack accepted by the mobile cache contract", async () => {
+    const fixture = createContentPackContractFixture(Date.now());
+    let rssIndex = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      const title = fixture.rssHeadlines![rssIndex++];
+      const rssXml = `<rss><channel><item><title>${title}</title></item></channel></rss>`;
+      return new Response(rssXml, {
+        status: 200,
+        headers: { "content-type": "application/rss+xml" },
+      });
+    }));
+
+    const create = vi.fn(async () => ({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            themeContext: fixture.themeContext,
+            activeEvents: fixture.activeEvents,
+            npcMoodShifts: fixture.npcMoodShifts,
+            gedFocusAreas: fixture.gedFocusAreas,
+          }),
+        },
+      }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+
+    const result = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+    });
+    const responsePack = await request(testServer, "/api/content-pack");
+
+    expect(result.response.status).toBe(200);
+    expect(responsePack.response.status).toBe(200);
+    expect(isUsableContentPack(responsePack.body)).toBe(true);
+    expect(responsePack.body).toMatchObject({
+      activeEvents: fixture.activeEvents,
+      npcMoodShifts: fixture.npcMoodShifts,
+      gedFocusAreas: fixture.gedFocusAreas,
+      generatedBy: "gpt",
+      eventsRepaired: false,
+    });
+    expect(responsePack.body.rssHeadlines).toEqual(fixture.rssHeadlines);
   });
 
   it.each([

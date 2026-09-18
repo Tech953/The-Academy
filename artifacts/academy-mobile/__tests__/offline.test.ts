@@ -68,6 +68,7 @@ import {
   analyzeDialogueTone,
   matchEventsToHeadlines,
   EVENT_TEMPLATES,
+  createContentPackContractFixture,
   validateEventTemplateTags,
   validateEventTemplates,
   createEventTemplateValidationScope,
@@ -752,6 +753,17 @@ describe('generateOfflineConversation() — full conversation with no network', 
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('generateOfflineContentPack() — valid pack with no network', () => {
+  it('accepts a representative API JSON response through the mobile cache parser', () => {
+    const generatedAt = 1_700_000_000_000;
+    const apiPayload = createContentPackContractFixture(generatedAt);
+
+    expect(parseCachedContentPack(JSON.stringify(apiPayload), generatedAt + 1))
+      .toEqual(apiPayload);
+    expect(apiPayload.expiresAt).toBeGreaterThan(generatedAt + 1);
+    expect(apiPayload.rssHeadlines).toHaveLength(3);
+    expect(apiPayload.eventsRepaired).toBe(false);
+  });
+
   it('returns a pack with all required ContentPack fields', () => {
     const pack = generateOfflineContentPack(5);
 

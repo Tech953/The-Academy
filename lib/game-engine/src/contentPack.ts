@@ -93,6 +93,102 @@ export const CONTENT_PACK_STORAGE_KEY = 'academy-content-pack-v1';
 /** API endpoint */
 export const CONTENT_PACK_ENDPOINT = '/api/content-pack';
 
+/**
+ * Representative server payload used by cross-package contract tests.
+ *
+ * Keeping this fixture beside the runtime contract makes it possible to test
+ * the exact JSON boundary without importing an API server or native provider.
+ */
+export function createContentPackContractFixture(
+  generatedAt = Date.now(),
+): ContentPack {
+  return {
+    version: 'pack-contract-fixture',
+    generatedAt,
+    expiresAt: generatedAt + PACK_TTL_MS,
+    worldSeed: 12345,
+    weeklyTheme: 'A week of careful preparation',
+    themeContext: 'The Academy is quiet before a demanding week. Small choices now will shape what happens next.',
+    activeEvents: [
+      {
+        id: 'contract-library-archives',
+        title: 'The Library Archives Reopen',
+        description: 'A sealed archive has been opened for a limited study window.',
+        npcReaction: 'The catalog has been waiting for someone patient enough to read it.',
+        playerHook: 'Review the newly available records before access closes.',
+        category: 'discovery',
+        durationDays: 2,
+        tags: ['library', 'archive', 'study'],
+      },
+      {
+        id: 'contract-practice-session',
+        title: 'Practice Session Announced',
+        description: 'Students organize a focused review session ahead of assessments.',
+        npcReaction: 'A good plan makes the difficult parts feel possible.',
+        playerHook: 'Join the session and help classmates compare strategies.',
+        category: 'academic',
+        durationDays: 3,
+        tags: ['assessment', 'study', 'academic'],
+      },
+      {
+        id: 'contract-campus-forum',
+        title: 'Campus Forum Opens',
+        description: 'Students and faculty gather to discuss a change to campus routines.',
+        npcReaction: 'Everyone has a proposal, but not every proposal has been tested.',
+        playerHook: 'Listen carefully and add a practical recommendation.',
+        category: 'institutional',
+        durationDays: 1,
+        tags: ['campus', 'forum', 'community'],
+      },
+    ],
+    npcMoodShifts: [
+      {
+        npcId: 'the-scholar',
+        npcName: 'The Scholar',
+        emotionState: 'focused',
+        reason: 'a promising pattern in the archives',
+      },
+      {
+        npcId: 'the-rebel',
+        npcName: 'The Rebel',
+        emotionState: 'anxious',
+        reason: 'an unresolved question about the forum',
+      },
+      {
+        npcId: 'the-mentor',
+        npcName: 'The Mentor',
+        emotionState: 'happy',
+        reason: 'students are supporting one another',
+      },
+      {
+        npcId: 'the-optimist',
+        npcName: 'The Optimist',
+        emotionState: 'excited',
+        reason: 'a new week of possibilities',
+      },
+    ],
+    gedFocusAreas: [
+      {
+        subject: 'math',
+        topic: 'Ratios & Proportions',
+        whyNow: 'The practice session calls for comparing quantities carefully.',
+      },
+      {
+        subject: 'science',
+        topic: 'Interpreting Data Tables',
+        whyNow: 'The archive records reward careful reading of evidence.',
+      },
+    ],
+    generatedBy: 'gpt',
+    rssHeadlines: [
+      'Library archives reopen for student research',
+      'Students prepare for assessment week',
+      'Campus forum draws practical proposals',
+    ],
+    eventsRepaired: false,
+  };
+}
+
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 

@@ -223,6 +223,7 @@ Rules:
       })),
       generatedBy: 'gpt',
       rssHeadlines: rssHeadlines.length > 0 ? rssHeadlines : undefined,
+      eventsRepaired: false,
     };
 
     const validatedPack = validateContentPack(pack);
@@ -287,6 +288,7 @@ function generateDeterministicPack(weekKey: string, weeklyTheme: string, now: nu
       { subject: 'science', topic: 'Scientific Method', whyNow: 'When the archive opens, knowing how to analyze what you find matters.' },
     ],
     generatedBy: 'deterministic',
+    eventsRepaired: false,
   };
   const validatedPack = validateContentPack(pack);
   cachedContentPack = validatedPack;
