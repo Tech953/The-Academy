@@ -50,7 +50,11 @@ export default function StatsScreen() {
         <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
           STUDENT FILE
         </Text>
-        <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
+        <StatusBadge
+          isOnline={isOnline}
+          enrichmentStatus={enrichmentStatus}
+          locale={bulletinLocale}
+        />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.card, { borderColor: colors.border }]}>

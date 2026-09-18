@@ -78,6 +78,7 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
     resetNpcConversation,
     dialogueLoading,
     weeklyTheme,
+    bulletinLocale,
   } = useGame();
   const [activeNpcId, setActiveNpcId] = useState<string | null>(initialNpcId);
   const [draft, setDraft] = useState("");
@@ -132,7 +133,11 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
           <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
             CAMPUS DIRECTORY
           </Text>
-          <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
+          <StatusBadge
+            isOnline={isOnline}
+            enrichmentStatus={enrichmentStatus}
+            locale={bulletinLocale}
+          />
         </View>
         <View style={[styles.themeCue, { borderColor: colors.accent }]}>
           <Text style={[styles.themeCueLabel, { color: colors.accent }]}>WEEKLY CAMPUS THEME</Text>
@@ -165,7 +170,11 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
             {activeNpc.name.toUpperCase()}
           </Text>
         </Pressable>
-        <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
+        <StatusBadge
+          isOnline={isOnline}
+          enrichmentStatus={enrichmentStatus}
+          locale={bulletinLocale}
+        />
       </View>
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
         {activeNpc.title} · {activeRelationship?.tier ?? "stranger"}

@@ -2,25 +2,33 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { monoFontBold } from "@/constants/fonts";
+import {
+  getMobileCopy,
+  type MobileCopyKey,
+  type SupportedLocale,
+} from "@/constants/locales";
 import { useColors } from "@/hooks/useColors";
 import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
 
 export function StatusBadge({
   isOnline,
   enrichmentStatus,
+  locale,
 }: {
   isOnline: boolean;
   enrichmentStatus?: EnrichmentStatus;
+  locale?: SupportedLocale;
 }) {
   const colors = useColors();
   const status = enrichmentStatus ?? (isOnline ? "live" : "offline");
-  const statusCopy = {
-    checking: "CHECKING API",
-    live: "LIVE AI",
-    offline: "LOCAL MODE",
-    fallback: "LOCAL FALLBACK",
-    rate_limited: "RETRY LATER",
-  } satisfies Record<EnrichmentStatus, string>;
+  const statusCopyKey: Record<EnrichmentStatus, MobileCopyKey> = {
+    checking: "statusCheckingApi",
+    live: "statusLiveAi",
+    offline: "statusLocalMode",
+    fallback: "statusLocalFallback",
+    rate_limited: "statusRetryLater",
+  };
+  const statusLabel = getMobileCopy(statusCopyKey[status], locale);
   const color =
     status === "live"
       ? colors.primary
@@ -30,11 +38,11 @@ export function StatusBadge({
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={`Content mode: ${statusCopy[status]}`}
+      accessibilityLabel={`${getMobileCopy("contentMode", locale)}: ${statusLabel}`}
       style={[styles.container, { borderColor: color }]}
     >
       <View style={[styles.dot, { backgroundColor: color, shadowColor: color }]} />
-      <Text style={[styles.label, { color }]}>{statusCopy[status]}</Text>
+      <Text style={[styles.label, { color }]}>{statusLabel}</Text>
     </View>
   );
 }

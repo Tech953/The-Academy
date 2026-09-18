@@ -17,6 +17,8 @@ import {
   BULLETIN_SOURCE_MESSAGES,
   DEFAULT_LOCALE,
   getBulletinSourceMessage,
+  getMobileCopy,
+  MOBILE_COPY_KEYS,
   parseStoredBulletinLocale,
   resolveLocale,
   SUPPORTED_LOCALES,
@@ -337,6 +339,26 @@ describe("bulletin source localization", () => {
     expect(parseStoredBulletinLocale("es")).toBe("es");
     expect(parseStoredBulletinLocale("pt")).toBeNull();
     expect(parseStoredBulletinLocale(null)).toBeNull();
+  });
+});
+
+describe("mobile interface localization", () => {
+  it.each(SUPPORTED_LOCALES)(
+    "provides catalog copy for every migrated high-visibility key in %s",
+    (locale) => {
+      for (const key of MOBILE_COPY_KEYS) {
+        expect(getMobileCopy(key, locale)).toBeTruthy();
+      }
+    },
+  );
+
+  it("falls back to English when a translated key is missing", () => {
+    expect(
+      getMobileCopy("weeklyFocus", "es", {
+        en: { weeklyFocus: "WEEKLY FOCUS" },
+        es: {},
+      }),
+    ).toBe("WEEKLY FOCUS");
   });
 });
 

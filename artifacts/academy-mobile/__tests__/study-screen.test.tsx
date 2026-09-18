@@ -15,6 +15,7 @@ import {
   type ContentPack,
   type StudyQuestion,
 } from "@workspace/game-engine";
+import type { SupportedLocale } from "../constants/locales";
 import { resolveContentPackRefresh } from "../lib/contentPackFallback";
 
 const gameContextMock = vi.hoisted(() => ({
@@ -114,6 +115,7 @@ function makeStudyPack(
 function renderStudyScreen(
   pack = makeStudyPack("offline-pack", focusTopics[0], "deterministic"),
   questions: StudyQuestion[] = [focusedQuestion, generalQuestion],
+  locale: SupportedLocale = "en",
 ) {
   const onAnswer = vi.fn(() => true);
   gameContextMock.useGame.mockReturnValue({
@@ -128,6 +130,7 @@ function renderStudyScreen(
       social_studies: { correct: 0, answered: 0 },
     },
     contentPack: pack,
+    bulletinLocale: locale,
     getQuizSet: vi.fn(() => questions),
     answerQuestion: onAnswer,
   });
@@ -156,7 +159,7 @@ function visibleText(renderer: TestRenderer.ReactTestRenderer): string[] {
 function openMathStudy(renderer: TestRenderer.ReactTestRenderer) {
   const subjectButton = renderer.root
     .findAll((instance) => String(instance.type) === "Pressable")
-    .find((pressable) => textContent(pressable).includes("FOCUS: Linear Equations"));
+    .find((pressable) => textContent(pressable).includes("Linear Equations"));
   expect(subjectButton).toBeDefined();
 
   act(() => {
@@ -194,6 +197,25 @@ describe("Study question focus badges", () => {
       "CORRECT — One half is written as 1/2.",
     );
     expect(onAnswer).toHaveBeenCalledWith(generalQuestion, "1/2");
+  });
+
+  it("uses the selected locale for study navigation and focus labels", () => {
+    const { renderer } = renderStudyScreen(
+      makeStudyPack("offline-pack", focusTopics[0], "deterministic"),
+      [focusedQuestion, generalQuestion],
+      "es",
+    );
+
+    expect(visibleText(renderer)).toContain("PREPARACIÓN GED");
+    expect(
+      visibleText(renderer).some((text) =>
+        text.includes("ENFOQUE DE ESTUDIO SEMANAL"),
+      ),
+    ).toBe(true);
+    expect(visibleText(renderer)).toContain("Razonamiento matemático");
+
+    openMathStudy(renderer);
+    expect(visibleText(renderer)).toContain("PRÁCTICA GENERAL");
   });
 
   it("updates the connected focus topic and quiz cards in one visible transition", async () => {

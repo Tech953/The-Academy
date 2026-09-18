@@ -16,6 +16,7 @@ import { TerminalLine } from "@/components/TerminalLine";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import {
   getBulletinSourceMessage,
+  getMobileCopy,
 } from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
@@ -25,7 +26,7 @@ import {
 } from "@/lib/bulletinAccessibility";
 import { LOCATIONS, NPCS } from "@workspace/game-engine";
 
-function EnrollmentScreen() {
+function EnrollmentScreen({ locale }: { locale: string }) {
   const colors = useColors();
   const { startGame } = useGame();
   const [name, setName] = useState("");
@@ -37,19 +38,19 @@ function EnrollmentScreen() {
     >
       <View style={styles.enrollContainer}>
         <Text style={[styles.bootTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
-          THE ACADEMY
+          {getMobileCopy("academyTitle", locale)}
         </Text>
         <Text style={[styles.bootSubtitle, { color: colors.mutedForeground }]}>
-          CAMPUS NETWORK TERMINAL — ENROLLMENT
+          {getMobileCopy("enrollmentSubtitle", locale)}
         </Text>
         <View style={[styles.enrollBox, { borderColor: colors.primary }]}>
           <Text style={[styles.enrollLabel, { color: colors.foreground }]}>
-            ENTER STUDENT NAME:
+            {getMobileCopy("studentNameLabel", locale)}
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Recruit"
+            placeholder={getMobileCopy("recruitPlaceholder", locale)}
             placeholderTextColor={colors.mutedForeground}
             style={[styles.input, { color: colors.primary, borderColor: colors.mutedForeground }]}
             autoCapitalize="words"
@@ -57,7 +58,11 @@ function EnrollmentScreen() {
             maxLength={24}
           />
         </View>
-        <CrtButton label="ENROLL AT THE ACADEMY" icon="log-in" onPress={() => startGame(name)} />
+        <CrtButton
+          label={getMobileCopy("enrollButton", locale)}
+          icon="log-in"
+          onPress={() => startGame(name)}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -103,7 +108,7 @@ export default function AdventureScreen() {
   }, [bulletinEventsRepaired, bulletinLocale]);
 
   if (!ready) return null;
-  if (!hasStarted) return <EnrollmentScreen />;
+  if (!hasStarted) return <EnrollmentScreen locale={bulletinLocale} />;
 
   const location = LOCATIONS[currentLocationId];
   const npcsHere = location.npcIds.map((id) => NPCS[id]).filter(Boolean);
@@ -118,15 +123,22 @@ export default function AdventureScreen() {
           <Text style={[styles.locationName, { color: colors.primary, textShadowColor: colors.primary }]}>
             {location.name.toUpperCase()}
           </Text>
-          <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
+          <StatusBadge
+            isOnline={isOnline}
+            enrichmentStatus={enrichmentStatus}
+            locale={bulletinLocale}
+          />
         </View>
         <Text style={[styles.locationType, { color: colors.mutedForeground }]}>
-          SECTOR: {location.type.toUpperCase()} · WEEK {week} · DAY {day}
+          {getMobileCopy("sector", bulletinLocale)}: {location.type.toUpperCase()} ·{" "}
+          {getMobileCopy("week", bulletinLocale)} {week} ·{" "}
+          {getMobileCopy("day", bulletinLocale)} {day}
         </Text>
         {contentPack ? (
           <View style={[styles.bulletin, { borderColor: colors.accent }]}>
             <Text style={[styles.bulletinLabel, { color: colors.accent }]}>
-              CAMPUS BULLETIN — {contentPack.weeklyTheme.toUpperCase()}
+              {getMobileCopy("campusBulletin", bulletinLocale)} —{" "}
+              {contentPack.weeklyTheme.toUpperCase()}
             </Text>
             {headlineEvent ? (
               <Text style={[styles.bulletinBody, { color: colors.mutedForeground }]} numberOfLines={2}>
@@ -156,7 +168,7 @@ export default function AdventureScreen() {
         ))}
         {locationLoading ? (
           <Text style={[styles.pending, { color: colors.mutedForeground }]}>
-            :: receiving campus feed...
+            {getMobileCopy("receivingCampusFeed", bulletinLocale)}
           </Text>
         ) : null}
       </ScrollView>
@@ -164,7 +176,9 @@ export default function AdventureScreen() {
       <View style={[styles.actions, { borderColor: colors.border }]}>
         {npcsHere.length > 0 ? (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.accent }]}>PRESENT</Text>
+            <Text style={[styles.sectionLabel, { color: colors.accent }]}>
+              {getMobileCopy("present", bulletinLocale)}
+            </Text>
             <View style={styles.chipRow}>
               {npcsHere.map((npc) => (
                 <View key={npc.id} style={[styles.chip, { borderColor: colors.accent }]}>
@@ -176,7 +190,9 @@ export default function AdventureScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>EXAMINE</Text>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+              {getMobileCopy("examine", bulletinLocale)}
+            </Text>
           <View style={styles.buttonRow}>
             {location.interactables.map((item) => (
               <CrtButton
@@ -189,7 +205,7 @@ export default function AdventureScreen() {
               />
             ))}
             <CrtButton
-              label="RE-SCAN"
+              label={getMobileCopy("rescan", bulletinLocale)}
               icon="refresh-cw"
               variant="ghost"
               loading={locationLoading}
@@ -199,7 +215,9 @@ export default function AdventureScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>EXITS</Text>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            {getMobileCopy("exits", bulletinLocale)}
+          </Text>
           <View style={styles.buttonRow}>
             {location.exits.map((exit) => (
               <CrtButton
@@ -213,10 +231,12 @@ export default function AdventureScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>TIME</Text>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            {getMobileCopy("time", bulletinLocale)}
+          </Text>
           <View style={styles.buttonRow}>
             <CrtButton
-              label="REST — END DAY"
+              label={getMobileCopy("restEndDay", bulletinLocale)}
               icon="moon"
               variant="accent"
               loading={locationLoading}

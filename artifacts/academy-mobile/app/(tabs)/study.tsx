@@ -3,6 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { StatusBadge } from "@/components/StatusBadge";
 import { monoFont, monoFontBold } from "@/constants/fonts";
+import {
+  getMobileCopy,
+  type MobileCopyKey,
+} from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
 import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
 import { useColors } from "@/hooks/useColors";
@@ -14,21 +18,23 @@ import {
   type StudyQuestion,
 } from "@workspace/game-engine";
 
-const SUBJECTS: { key: GEDSubjectKey; label: string }[] = [
-  { key: "math", label: "Math Reasoning" },
-  { key: "language_arts", label: "Language Arts" },
-  { key: "science", label: "Science" },
-  { key: "social_studies", label: "Social Studies" },
+const SUBJECTS: { key: GEDSubjectKey; labelKey: MobileCopyKey }[] = [
+  { key: "math", labelKey: "mathReasoning" },
+  { key: "language_arts", labelKey: "languageArts" },
+  { key: "science", labelKey: "science" },
+  { key: "social_studies", labelKey: "socialStudies" },
 ];
 
 function QuestionCard({
   question,
   onAnswer,
   isFocusMatched,
+  locale,
 }: {
   question: StudyQuestion;
   onAnswer: (choice: string) => boolean;
   isFocusMatched: boolean;
+  locale: string;
 }) {
   const colors = useColors();
   const [selected, setSelected] = useState<string | null>(null);
@@ -58,7 +64,10 @@ function QuestionCard({
               { color: isFocusMatched ? colors.accent : colors.mutedForeground },
             ]}
           >
-            {isFocusMatched ? "WEEKLY FOCUS" : "GENERAL PRACTICE"}
+            {getMobileCopy(
+              isFocusMatched ? "weeklyFocus" : "generalPractice",
+              locale,
+            )}
           </Text>
         </View>
       </View>
@@ -90,7 +99,9 @@ function QuestionCard({
       </View>
       {selected ? (
         <Text style={[styles.explanation, { color: correct ? colors.primary : colors.accent }]}>
-          {correct ? "CORRECT — " : "REVIEW — "}
+          {correct
+            ? `${getMobileCopy("correct", locale).toUpperCase()} — `
+            : `${getMobileCopy("review", locale)} — `}
           {question.explanation}
         </Text>
       ) : null}
@@ -103,11 +114,13 @@ function StudyAvailabilityNotice({
   isOnline,
   onRetry,
   retryLoading,
+  locale,
 }: {
   status: EnrichmentStatus;
   isOnline: boolean;
   onRetry?: () => void;
   retryLoading: boolean;
+  locale: string;
 }) {
   if (status === "checking" || status === "live") return null;
 
@@ -115,19 +128,19 @@ function StudyAvailabilityNotice({
     <View style={styles.availabilityNotice}>
       <Text style={styles.availabilityTitle}>
         {status === "rate_limited"
-          ? "LIVE REQUEST PAUSED"
+          ? getMobileCopy("liveRequestPaused", locale)
           : status === "fallback"
-          ? "LIVE ENRICHMENT UNAVAILABLE"
-          : "OFFLINE STUDY MODE"}
+          ? getMobileCopy("liveEnrichmentUnavailable", locale)
+          : getMobileCopy("offlineStudyMode", locale)}
       </Text>
       <Text style={styles.availabilityCopy}>
         {status === "rate_limited"
-          ? "Live requests are temporarily paused. Bundled study content is active."
-          : "Bundled study content is active. You can keep answering questions."}
+          ? getMobileCopy("liveRequestsPausedCopy", locale)
+          : getMobileCopy("bundledStudyContentCopy", locale)}
       </Text>
       {status === "fallback" && isOnline ? (
         <Pressable
-          accessibilityLabel="Retry live enrichment"
+          accessibilityLabel={getMobileCopy("retryLiveEnrichment", locale)}
           accessibilityRole="button"
           disabled={retryLoading}
           onPress={onRetry}
@@ -137,7 +150,9 @@ function StudyAvailabilityNotice({
           ]}
         >
           <Text style={styles.retryButtonText}>
-            {retryLoading ? "RETRYING LIVE REFRESH..." : "RETRY LIVE REFRESH"}
+            {retryLoading
+              ? getMobileCopy("retryingLiveRefresh", locale)
+              : getMobileCopy("retryLiveRefresh", locale)}
           </Text>
         </Pressable>
       ) : null}
@@ -158,6 +173,7 @@ export default function StudyScreen() {
     getQuizSet,
     answerQuestion,
     refreshContentPack,
+    bulletinLocale,
   } = useGame();
   const [subject, setSubject] = useState<GEDSubjectKey | null>(null);
   const [questions, setQuestions] = useState<StudyQuestion[]>([]);
@@ -210,9 +226,13 @@ export default function StudyScreen() {
       <View style={[styles.flex, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { borderColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
-            GED PREP
+            {getMobileCopy("gedPrep", bulletinLocale)}
           </Text>
-          <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
+          <StatusBadge
+            isOnline={isOnline}
+            enrichmentStatus={enrichmentStatus}
+            locale={bulletinLocale}
+          />
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
           <StudyAvailabilityNotice
@@ -220,10 +240,12 @@ export default function StudyScreen() {
             isOnline={isOnline}
             onRetry={retryLiveRefresh}
             retryLoading={contentPackLoading}
+              locale={bulletinLocale}
           />
           <View style={[styles.focusPanel, { borderColor: colors.accent }]}>
             <Text style={[styles.focusLabel, { color: colors.accent }]}>
-              WEEK {week} STUDY FOCUS
+              {getMobileCopy("week", bulletinLocale)} {week}{" "}
+              {getMobileCopy("weeklyStudyFocus", bulletinLocale)}
             </Text>
             <Text style={[styles.focusTheme, { color: colors.foreground }]}>
               {studyPack.weeklyTheme}
@@ -257,23 +279,26 @@ export default function StudyScreen() {
               >
                 <View style={styles.subjectCopy}>
                   <Text style={[styles.subjectLabel, { color: isFocused ? colors.accent : colors.primary }]}>
-                    {s.label}
+                    {getMobileCopy(s.labelKey, bulletinLocale)}
                   </Text>
                   {subjectFocus.map((focus, index) => (
                     <Text
                       key={`${focus.topic}-${index}`}
                       style={[styles.subjectFocus, { color: colors.mutedForeground }]}
                     >
-                      FOCUS: {focus.topic}
+                      {getMobileCopy("focus", bulletinLocale)}: {focus.topic}
                     </Text>
                   ))}
                 </View>
                 <View style={styles.subjectMeta}>
                   {isFocused ? (
-                    <Text style={[styles.thisWeek, { color: colors.accent }]}>THIS WEEK</Text>
+                    <Text style={[styles.thisWeek, { color: colors.accent }]}>
+                      {getMobileCopy("thisWeek", bulletinLocale)}
+                    </Text>
                   ) : null}
                   <Text style={[styles.subjectStats, { color: colors.mutedForeground }]}>
-                    {progress.correct}/{progress.answered} correct
+                    {progress.correct}/{progress.answered}{" "}
+                    {getMobileCopy("correct", bulletinLocale)}
                   </Text>
                 </View>
               </Pressable>
@@ -290,10 +315,17 @@ export default function StudyScreen() {
         <Pressable onPress={() => setSubject(null)}>
           <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
             {"< "}
-            {SUBJECTS.find((s) => s.key === subject)?.label.toUpperCase()}
+            {getMobileCopy(
+              SUBJECTS.find((s) => s.key === subject)?.labelKey ?? "gedPrep",
+              bulletinLocale,
+            ).toUpperCase()}
           </Text>
         </Pressable>
-        <StatusBadge isOnline={isOnline} enrichmentStatus={enrichmentStatus} />
+        <StatusBadge
+          isOnline={isOnline}
+          enrichmentStatus={enrichmentStatus}
+          locale={bulletinLocale}
+        />
       </View>
       <ScrollView contentContainerStyle={styles.listContent}>
         <StudyAvailabilityNotice
@@ -301,6 +333,7 @@ export default function StudyScreen() {
           isOnline={isOnline}
           onRetry={retryLiveRefresh}
           retryLoading={contentPackLoading}
+          locale={bulletinLocale}
         />
         {questions.map((q) => (
           <QuestionCard
@@ -308,6 +341,7 @@ export default function StudyScreen() {
             question={q}
             isFocusMatched={isQuestionFocusMatched(q, currentFocusTopics)}
             onAnswer={(choice) => answerQuestion(q, choice)}
+            locale={bulletinLocale}
           />
         ))}
       </ScrollView>
