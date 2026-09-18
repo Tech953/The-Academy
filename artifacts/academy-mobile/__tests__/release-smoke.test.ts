@@ -23,6 +23,7 @@ import {
 import {
   BULLETIN_REPAIR_ACCESSIBILITY_LABEL,
   getBulletinRepairAccessibility,
+  shouldAnnounceBulletinRepair,
 } from "../lib/bulletinAccessibility";
 
 const {
@@ -297,6 +298,13 @@ describe("bulletin repair accessibility", () => {
 
   it("omits the cue from accessibility output for a fully remote bulletin", () => {
     expect(getBulletinRepairAccessibility(false)).toBeNull();
+  });
+
+  it("uses one-shot VoiceOver announcements without duplicating TalkBack cues", () => {
+    expect(shouldAnnounceBulletinRepair("ios", false, true)).toBe(true);
+    expect(shouldAnnounceBulletinRepair("ios", true, true)).toBe(false);
+    expect(shouldAnnounceBulletinRepair("ios", false, false)).toBe(false);
+    expect(shouldAnnounceBulletinRepair("android", false, true)).toBe(false);
   });
 });
 

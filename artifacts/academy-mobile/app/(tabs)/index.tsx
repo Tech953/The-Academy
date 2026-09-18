@@ -1,5 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,7 +20,10 @@ import {
 } from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
-import { getBulletinRepairAccessibility } from "@/lib/bulletinAccessibility";
+import {
+  getBulletinRepairAccessibility,
+  shouldAnnounceBulletinRepair,
+} from "@/lib/bulletinAccessibility";
 import { LOCATIONS, NPCS } from "@workspace/game-engine";
 
 function EnrollmentScreen() {
@@ -81,6 +85,23 @@ export default function AdventureScreen() {
     advanceDay,
   } = useGame();
   const scrollRef = useRef<ScrollView>(null);
+  const wasBulletinRepaired = useRef(false);
+  const bulletinLocale = getDeviceLocale();
+
+  useEffect(() => {
+    if (
+      shouldAnnounceBulletinRepair(
+        Platform.OS,
+        wasBulletinRepaired.current,
+        bulletinEventsRepaired,
+      )
+    ) {
+      AccessibilityInfo.announceForAccessibility(
+        getBulletinSourceMessage(true, bulletinLocale),
+      );
+    }
+    wasBulletinRepaired.current = bulletinEventsRepaired;
+  }, [bulletinEventsRepaired, bulletinLocale]);
 
   if (!ready) return null;
   if (!hasStarted) return <EnrollmentScreen />;
@@ -88,7 +109,6 @@ export default function AdventureScreen() {
   const location = LOCATIONS[currentLocationId];
   const npcsHere = location.npcIds.map((id) => NPCS[id]).filter(Boolean);
   const headlineEvent = contentPack?.activeEvents[0];
-  const bulletinLocale = getDeviceLocale();
   const bulletinRepairAccessibility =
     getBulletinRepairAccessibility(bulletinEventsRepaired, bulletinLocale);
 

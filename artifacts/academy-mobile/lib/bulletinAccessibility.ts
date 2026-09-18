@@ -26,3 +26,16 @@ export function getBulletinRepairAccessibility(
     accessibilityLiveRegion: "polite",
   };
 }
+
+/**
+ * iOS does not consistently announce React Native live-region updates.
+ * Android uses accessibilityLiveRegion instead, so only iOS gets the
+ * explicit announcement to avoid hearing the cue twice on TalkBack.
+ */
+export function shouldAnnounceBulletinRepair(
+  platform: string,
+  wasRepaired: boolean,
+  isRepaired: boolean,
+): boolean {
+  return platform === "ios" && !wasRepaired && isRepaired;
+}
