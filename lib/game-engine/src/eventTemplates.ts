@@ -563,10 +563,12 @@ export interface EventTemplateValidationIssue {
 
 export interface EventTemplateValidationScope {
   validated: boolean;
+  /** Number of full registry scans performed for this build scope. */
+  validationPasses?: number;
 }
 
 export function createEventTemplateValidationScope(): EventTemplateValidationScope {
-  return { validated: false };
+  return { validated: false, validationPasses: 0 };
 }
 
 /**
@@ -804,6 +806,9 @@ export function assertValidEventTemplates(
 ): void {
   if (scope?.validated) return;
 
+  if (scope) {
+    scope.validationPasses = (scope.validationPasses ?? 0) + 1;
+  }
   const firstIssue = validateEventTemplates(templates)[0];
   if (firstIssue) {
     throw new Error(formatEventTemplateValidationIssue(firstIssue));

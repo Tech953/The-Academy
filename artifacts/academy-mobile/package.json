@@ -10,6 +10,7 @@
     "check-release:identity": "node scripts/check-release.js --identity-only",
     "check-release:handoff": "node scripts/check-release.js --handoff",
     "check-release:handoff:production": "RELEASE_PROFILE=production pnpm run check-release -- --handoff",
+    "benchmark:offline": "vitest run __tests__/offline-content-benchmark.test.ts --disableConsoleIntercept",
     "native-handoff": "node scripts/native-handoff.js",
     "release:preview": "RELEASE_PLATFORM=android RELEASE_PROFILE=preview pnpm run native-handoff -- --platform android --profile preview",
     "release:production": "RELEASE_PLATFORM=android RELEASE_PROFILE=production pnpm run native-handoff -- --platform android --profile production",

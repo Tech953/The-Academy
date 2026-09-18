@@ -1392,6 +1392,7 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
         expect(pathScopes.length).toBeGreaterThan(0);
         expect(new Set(pathScopes).size).toBe(1);
         const [pathScope] = pathScopes;
+        expect((pathScope as { validationPasses?: number }).validationPasses).toBe(1);
         expect(scopes.has(pathScope)).toBe(false);
         scopes.add(pathScope);
       }
