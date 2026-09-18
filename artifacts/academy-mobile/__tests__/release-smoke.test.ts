@@ -467,7 +467,7 @@ function runStaticBuildIdentitySubprocess() {
   writeFileSync(
     fixtureScriptPath,
     `const fs = require("node:fs");
-const { runBuild, validateGeneratedAndroidIdentity } = require(${JSON.stringify(buildScriptPath)});
+ const { main, validateGeneratedAndroidIdentity } = require(${JSON.stringify(buildScriptPath)});
 const manifestPath = ${JSON.stringify(manifestPath)};
 const events = [];
 const appConfig = {
@@ -482,7 +482,8 @@ const easConfig = {
   }
 };
 
-runBuild({
+ main({
+   setupSignalHandlersImpl: () => {},
   timestamp: "fixture-timestamp",
   getDeploymentDomainImpl: () => "fixture.example.com",
   getExpoPublicReplIdImpl: () => undefined,
@@ -520,7 +521,7 @@ runBuild({
       generatedManifest,
     });
   },
-}).then(() => {
+ }).then(() => {
   console.log("__RESULT__" + JSON.stringify({
     events,
     manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
@@ -530,7 +531,7 @@ runBuild({
     events,
     manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
   }));
-  console.error(error instanceof Error ? error.message : String(error));
+   console.error("Build failed:", error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });
 `,
@@ -1322,8 +1323,9 @@ describe("release smoke check", () => {
     const { fixtureDirectory, result } = runStaticBuildIdentitySubprocess();
     try {
       expect(result.status).toBe(1);
+      expect(result.stdout).not.toContain("Build complete!");
       expect(result.stderr).toMatch(
-        /Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.drifted/,
+        /Build failed: \[release-identity\] Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.drifted/,
       );
 
       const marker = result.stdout.match(/__RESULT__(\{.*\})\s*$/s);

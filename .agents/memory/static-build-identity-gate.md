@@ -8,3 +8,5 @@ The static build should expose its orchestration separately from its process ent
 **Why:** Exported helper tests can prove validator behavior but cannot catch a future refactor that skips, reorders, or bypasses the guard in the complete build flow.
 
 **How to apply:** Keep production defaults in the orchestration function, inject only external stages for tests, and assert the generated Android manifest is present before validation and that drift exits nonzero.
+
+The user-facing build-complete signal belongs after the guarded orchestration resolves, not inside an earlier stage, so identity failures cannot be reported as completed builds.

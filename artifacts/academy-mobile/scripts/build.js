@@ -608,12 +608,15 @@ async function runBuild({
   return { domain, timestamp, manifests, assetCount };
 }
 
-async function main() {
+async function main({
+  setupSignalHandlersImpl = setupSignalHandlers,
+  ...buildOptions
+} = {}) {
   console.log("Building static Expo Go deployment...");
 
-  setupSignalHandlers();
+  setupSignalHandlersImpl();
 
-  const { domain } = await runBuild();
+  const { domain } = await runBuild(buildOptions);
 
   console.log("Build complete! Deploy to:", `https://${domain}`);
 
@@ -624,16 +627,19 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().catch((error) => {
-    console.error("Build failed:", error.message);
-    if (metroProcess) {
-      metroProcess.kill();
-    }
-    process.exit(1);
-  });
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error("Build failed:", error.message);
+      if (metroProcess) {
+        metroProcess.kill();
+      }
+      process.exit(1);
+    });
 }
 
 module.exports = {
+  main,
   runBuild,
   validateGeneratedAndroidIdentity,
 };
