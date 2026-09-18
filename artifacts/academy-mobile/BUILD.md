@@ -92,6 +92,14 @@ The `preview` profile must remain an internal APK profile; the `production`
 profile must remain an Android App Bundle profile. If the generated metadata
 is missing or stale, refresh it with the local static build before retrying the
 release check.
+
+Every archived report written by the release tooling includes
+`schemaVersion: 1`. Consumers should require the current version before reading
+report fields; a missing or unknown version should be treated as an unsupported
+report rather than silently interpreted as the current contract. Future field
+additions, renames, removals, or incompatible shape changes require an
+intentional version increment and corresponding contract updates.
+
 To run only this credential-free identity check without contacting the API:
 
 ```bash

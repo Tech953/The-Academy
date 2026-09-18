@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const path = require("path");
 
 const DEFAULT_PROFILE = "preview";
+const RELEASE_REPORT_SCHEMA_VERSION = 1;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
@@ -776,8 +777,9 @@ function writeReleaseReport(reportPath, report) {
     resolvedPath,
     `${JSON.stringify(
       {
-        generatedAt: new Date().toISOString(),
         ...report,
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+        generatedAt: new Date().toISOString(),
       },
       null,
       2,
@@ -969,6 +971,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  RELEASE_REPORT_SCHEMA_VERSION,
   EXPECTED_RELEASE_HOSTNAME,
   EXPECTED_ANDROID_PACKAGE,
   getReleaseDomain,

@@ -38,7 +38,9 @@ const {
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
   writeReleaseReport,
+  RELEASE_REPORT_SCHEMA_VERSION,
 } = require("../scripts/check-release.js") as {
+  RELEASE_REPORT_SCHEMA_VERSION: number;
   getReleaseDomain: (config: unknown, profile: string) => string;
   getReleaseProfiles: (config: unknown) => string[];
   readReleaseConfig: (configPath?: string) => Record<string, unknown>;
@@ -450,6 +452,7 @@ function assertStableReleaseReport(
   expectedStatus: "passed" | "failed",
   expectedProfiles: string[],
 ) {
+  expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   expect(report.status).toBe(expectedStatus);
   const summary = report.summary as {
     status: string;
@@ -1611,6 +1614,16 @@ describe("release smoke check", () => {
       (report.summary as { profiles: Array<{ error: string | null }> }).profiles
         .map(({ error }) => error),
     ).toEqual([null, null]);
+  });
+
+  it("publishes the current schema version for archived reports", () => {
+    const report = archiveReleaseSummary({
+      status: "passed",
+      profiles: [],
+    });
+
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(1);
+    expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
   it("archives mixed results without losing the failed profile details", () => {
