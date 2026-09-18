@@ -13,10 +13,15 @@ export interface SlideComponentProps {
 
 export interface LoadedSlide extends SlideEntry {
   Component: ComponentType<SlideComponentProps>;
+  preload?: () => Promise<unknown>;
 }
 
 type SlideComponent = ComponentType<SlideComponentProps>;
 type SlideModuleLoader = () => Promise<{ default: SlideComponent }>;
+type LazySlide = {
+  Component: SlideComponent;
+  preload: () => Promise<unknown>;
+};
 
 const slideModules = import.meta.glob<{ default: SlideComponent }>(
   './pages/slides/*.tsx',
@@ -26,10 +31,18 @@ const sdmModules = import.meta.glob<{ default: unknown }>(
   './data/slides/*.sdm.yaml',
 );
 
-function lazySlide(loader: SlideModuleLoader): SlideComponent {
-  const LazyComponent = lazy(loader);
-  return function LoadedLazySlide(props: SlideComponentProps) {
-    return createElement(LazyComponent, props);
+function lazySlide(loader: SlideModuleLoader): LazySlide {
+  let loadPromise: Promise<{ default: SlideComponent }> | undefined;
+  const load = () => {
+    loadPromise ??= loader();
+    return loadPromise;
+  };
+  const LazyComponent = lazy(load);
+  return {
+    Component: function LoadedLazySlide(props: SlideComponentProps) {
+      return createElement(LazyComponent, props);
+    },
+    preload: load,
   };
 }
 
@@ -96,7 +109,7 @@ export const slides: LoadedSlide[] = [...manifestSlides]
           ),
         };
       }
-      const Component = lazySlide(async () => {
+      const lazyEntry = lazySlide(async () => {
         const mod = await loader();
         return {
           default: ({ active }: SlideComponentProps) =>
@@ -108,7 +121,11 @@ export const slides: LoadedSlide[] = [...manifestSlides]
         };
       });
 
-      return { ...entry, Component };
+      return {
+        ...entry,
+        Component: lazyEntry.Component,
+        preload: lazyEntry.preload,
+      };
     }
 
     const filename = entry.filepath.split('/').pop();
@@ -138,8 +155,15 @@ export const slides: LoadedSlide[] = [...manifestSlides]
       };
     }
 
+    const lazyEntry = lazySlide(loader);
     return {
       ...entry,
-      Component: lazySlide(loader),
+      Component: lazyEntry.Component,
+      preload: lazyEntry.preload,
     };
   });
+
+export function prefetchSlide(slide: LoadedSlide | undefined): void {
+  if (!slide?.preload) return;
+  void slide.preload().catch(() => undefined);
+}

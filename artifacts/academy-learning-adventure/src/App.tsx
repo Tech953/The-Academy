@@ -21,7 +21,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { slides } from '@/slideLoader';
+import { prefetchSlide, slides } from '@/slideLoader';
 import type { Action } from '@/.sdm/core/schema';
 import {
   hasActiveSdmSelection,
@@ -85,6 +85,12 @@ function SlideEditor() {
 
   const navigationDisabledRef = useRef(PARENT_OWNS_NAVIGATION);
   const touchHandledRefStable = useRef(false);
+
+  useEffect(() => {
+    if (currentIndex === -1) return;
+    prefetchSlide(slides[currentIndex + 1]);
+    prefetchSlide(slides[currentIndex - 1]);
+  }, [currentIndex]);
 
   useEffect(() => {
     if (currentIndex === -1) return;
