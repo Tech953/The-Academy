@@ -218,11 +218,22 @@ const {
     runAllProfiles: () => Promise<{
       profiles: string[];
       passed: Array<{ profile: string; domain: string; healthUrl: string; aiUrl: string }>;
-      failed: Array<{ profile: string; error: Error }>;
+      failed: Array<{ profile: string; domain?: string | null; error: Error }>;
     }>;
   }) => Promise<{
     selected: { profile: string };
     allProfiles: {
+      status: string;
+      profiles: Array<{
+        profile: string;
+        domain: string | null;
+        status: string;
+        healthUrl: string | null;
+        aiUrl: string | null;
+        error: string | null;
+      }>;
+    };
+    legacyAllProfiles: {
       profiles: string[];
       passed: Array<{ profile: string }>;
       failed: Array<{ profile: string; error: string }>;
@@ -1476,7 +1487,11 @@ describe("release smoke check", () => {
         },
       ],
       failed: [
-        { profile: "production", error: new Error("HTTP 503") },
+        {
+          profile: "production",
+          domain: "production.example.com",
+          error: new Error("HTTP 503"),
+        },
       ],
     }));
 
@@ -1519,6 +1534,27 @@ describe("release smoke check", () => {
     ).resolves.toMatchObject({
       selected: { profile: "production" },
       allProfiles: {
+        status: "passed",
+        profiles: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            status: "passed",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+            error: null,
+          },
+          {
+            profile: "production",
+            domain: "production.example.com",
+            status: "passed",
+            healthUrl: "https://production.example.com/api/healthz",
+            aiUrl: "https://production.example.com/api/ai/describe",
+            error: null,
+          },
+        ],
+      },
+      legacyAllProfiles: {
         profiles: ["preview", "production"],
         failed: [],
       },
@@ -1535,6 +1571,60 @@ describe("release smoke check", () => {
         /Release connectivity failed before EAS build: production: HTTP 503/,
       );
       expect(existsSync(fixture.easRecordPath)).toBe(false);
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        summary: {
+          status: string;
+          profiles: Array<{
+            profile: string;
+            domain: string | null;
+            status: string;
+            healthUrl: string | null;
+            aiUrl: string | null;
+            error: string | null;
+          }>;
+        };
+        allProfileConnectivity: {
+          profiles: string[];
+          failed: Array<{ profile: string; error: string }>;
+        };
+      };
+      expect(report.status).toBe("failed");
+      expect(report.summary).toEqual({
+        status: "failed",
+        profiles: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            status: "passed",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+            error: null,
+          },
+          {
+            profile: "production",
+            domain: "production.example.com",
+            status: "failed",
+            healthUrl: null,
+            aiUrl: null,
+            error: "HTTP 503",
+          },
+        ],
+      });
+      expect(report.allProfileConnectivity).toEqual({
+        profiles: ["preview", "production"],
+        passed: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+          },
+        ],
+        failed: [{ profile: "production", error: "HTTP 503" }],
+      });
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
@@ -1555,6 +1645,37 @@ describe("release smoke check", () => {
           "--profile",
           "preview",
           "--json",
+        ],
+      });
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        summary: {
+          status: string;
+          profiles: Array<Record<string, unknown>>;
+        };
+      };
+      expect(report.status).toBe("completed");
+      expect(report.summary).toEqual({
+        status: "passed",
+        profiles: [
+          {
+            profile: "preview",
+            domain: "preview.example.com",
+            status: "passed",
+            healthUrl: "https://preview.example.com/api/healthz",
+            aiUrl: "https://preview.example.com/api/ai/describe",
+            error: null,
+          },
+          {
+            profile: "production",
+            domain: "production.example.com",
+            status: "passed",
+            healthUrl: "https://production.example.com/api/healthz",
+            aiUrl: "https://production.example.com/api/ai/describe",
+            error: null,
+          },
         ],
       });
     } finally {

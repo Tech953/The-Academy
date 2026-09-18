@@ -6,6 +6,7 @@ const path = require("node:path");
 const {
   EXPECTED_ANDROID_PACKAGE,
   runReleaseSmokeChecks,
+  summarizeReleaseSmokeResult,
   validateAndroidReleaseIdentity,
   writeReleaseReport,
 } = require("./check-release.js");
@@ -355,15 +356,22 @@ async function verifyAllProfileConnectivity({
   runAllProfiles = runReleaseSmokeChecks,
 } = {}) {
   const result = await runAllProfiles();
-  const summary = summarizeConnectivity(result);
+  const summary = summarizeReleaseSmokeResult(result);
+  const legacySummary = summarizeConnectivity(result);
 
-  if (summary.failed.length > 0) {
-    const details = summary.failed
-      .map(({ profile: failedProfile, error }) => `${failedProfile}: ${error}`)
+  if (result.failed.length > 0) {
+    const details = result.failed
+      .map(
+        ({ profile: failedProfile, error }) =>
+          `${failedProfile}: ${error instanceof Error ? error.message : String(error)}`,
+      )
       .join("; ");
-    throw new Error(
+    const error = new Error(
       `[native-handoff] Release connectivity failed before EAS build: ${details}`,
     );
+    error.connectivitySummary = summary;
+    error.legacyConnectivitySummary = legacySummary;
+    throw error;
   }
 
   const selected = result.passed.find((candidate) => candidate.profile === profile);
@@ -373,7 +381,11 @@ async function verifyAllProfileConnectivity({
     );
   }
 
-  return { selected, allProfiles: summary };
+  return {
+    selected,
+    allProfiles: summary,
+    legacyAllProfiles: legacySummary,
+  };
 }
 
 async function main() {
@@ -381,10 +393,8 @@ async function main() {
     process.argv.slice(2),
   );
 
-  const identity = validatePlatformIdentity(platform, profile);
-  const connectivityCheck = await verifyAllProfileConnectivity({ profile });
-  const connectivity = connectivityCheck.selected;
   const reportPath = process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
+  const identity = validatePlatformIdentity(platform, profile);
   const appConfig = readAppConfig();
   const reportBase = {
     command: "native-handoff",
@@ -395,11 +405,32 @@ async function main() {
       platform === "ios"
         ? appConfig.ios.bundleIdentifier
         : appConfig.android.package,
+  };
+  let connectivityCheck;
+  try {
+    connectivityCheck = await verifyAllProfileConnectivity({ profile });
+  } catch (error) {
+    if (error?.connectivitySummary) {
+      writeReleaseReport(reportPath, {
+        ...reportBase,
+        status: "failed",
+        summary: error.connectivitySummary,
+        allProfileConnectivity: error.legacyConnectivitySummary,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    throw error;
+  }
+
+  const connectivity = connectivityCheck.selected;
+  const reportWithConnectivity = {
+    ...reportBase,
     connectivity,
-    allProfileConnectivity: connectivityCheck.allProfiles,
+    summary: connectivityCheck.allProfiles,
+    allProfileConnectivity: connectivityCheck.legacyAllProfiles,
   };
   writeReleaseReport(reportPath, {
-    ...reportBase,
+    ...reportWithConnectivity,
     status: checkOnly ? "check-only" : "starting",
   });
   console.log(
@@ -456,7 +487,7 @@ async function main() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       writeReleaseReport(reportPath, {
-        ...reportBase,
+        ...reportWithConnectivity,
         status: "failed",
         failureStage: "build-metadata",
         easExitCode: result.status,
@@ -466,7 +497,7 @@ async function main() {
     }
   }
   writeReleaseReport(reportPath, {
-    ...reportBase,
+    ...reportWithConnectivity,
     status: result.status === 0 ? "completed" : "failed",
     easExitCode: result.status,
     ...(buildMetadata ? { build: buildMetadata } : {}),
