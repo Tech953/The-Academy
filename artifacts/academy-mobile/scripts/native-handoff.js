@@ -5,7 +5,7 @@ const path = require("node:path");
 const {
   EXPECTED_ANDROID_PACKAGE,
   runReleaseSmokeChecks,
-  validateAndroidPreviewIdentity,
+  validateAndroidReleaseIdentity,
   writeReleaseReport,
 } = require("./check-release.js");
 
@@ -32,9 +32,13 @@ function readAppConfig() {
   }
 }
 
-function validatePlatformIdentity(platform) {
+function validatePlatformIdentity(
+  platform,
+  profile = DEFAULT_PROFILE,
+  identityOptions = {},
+) {
   if (platform === "android") {
-    return validateAndroidPreviewIdentity();
+    return validateAndroidReleaseIdentity(profile, identityOptions);
   }
 
   const expo = readAppConfig();
@@ -310,7 +314,7 @@ async function main() {
     process.argv.slice(2),
   );
 
-  const identity = validatePlatformIdentity(platform);
+  const identity = validatePlatformIdentity(platform, profile);
   const connectivityCheck = await verifyAllProfileConnectivity({ profile });
   const connectivity = connectivityCheck.selected;
   const reportPath = process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;

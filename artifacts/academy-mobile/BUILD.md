@@ -86,15 +86,18 @@ pnpm --filter @workspace/academy-mobile run check-release -- \
 ```
 
 Before the connectivity requests, the release check also compares the Android
-package in `app.json`, the `preview` profile's internal APK settings in
-`eas.json`, and the generated Android metadata at
-`static-build/android/manifest.json`. If the generated metadata is missing or
-stale, refresh it with the local static build before retrying the release check.
+package in `app.json`, the selected profile's Android settings in `eas.json`,
+and the generated Android metadata at `static-build/android/manifest.json`.
+The `preview` profile must remain an internal APK profile; the `production`
+profile must remain an Android App Bundle profile. If the generated metadata
+is missing or stale, refresh it with the local static build before retrying the
+release check.
 To run only this credential-free identity check without contacting the API:
 
 ```bash
 pnpm --filter @workspace/academy-mobile run build
 pnpm --filter @workspace/academy-mobile run check-release:identity
+RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-release:identity
 ```
 
 ## Release connectivity

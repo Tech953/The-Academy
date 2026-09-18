@@ -54,7 +54,10 @@ function readJsonFile(configPath, label) {
   }
 }
 
-function validateAndroidPreviewIdentity({
+function validateAndroidProfileIdentity({
+  profileName,
+  expectedDistribution,
+  expectedBuildType,
   appConfig,
   easConfig,
   generatedManifest,
@@ -77,20 +80,23 @@ function validateAndroidPreviewIdentity({
     );
   }
 
-  const previewProfile = resolvedEasConfig?.build?.preview;
-  if (!previewProfile || typeof previewProfile !== "object") {
+  const releaseProfile = resolvedEasConfig?.build?.[profileName];
+  if (!releaseProfile || typeof releaseProfile !== "object") {
     throw new Error(
-      '[release-identity] EAS profile "preview" is missing from eas.json.',
+      `[release-identity] EAS profile "${profileName}" is missing from eas.json.`,
     );
   }
-  if (previewProfile.distribution !== "internal") {
+  if (
+    expectedDistribution !== undefined &&
+    releaseProfile.distribution !== expectedDistribution
+  ) {
     throw new Error(
-      `[release-identity] EAS preview distribution must be "internal" for an APK handoff; found ${previewProfile.distribution || "missing"}.`,
+      `[release-identity] EAS ${profileName} distribution must be "${expectedDistribution}" for an APK handoff; found ${releaseProfile.distribution || "missing"}.`,
     );
   }
-  if (previewProfile.android?.buildType !== "apk") {
+  if (releaseProfile.android?.buildType !== expectedBuildType) {
     throw new Error(
-      `[release-identity] EAS preview Android buildType must be "apk"; found ${previewProfile.android?.buildType || "missing"}.`,
+      `[release-identity] EAS ${profileName} Android buildType must be "${expectedBuildType}"; found ${releaseProfile.android?.buildType || "missing"}.`,
     );
   }
 
@@ -110,9 +116,51 @@ function validateAndroidPreviewIdentity({
   return {
     androidPackage: configuredPackage,
     generatedAndroidPackage: generatedPackage,
-    previewDistribution: previewProfile.distribution,
-    previewBuildType: previewProfile.android.buildType,
+    distribution: releaseProfile.distribution,
+    buildType: releaseProfile.android.buildType,
   };
+}
+
+function validateAndroidPreviewIdentity(options = {}) {
+  const identity = validateAndroidProfileIdentity({
+    ...options,
+    profileName: "preview",
+    expectedDistribution: "internal",
+    expectedBuildType: "apk",
+  });
+
+  return {
+    androidPackage: identity.androidPackage,
+    generatedAndroidPackage: identity.generatedAndroidPackage,
+    previewDistribution: identity.distribution,
+    previewBuildType: identity.buildType,
+  };
+}
+
+function validateAndroidProductionIdentity(options = {}) {
+  const identity = validateAndroidProfileIdentity({
+    ...options,
+    profileName: "production",
+    expectedBuildType: "app-bundle",
+  });
+
+  return {
+    androidPackage: identity.androidPackage,
+    generatedAndroidPackage: identity.generatedAndroidPackage,
+    productionBuildType: identity.buildType,
+  };
+}
+
+function validateAndroidReleaseIdentity(profile = DEFAULT_PROFILE, options = {}) {
+  if (profile === "preview") {
+    return validateAndroidPreviewIdentity(options);
+  }
+  if (profile === "production") {
+    return validateAndroidProductionIdentity(options);
+  }
+  throw new Error(
+    `[release-identity] Unsupported Android release profile "${profile}". Expected "preview" or "production".`,
+  );
 }
 
 function getReleaseProfiles(config) {
@@ -585,9 +633,11 @@ if (require.main === module) {
 
   let androidIdentity;
   try {
-    androidIdentity = validateAndroidPreviewIdentity();
+    androidIdentity = validateAndroidReleaseIdentity(
+      allProfiles ? DEFAULT_PROFILE : profile,
+    );
     console.log(
-      `[release-identity] Android package ${androidIdentity.androidPackage} matches app.json, EAS preview APK settings, and generated metadata.`,
+      `[release-identity] Android package ${androidIdentity.androidPackage} matches app.json, EAS ${allProfiles ? DEFAULT_PROFILE : profile} settings, and generated metadata.`,
     );
     if (identityOnly) {
       const report = writeReleaseReport(reportPath, {
@@ -667,7 +717,10 @@ module.exports = {
   getReleaseProfiles,
   readReleaseConfig,
   validateNativeHandoff,
+  validateAndroidProfileIdentity,
   validateAndroidPreviewIdentity,
+  validateAndroidProductionIdentity,
+  validateAndroidReleaseIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,

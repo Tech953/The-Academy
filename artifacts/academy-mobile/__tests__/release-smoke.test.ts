@@ -28,6 +28,7 @@ const {
   readReleaseConfig,
   validateNativeHandoff,
   validateAndroidPreviewIdentity,
+  validateAndroidProductionIdentity,
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
@@ -62,6 +63,15 @@ const {
     generatedAndroidPackage: string;
     previewDistribution: string;
     previewBuildType: string;
+  };
+  validateAndroidProductionIdentity: (options?: {
+    appConfig?: unknown;
+    easConfig?: unknown;
+    generatedManifest?: unknown;
+  }) => {
+    androidPackage: string;
+    generatedAndroidPackage: string;
+    productionBuildType: string;
   };
   runReleaseSmokeCheck: (options: {
     profile?: string;
@@ -163,7 +173,15 @@ const {
     checkOnly: boolean;
     easArgs: string[];
   };
-  validatePlatformIdentity: (platform: string) => { appId: string };
+  validatePlatformIdentity: (
+    platform: string,
+    profile?: string,
+    options?: {
+      appConfig?: unknown;
+      easConfig?: unknown;
+      generatedManifest?: unknown;
+    },
+  ) => { appId?: string; androidPackage?: string; productionBuildType?: string };
   verifyAllProfileConnectivity: (options: {
     profile: string;
     runAllProfiles: () => Promise<{
@@ -522,6 +540,28 @@ describe("native handoff platform selection", () => {
       appId: "com.theacademy.mobile",
     });
   });
+
+  it("selects the production Android identity validator for production handoffs", () => {
+    expect(
+      validatePlatformIdentity("android", "production", {
+        appConfig: {
+          expo: { android: { package: "com.theacademy.mobile" } },
+        },
+        easConfig: {
+          build: {
+            production: { android: { buildType: "app-bundle" } },
+          },
+        },
+        generatedManifest: {
+          extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+        },
+      }),
+    ).toEqual({
+      androidPackage: "com.theacademy.mobile",
+      generatedAndroidPackage: "com.theacademy.mobile",
+      productionBuildType: "app-bundle",
+    });
+  });
 });
 
 describe("release smoke check", () => {
@@ -537,6 +577,9 @@ describe("release smoke check", () => {
         preview: {
           distribution: "internal",
           android: { buildType: "apk" },
+        },
+        production: {
+          android: { buildType: "app-bundle" },
         },
       },
     },
@@ -652,6 +695,9 @@ describe("release smoke check", () => {
           distribution: "internal",
           android: { buildType: "apk" },
         },
+        production: {
+          android: { buildType: "app-bundle" },
+        },
       },
     },
     generatedManifest: {
@@ -707,6 +753,44 @@ describe("release smoke check", () => {
       }),
     ).toThrow(
       /Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.other/,
+    );
+  });
+
+  it("matches Android identity across app, EAS production, and generated metadata", () => {
+    expect(validateAndroidProductionIdentity(validIdentity())).toEqual({
+      androidPackage: "com.theacademy.mobile",
+      generatedAndroidPackage: "com.theacademy.mobile",
+      productionBuildType: "app-bundle",
+    });
+  });
+
+  it("reports production build-type drift before an app-bundle handoff", () => {
+    expect(() =>
+      validateAndroidProductionIdentity({
+        ...validIdentity(),
+        easConfig: {
+          build: {
+            production: {
+              android: { buildType: "apk" },
+            },
+          },
+        },
+      }),
+    ).toThrow(
+      /production Android buildType must be "app-bundle"; found apk/,
+    );
+  });
+
+  it("reports production package drift before an app-bundle handoff", () => {
+    expect(() =>
+      validateAndroidProductionIdentity({
+        ...validIdentity(),
+        appConfig: {
+          expo: { android: { package: "com.theacademy.other" } },
+        },
+      }),
+    ).toThrow(
+      /Android package drift: expected com\.theacademy\.mobile, found com\.theacademy\.other/,
     );
   });
 
