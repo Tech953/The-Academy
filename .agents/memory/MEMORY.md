@@ -10,3 +10,4 @@
 - [Atomic release reports](atomic-release-reports.md) — Write reports to validated temporary JSON and rename atomically so interruptions preserve the prior archive.
 - [Static build identity gate](static-build-identity-gate.md) — Keep build orchestration injectable so subprocess fixtures can prove manifest generation precedes identity validation.
 - [Web event registry validation](web-event-registry-validation.md) — Test compatibility exceptions through injected registries so blank reasons cannot bypass shared-category mappings.
+- [Radiant save migration](radiant-save-migration.md) — Persist only changed migrated payloads during load, and keep the in-memory upgrade usable when persistence fails.

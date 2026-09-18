@@ -141,10 +141,20 @@ export class GameStateManager {
         if (!savedState.engagementAnalytics) {
           savedState.engagementAnalytics = createInitialAnalytics(character.id);
         }
+        let radiantAIStateNeedsPersistence = false;
         if (typeof savedState.radiantAIState === 'string') {
-          savedState.radiantAIState = migrateRadiantAIState(savedState.radiantAIState);
+          const originalRadiantAIState = savedState.radiantAIState;
+          const migratedRadiantAIState = migrateRadiantAIState(
+            originalRadiantAIState,
+          );
+          savedState.radiantAIState = migratedRadiantAIState;
+          radiantAIStateNeedsPersistence =
+            migratedRadiantAIState !== originalRadiantAIState;
         }
         this.gameState = savedState;
+        if (radiantAIStateNeedsPersistence) {
+          await this.saveGame();
+        }
         return savedState;
       }
     } catch (error) {
