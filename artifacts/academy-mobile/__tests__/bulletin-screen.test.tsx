@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -9,10 +9,12 @@ import { describe, expect, it, vi } from "vitest";
 const { gameState, announceForAccessibility } = vi.hoisted(() => ({
   gameState: {
     bulletinEventsRepaired: false,
+    contentPackLoading: false,
     contentPack: null as null | {
       weeklyTheme: string;
       activeEvents: Array<{ title: string; description: string }>;
     },
+    day: 1,
   },
   announceForAccessibility: vi.fn(),
 }));
@@ -77,8 +79,9 @@ vi.mock("@/context/GameContext", () => ({
     advanceDay: vi.fn(),
     bulletinEventsRepaired: gameState.bulletinEventsRepaired,
     contentPack: gameState.contentPack,
+    contentPackLoading: gameState.contentPackLoading,
     currentLocationId: "courtyard",
-    day: 1,
+    day: gameState.day,
     enrichmentStatus: "offline",
     examine: vi.fn(),
     examineLoading: null,
@@ -87,6 +90,7 @@ vi.mock("@/context/GameContext", () => ({
     locationLoading: false,
     log: [],
     ready: true,
+    refreshContentPack: vi.fn(),
     refreshLocationDescription: vi.fn(),
     travelTo: vi.fn(),
     week: 1,
@@ -136,7 +140,74 @@ function findRepairCue(renderer: TestRenderer.ReactTestRenderer) {
   );
 }
 
+function flattenText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(flattenText).join("");
+  return typeof value === "string" ? value : "";
+}
+
+function renderedText(renderer: TestRenderer.ReactTestRenderer): string {
+  return renderer.root
+    .findAll((instance: ReactTestInstance) => String(instance.type) === "Text")
+    .map((instance) => flattenText(instance.props.children))
+    .join("\n");
+}
+
+type BulletinPack = NonNullable<typeof gameState.contentPack>;
+type RefreshController = {
+  beginDayRefresh: () => void;
+  resolve: (pack: BulletinPack) => void;
+};
+
+function RefreshHarness({
+  initialPack,
+  onReady,
+}: {
+  initialPack: BulletinPack;
+  onReady: (controller: RefreshController) => void;
+}) {
+  const [refreshState, setRefreshState] = useState({
+    contentPack: initialPack,
+    contentPackLoading: false,
+    day: 1,
+  });
+
+  // The screen consumes the same context-shaped state that the provider
+  // exposes. Keeping it in a stateful harness makes the rendered test cover
+  // the visible loading transition without duplicating provider internals.
+  gameState.contentPack = refreshState.contentPack;
+  gameState.contentPackLoading = refreshState.contentPackLoading;
+  gameState.day = refreshState.day;
+
+  useEffect(() => {
+    onReady({
+      beginDayRefresh: () => {
+        setRefreshState((previous) => ({
+          ...previous,
+          contentPackLoading: true,
+          day: previous.day + 1,
+        }));
+      },
+      resolve: (pack) => {
+        setRefreshState((previous) => ({
+          ...previous,
+          contentPack: pack,
+          contentPackLoading: false,
+        }));
+      },
+    });
+  }, [onReady]);
+
+  return React.createElement(AdventureScreen);
+}
+
 describe("rendered bulletin accessibility", () => {
+  beforeEach(() => {
+    gameState.bulletinEventsRepaired = false;
+    gameState.contentPackLoading = false;
+    gameState.contentPack = null;
+    gameState.day = 1;
+  });
+
   it("renders the repaired bulletin cue with the expected native props", () => {
     gameState.bulletinEventsRepaired = true;
     gameState.contentPack = {
@@ -176,5 +247,61 @@ describe("rendered bulletin accessibility", () => {
           instance.props.accessibilityLiveRegion === "polite",
       ),
     ).toHaveLength(0);
+  });
+
+  it("keeps the current bulletin visible during a day-change refresh", async () => {
+    const currentPack = {
+      activeEvents: [
+        {
+          description: "The current bulletin remains available.",
+          title: "Current study session",
+        },
+      ],
+      weeklyTheme: "Current Preparation",
+    };
+    const nextPack = {
+      activeEvents: [
+        {
+          description: "The replacement bulletin is now available.",
+          title: "Next study session",
+        },
+      ],
+      weeklyTheme: "Next Preparation",
+    };
+    let controller!: RefreshController;
+    const onReady = (nextController: RefreshController) => {
+      controller = nextController;
+    };
+    let renderer!: TestRenderer.ReactTestRenderer;
+
+    await act(async () => {
+      renderer = TestRenderer.create(
+        React.createElement(RefreshHarness, {
+          initialPack: currentPack,
+          onReady,
+        }),
+      );
+    });
+
+    expect(renderedText(renderer)).toContain("Current study session");
+    expect(renderedText(renderer)).not.toContain("Next study session");
+
+    await act(async () => {
+      controller.beginDayRefresh();
+    });
+
+    expect(gameState.day).toBe(2);
+    expect(gameState.contentPackLoading).toBe(true);
+    expect(renderedText(renderer)).toContain("Current study session");
+    expect(renderedText(renderer)).not.toContain("Next study session");
+
+    await act(async () => {
+      controller.resolve(nextPack);
+    });
+
+    expect(gameState.contentPackLoading).toBe(false);
+    expect(renderedText(renderer)).not.toContain("Current study session");
+    expect(renderedText(renderer)).toContain("Next study session");
+    renderer.unmount();
   });
 });
