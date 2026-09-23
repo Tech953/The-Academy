@@ -10,10 +10,12 @@ import { describe, expect, it, vi } from "vitest";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 import {
+  generateQuizSet,
   generateOfflineContentPack,
   getRelatedFocusPracticeTopics,
   isQuestionFocusMatched,
   type ContentPack,
+  type GEDSubjectKey,
   type StudyQuestion,
 } from "@workspace/game-engine";
 import type { SupportedLocale } from "../constants/locales";
@@ -117,6 +119,7 @@ function renderStudyScreen(
   pack = makeStudyPack("offline-pack", focusTopics[0], "deterministic"),
   questions: StudyQuestion[] = [focusedQuestion, generalQuestion],
   locale: SupportedLocale = "en",
+  getQuizSet?: (subject: GEDSubjectKey) => StudyQuestion[],
 ) {
   const onAnswer = vi.fn(() => true);
   gameContextMock.useGame.mockReturnValue({
@@ -132,7 +135,7 @@ function renderStudyScreen(
     },
     contentPack: pack,
     bulletinLocale: locale,
-    getQuizSet: vi.fn(() => questions),
+    getQuizSet: getQuizSet ?? vi.fn(() => questions),
     answerQuestion: onAnswer,
   });
 
@@ -202,6 +205,46 @@ describe("Study question focus badges", () => {
       "CORRECT — One half is written as 1/2.",
     );
     expect(onAnswer).toHaveBeenCalledWith(generalQuestion, "1/2");
+  });
+
+  it("renders weekly-focus questions before general practice", () => {
+    const generatedQuestions = generateQuizSet(
+      "math",
+      "screen-ordering",
+      5,
+      focusTopics,
+    ).questions;
+    const focusedQuestions = generatedQuestions.filter((question) =>
+      isQuestionFocusMatched(question, focusTopics),
+    );
+    const generalQuestions = generatedQuestions.filter(
+      (question) => !isQuestionFocusMatched(question, focusTopics),
+    );
+    expect(focusedQuestions.length).toBeGreaterThan(0);
+    expect(generalQuestions.length).toBeGreaterThan(0);
+
+    const getQuizSet = vi.fn(
+      (_subject: GEDSubjectKey) => generatedQuestions,
+    );
+    const { renderer } = renderStudyScreen(
+      undefined,
+      [],
+      "en",
+      getQuizSet,
+    );
+    openMathStudy(renderer);
+
+    const renderedText = visibleText(renderer);
+    const focusedIndexes = focusedQuestions.map((question) =>
+      renderedText.indexOf(question.question),
+    );
+    const generalIndexes = generalQuestions.map((question) =>
+      renderedText.indexOf(question.question),
+    );
+
+    expect(focusedIndexes.every((index) => index >= 0)).toBe(true);
+    expect(generalIndexes.every((index) => index >= 0)).toBe(true);
+    expect(Math.max(...focusedIndexes)).toBeLessThan(Math.min(...generalIndexes));
   });
 
   it("announces distinct accessibility labels for focus and general-practice badges", () => {
