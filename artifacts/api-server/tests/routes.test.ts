@@ -535,6 +535,10 @@ describe("main API routes", () => {
       body: JSON.stringify({ type: "location", locationName: "Library" }),
     });
     expectBlockedRateLimitHeaders(blocked.response, "30", 900);
+    expect(blocked.body).toEqual({
+      error: "AI request limit reached. Please wait before sending more AI requests.",
+      quota: "ai",
+    });
     expect(create).toHaveBeenCalledTimes(30);
   });
 
@@ -565,6 +569,10 @@ describe("main API routes", () => {
       headers,
     });
     expectBlockedRateLimitHeaders(blocked.response, "10", 3600);
+    expect(blocked.body).toEqual({
+      error: "Content pack refresh limit reached. Packs refresh automatically each week.",
+      quota: "content-pack",
+    });
     expect(create).toHaveBeenCalledTimes(10);
   });
 
@@ -700,6 +708,10 @@ describe("main API routes", () => {
     expectBlockedRateLimitHeaders(blockedAi.response, "30", 900);
     expectBlockedRateLimitHeaders(blockedRefresh.response, "10", 3600);
     expectBlockedRateLimitHeaders(blockedGeneral.response, "200", 900);
+    expect(blockedGeneral.body).toEqual({
+      error: "Too many requests — please try again in a few minutes.",
+      quota: "general",
+    });
   });
 });
 

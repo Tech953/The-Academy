@@ -9,9 +9,11 @@ export type BodyType<T> = T;
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
 import {
+  getRateLimitQuotaCategory,
   getRateLimitRetryDelayMs,
   MAX_RATE_LIMIT_RETRIES,
   RATE_LIMITED_USER_MESSAGE,
+  type RateLimitQuotaCategory,
   waitForRateLimitRetry,
 } from "./rate-limit";
 
@@ -225,6 +227,7 @@ export class ApiError<T = unknown> extends Error {
   readonly url: string;
   readonly isRateLimited: boolean;
   readonly retryAfterMs: number | null;
+  readonly quotaCategory: RateLimitQuotaCategory | null;
   readonly userMessage: string;
 
   constructor(
@@ -247,6 +250,7 @@ export class ApiError<T = unknown> extends Error {
     this.retryAfterMs = isRateLimited
       ? getRateLimitRetryDelayMs(response.headers)
       : null;
+    this.quotaCategory = isRateLimited ? getRateLimitQuotaCategory(data) : null;
     this.userMessage = isRateLimited ? RATE_LIMITED_USER_MESSAGE : this.message;
   }
 }

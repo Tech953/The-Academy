@@ -76,6 +76,11 @@ export function rateLimitKeyGenerator(req: RateLimitRequest): string {
 
 export const RATE_LIMIT_STORE_MAX_KEYS = 10_000;
 export const RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS = 60_000;
+export const RATE_LIMIT_QUOTA_CATEGORIES = {
+  general: 'general',
+  ai: 'ai',
+  contentPack: 'content-pack',
+} as const;
 const RATE_LIMIT_TABLE = 'academy_rate_limit_clients';
 
 type StoredClient = ClientRateLimitInfo;
@@ -375,7 +380,10 @@ export const apiLimiter = rateLimit({
   keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests — please try again in a few minutes.' },
+  message: {
+    error: 'Too many requests — please try again in a few minutes.',
+    quota: RATE_LIMIT_QUOTA_CATEGORIES.general,
+  },
 });
 
 export const aiLimiter = rateLimit({
@@ -385,7 +393,10 @@ export const aiLimiter = rateLimit({
   keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'AI request limit reached. Please wait before sending more AI requests.' },
+  message: {
+    error: 'AI request limit reached. Please wait before sending more AI requests.',
+    quota: RATE_LIMIT_QUOTA_CATEGORIES.ai,
+  },
 });
 
 export const contentPackLimiter = rateLimit({
@@ -395,7 +406,10 @@ export const contentPackLimiter = rateLimit({
   keyGenerator: rateLimitKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Content pack refresh limit reached. Packs refresh automatically each week.' },
+  message: {
+    error: 'Content pack refresh limit reached. Packs refresh automatically each week.',
+    quota: RATE_LIMIT_QUOTA_CATEGORIES.contentPack,
+  },
 });
 
 const MAX_STRING_LENGTH = 20_000;

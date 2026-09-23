@@ -2,6 +2,29 @@ export const MAX_RATE_LIMIT_RETRIES = 1;
 export const RATE_LIMITED_USER_MESSAGE =
   "This request is temporarily limited. Please try again shortly.";
 
+/** Stable server-provided labels that identify which client quota was exhausted. */
+export const RATE_LIMIT_QUOTA_CATEGORIES = {
+  general: "general",
+  ai: "ai",
+  contentPack: "content-pack",
+} as const;
+
+export type RateLimitQuotaCategory =
+  (typeof RATE_LIMIT_QUOTA_CATEGORIES)[keyof typeof RATE_LIMIT_QUOTA_CATEGORIES];
+
+export function getRateLimitQuotaCategory(
+  data: unknown,
+): RateLimitQuotaCategory | null {
+  if (!data || typeof data !== "object") return null;
+
+  const quota = (data as { quota?: unknown }).quota;
+  return quota === RATE_LIMIT_QUOTA_CATEGORIES.general ||
+    quota === RATE_LIMIT_QUOTA_CATEGORIES.ai ||
+    quota === RATE_LIMIT_QUOTA_CATEGORIES.contentPack
+    ? quota
+    : null;
+}
+
 function parseRetryAfter(value: string | null, now: number): number | null {
   if (!value) return null;
 

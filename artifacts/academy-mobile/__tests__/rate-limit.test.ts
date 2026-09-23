@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
   customFetch,
+  getRateLimitQuotaCategory,
   getRateLimitRetryDelayMs,
   RATE_LIMITED_USER_MESSAGE,
 } from "../../../lib/api-client-react/src";
@@ -29,6 +30,12 @@ describe("shared rate-limit client contract", () => {
         }),
       ),
     ).toBe(7_000);
+  });
+
+  it("accepts only documented rate-limit quota categories", () => {
+    expect(getRateLimitQuotaCategory({ quota: "ai" })).toBe("ai");
+    expect(getRateLimitQuotaCategory({ quota: "internal-limiter-name" })).toBeNull();
+    expect(getRateLimitQuotaCategory({ quota: 42 })).toBeNull();
   });
 
   it("retries a rate-limited request once using the server-provided delay", async () => {
@@ -174,7 +181,7 @@ describe("shared rate-limit client contract", () => {
 
   it("keeps retries bounded and exposes a safe final error", async () => {
     const fetcher = vi.fn(async () =>
-      new Response(JSON.stringify({ error: "raw middleware detail" }), {
+      new Response(JSON.stringify({ error: "raw middleware detail", quota: "ai" }), {
         status: 429,
         headers: {
           "content-type": "application/json",
@@ -194,6 +201,7 @@ describe("shared rate-limit client contract", () => {
       status: 429,
       isRateLimited: true,
       retryAfterMs: 0,
+      quotaCategory: "ai",
       userMessage: RATE_LIMITED_USER_MESSAGE,
       message: RATE_LIMITED_USER_MESSAGE,
     });
