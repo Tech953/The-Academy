@@ -293,6 +293,17 @@ describe("Study question focus badges", () => {
     const { renderer } = renderStudyScreen();
     openMathStudy(renderer);
 
+    const firstAnswer = renderer.root
+      .findAll((instance) => String(instance.type) === "Pressable")
+      .find((pressable) => textContent(pressable).includes("x = 3"));
+    expect(firstAnswer).toBeDefined();
+    act(() => {
+      firstAnswer?.props.onPress();
+    });
+    expect(visibleText(renderer)).toContain(
+      "CORRECT — Subtract 4 and divide by 2.",
+    );
+
     const connectedPack = makeStudyPack(
       "connected-pack",
       connectedFocusTopics[0],
@@ -330,6 +341,9 @@ describe("Study question focus badges", () => {
     expect(currentText).toContain("WEEKLY FOCUS");
     expect(currentText).not.toContain("LINEAR EQUATIONS");
     expect(currentText).not.toContain("Solve 2x + 4 = 10.");
+    expect(currentText).not.toContain(
+      "CORRECT — Subtract 4 and divide by 2.",
+    );
   });
 
   it("explains alias-based practice without changing exact-topic presentation", () => {

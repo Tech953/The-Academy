@@ -193,7 +193,7 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     restoredRenderer.unmount();
   });
 
-  it("lets an online learner retry a failed content refresh without changing progress", async () => {
+  it("preserves study progress while an online learner retries content refresh", async () => {
     const localStorage = createLocalStorageFixture();
     localStorage.setItem(
       "academy-mobile-state-v1",
@@ -204,6 +204,18 @@ describe("GameProvider NPC dialogue weekly theme", () => {
       version: "pack-after-retry",
       generatedBy: "gpt" as const,
       eventsRepaired: false,
+      gedFocusAreas: [
+        {
+          subject: "Math Reasoning",
+          topic: "Ratios & Proportions",
+          whyNow: "A connected pack brings a new math focus.",
+        },
+        {
+          subject: "Science",
+          topic: "Interpreting Data Tables",
+          whyNow: "A connected pack keeps a second focus area.",
+        },
+      ],
     };
     mocks.fetchContentPack
       .mockRejectedValueOnce(new Error("initial refresh unavailable"))
@@ -226,7 +238,20 @@ describe("GameProvider NPC dialogue weekly theme", () => {
       renderer,
     );
 
+    const firstQuestion = game!.getQuizSet("math")[0];
+    let firstAnswerResult = false;
+    await act(async () => {
+      firstAnswerResult = game!.answerQuestion(firstQuestion, firstQuestion.answer);
+    });
+    expect(firstAnswerResult).toBe(true);
+    await waitFor(
+      () =>
+        game?.studyProgress.math.answered === 1 &&
+        game.studyProgress.math.correct === 1,
+      renderer,
+    );
     const initialProgress = game!.studyProgress;
+
     await act(async () => {
       await game!.refreshContentPack();
     });
@@ -234,6 +259,27 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     expect(game?.enrichmentStatus).toBe("live");
     expect(game?.contentPack?.version).toBe("pack-after-retry");
     expect(game?.studyProgress).toEqual(initialProgress);
+    const refreshedQuestion = game!.getQuizSet("math")[0];
+    expect(refreshedQuestion.id).not.toBe(firstQuestion.id);
+
+    const incorrectChoice =
+      refreshedQuestion.choices?.find(
+        choice => choice.trim().toLowerCase() !== refreshedQuestion.answer.trim().toLowerCase(),
+      ) ?? "__incorrect__";
+    let refreshedAnswerResult = false;
+    await act(async () => {
+      refreshedAnswerResult = game!.answerQuestion(
+        refreshedQuestion,
+        incorrectChoice,
+      );
+    });
+    expect(refreshedAnswerResult).toBe(false);
+    await waitFor(
+      () =>
+        game?.studyProgress.math.answered === 2 &&
+        game.studyProgress.math.correct === 1,
+      renderer,
+    );
     expect(mocks.fetchContentPack).toHaveBeenCalledTimes(2);
     renderer.unmount();
   });
