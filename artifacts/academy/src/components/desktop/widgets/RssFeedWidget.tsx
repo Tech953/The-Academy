@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 interface FeedItem {
   title: string;
@@ -27,6 +27,20 @@ const STORAGE_KEY = 'academy-rss-node';
 const CACHE_KEY = 'academy-rss-cache';
 
 interface CacheEntry { node: string; items: FeedItem[]; ts: number; }
+
+async function getRssErrorMessage(response: Response): Promise<string> {
+  if (response.status === 403) {
+    try {
+      const payload = await response.json() as { error?: unknown };
+      if (payload.error === 'feed must use https') {
+        return 'This feed requires HTTPS. Choose an HTTPS feed.';
+      }
+    } catch {
+      // Keep the existing numeric fallback for an unreadable error response.
+    }
+  }
+  return `${response.status}`;
+}
 
 function CopyUrlButton({ url, color }: { url: string; color: string }) {
   const [copied, setCopied] = useState(false);
@@ -91,7 +105,7 @@ export function RssFeedWidget({ primaryColor, accentCyan, accentAmber }: RssFeed
       setLoading(true);
       setError(null);
       const res = await fetch(`/api/rss?url=${encodeURIComponent(n.url)}`);
-      if (!res.ok) throw new Error(`${res.status}`);
+      if (!res.ok) throw new Error(await getRssErrorMessage(res));
       const data: { items: FeedItem[] } = await res.json();
       setItems(data.items.slice(0, 6));
       localStorage.setItem(CACHE_KEY, JSON.stringify({ node: nodeId, items: data.items.slice(0, 6), ts: Date.now() }));
