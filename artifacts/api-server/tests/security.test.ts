@@ -6,8 +6,10 @@ import router from "../src/routes";
 import { registerRoutes } from "../src/routes/routes";
 import { logger } from "../src/lib/logger";
 import {
+  aiLimiter,
   apiLimiter,
   BoundedMemoryStore,
+  contentPackLimiter,
   RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS,
   normalizeRateLimitIp,
   rateLimitKeyGenerator,
@@ -21,6 +23,14 @@ import type { IStorage } from "../src/storage";
 type TestServer = {
   server: Server;
   baseUrl: string;
+};
+
+type RouteLayer = {
+  route?: {
+    path?: string;
+    methods?: Record<string, boolean>;
+    stack?: Array<{ handle: unknown }>;
+  };
 };
 
 const openServers = new Set<Server>();
@@ -342,6 +352,32 @@ describe("forwarded-client rate limiting", () => {
     for (const specializedPath of SPECIALIZED_LIMITED_PATHS) {
       expect(shouldSkipGeneralApiLimit({ path: specializedPath })).toBe(true);
       expect(shouldSkipGeneralApiLimit({ path: `/api${specializedPath}` })).toBe(false);
+    }
+  });
+
+  it("mounts every specialized route with its policy limiter family", async () => {
+    const app = express();
+    await registerRoutes(app, {
+      storage: {
+        getAllLocations: vi.fn(async () => []),
+      } as unknown as IStorage,
+      skipContentRefresh: true,
+    });
+
+    const routeStack =
+      (app as unknown as { router?: { stack?: RouteLayer[] } }).router?.stack ?? [];
+
+    for (const routePolicy of Object.values(SPECIALIZED_ROUTE_POLICY)) {
+      const routeLayer = routeStack.find(
+        layer =>
+          layer.route?.path === `/api${routePolicy.path}` &&
+          layer.route.methods?.post === true,
+      );
+      const expectedLimiter =
+        routePolicy.limiterFamily === "ai" ? aiLimiter : contentPackLimiter;
+
+      expect(routeLayer).toBeDefined();
+      expect(routeLayer?.route?.stack?.[0]?.handle).toBe(expectedLimiter);
     }
   });
 
