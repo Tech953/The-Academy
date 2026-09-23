@@ -366,6 +366,7 @@ export class PostgresRateLimitStore implements Store {
   async increment(key: string): Promise<StoredClient> {
     try {
       await this.ensureTable();
+      await this.cleanupExpired();
       const result = await (await this.getPool()).query<{
         total_hits: number;
         reset_time: string | Date;
@@ -420,6 +421,15 @@ export class PostgresRateLimitStore implements Store {
   private async getPool(): Promise<RateLimitStorePool> {
     this.pool ??= this.poolLoader();
     return this.pool;
+  }
+
+  private async cleanupExpired(): Promise<void> {
+    // PostgreSQL rechecks this predicate after waiting on a concurrent row
+    // lock, so a newer window cannot be removed by stale cleanup work.
+    await (await this.getPool()).query(
+      `DELETE FROM ${RATE_LIMIT_TABLE}
+       WHERE reset_time <= NOW()`,
+    );
   }
 
   private async ensureTable(): Promise<void> {

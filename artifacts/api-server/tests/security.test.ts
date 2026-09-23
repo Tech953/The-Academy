@@ -149,6 +149,80 @@ describe("forwarded-client rate limiting", () => {
     await expect(store.increment("test-client")).rejects.toBeInstanceOf(RateLimitStoreError);
   });
 
+  it("cleans expired shared rows without deleting active or renewed windows", async () => {
+    type FakeRow = { totalHits: number; resetTime: Date };
+    const rows = new Map<string, FakeRow>();
+    const activeResetTime = new Date(Date.now() + 60_000);
+    rows.set("shared:active-client", { totalHits: 7, resetTime: activeResetTime });
+    rows.set("shared:expired-client", {
+      totalHits: 4,
+      resetTime: new Date(Date.now() - 1),
+    });
+    const query = vi.fn(async (text: string, values: unknown[] = []) => {
+      if (text.includes("CREATE TABLE")) return { rows: [] };
+      if (text.includes("DELETE FROM")) {
+        const now = Date.now();
+        for (const [rowKey, row] of rows) {
+          if (row.resetTime.getTime() <= now) rows.delete(rowKey);
+        }
+        return { rows: [] };
+      }
+      if (text.includes("INSERT INTO")) {
+        const limiterName = String(values[0]);
+        const clientKey = String(values[1]);
+        const windowMs = Number(values[2]);
+        const rowKey = `${limiterName}:${clientKey}`;
+        const existing = rows.get(rowKey);
+        const now = Date.now();
+        const row = existing && existing.resetTime.getTime() > now
+          ? {
+              totalHits: existing.totalHits + 1,
+              resetTime: existing.resetTime,
+            }
+          : {
+              totalHits: 1,
+              resetTime: new Date(now + windowMs),
+            };
+        rows.set(rowKey, row);
+        return {
+          rows: [{
+            total_hits: row.totalHits,
+            reset_time: row.resetTime,
+          }],
+        };
+      }
+      throw new Error(`Unexpected SQL: ${text}`);
+    });
+    const pool = { query } as unknown as RateLimitStorePool;
+    const firstStore = new PostgresRateLimitStore("shared", async () => pool);
+    const secondStore = new PostgresRateLimitStore("shared", async () => pool);
+    const storeOptions = { windowMs: 60_000 } as Parameters<
+      NonNullable<typeof firstStore.init>
+    >[0];
+    firstStore.init(storeOptions);
+    secondStore.init(storeOptions);
+
+    await Promise.all([
+      firstStore.increment("new-client-one"),
+      secondStore.increment("new-client-two"),
+      firstStore.increment("expired-client"),
+      secondStore.increment("expired-client"),
+    ]);
+
+    expect(rows.get("shared:active-client")).toEqual({
+      totalHits: 7,
+      resetTime: activeResetTime,
+    });
+    expect(rows.get("shared:expired-client")?.totalHits).toBe(2);
+    expect(rows.get("shared:expired-client")?.resetTime.getTime()).toBeGreaterThan(Date.now());
+    expect(
+      query.mock.calls.filter(([text]) => text.includes("DELETE FROM")).length,
+    ).toBe(4);
+    expect(query.mock.calls.every(([text]) =>
+      !text.includes("DELETE FROM") || text.includes("reset_time <= NOW()"),
+    )).toBe(true);
+  });
+
   it("bounds local rate-limit state and expires inactive identities", async () => {
     vi.useFakeTimers();
     const store = new BoundedMemoryStore(2);
