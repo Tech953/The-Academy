@@ -251,10 +251,12 @@ describe("forwarded-client rate limiting", () => {
     const warning = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     const store = new BoundedMemoryStore(2);
     store.init({ windowMs: 120_000 } as Parameters<NonNullable<typeof store.init>>[0]);
+    const forwardedAddress = "203.0.113.202";
+    const limiterKey = `client:${forwardedAddress}`;
 
     try {
-      await store.increment("first-client");
-      await store.increment("second-client");
+      await store.increment(`${limiterKey}:first`);
+      await store.increment(`${limiterKey}:second`);
       expect(store.getStats()).toEqual({
         activeKeys: 2,
         maxKeys: 2,
@@ -263,8 +265,8 @@ describe("forwarded-client rate limiting", () => {
       });
       expect(warning).not.toHaveBeenCalled();
 
-      await store.increment("third-client");
-      await store.increment("fourth-client");
+      await store.increment(`${limiterKey}:third`);
+      await store.increment(`${limiterKey}:fourth`);
       expect(store.getStats()).toEqual({
         activeKeys: 2,
         maxKeys: 2,
@@ -272,16 +274,25 @@ describe("forwarded-client rate limiting", () => {
         evictionCount: 2,
       });
       expect(warning).toHaveBeenCalledTimes(1);
-      expect(warning.mock.calls[0]?.[0]).toMatchObject({
+      const [fields, message] = warning.mock.calls[0] ?? [];
+      expect(fields).toEqual({
         store: "bounded-memory-rate-limit",
         maxKeys: 2,
         activeKeys: 1,
         capacityPressureEvents: 1,
         evictionCount: 1,
       });
+      expect(message).toBe(
+        "Rate-limit store capacity pressure; evicting least-recently-used identities",
+      );
+      const serializedWarning = JSON.stringify(fields);
+      expect(serializedWarning).not.toContain(forwardedAddress);
+      expect(serializedWarning).not.toContain(limiterKey);
+      expect(message).not.toContain(forwardedAddress);
+      expect(message).not.toContain(limiterKey);
 
       vi.advanceTimersByTime(RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS + 1);
-      await store.increment("fifth-client");
+      await store.increment(`${limiterKey}:fifth`);
       expect(store.getStats().evictionCount).toBe(3);
       expect(warning).toHaveBeenCalledTimes(2);
     } finally {
