@@ -1009,6 +1009,52 @@ describe("RSS and URL metadata routes", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("stops a trusted RSS redirect loop at the hop limit", async () => {
+    const initialUrl = "https://nasa.gov/feed.xml";
+    const alternateUrl = "https://www.nasa.gov/feed.xml";
+    const upstreamFetch = vi.fn(async (url: string) => {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: url === initialUrl ? alternateUrl : initialUrl,
+        },
+      });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      `/api/rss?url=${encodeURIComponent(initialUrl)}`,
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "too many RSS redirects" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("rejects an RSS redirect without Location before following it", async () => {
+    const initialUrl = "https://nasa.gov/feed.xml";
+    const upstreamFetch = vi.fn(async () =>
+      new Response(null, { status: 302 }),
+    );
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      `/api/rss?url=${encodeURIComponent(initialUrl)}`,
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "RSS redirect missing location" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects an untrusted RSS redirect without fetching its final target", async () => {
     const initialUrl = "https://nasa.gov/feed.xml";
     const upstreamFetch = vi.fn(async (url: string, init?: RequestInit) => {
