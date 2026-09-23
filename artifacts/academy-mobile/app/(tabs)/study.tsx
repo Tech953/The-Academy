@@ -185,6 +185,7 @@ export default function StudyScreen() {
   const [subject, setSubject] = useState<GEDSubjectKey | null>(null);
   const [questions, setQuestions] = useState<StudyQuestion[]>([]);
   const preserveQuestionsAfterRetryRef = useRef(false);
+  const previousStudyDayRef = useRef(day);
 
   // Show the bundled pack immediately, then replace it with the synced pack
   // when available. This keeps the weekly focus useful while fully offline.
@@ -231,9 +232,18 @@ export default function StudyScreen() {
   }, [refreshContentPack]);
 
   useEffect(() => {
-    if (!subject || preserveQuestionsAfterRetryRef.current) return;
+    const dayChanged = previousStudyDayRef.current !== day;
+    previousStudyDayRef.current = day;
+    if (!subject) return;
+    if (dayChanged) {
+      preserveQuestionsAfterRetryRef.current = false;
+    }
+    if (preserveQuestionsAfterRetryRef.current) {
+      preserveQuestionsAfterRetryRef.current = false;
+      return;
+    }
     setQuestions(getQuizSet(subject));
-  }, [getQuizSet, subject]);
+  }, [day, getQuizSet, subject]);
 
   if (!subject) {
     return (

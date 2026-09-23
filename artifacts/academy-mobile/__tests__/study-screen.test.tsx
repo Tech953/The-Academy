@@ -94,6 +94,16 @@ const connectedFocusedQuestion: StudyQuestion = {
   explanation: "Divide both terms by 2.",
 };
 
+const dayTwoFocusedQuestion: StudyQuestion = {
+  ...focusedQuestion,
+  id: "day-two-quadratics",
+  topic: "Quadratic Expressions",
+  question: "What is x² when x = 3?",
+  choices: ["6", "9", "12"],
+  answer: "9",
+  explanation: "Squaring 3 gives 9.",
+};
+
 function makeStudyPack(
   version: string,
   topic: string,
@@ -448,6 +458,79 @@ describe("Study enrichment retry", () => {
     expect(visibleText(renderer)).not.toContain(
       "What is the ratio of 2 to 4 in simplest form?",
     );
+  });
+
+  it("replaces focus and quiz cards when the Academy day changes after a retry", () => {
+    const refreshContentPack = vi.fn(async () => {});
+    const dayOnePack = makeStudyPack(
+      "day-one-pack",
+      focusTopics[0],
+      "deterministic",
+    );
+    const dayTwoPack = makeStudyPack(
+      "day-two-pack",
+      dayTwoFocusedQuestion.topic,
+      "deterministic",
+    );
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "fallback",
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: dayOnePack,
+      getQuizSet: vi.fn(() => [focusedQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<StudyScreen />);
+    });
+    openMathStudy(renderer);
+
+    const retryButton = renderer.root
+      .findAll((instance) => String(instance.type) === "Pressable")
+      .find((pressable) => textContent(pressable).includes("RETRY LIVE REFRESH"));
+    expect(retryButton).toBeDefined();
+    act(() => {
+      retryButton?.props.onPress();
+    });
+    expect(refreshContentPack).toHaveBeenCalledTimes(1);
+
+    gameContextMock.useGame.mockReturnValue({
+      isOnline: true,
+      enrichmentStatus: "fallback",
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 2,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: dayTwoPack,
+      getQuizSet: vi.fn(() => [dayTwoFocusedQuestion]),
+      answerQuestion: vi.fn(() => true),
+    });
+    act(() => {
+      renderer.update(<StudyScreen />);
+    });
+
+    expect(visibleText(renderer)).toContain("QUADRATIC EXPRESSIONS");
+    expect(visibleText(renderer)).toContain("What is x² when x = 3?");
+    expect(visibleText(renderer)).not.toContain("RATIOS & PROPORTIONS");
+    expect(visibleText(renderer)).not.toContain("Solve 2x + 4 = 10.");
   });
 
   it("keeps the fallback notice after a retry fails again", async () => {
