@@ -201,6 +201,11 @@ const MATH_QUESTIONS: StudyQuestion[] = [
     choices: ['7/20', '17/20', '4/9', '7/9'],
     answer: '17/20', explanation: 'Common denominator is 20: 12/20 + 5/20 = 17/20.',
     gedCode: 'MATH.Ch2', hint: 'Find a common denominator for 5 and 4.' },
+  { id: 'math-021', subject: 'math', topic: 'Ratios & Proportions', type: 'multiple_choice', difficulty: 2,
+    question: 'A scale drawing uses 1 inch for every 4 feet. If a wall is 20 feet long, how long should it be in the drawing?',
+    choices: ['4 inches', '5 inches', '16 inches', '24 inches'],
+    answer: '5 inches', explanation: 'Set up the proportion 1 inch / 4 feet = x inches / 20 feet. Since 20 ÷ 4 = 5, x = 5 inches.',
+    gedCode: 'MATH.Ch2', hint: 'Find how many groups of 4 feet fit into 20 feet.' },
   // --- Algebra ---
   { id: 'math-006', subject: 'math', topic: 'Linear Equations', type: 'multiple_choice', difficulty: 2,
     question: 'Solve for x: 3x − 7 = 14',
@@ -351,6 +356,23 @@ const LANGUAGE_ARTS_QUESTIONS: StudyQuestion[] = [
     choices: ['Technology is harmful.', 'Technology changes the nature of human relationships.', 'Social media is the main cause of loneliness.', 'People communicate less than they used to.'],
     answer: 'Technology changes the nature of human relationships.', explanation: 'Both texts address how technology affects relationships, even if they disagree on whether the effect is positive or negative.',
     gedCode: 'ELA.Ch6', hint: 'Look for common ground even in texts that disagree.' },
+  { id: 'ela-015', subject: 'language_arts', topic: 'Reading for Argument', type: 'multiple_choice', difficulty: 3,
+    question: 'An author claims that a town should add more bike lanes. Which evidence would best support the argument?',
+    choices: ['A survey found that most residents want safer cycling routes.', 'The town has several older buildings.', 'Some residents prefer driving to work.', 'Bike lanes are often painted white.'],
+    answer: 'A survey found that most residents want safer cycling routes.',
+    explanation: 'The survey directly supports the claim that additional bike lanes would meet a community need.',
+    gedCode: 'ELA.Ch6', hint: 'Choose evidence that directly supports the author’s claim.' },
+  { id: 'ela-016', subject: 'language_arts', topic: 'Editing for Clarity', type: 'multiple_choice', difficulty: 2,
+    question: 'Which revision makes this sentence clearer? “The manager told the assistant that she needed to update the schedule.”',
+    choices: [
+      'The manager told the assistant, “Please update the schedule.”',
+      'The manager told the assistant about the schedule.',
+      'The schedule was updated by someone.',
+      'She told her that it needed an update.',
+    ],
+    answer: 'The manager told the assistant, “Please update the schedule.”',
+    explanation: 'The revision identifies who should act and removes the ambiguous pronoun “she.”',
+    gedCode: 'ELA.Ch9', hint: 'Prefer specific subjects and verbs over ambiguous pronouns.' },
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -431,6 +453,18 @@ const SCIENCE_QUESTIONS: StudyQuestion[] = [
     choices: ['Dependent variable', 'Control variable', 'Independent variable', 'Constant'],
     answer: 'Independent variable', explanation: 'The independent variable is what the researcher manipulates. The dependent variable is what is measured.',
     gedCode: 'SCI.Ch8', hint: 'Independent = the one you change. Dependent = the one you measure.' },
+  { id: 'sci-016', subject: 'science', topic: 'Interpreting Data Tables', type: 'multiple_choice', difficulty: 2,
+    question: 'A data table shows plant heights of 4 cm, 7 cm, and 10 cm after weeks 1, 2, and 3. What pattern does the table show?',
+    choices: ['The plant grows about 3 cm each week.', 'The plant loses 3 cm each week.', 'The plant stays the same height.', 'The plant doubles in height each day.'],
+    answer: 'The plant grows about 3 cm each week.',
+    explanation: 'The height increases from 4 to 7 to 10 cm, which is an increase of about 3 cm per week.',
+    gedCode: 'SCI.Ch8', hint: 'Compare the change between each consecutive row.' },
+  { id: 'sci-017', subject: 'science', topic: 'Cause & Effect', type: 'multiple_choice', difficulty: 2,
+    question: 'What is the most likely effect of removing many plants from a pond ecosystem?',
+    choices: ['More oxygen is produced in the water.', 'Less oxygen and food are available for other organisms.', 'All organisms immediately become larger.', 'The water cycle stops completely.'],
+    answer: 'Less oxygen and food are available for other organisms.',
+    explanation: 'Plants produce oxygen and form the base of many food chains, so removing them affects organisms that depend on both.',
+    gedCode: 'SCI.Ch4', hint: 'Think about what plants provide to the rest of an ecosystem.' },
 ];
 
 // ─────────────────────────────────────────────────────────────────
@@ -507,6 +541,12 @@ const SOCIAL_STUDIES_QUESTIONS: StudyQuestion[] = [
     choices: ['A decrease in unemployment', 'A general rise in the price level over time', 'A surplus of goods in the market', 'An increase in government spending'],
     answer: 'A general rise in the price level over time', explanation: 'Inflation measures the rate at which the general price level rises, reducing purchasing power.',
     gedCode: 'SS.Ch3', hint: 'Inflation means the same dollar buys less over time.' },
+  { id: 'ss-015', subject: 'social_studies', topic: 'Reading Primary Sources', type: 'multiple_choice', difficulty: 2,
+    question: 'When reading a historical letter, which question best helps identify the author’s perspective?',
+    choices: ['Who wrote it, when, and for what audience?', 'How many pages does it have?', 'Was the paper expensive?', 'What color ink was used?'],
+    answer: 'Who wrote it, when, and for what audience?',
+    explanation: 'The author, historical context, and intended audience help reveal a primary source’s perspective and purpose.',
+    gedCode: 'SS.Ch5', hint: 'Start with authorship, context, and audience.' },
 ];
 
 // ─────────────────────────────────────────────────────────────────

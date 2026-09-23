@@ -61,6 +61,8 @@ import {
   generateContentPack,
   generateOfflineContentPack,
   FOCUS_SUBJECT_ALIASES,
+  STUDY_QUESTIONS,
+  WEEKLY_FOCUS_TOPIC_ALIASES,
   focusSubjectKey,
   hasSupportedFocusSubjects,
   isQuestionFocusMatched,
@@ -641,6 +643,37 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
           ),
         ).toBe(true);
       }
+    }
+  });
+
+  it('gives every aliased weekly focus an exact question while preserving aliases', () => {
+    const directTopics = [
+      { subject: 'math', topic: 'Ratios & Proportions', aliasKey: 'ratios proportions' },
+      { subject: 'language_arts', topic: 'Reading for Argument', aliasKey: 'reading argument' },
+      { subject: 'language_arts', topic: 'Editing for Clarity', aliasKey: 'editing clarity' },
+      { subject: 'science', topic: 'Interpreting Data Tables', aliasKey: 'interpreting data tables' },
+      { subject: 'science', topic: 'Cause & Effect', aliasKey: 'cause effect' },
+      { subject: 'social_studies', topic: 'Reading Primary Sources', aliasKey: 'reading primary sources' },
+    ] as const;
+
+    for (const { subject, topic, aliasKey } of directTopics) {
+      expect(
+        STUDY_QUESTIONS[subject].some(question => question.topic === topic),
+        `${subject}: ${topic} should have a directly labeled question`,
+      ).toBe(true);
+
+      const aliases = WEEKLY_FOCUS_TOPIC_ALIASES[subject]?.[aliasKey];
+      expect(aliases?.length, `${subject}: ${aliasKey} should retain its aliases`).toBeGreaterThan(0);
+      for (const alias of aliases ?? []) {
+        expect(
+          STUDY_QUESTIONS[subject].some(question => topicMatchesFocus(question.topic, alias)),
+          `${subject}: ${alias} should still resolve to a bundled question`,
+        ).toBe(true);
+      }
+
+      const quiz = generateQuizSet(subject, `direct-weekly-focus-${aliasKey}`, 5, [topic]);
+      expect(quiz.questions.some(question => question.topic === topic)).toBe(true);
+      expect(quiz.questions.some(question => question.topic !== topic)).toBe(true);
     }
   });
 
