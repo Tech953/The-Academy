@@ -637,6 +637,70 @@ describe("main API routes", () => {
       })).response.status,
     ).toBe(200);
   });
+
+  it("keeps concurrent AI, refresh, and general bursts in separate client buckets", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const create = vi.fn(async () => ({
+      choices: [{ message: { content: "A deterministic concurrent response." } }],
+    }));
+    const testServer = await startApp(
+      app =>
+        registerRoutes(app, {
+          storage: makeStorage(),
+          openai: makeChatOpenAI(create),
+          skipContentRefresh: true,
+        }),
+      { generalRateLimit: true },
+    );
+    const client = "198.51.100.130";
+    const aiRequest = {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": client,
+      },
+      body: JSON.stringify({ type: "location", locationName: "Library" }),
+    };
+    const refreshRequest = {
+      method: "POST",
+      headers: { "x-forwarded-for": client },
+    };
+    const generalRequest = {
+      headers: { "x-forwarded-for": client },
+    };
+
+    const [aiBurst, refreshBurst, generalBurst] = await Promise.all([
+      Promise.all(
+        Array.from({ length: 30 }, () =>
+          request(testServer, "/api/ai/describe", aiRequest),
+        ),
+      ),
+      Promise.all(
+        Array.from({ length: 10 }, () =>
+          request(testServer, "/api/content-pack/refresh", refreshRequest),
+        ),
+      ),
+      Promise.all(
+        Array.from({ length: 200 }, () =>
+          request(testServer, "/api/locations", generalRequest),
+        ),
+      ),
+    ]);
+
+    expect(aiBurst.every(({ response }) => response.status === 200)).toBe(true);
+    expect(refreshBurst.every(({ response }) => response.status === 200)).toBe(true);
+    expect(generalBurst.every(({ response }) => response.status === 200)).toBe(true);
+
+    const [blockedAi, blockedRefresh, blockedGeneral] = await Promise.all([
+      request(testServer, "/api/ai/describe", aiRequest),
+      request(testServer, "/api/content-pack/refresh", refreshRequest),
+      request(testServer, "/api/locations", generalRequest),
+    ]);
+
+    expectBlockedRateLimitHeaders(blockedAi.response, "30", 900);
+    expectBlockedRateLimitHeaders(blockedRefresh.response, "10", 3600);
+    expectBlockedRateLimitHeaders(blockedGeneral.response, "200", 900);
+  });
 });
 
 describe("RSS and URL metadata routes", () => {
