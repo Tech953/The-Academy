@@ -100,3 +100,13 @@ describe('GameStateManager Radiant save migration', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('GameStateManager GED subject labels', () => {
+  it.each([
+    ['Mathematics', 'GED Mathematical Reasoning Study Guide'],
+    ['English', 'GED Reasoning Through Language Arts Study Guide'],
+    ['World History', 'GED Social Studies Study Guide'],
+  ])('keeps the existing textbook display for %s', (input, expectedTitle) => {
+    expect(new GameStateManager().getTextbookIndex(input)).toContain(expectedTitle);
+  });
+});

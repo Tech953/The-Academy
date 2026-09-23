@@ -571,12 +571,19 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
     ['Math', 'math'],
     ['Math Reasoning', 'math'],
     ['Mathematics', 'math'],
+    ['GED Math', 'math'],
     ['Language Arts', 'language_arts'],
+    ['English', 'language_arts'],
     ['Reasoning Through Language Arts', 'language_arts'],
     ['RLA', 'language_arts'],
+    ['Reading', 'language_arts'],
+    ['Writing', 'language_arts'],
     ['Science', 'science'],
     ['Physical Science', 'science'],
+    ['Earth Science', 'science'],
     ['Social Studies', 'social_studies'],
+    ['History', 'social_studies'],
+    ['World History', 'social_studies'],
     ['United States History', 'social_studies'],
     ['Civics', 'social_studies'],
   ] as const)('maps supported focus subject alias %s', (label, expected) => {
@@ -592,7 +599,7 @@ describe('generateQuizSet() — produces a valid quiz with no network', () => {
     ]);
     expect(focusSubjectKey('Astronomy')).toBeNull();
     expect(focusSubjectKey('Reading for Argument')).toBeNull();
-    expect(focusSubjectKey('History')).toBeNull();
+    expect(focusSubjectKey('History')).toBe('social_studies');
     expect(focusSubjectKey('')).toBeNull();
     expect(hasSupportedFocusSubjects([
       { subject: 'Math Reasoning' },
@@ -877,7 +884,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       mutate: (pack: ContentPack) => ({
         ...pack,
         gedFocusAreas: pack.gedFocusAreas.map((focus, index) =>
-          index === 0 ? { ...focus, subject: 'history' } : focus,
+          index === 0 ? { ...focus, subject: 'astronomy' } : focus,
         ),
       }),
     },

@@ -87,6 +87,7 @@ import {
 } from "./gedContent";
 import type { EngagementAnalytics, AdaptiveRecommendation, CourseProgress } from "@shared/schema";
 import { migrateRadiantAIState } from "./radiantAI";
+import { focusSubjectDisplayName } from "@workspace/game-engine";
 
 export type { TerminalLine } from "./terminalLine";
 
@@ -1304,12 +1305,7 @@ export class GameStateManager {
 
   // Helper: normalize subject name
   private normalizeSubject(subject: string): GEDSubject | null {
-    const lower = subject.toLowerCase();
-    if (lower.includes('math')) return 'Mathematical Reasoning';
-    if (lower.includes('language') || lower.includes('english') || lower.includes('writing') || lower.includes('reading')) return 'Language Arts';
-    if (lower.includes('science')) return 'Science';
-    if (lower.includes('social') || lower.includes('history') || lower.includes('civics')) return 'Social Studies';
-    return null;
+    return focusSubjectDisplayName(subject);
   }
 
   // Helper: get course progress map

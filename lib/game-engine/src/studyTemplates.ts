@@ -41,27 +41,75 @@ export interface StudyPrompt {
  * should either be added here deliberately or rejected at the content-pack
  * boundary and replaced with deterministic offline content.
  */
-export const FOCUS_SUBJECT_ALIASES: Record<GEDSubjectKey, readonly string[]> = {
-  math: ['math', 'math reasoning', 'mathematics', 'mathematical reasoning'],
-  language_arts: [
-    'language arts',
-    'english language arts',
-    'reasoning through language arts',
-    'rla',
-    'ela',
-    'reading',
-    'writing',
-  ],
-  science: ['science', 'physical science', 'life science', 'life science and biology'],
-  social_studies: [
-    'social studies',
-    'social',
-    'social science',
-    'us history',
-    'united states history',
-    'civics',
-  ],
-};
+export const GED_SUBJECT_REGISTRY = {
+  math: {
+    displayName: 'Mathematical Reasoning',
+    aliases: [
+      'math',
+      'math reasoning',
+      'mathematics',
+      'mathematical reasoning',
+      'ged math',
+    ],
+  },
+  language_arts: {
+    displayName: 'Language Arts',
+    aliases: [
+      'language arts',
+      'english',
+      'english language arts',
+      'reasoning through language arts',
+      'rla',
+      'ela',
+      'reading',
+      'writing',
+      'ged language arts',
+    ],
+  },
+  science: {
+    displayName: 'Science',
+    aliases: [
+      'science',
+      'physical science',
+      'life science',
+      'life science and biology',
+      'earth science',
+      'environmental science',
+      'science lab',
+    ],
+  },
+  social_studies: {
+    displayName: 'Social Studies',
+    aliases: [
+      'social studies',
+      'social',
+      'social science',
+      'history',
+      'world history',
+      'us history',
+      'united states history',
+      'civics',
+      'ged social studies',
+    ],
+  },
+} as const satisfies Record<
+  GEDSubjectKey,
+  { displayName: string; aliases: readonly string[] }
+>;
+
+export type GEDSubjectDisplayName =
+  (typeof GED_SUBJECT_REGISTRY)[GEDSubjectKey]['displayName'];
+
+/** Backwards-compatible alias view for mobile/content-pack callers. */
+export const FOCUS_SUBJECT_ALIASES: Record<
+  GEDSubjectKey,
+  readonly string[]
+> = Object.fromEntries(
+  (Object.keys(GED_SUBJECT_REGISTRY) as GEDSubjectKey[]).map(subject => [
+    subject,
+    GED_SUBJECT_REGISTRY[subject].aliases,
+  ]),
+) as unknown as Record<GEDSubjectKey, readonly string[]>;
 
 function normalizeSubjectLabel(subject: string): string {
   return subject
@@ -75,15 +123,23 @@ function normalizeSubjectLabel(subject: string): string {
 /** Map an accepted server/content-pack label to the local GED subject key. */
 export function focusSubjectKey(subject: string): GEDSubjectKey | null {
   const normalized = normalizeSubjectLabel(subject);
-  for (const [key, aliases] of Object.entries(FOCUS_SUBJECT_ALIASES) as [
+  for (const [key, definition] of Object.entries(GED_SUBJECT_REGISTRY) as [
     GEDSubjectKey,
-    readonly string[],
+    (typeof GED_SUBJECT_REGISTRY)[GEDSubjectKey],
   ][]) {
-    if (aliases.some(alias => normalizeSubjectLabel(alias) === normalized)) {
+    if (definition.aliases.some(alias => normalizeSubjectLabel(alias) === normalized)) {
       return key;
     }
   }
   return null;
+}
+
+/** Return the web-facing display label for any accepted GED subject alias. */
+export function focusSubjectDisplayName(
+  subject: string,
+): GEDSubjectDisplayName | null {
+  const key = focusSubjectKey(subject);
+  return key ? GED_SUBJECT_REGISTRY[key].displayName : null;
 }
 
 /** Return false when a pack contains a subject label mobile study cannot map. */
