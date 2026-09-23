@@ -43,6 +43,7 @@ const {
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
+  runOfflineGedFocusBoundaryCheck,
   writeReleaseReport,
   RELEASE_REPORT_SCHEMA_VERSION,
 } = require("../scripts/check-release.js") as {
@@ -140,6 +141,25 @@ const {
       error: Error;
     }>;
   }>;
+  runOfflineGedFocusBoundaryCheck: (options?: {
+    spawnSyncImpl?: (
+      command: string,
+      args: string[],
+      options: {
+        cwd: string;
+        encoding: string;
+        stdio: string[];
+      },
+    ) => {
+      status: number | null;
+      stdout?: string;
+      stderr?: string;
+    };
+    projectPath?: string;
+  }) => {
+    status: string;
+    test: string;
+  };
   summarizeReleaseSmokeResult: (result: {
     profiles: string[];
     passed: Array<{
@@ -696,6 +716,55 @@ describe("release report archival", () => {
     } finally {
       rmSync(reportDirectory, { recursive: true, force: true });
     }
+  });
+});
+
+describe("offline GED release boundary", () => {
+  it("runs the focused fixture test before release smoke requests", () => {
+    const spawnSyncImpl = vi.fn(() => ({
+      status: 0,
+      stdout: "fixture passed",
+      stderr: "",
+    }));
+
+    expect(
+      runOfflineGedFocusBoundaryCheck({
+        projectPath: "/fixture/academy-mobile",
+        spawnSyncImpl,
+      }),
+    ).toEqual({
+      status: "passed",
+      test: "accepts every supported alias and falls back offline for an unknown label",
+    });
+    expect(spawnSyncImpl).toHaveBeenCalledWith(
+      "pnpm",
+      [
+        "exec",
+        "vitest",
+        "run",
+        "__tests__/offline.test.ts",
+        "-t",
+        "accepts every supported alias and falls back offline for an unknown label",
+        "--reporter=dot",
+      ],
+      expect.objectContaining({
+        cwd: "/fixture/academy-mobile",
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    );
+  });
+
+  it("surfaces focused fixture failures without making a network request", () => {
+    expect(() =>
+      runOfflineGedFocusBoundaryCheck({
+        spawnSyncImpl: () => ({
+          status: 1,
+          stdout: "",
+          stderr: "unknown GED label",
+        }),
+      }),
+    ).toThrow(/GED focus boundary check failed[\s\S]*unknown GED label/);
   });
 });
 
@@ -1895,7 +1964,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(1);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(2);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 

@@ -1,9 +1,10 @@
 const fs = require("fs");
 const crypto = require("crypto");
 const path = require("path");
+const { spawnSync } = require("child_process");
 
 const DEFAULT_PROFILE = "preview";
-const RELEASE_REPORT_SCHEMA_VERSION = 1;
+const RELEASE_REPORT_SCHEMA_VERSION = 2;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
@@ -36,6 +37,8 @@ const DEFAULT_HANDOFF_REPORT_PATH = path.resolve(
   "outputs",
   "academy-mobile-native-handoff.json",
 );
+const OFFLINE_GED_FOCUS_TEST_NAME =
+  "accepts every supported alias and falls back offline for an unknown label";
 let reportWriteSequence = 0;
 
 function readReleaseConfig(configPath = EAS_CONFIG_PATH) {
@@ -772,6 +775,44 @@ function verifyInstallerChecksum({
   };
 }
 
+function runOfflineGedFocusBoundaryCheck({
+  spawnSyncImpl = spawnSync,
+  projectPath = path.resolve(__dirname, ".."),
+} = {}) {
+  const result = spawnSyncImpl(
+    "pnpm",
+    [
+      "exec",
+      "vitest",
+      "run",
+      "__tests__/offline.test.ts",
+      "-t",
+      OFFLINE_GED_FOCUS_TEST_NAME,
+      "--reporter=dot",
+    ],
+    {
+      cwd: projectPath,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  if (result.status !== 0) {
+    const output = [result.stdout, result.stderr]
+      .filter(value => typeof value === "string" && value.trim())
+      .join("\n")
+      .trim();
+    throw new Error(
+      `[release-offline] GED focus boundary check failed.${output ? `\n${output}` : ""}`,
+    );
+  }
+
+  return {
+    status: "passed",
+    test: OFFLINE_GED_FOCUS_TEST_NAME,
+  };
+}
+
 function writeReleaseReport(
   reportPath,
   report,
@@ -952,12 +993,29 @@ if (require.main === module) {
     return;
   }
 
+  let offlineGedFocus;
+  try {
+    offlineGedFocus = runOfflineGedFocusBoundaryCheck();
+    console.log("[release-offline] GED focus boundary check passed.");
+  } catch (error) {
+    handleReleaseFailure(
+      reportPath,
+      {
+        command: `check-release ${allProfiles ? "--all" : profile}`,
+        androidIdentity,
+      },
+      error,
+    );
+    return;
+  }
+
   const check = allProfiles
     ? runReleaseSmokeChecks().then((result) => {
         const summary = summarizeReleaseSmokeResult(result);
         const report = writeReleaseReport(reportPath, {
           command: "check-release --all",
           androidIdentity,
+          offlineGedFocus,
           ...result,
           status: summary.status,
           summary,
@@ -983,6 +1041,7 @@ if (require.main === module) {
           command: `check-release ${result.profile}`,
           status: "passed",
           androidIdentity,
+          offlineGedFocus,
           result,
         });
         const { profile: checkedProfile, domain, healthUrl, aiUrl } = result;
@@ -1021,5 +1080,6 @@ module.exports = {
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
+  runOfflineGedFocusBoundaryCheck,
   writeReleaseReport,
 };

@@ -1,0 +1,63 @@
+{
+  "supportedAliases": [
+    {
+      "subject": "math",
+      "labels": [
+        "math",
+        "math reasoning",
+        "mathematics",
+        "mathematical reasoning",
+        "ged math"
+      ]
+    },
+    {
+      "subject": "language_arts",
+      "labels": [
+        "language arts",
+        "english",
+        "english language arts",
+        "reasoning through language arts",
+        "rla",
+        "ela",
+        "reading",
+        "writing",
+        "ged language arts"
+      ]
+    },
+    {
+      "subject": "science",
+      "labels": [
+        "science",
+        "physical science",
+        "life science",
+        "life science and biology",
+        "earth science",
+        "environmental science",
+        "science lab"
+      ]
+    },
+    {
+      "subject": "social_studies",
+      "labels": [
+        "social studies",
+        "social",
+        "social science",
+        "history",
+        "world history",
+        "us history",
+        "united states history",
+        "civics",
+        "ged social studies"
+      ]
+    }
+  ],
+  "unknownPayload": {
+    "subject": "Astronomy",
+    "topic": "Reading for Argument",
+    "whyNow": "This label is intentionally outside the supported server vocabulary."
+  },
+  "expectedFallback": {
+    "source": "offline",
+    "generatedBy": "deterministic"
+  }
+}

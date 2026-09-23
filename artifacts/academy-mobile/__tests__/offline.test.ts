@@ -19,6 +19,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RateLimitError } from '@workspace/api-client-react';
+import gedFocusBoundaryFixture from '../fixtures/server-ged-focus-boundary.json';
 
 // ── lib under test ─────────────────────────────────────────────────────────
 import {
@@ -834,6 +835,79 @@ describe('generateOfflineContentPack() — valid pack with no network', () => {
       expect(typeof event.category).toBe('string');
       expect(Array.isArray(event.tags)).toBe(true);
     }
+  });
+});
+
+describe('server GED focus boundary fixture', () => {
+  it('accepts every supported alias and falls back offline for an unknown label', async () => {
+    const runtimeAliases = Object.entries(FOCUS_SUBJECT_ALIASES).flatMap(
+      ([subject, labels]) => labels.map(label => `${subject}:${label}`),
+    ).sort();
+    const fixtureAliases = gedFocusBoundaryFixture.supportedAliases.flatMap(
+      group => group.labels.map(label => `${group.subject}:${label}`),
+    ).sort();
+
+    expect(fixtureAliases).toEqual(runtimeAliases);
+
+    const generatedAt = Date.now() + 24 * 60 * 60 * 1000;
+    const day = 12;
+    const contractPack = createContentPackContractFixture(generatedAt);
+
+    for (const group of gedFocusBoundaryFixture.supportedAliases) {
+      for (const label of group.labels) {
+        const serverPack: ContentPack = {
+          ...contractPack,
+          version: `server-focus-${group.subject}-${label}`,
+          gedFocusAreas: [
+            {
+              subject: label,
+              topic: 'Ratios & Proportions',
+              whyNow: 'The server supplied a supported subject label.',
+            },
+            {
+              subject: label,
+              topic: 'Reading for Argument',
+              whyNow: 'The server supplied a second supported focus label.',
+            },
+          ],
+        };
+
+        expect(
+          getCachedContentPackIssueCodes(JSON.stringify(serverPack), generatedAt + 1),
+          `${group.subject}:${label}`,
+        ).toEqual([]);
+        const result = await resolveContentPackRefresh(
+          async () => serverPack,
+          null,
+          day,
+        );
+        expect(result, `${group.subject}:${label}`).toMatchObject({
+          source: 'online',
+          pack: {
+            generatedBy: 'gpt',
+            gedFocusAreas: serverPack.gedFocusAreas,
+          },
+        });
+      }
+    }
+
+    const unknownPack: ContentPack = {
+      ...contractPack,
+      version: 'server-focus-unknown',
+      gedFocusAreas: [
+        gedFocusBoundaryFixture.unknownPayload,
+        contractPack.gedFocusAreas[1],
+      ],
+    };
+
+    await expect(
+      resolveContentPackRefresh(async () => unknownPack, null, day),
+    ).resolves.toMatchObject({
+      source: gedFocusBoundaryFixture.expectedFallback.source,
+      pack: {
+        generatedBy: gedFocusBoundaryFixture.expectedFallback.generatedBy,
+      },
+    });
   });
 });
 
