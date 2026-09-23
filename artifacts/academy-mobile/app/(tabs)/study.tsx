@@ -54,6 +54,12 @@ function QuestionCard({
       <View style={styles.topicRow}>
         <Text style={[styles.topic, { color: colors.accent }]}>{question.topic.toUpperCase()}</Text>
         <View
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={getMobileCopy(
+            isFocusMatched ? "weeklyFocus" : "generalPractice",
+            locale,
+          )}
           style={[
             styles.focusBadge,
             { borderColor: isFocusMatched ? colors.accent : colors.border },

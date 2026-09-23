@@ -204,6 +204,29 @@ describe("Study question focus badges", () => {
     expect(onAnswer).toHaveBeenCalledWith(generalQuestion, "1/2");
   });
 
+  it("announces distinct accessibility labels for focus and general-practice badges", () => {
+    const { renderer } = renderStudyScreen();
+    openMathStudy(renderer);
+
+    const badgeLabels = renderer.root
+      .findAll(
+        (instance) =>
+          instance.props.accessibilityRole === "text" &&
+          typeof instance.props.accessibilityLabel === "string",
+      )
+      .map((instance) => instance.props.accessibilityLabel);
+
+    expect(badgeLabels).toContain("WEEKLY FOCUS");
+    expect(badgeLabels).toContain("GENERAL PRACTICE");
+
+    for (const label of ["WEEKLY FOCUS", "GENERAL PRACTICE"]) {
+      const badge = renderer.root.find(
+        (instance) => instance.props.accessibilityLabel === label,
+      );
+      expect(badge.props.accessible).toBe(true);
+    }
+  });
+
   it("uses the selected locale for study navigation and focus labels", () => {
     const { renderer } = renderStudyScreen(
       makeStudyPack("offline-pack", focusTopics[0], "deterministic"),
