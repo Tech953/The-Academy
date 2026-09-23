@@ -57,6 +57,93 @@ describe("shared rate-limit client contract", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("replays a Request body and headers on a rate-limited retry", async () => {
+    const attempts: Array<{ body: string; requestHeader: string | null; initHeader: string | null }> = [];
+    const fetcher = vi
+      .fn()
+      .mockImplementationOnce(async (input: Request, init: RequestInit) => {
+        attempts.push({
+          body: await input.clone().text(),
+          initHeader: new Headers(init.headers).get("x-request-id"),
+          requestHeader: input.headers.get("x-request-id"),
+        });
+        return new Response(JSON.stringify({ error: "busy" }), {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "retry-after": "0",
+          },
+        });
+      })
+      .mockImplementationOnce(async (input: Request, init: RequestInit) => {
+        attempts.push({
+          body: await input.clone().text(),
+          initHeader: new Headers(init.headers).get("x-request-id"),
+          requestHeader: input.headers.get("x-request-id"),
+        });
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      });
+    vi.stubGlobal("fetch", fetcher);
+
+    const request = new Request("https://academy.test/api/test", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": "request-123",
+      },
+      body: JSON.stringify({ answer: "same-payload" }),
+    });
+
+    await expect(
+      customFetch<{ ok: boolean }>(request, { responseType: "json" }),
+    ).resolves.toEqual({ ok: true });
+    expect(attempts).toEqual([
+      {
+        body: '{"answer":"same-payload"}',
+        initHeader: "request-123",
+        requestHeader: "request-123",
+      },
+      {
+        body: '{"answer":"same-payload"}',
+        initHeader: "request-123",
+        requestHeader: "request-123",
+      },
+    ]);
+  });
+
+  it("fails clearly instead of retrying a non-replayable body", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("one-shot-payload"));
+        controller.close();
+      },
+    });
+    const fetcher = vi.fn(async () =>
+      new Response(JSON.stringify({ error: "busy" }), {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": "0",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(
+      customFetch("/api/test", {
+        method: "POST",
+        body: stream,
+        responseType: "json",
+      }),
+    ).rejects.toThrow(
+      "cannot retry a rate-limited request with a non-replayable body",
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps retries bounded and exposes a safe final error", async () => {
     const fetcher = vi.fn(async () =>
       new Response(JSON.stringify({ error: "raw middleware detail" }), {

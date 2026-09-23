@@ -141,6 +141,42 @@ function looksLikeJson(text: string): boolean {
   return trimmed.startsWith("{") || trimmed.startsWith("[");
 }
 
+function isNonReplayableBody(body: BodyInit | null | undefined): boolean {
+  if (body == null) return false;
+  if (typeof ReadableStream !== "undefined" && body instanceof ReadableStream) {
+    return true;
+  }
+  return (
+    typeof body === "object" &&
+    "getReader" in body &&
+    typeof (body as { getReader?: unknown }).getReader === "function"
+  );
+}
+
+function cloneReplayableBody(
+  body: BodyInit | null | undefined,
+): BodyInit | null | undefined {
+  if (body == null || typeof body === "string") return body;
+  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
+    return new URLSearchParams(body.toString());
+  }
+  if (typeof FormData !== "undefined" && body instanceof FormData) {
+    const copy = new FormData();
+    body.forEach((value, key) => copy.append(key, value));
+    return copy;
+  }
+  if (typeof Blob !== "undefined" && body instanceof Blob) {
+    return body.slice(0, body.size, body.type);
+  }
+  if (body instanceof ArrayBuffer) {
+    return body.slice(0);
+  }
+  if (ArrayBuffer.isView(body)) {
+    return new Uint8Array(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
+  }
+  return body;
+}
+
 function getStringField(value: unknown, key: string): string | undefined {
   if (!value || typeof value !== "object") return undefined;
 
@@ -375,11 +411,19 @@ export async function customFetch<T = unknown>(
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
+  const nonReplayableBody = isNonReplayableBody(init.body);
 
   let response: Response;
   for (let attempt = 0; ; attempt += 1) {
     const fetchInput = isRequest(input) ? input.clone() : input;
-    response = await fetch(fetchInput, { ...init, method, headers });
+    response = await fetch(fetchInput, {
+      ...init,
+      ...(init.body !== undefined
+        ? { body: attempt === 0 ? init.body : cloneReplayableBody(init.body) }
+        : {}),
+      method,
+      headers,
+    });
 
     if (response.ok) break;
 
@@ -388,6 +432,11 @@ export async function customFetch<T = unknown>(
         ? getRateLimitRetryDelayMs(response.headers)
         : null;
     if (retryAfterMs !== null && attempt < MAX_RATE_LIMIT_RETRIES) {
+      if (nonReplayableBody) {
+        throw new TypeError(
+          "customFetch: cannot retry a rate-limited request with a non-replayable body.",
+        );
+      }
       await waitForRateLimitRetry(retryAfterMs, init.signal ?? undefined);
       continue;
     }
