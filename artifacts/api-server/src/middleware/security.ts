@@ -42,6 +42,79 @@ export const SPECIALIZED_ROUTE_POLICY = {
   },
 } as const;
 
+export type SpecializedRoutePolicyKey = keyof typeof SPECIALIZED_ROUTE_POLICY;
+export type SpecializedRouteReference = {
+  key: SpecializedRoutePolicyKey;
+  method: 'POST';
+  path: string;
+  limiterFamily: (typeof SPECIALIZED_ROUTE_POLICY)[SpecializedRoutePolicyKey]['limiterFamily'];
+  quotaBoundary: string;
+};
+
+/**
+ * Build route references for API documentation and other generated consumers.
+ * Keep specialized paths and quota metadata sourced from the policy above.
+ */
+export function getSpecializedRouteReferences(): SpecializedRouteReference[] {
+  return (Object.keys(SPECIALIZED_ROUTE_POLICY) as SpecializedRoutePolicyKey[]).map(key => {
+    const policy = SPECIALIZED_ROUTE_POLICY[key];
+    return {
+      key,
+      method: 'POST',
+      path: `/api${policy.path}`,
+      limiterFamily: policy.limiterFamily,
+      quotaBoundary: policy.quotaBoundary,
+    };
+  });
+}
+
+export const SPECIALIZED_ROUTE_REFERENCES = getSpecializedRouteReferences();
+
+export function validateSpecializedRouteReferences(
+  references: readonly SpecializedRouteReference[],
+): void {
+  const expected = getSpecializedRouteReferences();
+  const expectedByKey = new Map(expected.map(reference => [reference.key, reference]));
+  const actualByKey = new Map(references.map(reference => [reference.key, reference]));
+  const issues: string[] = [];
+
+  if (actualByKey.size !== references.length) {
+    issues.push('duplicate route reference key');
+  }
+
+  for (const reference of references) {
+    if (!expectedByKey.has(reference.key)) {
+      issues.push(`unexpected route reference ${reference.key}`);
+    }
+  }
+
+  for (const expectedReference of expected) {
+    const actualReference = actualByKey.get(expectedReference.key);
+    if (!actualReference) {
+      issues.push(`missing route reference ${expectedReference.key}`);
+      continue;
+    }
+    if (actualReference.path !== expectedReference.path) {
+      issues.push(
+        `path mismatch for ${expectedReference.key}: expected ${expectedReference.path}, got ${actualReference.path}`,
+      );
+    }
+    if (actualReference.method !== expectedReference.method) {
+      issues.push(`method mismatch for ${expectedReference.key}`);
+    }
+    if (actualReference.limiterFamily !== expectedReference.limiterFamily) {
+      issues.push(`limiter family mismatch for ${expectedReference.key}`);
+    }
+    if (actualReference.quotaBoundary !== expectedReference.quotaBoundary) {
+      issues.push(`quota boundary mismatch for ${expectedReference.key}`);
+    }
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Specialized route references are out of sync: ${issues.join('; ')}`);
+  }
+}
+
 export const SPECIALIZED_LIMITED_PATHS = Object.values(SPECIALIZED_ROUTE_POLICY).map(
   route => route.path,
 );

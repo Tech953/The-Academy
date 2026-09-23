@@ -13,10 +13,12 @@ import {
   RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS,
   normalizeRateLimitIp,
   rateLimitKeyGenerator,
+  SPECIALIZED_ROUTE_REFERENCES,
   shouldUseSharedRateLimitStore,
   SPECIALIZED_LIMITED_PATHS,
   SPECIALIZED_ROUTE_POLICY,
   shouldSkipGeneralApiLimit,
+  validateSpecializedRouteReferences,
 } from "../src/middleware/security";
 import type { IStorage } from "../src/storage";
 
@@ -353,6 +355,33 @@ describe("forwarded-client rate limiting", () => {
       expect(shouldSkipGeneralApiLimit({ path: specializedPath })).toBe(true);
       expect(shouldSkipGeneralApiLimit({ path: `/api${specializedPath}` })).toBe(false);
     }
+  });
+
+  it("validates generated route references against the canonical policy", () => {
+    expect(() => validateSpecializedRouteReferences(SPECIALIZED_ROUTE_REFERENCES)).not.toThrow();
+
+    const missingReference = SPECIALIZED_ROUTE_REFERENCES.slice(1);
+    expect(() => validateSpecializedRouteReferences(missingReference)).toThrow(
+      /missing route reference/,
+    );
+
+    const renamedReference = SPECIALIZED_ROUTE_REFERENCES.map(reference =>
+      reference.key === "aiDescribe"
+        ? { ...reference, path: "/api/ai/renamed" }
+        : reference,
+    );
+    expect(() => validateSpecializedRouteReferences(renamedReference)).toThrow(
+      /path mismatch for aiDescribe/,
+    );
+
+    const wrongFamilyReference = SPECIALIZED_ROUTE_REFERENCES.map(reference =>
+      reference.key === "contentPackRefresh"
+        ? { ...reference, limiterFamily: "ai" as const }
+        : reference,
+    );
+    expect(() => validateSpecializedRouteReferences(wrongFamilyReference)).toThrow(
+      /limiter family mismatch for contentPackRefresh/,
+    );
   });
 
   it("mounts every specialized route with its policy limiter family", async () => {
