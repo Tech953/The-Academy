@@ -1,11 +1,15 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
+import { getRateLimitCapacitySnapshot } from "../middleware/security";
 
 const router: IRouter = Router();
 
 router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
+  res.json({
+    ...data,
+    rateLimitCapacity: getRateLimitCapacitySnapshot(),
+  });
 });
 
 export default router;

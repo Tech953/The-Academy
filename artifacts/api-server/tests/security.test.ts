@@ -15,6 +15,7 @@ import {
   handleRateLimitStoreError,
   PostgresRateLimitStore,
   RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS,
+  getRateLimitCapacitySnapshot,
   RateLimitStoreError,
   type RateLimitStorePool,
   normalizeRateLimitIp,
@@ -249,7 +250,7 @@ describe("forwarded-client rate limiting", () => {
   it("reports bounded-store pressure without logging normal traffic or every eviction", async () => {
     vi.useFakeTimers();
     const warning = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
-    const store = new BoundedMemoryStore(2);
+    const store = new BoundedMemoryStore(2, "pressure-test");
     store.init({ windowMs: 120_000 } as Parameters<NonNullable<typeof store.init>>[0]);
     const forwardedAddress = "203.0.113.202";
     const limiterKey = `client:${forwardedAddress}`;
@@ -295,6 +296,18 @@ describe("forwarded-client rate limiting", () => {
       await store.increment(`${limiterKey}:fifth`);
       expect(store.getStats().evictionCount).toBe(3);
       expect(warning).toHaveBeenCalledTimes(2);
+      const snapshot = getRateLimitCapacitySnapshot();
+      expect(snapshot.stores.find(entry => entry.store === "pressure-test")).toEqual({
+        store: "pressure-test",
+        activeKeys: 2,
+        maxKeys: 2,
+        capacityPressureEvents: 3,
+        evictionCount: 3,
+      });
+      expect(snapshot.totalCapacityPressureEvents).toBeGreaterThanOrEqual(3);
+      expect(snapshot.totalEvictions).toBeGreaterThanOrEqual(3);
+      expect(JSON.stringify(snapshot)).not.toContain(forwardedAddress);
+      expect(JSON.stringify(snapshot)).not.toContain(limiterKey);
     } finally {
       warning.mockRestore();
       store.shutdown();
@@ -307,7 +320,19 @@ describe("forwarded-client rate limiting", () => {
 
     const directRequest = await request(testServer);
     expect(directRequest.status).toBe(200);
-    expect((await request(testServer, undefined, "/api/healthz")).status).toBe(200);
+    const healthResponse = await request(testServer, undefined, "/api/healthz");
+    expect(healthResponse.status).toBe(200);
+    expect(await healthResponse.json()).toEqual(
+      expect.objectContaining({
+        status: "ok",
+        rateLimitCapacity: expect.objectContaining({
+          activeStores: expect.any(Number),
+          totalCapacityPressureEvents: expect.any(Number),
+          totalEvictions: expect.any(Number),
+          stores: expect.any(Array),
+        }),
+      }),
+    );
 
     for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
       expect((await request(testServer, "203.0.113.10")).status).toBe(200);

@@ -163,6 +163,12 @@ export interface BoundedMemoryStoreStats {
   capacityPressureEvents: number;
   evictionCount: number;
 }
+export interface RateLimitCapacitySnapshot {
+  activeStores: number;
+  totalCapacityPressureEvents: number;
+  totalEvictions: number;
+  stores: Array<BoundedMemoryStoreStats & { store: string }>;
+}
 type RateLimitEnvironment = Partial<
   Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'DATABASE_URL'>
 >;
@@ -172,6 +178,7 @@ export type RateLimitStorePool = {
     values?: unknown[],
   ): Promise<{ rows: T[] }>;
 };
+const boundedMemoryStores = new Set<BoundedMemoryStore>();
 
 export function shouldUseSharedRateLimitStore(
   environment: RateLimitEnvironment = process.env,
@@ -200,10 +207,14 @@ export class BoundedMemoryStore implements Store {
 
   readonly localKeys = true;
 
-  constructor(private readonly maxKeys = RATE_LIMIT_STORE_MAX_KEYS) {
+  constructor(
+    private readonly maxKeys = RATE_LIMIT_STORE_MAX_KEYS,
+    readonly storeName = 'bounded-memory-rate-limit',
+  ) {
     if (!Number.isInteger(maxKeys) || maxKeys < 1) {
       throw new Error('BoundedMemoryStore maxKeys must be a positive integer');
     }
+    boundedMemoryStores.add(this);
   }
 
   init(options: Options): void {
@@ -287,6 +298,7 @@ export class BoundedMemoryStore implements Store {
     if (this.interval) clearInterval(this.interval);
     this.interval = undefined;
     this.resetAll();
+    boundedMemoryStores.delete(this);
   }
 
   private touch(key: string, client: StoredClient): void {
@@ -322,6 +334,22 @@ export class BoundedMemoryStore implements Store {
       'Rate-limit store capacity pressure; evicting least-recently-used identities',
     );
   }
+}
+
+export function getRateLimitCapacitySnapshot(): RateLimitCapacitySnapshot {
+  const stores = [...boundedMemoryStores].map(store => ({
+    store: store.storeName,
+    ...store.getStats(),
+  }));
+  return {
+    activeStores: stores.length,
+    totalCapacityPressureEvents: stores.reduce(
+      (total, store) => total + store.capacityPressureEvents,
+      0,
+    ),
+    totalEvictions: stores.reduce((total, store) => total + store.evictionCount, 0),
+    stores,
+  };
 }
 
 /**
@@ -483,7 +511,7 @@ export function createRateLimitStore(
       'DATABASE_URL is required for production rate limiting; refusing to use a local store',
     );
   }
-  return new BoundedMemoryStore();
+  return new BoundedMemoryStore(RATE_LIMIT_STORE_MAX_KEYS, limiterName);
 }
 
 export const apiLimiter = rateLimit({
