@@ -8,6 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:security": "pnpm --filter @workspace/academy-mobile exec vitest run --config ../../artifacts/api-server/vitest.config.ts tests/security.test.ts",
     "test": "pnpm --filter @workspace/academy-mobile exec vitest run --config ../../artifacts/api-server/vitest.config.ts"
   },
   "dependencies": {
