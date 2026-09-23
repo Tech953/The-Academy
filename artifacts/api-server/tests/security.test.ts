@@ -37,9 +37,9 @@ afterEach(async () => {
   openServers.clear();
 });
 
-async function startRateLimitedServer(): Promise<TestServer> {
+async function startRateLimitedServer(trustProxyHops = 1): Promise<TestServer> {
   const app = express();
-  app.set("trust proxy", 1);
+  app.set("trust proxy", trustProxyHops);
   app.use("/api", apiLimiter);
   app.use("/api", router);
   await registerRoutes(app, {
@@ -246,6 +246,49 @@ describe("forwarded-client rate limiting", () => {
     expect((await request(testServer, distinctClient)).status).toBe(200);
   });
 
+  it("uses the socket peer as the quota identity when no proxy hops are trusted", async () => {
+    await apiLimiter.resetKey("127.0.0.1");
+    const testServer = await startRateLimitedServer(0);
+
+    // TRUST_PROXY_HOPS=0 ignores every forwarded address and uses the
+    // directly connected socket peer for the limiter identity.
+    for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
+      expect((await request(testServer, "198.51.100.80")).status).toBe(200);
+    }
+
+    expect((await request(testServer, "203.0.113.80")).status).toBe(429);
+  });
+
+  it("uses the first untrusted address when two proxy hops are trusted", async () => {
+    await apiLimiter.resetKey("127.0.0.1");
+    const testServer = await startRateLimitedServer(2);
+    const firstUntrustedAddress = "198.51.100.90";
+    const trustedProxyAddress = "203.0.113.90";
+
+    // TRUST_PROXY_HOPS=2 trusts the socket and the rightmost forwarded
+    // address, so the leftmost address is the limiter identity.
+    for (let requestNumber = 0; requestNumber < 200; requestNumber += 1) {
+      expect(
+        (await request(
+          testServer,
+          `${firstUntrustedAddress}, ${trustedProxyAddress}`,
+        )).status,
+      ).toBe(200);
+    }
+
+    expect(
+      (
+        await request(
+          testServer,
+          `${firstUntrustedAddress}, 203.0.113.91`,
+        )
+      ).status,
+    ).toBe(429);
+    expect(
+      (await request(testServer, `198.51.100.91, ${trustedProxyAddress}`)).status,
+    ).toBe(200);
+  });
+
   it("keeps IPv6 forwarded clients isolated from one another", async () => {
     const testServer = await startRateLimitedServer();
     // Keep these in different prefixes because IPv6 limiters may group
@@ -304,12 +347,21 @@ describe("forwarded-client rate limiting", () => {
 
   it("rejects an invalid proxy-hop configuration before the API starts", async () => {
     const previousValue = process.env.TRUST_PROXY_HOPS;
-    process.env.TRUST_PROXY_HOPS = "one";
-    vi.resetModules();
 
     try {
+      for (const invalidValue of ["one", "-1"]) {
+        process.env.TRUST_PROXY_HOPS = invalidValue;
+        vi.resetModules();
+
+        await expect(import("../src/app")).rejects.toThrow(
+          /TRUST_PROXY_HOPS must be a non-negative integer/,
+        );
+      }
+
+      process.env.TRUST_PROXY_HOPS = "9007199254740992";
+      vi.resetModules();
       await expect(import("../src/app")).rejects.toThrow(
-        /TRUST_PROXY_HOPS must be a non-negative integer/,
+        /TRUST_PROXY_HOPS is out of range/,
       );
     } finally {
       if (previousValue === undefined) {
