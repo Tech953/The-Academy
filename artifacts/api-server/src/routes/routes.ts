@@ -85,6 +85,14 @@ const RSS_ALLOWED_DOMAINS = [
 ];
 const RSS_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const RSS_MAX_REDIRECTS = 3;
+export const RSS_MAX_BODY_BYTES = 1_000_000;
+
+class RssResponseTooLargeError extends Error {
+  constructor() {
+    super('RSS response too large');
+    this.name = 'RssResponseTooLargeError';
+  }
+}
 
 function isAllowedRssUrl(feedUrl: string): boolean {
   try {
@@ -124,6 +132,37 @@ async function fetchRssWithValidatedRedirects(
   }
 }
 
+async function readRssResponseText(response: Response): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  const declaredLength = contentLength === null ? NaN : Number(contentLength);
+  if (Number.isFinite(declaredLength) && declaredLength > RSS_MAX_BODY_BYTES) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new RssResponseTooLargeError();
+  }
+
+  if (!response.body) return '';
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let byteLength = 0;
+  let text = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      byteLength += value.byteLength;
+      if (byteLength > RSS_MAX_BODY_BYTES) {
+        void reader.cancel().catch(() => undefined);
+        throw new RssResponseTooLargeError();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function fetchRSSHeadlines(): Promise<string[]> {
   const headlines: string[] = [];
   for (const url of RSS_FEEDS) {
@@ -133,7 +172,7 @@ async function fetchRSSHeadlines(): Promise<string[]> {
         signal: AbortSignal.timeout(5000),
       });
       if (!resp.ok) continue;
-      const xml = await resp.text();
+      const xml = await readRssResponseText(resp);
       const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
       const reEscTag = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const extract = (block: string, tag: string) => {
@@ -1272,7 +1311,7 @@ Write a 2–3 sentence examine description for this object that is immersive and
         res.status(502).json({ error: `upstream ${resp.status}` });
         return;
       }
-      const xml = await resp.text();
+      const xml = await readRssResponseText(resp);
       const items: { title: string; link: string; pubDate?: string; description?: string }[] = [];
       const itemRx = /<item[^>]*>([\s\S]*?)<\/item>/g;
       const reEscTag2 = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

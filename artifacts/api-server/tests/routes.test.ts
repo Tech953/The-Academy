@@ -3,7 +3,7 @@ import type OpenAI from "openai";
 import { request as httpRequest, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { registerRoutes } from "../src/routes/routes";
+import { registerRoutes, RSS_MAX_BODY_BYTES } from "../src/routes/routes";
 import type { IStorage } from "../src/storage";
 import { registerChatRoutes } from "../src/replit_integrations/chat/routes";
 import type { ChatStorage } from "../src/replit_integrations/chat/storage";
@@ -312,7 +312,7 @@ describe("main API routes", () => {
         { npcId: "four", npcName: "Four", emotionState: "calm", reason: "rest" },
       ],
       gedFocusAreas: [
-        { subject: "history", topic: "Algebra", whyNow: "Practice" },
+        { subject: "not-a-ged-subject", topic: "Algebra", whyNow: "Practice" },
         { subject: "science", topic: "Biology", whyNow: "Review" },
       ],
     },
@@ -828,6 +828,99 @@ describe("RSS and URL metadata routes", () => {
     expect(result.response.status).toBe(502);
     expect(result.body).toEqual({ error: "upstream 503" });
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an oversized RSS response before parsing it", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("ignored", {
+      status: 200,
+      headers: { "content-length": String(RSS_MAX_BODY_BYTES + 1) },
+    }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/rss?url=https%3A%2F%2Fnasa.gov%2Ffeed.xml",
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "RSS response too large" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an oversized chunked RSS response while reading it", async () => {
+    const upstreamFetch = vi.fn(async () => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode("x".repeat(RSS_MAX_BODY_BYTES + 1)),
+          );
+          controller.close();
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+
+    const result = await request(
+      testServer,
+      "/api/rss?url=https%3A%2F%2Fnasa.gov%2Ffeed.xml",
+    );
+
+    expect(result.response.status).toBe(502);
+    expect(result.body).toEqual({ error: "RSS response too large" });
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips oversized scheduled RSS feeds before content-pack parsing", async () => {
+    const fixture = createContentPackContractFixture(Date.now());
+    const oversizedResponse = new Response("ignored", {
+      status: 200,
+      headers: { "content-length": String(RSS_MAX_BODY_BYTES + 1) },
+    });
+    const upstreamFetch = vi.fn()
+      .mockResolvedValueOnce(oversizedResponse)
+      .mockResolvedValue(new Response("", { status: 503 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const create = vi.fn(async () => ({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            themeContext: fixture.themeContext,
+            activeEvents: fixture.activeEvents,
+            npcMoodShifts: fixture.npcMoodShifts,
+            gedFocusAreas: fixture.gedFocusAreas,
+          }),
+        },
+      }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+
+    const result = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(result.body.generatedBy).toBe("gpt");
+    expect(result.body.rssHeadlines).toBeUndefined();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0]?.[0].messages[0].content).not.toContain(
+      "Real-world inspiration headlines",
+    );
+    expect(upstreamFetch).toHaveBeenCalledTimes(3);
   });
 
   it("allows trusted subdomains but rejects lookalike hosts before fetching", async () => {
