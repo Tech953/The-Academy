@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   generateOfflineContentPack,
+  getRelatedFocusPracticeTopics,
   isQuestionFocusMatched,
   type ContentPack,
   type StudyQuestion,
@@ -156,10 +157,13 @@ function visibleText(renderer: TestRenderer.ReactTestRenderer): string[] {
     .map(textContent);
 }
 
-function openMathStudy(renderer: TestRenderer.ReactTestRenderer) {
+function openMathStudy(
+  renderer: TestRenderer.ReactTestRenderer,
+  topic = focusTopics[0],
+) {
   const subjectButton = renderer.root
     .findAll((instance) => String(instance.type) === "Pressable")
-    .find((pressable) => textContent(pressable).includes("Linear Equations"));
+    .find((pressable) => textContent(pressable).includes(topic));
   expect(subjectButton).toBeDefined();
 
   act(() => {
@@ -174,6 +178,7 @@ describe("Study question focus badges", () => {
 
     expect(isQuestionFocusMatched(focusedQuestion, focusTopics)).toBe(true);
     expect(visibleText(renderer)).toContain("WEEKLY FOCUS");
+    expect(visibleText(renderer)).not.toContain("This focus uses related practice:");
   });
 
   it("keeps a non-matching question visible and answerable as general practice", () => {
@@ -259,6 +264,31 @@ describe("Study question focus badges", () => {
     expect(currentText).toContain("WEEKLY FOCUS");
     expect(currentText).not.toContain("LINEAR EQUATIONS");
     expect(currentText).not.toContain("Solve 2x + 4 = 10.");
+  });
+
+  it("explains alias-based practice without changing exact-topic presentation", () => {
+    expect(
+      getRelatedFocusPracticeTopics("math", connectedFocusTopics, [generalQuestion]),
+    ).toEqual([
+      {
+        focusTopic: "Ratios & Proportions",
+        practiceTopic: "Fractions & Ratios",
+      },
+    ]);
+    expect(
+      getRelatedFocusPracticeTopics("math", connectedFocusTopics, [connectedFocusedQuestion]),
+    ).toEqual([]);
+
+    const { renderer } = renderStudyScreen(
+      makeStudyPack("offline-pack", connectedFocusTopics[0], "deterministic"),
+      [generalQuestion],
+    );
+    openMathStudy(renderer, connectedFocusTopics[0]);
+
+    expect(visibleText(renderer)).toContain("This focus uses related practice:");
+    expect(visibleText(renderer)).toContain(
+      "Ratios & Proportions → Fractions & Ratios",
+    );
   });
 });
 

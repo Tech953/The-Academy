@@ -172,6 +172,38 @@ export function isQuestionFocusMatched(
   );
 }
 
+export interface RelatedFocusPractice {
+  focusTopic: string;
+  practiceTopic: string;
+}
+
+/**
+ * Explain only alias-based practice. Exact questions stay compact, while
+ * future or remote labels can tell learners which bundled topic they are using.
+ */
+export function getRelatedFocusPracticeTopics(
+  subject: GEDSubjectKey,
+  focusTopics: readonly string[],
+  questions: readonly Pick<StudyQuestion, 'subject' | 'topic'>[] = STUDY_QUESTIONS[subject],
+): RelatedFocusPractice[] {
+  return focusTopics.flatMap(focusTopic => {
+    const normalizedFocus = normalizeTopic(focusTopic).join(' ');
+    if (
+      questions.some(question => normalizeTopic(question.topic).join(' ') === normalizedFocus)
+    ) {
+      return [];
+    }
+
+    const aliases = WEEKLY_FOCUS_TOPIC_ALIASES[subject]?.[normalizedFocus] ?? [];
+    const relatedQuestion = questions.find(question =>
+      aliases.some(alias => topicMatchesFocus(question.topic, alias)),
+    );
+    return relatedQuestion
+      ? [{ focusTopic, practiceTopic: relatedQuestion.topic }]
+      : [];
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MATHEMATICAL REASONING
 // ─────────────────────────────────────────────────────────────────

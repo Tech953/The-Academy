@@ -45,6 +45,7 @@ export type MobileCopyKey =
   | "correct"
   | "weeklyFocus"
   | "generalPractice"
+  | "relatedPracticeCopy"
   | "review"
   | "liveRequestPaused"
   | "liveEnrichmentUnavailable"
@@ -94,6 +95,7 @@ const ENGLISH_MOBILE_COPY: MobileCopy = {
   correct: "correct",
   weeklyFocus: "WEEKLY FOCUS",
   generalPractice: "GENERAL PRACTICE",
+  relatedPracticeCopy: "This focus uses related practice:",
   review: "REVIEW",
   liveRequestPaused: "LIVE REQUEST PAUSED",
   liveEnrichmentUnavailable: "LIVE ENRICHMENT UNAVAILABLE",
@@ -147,6 +149,7 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     correct: "correctas",
     weeklyFocus: "ENFOQUE SEMANAL",
     generalPractice: "PRÁCTICA GENERAL",
+    relatedPracticeCopy: "Este enfoque usa práctica relacionada:",
     review: "REVISAR",
     liveRequestPaused: "SOLICITUD EN VIVO PAUSADA",
     liveEnrichmentUnavailable: "ENRIQUECIMIENTO EN VIVO NO DISPONIBLE",
@@ -193,6 +196,7 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     correct: "correctes",
     weeklyFocus: "OBJECTIF HEBDOMADAIRE",
     generalPractice: "PRATIQUE GÉNÉRALE",
+    relatedPracticeCopy: "Cet objectif utilise une pratique associée :",
     review: "À REVOIR",
     liveRequestPaused: "REQUÊTE EN DIRECT EN PAUSE",
     liveEnrichmentUnavailable: "ENRICHISSEMENT EN DIRECT INDISPONIBLE",
@@ -239,6 +243,7 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     correct: "richtig",
     weeklyFocus: "WÖCHENTLICHER FOKUS",
     generalPractice: "ALLGEMEINE ÜBUNG",
+    relatedPracticeCopy: "Dieser Fokus nutzt verwandte Übungen:",
     review: "ÜBERPRÜFEN",
     liveRequestPaused: "LIVE-ANFRAGE PAUSIERT",
     liveEnrichmentUnavailable: "LIVE-ERWEITERUNG NICHT VERFÜGBAR",
@@ -285,6 +290,7 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     correct: "正解",
     weeklyFocus: "週間重点",
     generalPractice: "通常練習",
+    relatedPracticeCopy: "この重点では関連する練習を使います：",
     review: "復習",
     liveRequestPaused: "ライブリクエストを一時停止",
     liveEnrichmentUnavailable: "ライブ拡張を利用できません",

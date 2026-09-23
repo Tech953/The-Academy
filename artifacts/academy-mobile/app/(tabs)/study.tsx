@@ -12,6 +12,7 @@ import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
 import { useColors } from "@/hooks/useColors";
 import {
   focusSubjectKey,
+  getRelatedFocusPracticeTopics,
   generateOfflineContentPack,
   isQuestionFocusMatched,
   type GEDSubjectKey,
@@ -206,6 +207,13 @@ export default function StudyScreen() {
     () => (subject ? (focusBySubject[subject] ?? []).map((focus) => focus.topic) : []),
     [focusBySubject, subject],
   );
+  const relatedFocusPractice = useMemo(
+    () =>
+      subject
+        ? getRelatedFocusPracticeTopics(subject, currentFocusTopics, questions)
+        : [],
+    [currentFocusTopics, questions, subject],
+  );
   const selectSubject = useCallback((nextSubject: GEDSubjectKey) => {
     preserveQuestionsAfterRetryRef.current = false;
     setSubject(nextSubject);
@@ -335,6 +343,19 @@ export default function StudyScreen() {
           retryLoading={contentPackLoading}
           locale={bulletinLocale}
         />
+        {relatedFocusPractice.map((match) => (
+          <View
+            key={`${match.focusTopic}-${match.practiceTopic}`}
+            style={[styles.relatedFocusNotice, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.relatedFocusLabel, { color: colors.accent }]}>
+              {getMobileCopy("relatedPracticeCopy", bulletinLocale)}
+            </Text>
+            <Text style={[styles.relatedFocusCopy, { color: colors.mutedForeground }]}>
+              {match.focusTopic} → {match.practiceTopic}
+            </Text>
+          </View>
+        ))}
         {questions.map((q) => (
           <QuestionCard
             key={q.id}
@@ -386,6 +407,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 14,
   },
+  relatedFocusNotice: {
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
+  },
+  relatedFocusLabel: { ...monoFontBold, fontSize: 9, letterSpacing: 0.6 },
+  relatedFocusCopy: { ...monoFont, fontSize: 10, lineHeight: 14 },
   retryButton: {
     alignSelf: "flex-start",
     borderWidth: 1,
