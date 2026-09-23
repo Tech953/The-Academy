@@ -231,6 +231,21 @@ describe("forwarded-client rate limiting", () => {
     }));
   });
 
+  it("shares the HTTP quota with the trusted socket when X-Forwarded-For is malformed", async () => {
+    await apiLimiter.resetKey("127.0.0.1");
+    const testServer = await startRateLimitedServer();
+    const malformedForwardedFor = "not-an-ip";
+    const distinctClient = "198.51.100.70";
+
+    expect((await request(testServer)).status).toBe(200);
+    for (let requestNumber = 1; requestNumber < 200; requestNumber += 1) {
+      expect((await request(testServer, malformedForwardedFor)).status).toBe(200);
+    }
+
+    expect((await request(testServer)).status).toBe(429);
+    expect((await request(testServer, distinctClient)).status).toBe(200);
+  });
+
   it("keeps IPv6 forwarded clients isolated from one another", async () => {
     const testServer = await startRateLimitedServer();
     // Keep these in different prefixes because IPv6 limiters may group
