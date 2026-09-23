@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +11,12 @@ import {
   apiLimiter,
   BoundedMemoryStore,
   contentPackLimiter,
+  createRateLimitStore,
+  handleRateLimitStoreError,
+  PostgresRateLimitStore,
   RATE_LIMIT_CAPACITY_LOG_COOLDOWN_MS,
+  RateLimitStoreError,
+  type RateLimitStorePool,
   normalizeRateLimitIp,
   rateLimitKeyGenerator,
   SPECIALIZED_ROUTE_REFERENCES,
@@ -96,6 +102,51 @@ describe("forwarded-client rate limiting", () => {
         NODE_ENV: "production",
       }),
     ).toBe(false);
+  });
+
+  it("rejects production rate limiting without a database", () => {
+    expect(() => createRateLimitStore("api", { NODE_ENV: "production" })).toThrow(
+      "DATABASE_URL is required for production rate limiting",
+    );
+    expect(
+      createRateLimitStore("api", { NODE_ENV: "production", DATABASE_URL: "postgres://example.invalid/academy" }),
+    ).toBeInstanceOf(PostgresRateLimitStore);
+    expect(createRateLimitStore("api", { NODE_ENV: "development" })).toBeInstanceOf(
+      BoundedMemoryStore,
+    );
+  });
+
+  it("returns a safe error when the shared PostgreSQL limiter store fails", async () => {
+    const query = vi.fn(async () => {
+      throw new Error("database credentials should not reach clients");
+    });
+    const pool = { query } as unknown as RateLimitStorePool;
+    const store = new PostgresRateLimitStore("test", async () => pool);
+    const limiter = rateLimit({
+      windowMs: 60_000,
+      max: 1,
+      store,
+      keyGenerator: rateLimitKeyGenerator,
+      standardHeaders: true,
+      legacyHeaders: false,
+    });
+    const app = express();
+    app.use("/api", limiter);
+    app.get("/api/locations", (_req, res) => res.json([]));
+    app.use(handleRateLimitStoreError);
+    const server = app.listen(0);
+    openServers.add(server);
+    await new Promise<void>(resolve => server.once("listening", () => resolve()));
+    const address = server.address() as AddressInfo;
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/locations`);
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "Rate limiting is temporarily unavailable. Please try again shortly.",
+    });
+    expect(query).toHaveBeenCalledTimes(1);
+    await expect(store.increment("test-client")).rejects.toBeInstanceOf(RateLimitStoreError);
   });
 
   it("bounds local rate-limit state and expires inactive identities", async () => {

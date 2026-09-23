@@ -166,7 +166,7 @@ export interface BoundedMemoryStoreStats {
 type RateLimitEnvironment = Partial<
   Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'DATABASE_URL'>
 >;
-type SharedPool = {
+export type RateLimitStorePool = {
   query<T extends Record<string, unknown>>(
     text: string,
     values?: unknown[],
@@ -332,9 +332,13 @@ export class BoundedMemoryStore implements Store {
 export class PostgresRateLimitStore implements Store {
   private windowMs = 60_000;
   private tableReady?: Promise<void>;
-  private pool?: Promise<SharedPool>;
+  private pool?: Promise<RateLimitStorePool>;
 
-  constructor(private readonly limiterName: string) {}
+  constructor(
+    private readonly limiterName: string,
+    private readonly poolLoader: () => Promise<RateLimitStorePool> = () =>
+      import('@workspace/db').then(({ pool }) => pool as RateLimitStorePool),
+  ) {}
 
   init(options: Options): void {
     this.windowMs = options.windowMs;
@@ -360,34 +364,38 @@ export class PostgresRateLimitStore implements Store {
   }
 
   async increment(key: string): Promise<StoredClient> {
-    await this.ensureTable();
-    const result = await (await this.getPool()).query<{
-      total_hits: number;
-      reset_time: string | Date;
-    }>(
-      `INSERT INTO ${RATE_LIMIT_TABLE}
-         (limiter_name, client_key, total_hits, reset_time)
-       VALUES ($1, $2, 1, NOW() + ($3::double precision * INTERVAL '1 millisecond'))
-       ON CONFLICT (limiter_name, client_key)
-       DO UPDATE SET
-         total_hits = CASE
-           WHEN ${RATE_LIMIT_TABLE}.reset_time <= NOW() THEN 1
-           ELSE ${RATE_LIMIT_TABLE}.total_hits + 1
-         END,
-         reset_time = CASE
-           WHEN ${RATE_LIMIT_TABLE}.reset_time <= NOW() THEN
-             NOW() + ($3::double precision * INTERVAL '1 millisecond')
-           ELSE ${RATE_LIMIT_TABLE}.reset_time
-         END
-       RETURNING total_hits, reset_time`,
-      [this.limiterName, key, this.windowMs],
-    );
-    const row = result.rows[0];
-    if (!row) throw new Error('Rate-limit store did not return an updated client');
-    return {
-      totalHits: row.total_hits,
-      resetTime: new Date(row.reset_time),
-    };
+    try {
+      await this.ensureTable();
+      const result = await (await this.getPool()).query<{
+        total_hits: number;
+        reset_time: string | Date;
+      }>(
+        `INSERT INTO ${RATE_LIMIT_TABLE}
+           (limiter_name, client_key, total_hits, reset_time)
+         VALUES ($1, $2, 1, NOW() + ($3::double precision * INTERVAL '1 millisecond'))
+         ON CONFLICT (limiter_name, client_key)
+         DO UPDATE SET
+           total_hits = CASE
+             WHEN ${RATE_LIMIT_TABLE}.reset_time <= NOW() THEN 1
+             ELSE ${RATE_LIMIT_TABLE}.total_hits + 1
+           END,
+           reset_time = CASE
+             WHEN ${RATE_LIMIT_TABLE}.reset_time <= NOW() THEN
+               NOW() + ($3::double precision * INTERVAL '1 millisecond')
+             ELSE ${RATE_LIMIT_TABLE}.reset_time
+           END
+         RETURNING total_hits, reset_time`,
+        [this.limiterName, key, this.windowMs],
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error('Rate-limit store did not return an updated client');
+      return {
+        totalHits: row.total_hits,
+        resetTime: new Date(row.reset_time),
+      };
+    } catch {
+      throw new RateLimitStoreError();
+    }
   }
 
   async decrement(key: string): Promise<void> {
@@ -409,8 +417,8 @@ export class PostgresRateLimitStore implements Store {
     );
   }
 
-  private async getPool(): Promise<SharedPool> {
-    this.pool ??= import('@workspace/db').then(({ pool }) => pool as SharedPool);
+  private async getPool(): Promise<RateLimitStorePool> {
+    this.pool ??= this.poolLoader();
     return this.pool;
   }
 
@@ -430,7 +438,30 @@ export class PostgresRateLimitStore implements Store {
   }
 }
 
-function createRateLimitStore(
+export class RateLimitStoreError extends Error {
+  constructor() {
+    super('Rate-limit store unavailable');
+    this.name = 'RateLimitStoreError';
+  }
+}
+
+export function handleRateLimitStoreError(
+  error: unknown,
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (!(error instanceof RateLimitStoreError)) {
+    next(error);
+    return;
+  }
+
+  res.status(503).json({
+    error: 'Rate limiting is temporarily unavailable. Please try again shortly.',
+  });
+}
+
+export function createRateLimitStore(
   limiterName: string,
   environment: RateLimitEnvironment = process.env,
 ): Store {

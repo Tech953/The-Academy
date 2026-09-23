@@ -4,7 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { registerRoutes } from "./routes/routes";
 import { logger } from "./lib/logger";
-import { apiLimiter } from "./middleware/security";
+import { apiLimiter, handleRateLimitStoreError } from "./middleware/security";
 
 const app: Express = express();
 
@@ -51,6 +51,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", apiLimiter);
 app.use("/api", router);
+app.use(handleRateLimitStoreError);
 
 void registerRoutes(app);
 

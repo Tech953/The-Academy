@@ -21,6 +21,7 @@ import type {
 import {
   aiLimiter,
   contentPackLimiter,
+  handleRateLimitStoreError,
   SPECIALIZED_ROUTE_POLICY,
 } from "../middleware/security";
 
@@ -1344,6 +1345,8 @@ Write a 2–3 sentence examine description for this object that is immersive and
       res.status(404).send('Report not found. Run the export script first.');
     }
   });
+
+  app.use(handleRateLimitStoreError);
 
   const httpServer = createServer(app);
 
