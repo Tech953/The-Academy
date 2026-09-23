@@ -57,6 +57,34 @@ describe("shared rate-limit client contract", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("propagates cancellation during the retry delay without sending again", async () => {
+    const controller = new AbortController();
+    const abortReason = new DOMException("screen closed", "AbortError");
+    const fetcher = vi.fn(async () =>
+      new Response(JSON.stringify({ error: "busy" }), {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": "60",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const retryPromise = customFetch("/api/test", {
+      responseType: "json",
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    controller.abort(abortReason);
+
+    const error = await retryPromise.catch((caught: unknown) => caught);
+    expect(error).toBe(abortReason);
+    expect(error).not.toBeInstanceOf(ApiError);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it("replays a Request body and headers on a rate-limited retry", async () => {
     const attempts: Array<{ body: string; requestHeader: string | null; initHeader: string | null }> = [];
     const fetcher = vi
