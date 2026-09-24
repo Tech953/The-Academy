@@ -7,6 +7,8 @@ const defaultOpenai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+const VOICE_FAILURE_MARKER = "[Voice response failed. Please retry this message.]";
+
 function routeParam(value: string | string[]): string {
   return Array.isArray(value) ? value[0] ?? "" : value;
 }
@@ -86,7 +88,7 @@ export function registerChatRoutes(
 
       // Get conversation history for context
       const messages = await chatStorage.getMessagesByConversation(conversationId);
-      const chatMessages = messages.map((m) => ({
+      const chatMessages = messages.filter(m => m.content !== VOICE_FAILURE_MARKER).map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));

@@ -1333,6 +1333,72 @@ describe("chat, image, and audio integration routes", () => {
     expect(createMessage).toHaveBeenNthCalledWith(2, 1, "assistant", "Hello from the Academy.");
   });
 
+  it("excludes voice failure markers from text-chat history without changing normal messages", async () => {
+    const storedMessages = [
+      {
+        id: 1,
+        conversationId: 7,
+        role: "user",
+        content: "Earlier question",
+        createdAt: new Date("2026-09-20T12:00:00.000Z"),
+      },
+      {
+        id: 2,
+        conversationId: 7,
+        role: "assistant",
+        content: "Earlier answer",
+        createdAt: new Date("2026-09-20T12:00:01.000Z"),
+      },
+      {
+        id: 3,
+        conversationId: 7,
+        role: "assistant",
+        content: "[Voice response failed. Please retry this message.]",
+        createdAt: new Date("2026-09-20T12:00:02.000Z"),
+      },
+    ];
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => {
+      const message = {
+        id: storedMessages.length + 1,
+        conversationId,
+        role,
+        content,
+        createdAt: new Date("2026-09-20T12:00:03.000Z"),
+      };
+      storedMessages.push(message);
+      return message;
+    });
+    const getMessagesByConversation = vi.fn(async () => storedMessages);
+    let providerMessages: unknown;
+    const create = vi.fn(async (params: Record<string, unknown>) => {
+      providerMessages = params.messages;
+      return (async function* () {
+        yield { choices: [{ delta: { content: "Follow-up answer" } }] };
+      })();
+    });
+    const testServer = await startApp(app =>
+      registerChatRoutes(app, {
+        storage: makeChatStorage({ createMessage, getMessagesByConversation }),
+        openai: makeChatOpenAI(create),
+      }),
+    );
+
+    const result = await request(testServer, "/api/conversations/7/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "Follow-up question" }),
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(providerMessages).toEqual([
+      { role: "user", content: "Earlier question" },
+      { role: "assistant", content: "Earlier answer" },
+      { role: "user", content: "Follow-up question" },
+    ]);
+    expect(createMessage).toHaveBeenNthCalledWith(1, 7, "user", "Follow-up question");
+    expect(createMessage).toHaveBeenNthCalledWith(2, 7, "assistant", "Follow-up answer");
+  });
+
   it("rejects image generation without calling the mocked image model", async () => {
     const generate = vi.fn();
     const testServer = await startApp(app =>
