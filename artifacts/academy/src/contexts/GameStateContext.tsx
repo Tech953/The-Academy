@@ -71,6 +71,7 @@ interface GameStateContextType {
   addEmail: (email: Omit<Email, 'id' | 'timestamp' | 'read'>) => void;
   markEmailRead: (id: string) => void;
   addMessage: (message: Omit<DirectMessage, 'id' | 'timestamp' | 'read'>) => void;
+  removeMessage: (id: string) => void;
   markMessageRead: (id: string) => void;
   sendMessage: (conversationId: string, content: string) => void;
   getConversation: (participantName: string) => Conversation | undefined;
@@ -439,6 +440,13 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const removeMessage = useCallback((id: string) => {
+    setState(prev => ({
+      ...prev,
+      messages: prev.messages.filter(message => message.id !== id),
+    }));
+  }, []);
+
   const markMessageRead = useCallback((id: string) => {
     setState(prev => ({
       ...prev,
@@ -659,6 +667,7 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
     addEmail,
     markEmailRead,
     addMessage,
+    removeMessage,
     markMessageRead,
     sendMessage,
     getConversation,

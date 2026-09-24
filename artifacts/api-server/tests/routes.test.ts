@@ -139,6 +139,7 @@ function makeChatStorage(overrides: Partial<ChatStorage> = {}): ChatStorage {
     deleteConversation: vi.fn(async () => undefined),
     getMessagesByConversation: vi.fn(async () => []),
     createMessage: vi.fn(),
+    deleteMessagesMatching: vi.fn(async () => {}),
     ...overrides,
   };
 }
@@ -1475,13 +1476,40 @@ describe("chat, image, and audio integration routes", () => {
   });
 
   it("forwards every voice reply chunk before completing without aborting the provider", async () => {
-    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
-      id: role === "user" ? 1 : 2,
-      conversationId,
-      role,
-      content,
+    const storedMessages = [{
+      id: 0,
+      conversationId: 7,
+      role: "assistant",
+      content: "[Voice response failed. Please retry this message.]",
       createdAt: new Date(),
-    }));
+    }];
+    const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => {
+      const message = {
+        id: storedMessages.length + 1,
+        conversationId,
+        role,
+        content,
+        createdAt: new Date(),
+      };
+      storedMessages.push(message);
+      return message;
+    });
+    const deleteMessagesMatching = vi.fn(async (
+      conversationId: number,
+      role: string,
+      content: string,
+    ) => {
+      for (let index = storedMessages.length - 1; index >= 0; index -= 1) {
+        const message = storedMessages[index];
+        if (
+          message.conversationId === conversationId &&
+          message.role === role &&
+          message.content === content
+        ) {
+          storedMessages.splice(index, 1);
+        }
+      }
+    });
     const ensureCompatibleFormat = vi.fn(async () => ({
       buffer: Buffer.from("audio"),
       format: "wav" as const,
@@ -1517,7 +1545,8 @@ describe("chat, image, and audio integration routes", () => {
       registerAudioRoutes(app, {
         storage: makeChatStorage({
           createMessage,
-          getMessagesByConversation: vi.fn(async () => []),
+          getMessagesByConversation: vi.fn(async () => storedMessages),
+          deleteMessagesMatching,
         }),
         openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
         ensureCompatibleFormat,
@@ -1551,6 +1580,14 @@ describe("chat, image, and audio integration routes", () => {
     expect(providerSignalActiveDuringStream).toEqual([true, true, true, true, true]);
     expect(createMessage).toHaveBeenNthCalledWith(1, 7, "user", "User transcript");
     expect(createMessage).toHaveBeenNthCalledWith(2, 7, "assistant", "Normal reply");
+    expect(deleteMessagesMatching).toHaveBeenCalledWith(
+      7,
+      "assistant",
+      "[Voice response failed. Please retry this message.]",
+    );
+    expect(storedMessages.map(message => message.content)).not.toContain(
+      "[Voice response failed. Please retry this message.]",
+    );
   });
 
   it("excludes the stored voice failure marker from the next provider prompt", async () => {

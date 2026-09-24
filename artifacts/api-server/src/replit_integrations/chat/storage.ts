@@ -19,6 +19,7 @@ export interface ChatStorage {
   deleteConversation(id: number): Promise<void>;
   getMessagesByConversation(conversationId: number): Promise<ChatMessage[]>;
   createMessage(conversationId: number, role: string, content: string): Promise<ChatMessage>;
+  deleteMessagesMatching(conversationId: number, role: string, content: string): Promise<void>;
 }
 
 class InMemoryChatStorage implements ChatStorage {
@@ -71,6 +72,22 @@ class InMemoryChatStorage implements ChatStorage {
     };
     this.messages.set(message.id, message);
     return message;
+  }
+
+  async deleteMessagesMatching(
+    conversationId: number,
+    role: string,
+    content: string,
+  ): Promise<void> {
+    for (const [messageId, message] of this.messages.entries()) {
+      if (
+        message.conversationId === conversationId &&
+        message.role === role &&
+        message.content === content
+      ) {
+        this.messages.delete(messageId);
+      }
+    }
   }
 }
 

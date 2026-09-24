@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageCircle, User, ArrowLeft, Send, UserPlus, Wifi, WifiOff, Zap } from 'lucide-react';
 import { useGameState, DirectMessage, Conversation } from '@/contexts/GameStateContext';
 import { useRadiantAI } from '@/hooks/useRadiantAI';
 import { NPCEntity } from '@/lib/radiantAI';
+import { getVoiceConversationId, submitVoiceRetry as submitVoiceRetryRequest } from '@/lib/voiceRetryClient';
 import NPCDirectoryPanel, { DirectoryMode, NPCContactStatus } from './NPCDirectoryPanel';
 
 const NEON_GREEN = '#00ff00';
@@ -12,19 +13,79 @@ const NEON_RED = '#ff3366';
 const NEON_GOLD = '#ffd700';
 const VOICE_FAILURE_MARKER = '[Voice response failed. Please retry this message.]';
 
+type VoiceRetryState = {
+  messageId: string;
+  status: 'starting' | 'recording' | 'sending' | 'error';
+  error?: string;
+};
+
+function microphoneErrorMessage(error: unknown): string {
+  const name = error && typeof error === 'object' && 'name' in error
+    ? String((error as { name?: unknown }).name)
+    : '';
+
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+    return "Microphone access was denied. Allow it in this site's browser settings, then retry—or send a text message below.";
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'No microphone was found. Connect a microphone and retry, or send a text message below.';
+  }
+  return 'Recording could not start. Check microphone access and try again, or send a text message below.';
+}
+
+function unsupportedRecordingMessage(): string {
+  return 'Voice recording needs a supported browser on a secure connection. Open ChatLink in a current browser over HTTPS, or send a text message below.';
+}
+
 export default function MessagesApp() {
-  const { messages, conversations, markMessageRead, unreadMessageCount, sendMessage, addMessage, character, isEnrolled } = useGameState();
+  const { messages, conversations, markMessageRead, unreadMessageCount, sendMessage, addMessage, removeMessage, character, isEnrolled } = useGameState();
   const { processInteraction } = useRadiantAI();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [replyText, setReplyText] = useState('');
   const [showDirectory, setShowDirectory] = useState(false);
   const [connectingNPC, setConnectingNPC] = useState<string | null>(null);
-  const [voiceRetryMessageId, setVoiceRetryMessageId] = useState<string | null>(null);
+  const [voiceRetryState, setVoiceRetryState] = useState<VoiceRetryState | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const voiceAttemptIdRef = useRef(0);
+  const voiceConversationIdsRef = useRef<Map<string, number>>(new Map());
+
+  const releaseVoiceCapture = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (recorder) {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      recorder.onerror = null;
+      if (recorder.state !== 'inactive') {
+        try {
+          recorder.stop();
+        } catch {
+          // The browser may already have stopped the recorder after a device error.
+        }
+      }
+    }
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+    recorderRef.current = null;
+    mediaStreamRef.current = null;
+    audioChunksRef.current = [];
+  }, []);
+
+  const cancelVoiceRetry = useCallback(() => {
+    voiceAttemptIdRef.current += 1;
+    releaseVoiceCapture();
+    setVoiceRetryState(null);
+  }, [releaseVoiceCapture]);
+
+  useEffect(() => () => {
+    voiceAttemptIdRef.current += 1;
+    releaseVoiceCapture();
+  }, [releaseVoiceCapture]);
 
   const handleConversationClick = (conv: Conversation) => {
+    cancelVoiceRetry();
     setSelectedConversation(conv);
     setShowDirectory(false);
-    setVoiceRetryMessageId(null);
     conv.messages.forEach(m => {
       if (!m.read && !m.isFromPlayer) {
         markMessageRead(m.id);
@@ -46,6 +107,142 @@ export default function MessagesApp() {
   };
 
   const alreadyConnected = conversations.map(c => c.participantName);
+
+  const sendRecordedVoice = async (
+    audio: Blob,
+    messageId: string,
+    conversation: Conversation,
+  ) => {
+    setVoiceRetryState({ messageId, status: 'sending' });
+    try {
+      const apiConversationId = await getVoiceConversationId(
+        voiceConversationIdsRef.current,
+        conversation.id,
+        `ChatLink — ${conversation.participantName}`,
+      );
+      const result = await submitVoiceRetryRequest(audio, apiConversationId);
+      if (!result.userTranscript.trim()) {
+        throw new Error('No speech was recognized. Record the message again or send it by text.');
+      }
+      if (!result.assistantTranscript.trim()) {
+        throw new Error('The voice reply had no transcript. Record the message again or send it by text.');
+      }
+
+      removeMessage(messageId);
+      addMessage({
+        from: character.name,
+        fromTitle: 'You',
+        content: result.userTranscript.trim(),
+        isFromPlayer: true,
+        conversationId: conversation.participantName,
+      });
+      addMessage({
+        from: conversation.participantName,
+        fromTitle: conversation.participantTitle,
+        content: result.assistantTranscript.trim(),
+        isFromPlayer: false,
+        conversationId: conversation.participantName,
+      });
+      setVoiceRetryState(null);
+    } catch (error) {
+      setVoiceRetryState({
+        messageId,
+        status: 'error',
+        error: error instanceof Error
+          ? error.message
+          : 'Voice message could not be sent. Record it again or send it by text.',
+      });
+    }
+  };
+
+  const startVoiceRetry = async (messageId: string, conversation: Conversation) => {
+    const attemptId = ++voiceAttemptIdRef.current;
+    releaseVoiceCapture();
+    setVoiceRetryState({ messageId, status: 'starting' });
+
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setVoiceRetryState({
+        messageId,
+        status: 'error',
+        error: unsupportedRecordingMessage(),
+      });
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (voiceAttemptIdRef.current !== attemptId) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = event => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        releaseVoiceCapture();
+        setVoiceRetryState({
+          messageId,
+          status: 'error',
+          error: 'Recording stopped unexpectedly. Check your microphone and try again, or send a text message below.',
+        });
+      };
+      recorder.start();
+      setVoiceRetryState({ messageId, status: 'recording' });
+    } catch (error) {
+      if (voiceAttemptIdRef.current !== attemptId) return;
+      releaseVoiceCapture();
+      setVoiceRetryState({
+        messageId,
+        status: 'error',
+        error: microphoneErrorMessage(error),
+      });
+    }
+  };
+
+  const stopAndSendVoiceRetry = (messageId: string, conversation: Conversation) => {
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
+
+    setVoiceRetryState({ messageId, status: 'sending' });
+    recorder.onstop = () => {
+      const chunks = audioChunksRef.current;
+      const audio = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
+      mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+      recorderRef.current = null;
+      mediaStreamRef.current = null;
+      audioChunksRef.current = [];
+
+      if (audio.size === 0) {
+        setVoiceRetryState({
+          messageId,
+          status: 'error',
+          error: 'No audio was recorded. Try again, or send a text message below.',
+        });
+        return;
+      }
+      void sendRecordedVoice(audio, messageId, conversation);
+    };
+
+    try {
+      recorder.stop();
+    } catch {
+      releaseVoiceCapture();
+      setVoiceRetryState({
+        messageId,
+        status: 'error',
+        error: 'The recording could not be submitted. Try again, or send a text message below.',
+      });
+    }
+  };
 
   const handleSelectNPC = useCallback((npc: NPCEntity, status: NPCContactStatus) => {
     setShowDirectory(false);
@@ -140,7 +337,10 @@ export default function MessagesApp() {
       <div style={containerStyle}>
         <div style={headerStyle}>
           <button
-            onClick={() => setSelectedConversation(null)}
+            onClick={() => {
+              cancelVoiceRetry();
+              setSelectedConversation(null);
+            }}
             style={{ background: 'transparent', border: 'none', color: NEON_GREEN, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
             <ArrowLeft size={16} />
@@ -214,20 +414,88 @@ export default function MessagesApp() {
                               Your voice message was saved. Record it again to retry.
                             </div>
                             <button
-                              onClick={() => setVoiceRetryMessageId(msg.id)}
+                              onClick={() => void startVoiceRetry(msg.id, currentConv)}
+                              disabled={Boolean(voiceRetryState && voiceRetryState.status !== 'error')}
                               aria-label="Record voice message again"
+                              data-testid={`button-retry-voice-${msg.id}`}
                               style={{
                                 marginTop: 8, background: `${NEON_RED}18`,
                                 border: `1px solid ${NEON_RED}70`, color: NEON_RED,
-                                cursor: 'pointer', padding: '4px 8px',
+                                cursor: voiceRetryState && voiceRetryState.status !== 'error' ? 'not-allowed' : 'pointer',
+                                opacity: voiceRetryState && voiceRetryState.status !== 'error' ? 0.5 : 1,
+                                padding: '4px 8px',
                                 fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
                               }}
                             >
-                              RETRY
+                              {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'recording'
+                                ? 'RECORDING'
+                                : 'RETRY'}
                             </button>
-                            {voiceRetryMessageId === msg.id && (
-                              <div style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}>
-                                RECORD AGAIN: Use your voice input to record the original message, then submit it to this conversation.
+                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'starting' && (
+                              <div
+                                role="status"
+                                aria-live="polite"
+                                data-testid={`status-voice-retry-${msg.id}`}
+                                style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
+                              >
+                                Waiting for microphone access. Allow it if your browser asks.
+                              </div>
+                            )}
+                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'recording' && (
+                              <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <div
+                                  role="status"
+                                  aria-live="polite"
+                                  data-testid={`status-voice-retry-${msg.id}`}
+                                  style={{ flexBasis: '100%', color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
+                                >
+                                  Recording. Select STOP &amp; SEND when you finish.
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => stopAndSendVoiceRetry(msg.id, currentConv)}
+                                  aria-label="Stop recording and send voice message"
+                                  data-testid={`button-stop-send-voice-${msg.id}`}
+                                  style={{
+                                    background: `${NEON_GREEN}18`, border: `1px solid ${NEON_GREEN}70`,
+                                    color: NEON_GREEN, cursor: 'pointer', padding: '4px 8px',
+                                    fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+                                  }}
+                                >
+                                  STOP &amp; SEND
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelVoiceRetry}
+                                  aria-label="Cancel voice recording"
+                                  data-testid={`button-cancel-voice-${msg.id}`}
+                                  style={{
+                                    background: 'transparent', border: `1px solid ${NEON_AMBER}70`,
+                                    color: NEON_AMBER, cursor: 'pointer', padding: '4px 8px',
+                                    fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+                                  }}
+                                >
+                                  CANCEL
+                                </button>
+                              </div>
+                            )}
+                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'sending' && (
+                              <div
+                                role="status"
+                                aria-live="polite"
+                                data-testid={`status-voice-retry-${msg.id}`}
+                                style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
+                              >
+                                Sending your voice message and waiting for a reply...
+                              </div>
+                            )}
+                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'error' && (
+                              <div
+                                role="alert"
+                                data-testid={`status-voice-retry-${msg.id}`}
+                                style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
+                              >
+                                {voiceRetryState.error}
                               </div>
                             )}
                           </>
@@ -244,6 +512,8 @@ export default function MessagesApp() {
         <div style={{ borderTop: `1px solid ${NEON_GREEN}30`, padding: '12px', display: 'flex', gap: '8px' }}>
           <input
             type="text"
+            aria-label="Type a message"
+            data-testid="input-chat-message"
             value={replyText}
             onChange={e => setReplyText(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -258,6 +528,8 @@ export default function MessagesApp() {
           <button
             onClick={handleSendMessage}
             disabled={!replyText.trim()}
+            aria-label="Send message"
+            data-testid="button-send-message"
             style={{
               background: replyText.trim() ? `${NEON_GREEN}30` : `${NEON_GREEN}10`,
               border: `1px solid ${replyText.trim() ? NEON_GREEN : NEON_GREEN + '40'}`,

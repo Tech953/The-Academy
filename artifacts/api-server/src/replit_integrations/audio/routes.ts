@@ -199,6 +199,18 @@ export function registerAudioRoutes(
 
       // 7. Save assistant message
       await chatStorage.createMessage(conversationId, "assistant", assistantTranscript);
+      try {
+        await chatStorage.deleteMessagesMatching(
+          conversationId,
+          "assistant",
+          VOICE_FAILURE_MARKER,
+        );
+      } catch (cleanupError) {
+        req.log.warn(
+          { err: cleanupError, conversationId },
+          "Could not clear an old voice failure marker after successful retry",
+        );
+      }
 
       if (clientDisconnected) return;
 

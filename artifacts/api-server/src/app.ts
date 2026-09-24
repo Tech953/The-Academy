@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { registerRoutes } from "./routes/routes";
+import { registerAudioRoutes } from "./replit_integrations/audio";
 import { logger } from "./lib/logger";
 import { apiLimiter, handleRateLimitStoreError } from "./middleware/security";
 
@@ -46,10 +47,21 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+const jsonParser = express.json();
+app.use((req, res, next) => {
+  const isAudioMessageUpload =
+    req.method === "POST" &&
+    /^\/api\/conversations\/[^/]+\/messages$/.test(req.path);
+  if (isAudioMessageUpload) {
+    next();
+    return;
+  }
+  jsonParser(req, res, next);
+});
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", apiLimiter);
+registerAudioRoutes(app);
 app.use("/api", router);
 app.use(handleRateLimitStoreError);
 
