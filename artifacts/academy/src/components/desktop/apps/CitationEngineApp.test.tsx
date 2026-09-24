@@ -98,12 +98,22 @@ async function flushPendingImport() {
 
 describe("Citation Engine URL import errors", () => {
   it("shows the timeout contract and retries the same URL", async () => {
-    const fetcher = vi.fn(async (_input: string) =>
+    const responses = [
       response(504, {
         error: "URL metadata fetch timed out",
         retryable: true,
       }),
-    );
+      response(200, {
+        title: "Learning Through Practice",
+        author: "Jordan Reader",
+        date: "2023-05-02",
+        publisher: "Education Review",
+        description: "A study of learning strategies.",
+        url: "https://example.com/article",
+        host: "example.com",
+      }),
+    ];
+    const fetcher = vi.fn(async (_input: string) => responses.shift()!);
     vi.stubGlobal("fetch", fetcher);
     const renderer = renderUrlImport();
 
@@ -122,10 +132,23 @@ describe("Citation Engine URL import errors", () => {
     await act(async () => {
       retryButton.props.onClick();
       await Promise.resolve();
+      await Promise.resolve();
     });
 
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher.mock.calls[1]?.[0]).toBe(requestedUrl);
+    const result = textContent(renderer.root);
+    expect(result).not.toContain("SIGNAL LOST");
+    expect(result).not.toContain("RETRY");
+    expect(result).toContain("EXTRACTED METADATA");
+    expect(result).toContain("GENERATED CITATIONS");
+    expect(result).toContain("Learning Through Practice");
+    expect(result).toContain("Jordan Reader");
+    expect(result).toContain("Education Review");
+    expect(result).toContain("https://example.com/article");
+    expect(result).toContain(
+      "Jordan Reader (2023). Learning Through Practice.",
+    );
   });
 
   it.each([
