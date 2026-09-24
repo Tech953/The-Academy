@@ -1732,6 +1732,77 @@ describe("chat, image, and audio integration routes", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("does not start voice streaming if the client disconnects while saving the transcript", async () => {
+    const createMessage = vi.fn(async (
+      conversationId: number,
+      role: string,
+      content: string,
+    ) => {
+      if (role === "user") {
+        resolveUserSaveStarted?.();
+        await userSaveGate;
+      }
+      return {
+        id: role === "user" ? 1 : 2,
+        conversationId,
+        role,
+        content,
+        createdAt: new Date(),
+      };
+    });
+    let resolveUserSaveStarted!: () => void;
+    const userSaveStarted = new Promise<void>(resolve => {
+      resolveUserSaveStarted = resolve;
+    });
+    let finishUserSave!: () => void;
+    const userSaveGate = new Promise<void>(resolve => {
+      finishUserSave = resolve;
+    });
+    const getMessagesByConversation = vi.fn(async () => []);
+    const ensureCompatibleFormat = vi.fn(async () => ({
+      buffer: Buffer.from("audio"),
+      format: "wav" as const,
+    }));
+    const speechToText = vi.fn(async () => "User transcript");
+    const create = vi.fn();
+    const testServer = await startApp(app => {
+      registerAudioRoutes(app, {
+        storage: makeChatStorage({ createMessage, getMessagesByConversation }),
+        openai: { chat: { completions: { create } } } as unknown as Pick<OpenAI, "chat">,
+        ensureCompatibleFormat,
+        speechToText,
+      });
+    });
+
+    const clientClosed = new Promise<void>((resolve, reject) => {
+      const client = httpRequest(
+        `${testServer.baseUrl}/api/conversations/7/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+        },
+        response => response.once("close", resolve),
+      );
+      client.once("error", error => {
+        if ((error as NodeJS.ErrnoException).code === "ECONNRESET") resolve();
+        else reject(error);
+      });
+      client.end(JSON.stringify({ audio: Buffer.from("audio").toString("base64") }));
+      void userSaveStarted.then(() => client.destroy());
+    });
+
+    await clientClosed;
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    finishUserSave();
+    await new Promise<void>(resolve => setImmediate(resolve));
+
+    expect(speechToText).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledWith(7, "user", "User transcript");
+    expect(getMessagesByConversation).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("emits an SSE error and avoids the assistant write when streaming fails", async () => {
     const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
       id: role === "user" ? 1 : 2,
