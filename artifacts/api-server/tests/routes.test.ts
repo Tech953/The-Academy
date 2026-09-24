@@ -12,7 +12,11 @@ import { registerChatRoutes } from "../src/replit_integrations/chat/routes";
 import type { ChatStorage } from "../src/replit_integrations/chat/storage";
 import { registerAudioRoutes } from "../src/replit_integrations/audio/routes";
 import { registerImageRoutes } from "../src/replit_integrations/image/routes";
-import { convertToWav } from "../src/replit_integrations/audio/client";
+import {
+  convertToWav,
+  openai,
+  speechToTextStream,
+} from "../src/replit_integrations/audio/client";
 import { apiLimiter } from "../src/middleware/security";
 import {
   createContentPackContractFixture,
@@ -2007,5 +2011,72 @@ describe("audio conversion temporary files", () => {
     expect(child.kill).toHaveBeenCalledWith("SIGTERM");
     expect(existsSync(inputPath!)).toBe(false);
     expect(existsSync(outputPath!)).toBe(false);
+  });
+});
+
+describe("streaming speech-to-text client", () => {
+  it("preserves normal streamed transcript deltas", async () => {
+    const create = vi.spyOn(openai.audio.transcriptions, "create");
+    const providerStream = (async function* () {
+      yield { type: "transcript.text.delta", delta: "First " };
+      yield { type: "transcript.text.delta", delta: "reply" };
+      yield { type: "transcript.text.done", text: "First reply" };
+    })();
+    create.mockResolvedValue(providerStream as never);
+
+    const transcriptStream = await speechToTextStream(Buffer.from("audio"), "webm");
+    const transcriptChunks: string[] = [];
+    for await (const chunk of transcriptStream) transcriptChunks.push(chunk);
+
+    expect(transcriptChunks).toEqual(["First ", "reply"]);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-4o-mini-transcribe",
+        stream: true,
+      }),
+      { signal: undefined },
+    );
+  });
+
+  it("forwards abort and ends cleanly when the listener leaves", async () => {
+    const controller = new AbortController();
+    const create = vi.spyOn(openai.audio.transcriptions, "create");
+    const providerStream = (async function* () {
+      yield { type: "transcript.text.delta", delta: "Partial transcript" };
+      await new Promise<never>((_resolve, reject) => {
+        const abort = () => {
+          const error = new Error("The operation was aborted");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (controller.signal.aborted) {
+          abort();
+          return;
+        }
+        controller.signal.addEventListener("abort", abort, { once: true });
+      });
+    })();
+    create.mockResolvedValue(providerStream as never);
+
+    const transcriptStream = await speechToTextStream(
+      Buffer.from("audio"),
+      "webm",
+      controller.signal,
+    );
+    const iterator = transcriptStream[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).resolves.toEqual({
+      done: false,
+      value: "Partial transcript",
+    });
+    controller.abort();
+    await expect(iterator.next()).resolves.toMatchObject({ done: true });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-4o-mini-transcribe",
+        stream: true,
+      }),
+      { signal: controller.signal },
+    );
   });
 });

@@ -294,20 +294,30 @@ export async function speechToText(
  */
 export async function speechToTextStream(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav"
+  format: "wav" | "mp3" | "webm" = "wav",
+  signal?: AbortSignal,
 ): Promise<AsyncIterable<string>> {
+  throwIfAborted(signal);
   const file = await toFile(audioBuffer, `audio.${format}`);
+  throwIfAborted(signal);
   const stream = await openai.audio.transcriptions.create({
     file,
     model: "gpt-4o-mini-transcribe",
     stream: true,
-  });
+  }, { signal });
 
   return (async function* () {
-    for await (const event of stream) {
-      if (event.type === "transcript.text.delta") {
-        yield event.delta;
+    if (signal?.aborted) return;
+    try {
+      for await (const event of stream) {
+        if (signal?.aborted) return;
+        if (event.type === "transcript.text.delta") {
+          yield event.delta;
+        }
       }
+    } catch (error) {
+      if (signal?.aborted) return;
+      throw error;
     }
   })();
 }
