@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Copy, CheckCircle, BookOpen, FlaskConical, FileText, RefreshCw, ChevronDown, ChevronUp, Link, Loader } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
@@ -1429,11 +1429,13 @@ function UrlImportTab() {
   const [retryableError, setRetryableError] = useState(false);
   const [retryUrl, setRetryUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<UrlMeta | null>(null);
+  const latestRequestId = useRef(0);
   const { copied, copy } = useClipboard();
 
   const fetchMeta = async (requestedUrl = url) => {
     const normalizedUrl = requestedUrl.trim();
     if (!normalizedUrl) return;
+    const requestId = ++latestRequestId.current;
     setLoading(true);
     setError(null);
     setRetryableError(false);
@@ -1450,14 +1452,16 @@ function UrlImportTab() {
         throw requestError;
       }
       const data: UrlMeta = await res.json();
+      if (requestId !== latestRequestId.current) return;
       setMeta(data);
     } catch (e: unknown) {
+      if (requestId !== latestRequestId.current) return;
       const requestError = e as Error & { retryable?: boolean };
       setError(requestError.message ?? 'Failed to fetch URL');
       setRetryableError(requestError.retryable === true);
       setRetryUrl(requestError.retryable === true ? normalizedUrl : null);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestId.current) setLoading(false);
     }
   };
 

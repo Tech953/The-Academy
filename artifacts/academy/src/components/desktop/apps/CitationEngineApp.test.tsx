@@ -60,9 +60,37 @@ function response(status: number, body: Record<string, unknown>) {
   });
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function startImport(renderer: TestRenderer.ReactTestRenderer, url: string) {
+  const input = renderer.root.find((instance) => String(instance.type) === "input");
+  act(() => {
+    input.props.onChange({ target: { value: url } });
+  });
+  act(() => {
+    input.props.onKeyDown({ key: "Enter" });
+  });
+}
+
+async function flushPendingImport() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe("Citation Engine URL import errors", () => {
   it("shows the timeout contract and retries the same URL", async () => {
-    const fetcher = vi.fn(async () =>
+    const fetcher = vi.fn(async (_input: string) =>
       response(504, {
         error: "URL metadata fetch timed out",
         retryable: true,
@@ -108,6 +136,79 @@ describe("Citation Engine URL import errors", () => {
     });
 
     expect(textContent(renderer.root)).toContain(`SIGNAL LOST: ${error}`);
+    expect(buttons(renderer).some((button) => textContent(button).includes("RETRY"))).toBe(
+      false,
+    );
+  });
+
+  it("does not let an older success replace a newer failure", async () => {
+    const olderRequest = deferred<Response>();
+    const newerRequest = deferred<Response>();
+    const requests = [olderRequest.promise, newerRequest.promise];
+    const fetcher = vi.fn((_input: string) => requests.shift()!);
+    vi.stubGlobal("fetch", fetcher);
+    const renderer = renderUrlImport();
+
+    startImport(renderer, "https://example.com/older");
+    startImport(renderer, "https://example.com/newer");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.map(([requestedUrl]) => requestedUrl)).toEqual([
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Folder",
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Fnewer",
+    ]);
+
+    newerRequest.resolve(response(502, { error: "newer request failed" }));
+    await flushPendingImport();
+    olderRequest.resolve(response(200, {
+      title: "Stale older title",
+      author: "Older author",
+      date: "2020",
+      publisher: "Older source",
+      description: "",
+      url: "https://example.com/older",
+      host: "example.com",
+    }));
+    await flushPendingImport();
+
+    expect(textContent(renderer.root)).toContain(
+      "SIGNAL LOST: newer request failed",
+    );
+    expect(textContent(renderer.root)).not.toContain("Stale older title");
+    expect(textContent(renderer.root)).not.toContain("EXTRACTED METADATA");
+  });
+
+  it("does not let an older failure erase newer metadata", async () => {
+    const olderRequest = deferred<Response>();
+    const newerRequest = deferred<Response>();
+    const requests = [olderRequest.promise, newerRequest.promise];
+    const fetcher = vi.fn((_input: string) => requests.shift()!);
+    vi.stubGlobal("fetch", fetcher);
+    const renderer = renderUrlImport();
+
+    startImport(renderer, "https://example.com/older");
+    startImport(renderer, "https://example.com/newer");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls.map(([requestedUrl]) => requestedUrl)).toEqual([
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Folder",
+      "/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Fnewer",
+    ]);
+
+    newerRequest.resolve(response(200, {
+      title: "Current newer title",
+      author: "Newer author",
+      date: "2025",
+      publisher: "Newer source",
+      description: "",
+      url: "https://example.com/newer",
+      host: "example.com",
+    }));
+    await flushPendingImport();
+    olderRequest.resolve(response(503, { error: "stale older failure" }));
+    await flushPendingImport();
+
+    expect(textContent(renderer.root)).toContain("Current newer title");
+    expect(textContent(renderer.root)).toContain("https://example.com/newer");
+    expect(textContent(renderer.root)).not.toContain("SIGNAL LOST");
     expect(buttons(renderer).some((button) => textContent(button).includes("RETRY"))).toBe(
       false,
     );
