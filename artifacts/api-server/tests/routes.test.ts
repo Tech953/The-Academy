@@ -1,7 +1,10 @@
 import express, { type Express } from "express";
 import type OpenAI from "openai";
+import { EventEmitter } from "node:events";
+import { existsSync, writeFileSync } from "node:fs";
 import { request as httpRequest, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { spawn } from "child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerRoutes, RSS_MAX_BODY_BYTES } from "../src/routes/routes";
 import type { IStorage } from "../src/storage";
@@ -9,11 +12,20 @@ import { registerChatRoutes } from "../src/replit_integrations/chat/routes";
 import type { ChatStorage } from "../src/replit_integrations/chat/storage";
 import { registerAudioRoutes } from "../src/replit_integrations/audio/routes";
 import { registerImageRoutes } from "../src/replit_integrations/image/routes";
+import { convertToWav } from "../src/replit_integrations/audio/client";
 import { apiLimiter } from "../src/middleware/security";
 import {
   createContentPackContractFixture,
   isUsableContentPack,
 } from "@workspace/game-engine";
+
+vi.mock("child_process", async importOriginal => {
+  const childProcess = await importOriginal<typeof import("child_process")>();
+  return {
+    ...childProcess,
+    spawn: vi.fn(),
+  };
+});
 
 type TestServer = {
   server: Server;
@@ -1867,5 +1879,52 @@ describe("chat, image, and audio integration routes", () => {
     expect(create).toHaveBeenCalledTimes(1);
     expect(createMessage).toHaveBeenCalledTimes(1);
     expect(createMessage).toHaveBeenCalledWith(7, "user", "User transcript");
+  });
+});
+
+describe("audio conversion temporary files", () => {
+  it("kills ffmpeg and removes both files when conversion is aborted", async () => {
+    const spawnMock = vi.mocked(spawn);
+    spawnMock.mockReset();
+
+    const child = new EventEmitter() as EventEmitter & {
+      stderr: EventEmitter;
+      kill: ReturnType<typeof vi.fn>;
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn(() => true);
+
+    let resolveConversionStarted!: () => void;
+    const conversionStarted = new Promise<void>(resolve => {
+      resolveConversionStarted = resolve;
+    });
+    let inputPath: string | undefined;
+    let outputPath: string | undefined;
+    spawnMock.mockImplementation((_command, args) => {
+      const ffmpegArgs = args as readonly string[];
+      inputPath = ffmpegArgs[1];
+      outputPath = ffmpegArgs.at(-1);
+      if (!inputPath || !outputPath) {
+        throw new Error("ffmpeg paths were not provided");
+      }
+      writeFileSync(outputPath, "partial WAV output");
+      resolveConversionStarted();
+      return child as unknown as ReturnType<typeof spawn>;
+    });
+
+    const controller = new AbortController();
+    const conversion = convertToWav(Buffer.from("input audio"), controller.signal);
+    await conversionStarted;
+
+    const inputExistedBeforeAbort = existsSync(inputPath!);
+    const outputExistedBeforeAbort = existsSync(outputPath!);
+    controller.abort();
+
+    await expect(conversion).rejects.toMatchObject({ name: "AbortError" });
+    expect(inputExistedBeforeAbort).toBe(true);
+    expect(outputExistedBeforeAbort).toBe(true);
+    expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(existsSync(inputPath!)).toBe(false);
+    expect(existsSync(outputPath!)).toBe(false);
   });
 });
