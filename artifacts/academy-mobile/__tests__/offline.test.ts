@@ -36,6 +36,7 @@ import {
 } from '../lib/gameFallbacks';
 import {
   BULLETIN_EVENT_LIMIT,
+  CONTENT_PACK_STORAGE_KEY,
   CONTENT_PACK_WRITE_RETRY_DELAYS_MS,
   createContentPackWriteQueue,
   createContentPackWriteQueueWithResult,
@@ -1327,9 +1328,24 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       expect(selectWeeklyTheme(null, day)).toBe(
         generateOfflineContentPack(day).weeklyTheme,
       );
+      expect(values.has(CONTENT_PACK_STORAGE_KEY)).toBe(false);
 
-      localStorage.setItem('academy-content-pack-v1', '{not-json');
+      localStorage.setItem(CONTENT_PACK_STORAGE_KEY, '{not-json');
+      const cachedValueReads = vi.spyOn(localStorage, 'getItem');
       await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
+      expect(selectWeeklyTheme(null, day)).toBe(
+        generateOfflineContentPack(day).weeklyTheme,
+      );
+      expect(values.has(CONTENT_PACK_STORAGE_KEY)).toBe(false);
+
+      // A subsequent provider launch sees an empty cache, not the same bad
+      // payload that was just invalidated.
+      await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
+      expect(
+        cachedValueReads.mock.results.filter(
+          ({ value }) => value === '{not-json',
+        ),
+      ).toHaveLength(1);
       expect(fallbackAfterRefreshFailure(null, day).generatedBy).toBe('deterministic');
     } finally {
       delete (globalThis as { window?: unknown }).window;

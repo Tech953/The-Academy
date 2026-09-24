@@ -122,6 +122,67 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     delete (globalThis as { window?: unknown }).window;
   });
 
+  it("keeps the offline theme visible while an invalid cached pack is discarded", async () => {
+    const localStorage = createLocalStorageFixture();
+    const day = 8;
+    const offlineTheme = generateOfflineContentPack(day).weeklyTheme;
+    localStorage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({ hasStarted: true, day }),
+    );
+    localStorage.setItem(CONTENT_PACK_STORAGE_KEY, "{not-json");
+
+    let releaseRefresh!: (
+      pack: ReturnType<typeof generateOfflineContentPack>,
+    ) => void;
+    mocks.fetchContentPack.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          releaseRefresh = resolve;
+        }),
+    );
+
+    let game: Game | undefined;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <GameProvider>
+          <ThemeProbe onUpdate={nextGame => (game = nextGame)} />
+        </GameProvider>,
+      );
+    });
+
+    try {
+      await waitFor(
+        () =>
+          game?.ready === true &&
+          game.contentPackLoading === true &&
+          game.contentPack === null &&
+          game.weeklyTheme === offlineTheme &&
+          localStorage.getItem(CONTENT_PACK_STORAGE_KEY) === null,
+        renderer,
+      );
+
+      expect(game?.weeklyTheme).toBe(offlineTheme);
+      expect(mocks.fetchContentPack).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        releaseRefresh({
+          ...generateOfflineContentPack(day),
+          version: "offline-after-cache-repair",
+        });
+      });
+      await waitFor(
+        () =>
+          game?.contentPackLoading === false &&
+          game.contentPack?.version === "offline-after-cache-repair",
+        renderer,
+      );
+    } finally {
+      renderer.unmount();
+    }
+  });
+
   it("shows a cached synced theme while refresh is pending, then uses the refreshed theme", async () => {
     const localStorage = createLocalStorageFixture();
     const day = 8;

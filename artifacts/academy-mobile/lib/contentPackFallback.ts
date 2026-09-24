@@ -22,6 +22,7 @@ export { CONTENT_PACK_STORAGE_KEY };
 export interface ContentPackStorage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
+  removeItem?(key: string): Promise<void>;
 }
 
 export type ContentPackWriteQueue = (
@@ -137,14 +138,22 @@ export async function readCachedContentPack(
   storage: ContentPackStorage,
   now = Date.now(),
 ): Promise<ContentPack | null> {
+  let raw: string | null;
   try {
-    return parseCachedContentPack(
-      await storage.getItem(CONTENT_PACK_STORAGE_KEY),
-      now,
-    );
+    raw = await storage.getItem(CONTENT_PACK_STORAGE_KEY);
   } catch {
     return null;
   }
+
+  const pack = parseCachedContentPack(raw, now);
+  if (raw !== null && pack === null && storage.removeItem) {
+    try {
+      await storage.removeItem(CONTENT_PACK_STORAGE_KEY);
+    } catch {
+      // Invalid data must not block the deterministic theme or content fallback.
+    }
+  }
+  return pack;
 }
 
 export async function writeCachedContentPack(
