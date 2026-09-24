@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import type OpenAI from "openai";
 import { EventEmitter } from "node:events";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { request as httpRequest, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { spawn } from "child_process";
@@ -1259,6 +1259,25 @@ describe("RSS and URL metadata routes", () => {
 });
 
 describe("chat, image, and audio integration routes", () => {
+  it("keeps the voice failure marker consistent across server and ChatLink", () => {
+    const markerSources = [
+      ["audio route", new URL("../src/replit_integrations/audio/routes.ts", import.meta.url)],
+      ["text-chat route", new URL("../src/replit_integrations/chat/routes.ts", import.meta.url)],
+      ["ChatLink", new URL("../../academy/src/components/desktop/apps/MessagesApp.tsx", import.meta.url)],
+    ] as const;
+    const markerValues = markerSources.map(([label, file]) => {
+      const source = readFileSync(file, "utf8");
+      const match = source.match(/const VOICE_FAILURE_MARKER\s*=\s*(["'])(.*?)\1\s*;/);
+      expect(match, `${label} should declare the voice failure marker`).not.toBeNull();
+      const value = match?.[2] ?? "";
+      expect(value, `${label} marker should not be empty`).toBeTruthy();
+      return value;
+    });
+
+    expect(markerValues[1]).toBe(markerValues[0]);
+    expect(markerValues[2]).toBe(markerValues[0]);
+  });
+
   it("returns 404 for a missing conversation without reading its messages", async () => {
     const getConversation = vi.fn(async () => undefined);
     const getMessagesByConversation = vi.fn();
