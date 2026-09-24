@@ -1470,7 +1470,7 @@ describe("chat, image, and audio integration routes", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("completes a normal voice stream without aborting the provider on response close", async () => {
+  it("forwards every voice reply chunk before completing without aborting the provider", async () => {
     const createMessage = vi.fn(async (conversationId: number, role: string, content: string) => ({
       id: role === "user" ? 1 : 2,
       conversationId,
@@ -1484,22 +1484,29 @@ describe("chat, image, and audio integration routes", () => {
     }));
     const speechToText = vi.fn(async () => "User transcript");
     let providerSignal: AbortSignal | undefined;
+    const providerSignalActiveDuringStream: boolean[] = [];
     const create = vi.fn(async (
       _params: Record<string, unknown>,
       options: { signal?: AbortSignal },
     ) => {
       providerSignal = options.signal;
       return (async function* () {
-        yield {
-          choices: [{
-            delta: {
-              audio: {
-                transcript: "Normal reply",
-                data: "encoded-audio",
+        for (const audio of [
+          { transcript: "Normal " },
+          { data: "encoded-audio-1" },
+          { transcript: "reply" },
+          { data: "encoded-audio-2" },
+        ]) {
+          providerSignalActiveDuringStream.push(providerSignal?.aborted === false);
+          yield {
+            choices: [{
+              delta: {
+                audio,
               },
-            },
-          }],
-        };
+            }],
+          };
+        }
+        providerSignalActiveDuringStream.push(providerSignal?.aborted === false);
       })();
     });
     const testServer = await startApp(app => {
@@ -1529,12 +1536,15 @@ describe("chat, image, and audio integration routes", () => {
     expect(result.response.status).toBe(200);
     expect(events).toEqual([
       { type: "user_transcript", data: "User transcript" },
-      { type: "transcript", data: "Normal reply" },
-      { type: "audio", data: "encoded-audio" },
+      { type: "transcript", data: "Normal " },
+      { type: "audio", data: "encoded-audio-1" },
+      { type: "transcript", data: "reply" },
+      { type: "audio", data: "encoded-audio-2" },
       { type: "done", transcript: "Normal reply" },
     ]);
     expect(providerSignal).toBeDefined();
     expect(providerSignal?.aborted).toBe(false);
+    expect(providerSignalActiveDuringStream).toEqual([true, true, true, true, true]);
     expect(createMessage).toHaveBeenNthCalledWith(1, 7, "user", "User transcript");
     expect(createMessage).toHaveBeenNthCalledWith(2, 7, "assistant", "Normal reply");
   });
