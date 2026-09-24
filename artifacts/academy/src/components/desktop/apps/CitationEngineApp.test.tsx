@@ -53,6 +53,14 @@ function renderUrlImport() {
   return renderer;
 }
 
+function renderCitationGenerator() {
+  let renderer!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    renderer = TestRenderer.create(<CitationEngineApp />);
+  });
+  return renderer;
+}
+
 function response(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
     status,
@@ -140,6 +148,32 @@ describe("Citation Engine URL import errors", () => {
       false,
     );
   });
+
+  it.each([
+    [502, "Bad Gateway", "<html><body>upstream error</body></html>", "Bad Gateway"],
+    [500, "", "", "Failed to fetch URL"],
+  ])(
+    "shows a readable %s error when the response body is not JSON",
+    async (status, statusText, body, expectedMessage) => {
+      const fetcher = vi.fn(async (_input: string) =>
+        new Response(body, { status, statusText }),
+      );
+      vi.stubGlobal("fetch", fetcher);
+      const renderer = renderUrlImport();
+
+      await act(async () => {
+        findButton(renderer, "FETCH & CITE").props.onClick();
+        await Promise.resolve();
+      });
+
+      expect(textContent(renderer.root)).toContain(
+        `SIGNAL LOST: ${expectedMessage}`,
+      );
+      expect(buttons(renderer).some((button) => textContent(button).includes("RETRY"))).toBe(
+        false,
+      );
+    },
+  );
 
   it("does not let an older success replace a newer failure", async () => {
     const olderRequest = deferred<Response>();
@@ -261,5 +295,39 @@ describe("Citation Engine URL import errors", () => {
     expect(reopenedRenderer.root.find((instance) => String(instance.type) === "input").props.value)
       .toBe("");
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Citation Engine APA citations", () => {
+  it("keeps non-empty author entries when the first author field is blank", () => {
+    const renderer = renderCitationGenerator();
+    act(() => {
+      findButton(renderer, "+ ADD AUTHOR").props.onClick();
+    });
+
+    const authorInputs = renderer.root.findAll(
+      instance =>
+        String(instance.type) === "input" &&
+        instance.props.placeholder === "Doe, Jane",
+    );
+    expect(authorInputs).toHaveLength(2);
+
+    act(() => {
+      authorInputs[1].props.onChange({ target: { value: "Smith, John" } });
+      renderer.root.find(
+        instance =>
+          String(instance.type) === "input" &&
+          instance.props.placeholder === "2024",
+      ).props.onChange({ target: { value: "2024" } });
+      renderer.root.find(
+        instance =>
+          String(instance.type) === "input" &&
+          instance.props.placeholder === "Article or book title",
+      ).props.onChange({ target: { value: "Citation completeness in education" } });
+    });
+
+    const output = textContent(renderer.root);
+    expect(output).toContain("Smith, John");
+    expect(output).toContain("Citation completeness in education");
   });
 });

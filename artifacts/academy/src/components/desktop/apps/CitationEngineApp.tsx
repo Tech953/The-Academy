@@ -42,13 +42,14 @@ type Style = 'APA' | 'MLA' | 'CMS' | 'ACS';
 // Renderers — each returns a formatted reference string
 // ─────────────────────────────────────────────────────────────────
 function formatAuthorsAPA(authors: string[]): string {
-  if (!authors.length || !authors[0]) return '';
-  if (authors.length === 1) return authors[0];
-  if (authors.length <= 20) {
-    const last = authors[authors.length - 1];
-    return authors.slice(0, -1).join(', ') + ', & ' + last;
+  const populatedAuthors = authors.map(author => author.trim()).filter(Boolean);
+  if (!populatedAuthors.length) return '';
+  if (populatedAuthors.length === 1) return populatedAuthors[0];
+  if (populatedAuthors.length <= 20) {
+    const last = populatedAuthors[populatedAuthors.length - 1];
+    return populatedAuthors.slice(0, -1).join(', ') + ', & ' + last;
   }
-  return authors.slice(0, 19).join(', ') + ', . . . ' + authors[authors.length - 1];
+  return populatedAuthors.slice(0, 19).join(', ') + ', . . . ' + populatedAuthors[populatedAuthors.length - 1];
 }
 
 function formatAuthorsMLA(authors: string[]): string {
@@ -1456,11 +1457,15 @@ function UrlImportTab() {
         { signal: controller.signal },
       );
       if (!res.ok) {
-        const d: { error?: string; retryable?: boolean } = await res.json().catch(() => ({}));
-        const requestError = new Error(d.error ?? res.statusText) as Error & {
+        const d: { error?: string; retryable?: boolean } | null = await res.json().catch(() => null);
+        const message =
+          (typeof d?.error === 'string' && d.error.trim()) ||
+          res.statusText.trim() ||
+          'Failed to fetch URL';
+        const requestError = new Error(message) as Error & {
           retryable?: boolean;
         };
-        requestError.retryable = d.retryable === true;
+        requestError.retryable = d?.retryable === true;
         throw requestError;
       }
       const data: UrlMeta = await res.json();
@@ -1469,7 +1474,7 @@ function UrlImportTab() {
     } catch (e: unknown) {
       if (requestId !== latestRequestId.current) return;
       const requestError = e as Error & { retryable?: boolean };
-      setError(requestError.message ?? 'Failed to fetch URL');
+      setError(requestError.message?.trim() || 'Failed to fetch URL');
       setRetryableError(requestError.retryable === true);
       setRetryUrl(requestError.retryable === true ? normalizedUrl : null);
     } finally {
