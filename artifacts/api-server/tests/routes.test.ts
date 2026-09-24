@@ -923,6 +923,122 @@ describe("RSS and URL metadata routes", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(3);
   });
 
+  it("does not follow a scheduled RSS redirect to HTTP", async () => {
+    const fixture = createContentPackContractFixture(Date.now());
+    const insecureTarget = "http://www.nasa.gov/insecure-feed.xml";
+    const upstreamFetch = vi.fn(async (url: string) => {
+      if (url === "https://www.nasa.gov/rss/dyn/breaking_news.rss") {
+        return new Response(null, {
+          status: 302,
+          headers: { location: insecureTarget },
+        });
+      }
+      return new Response("", { status: 503 });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const create = vi.fn(async () => ({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            themeContext: fixture.themeContext,
+            activeEvents: fixture.activeEvents,
+            npcMoodShifts: fixture.npcMoodShifts,
+            gedFocusAreas: fixture.gedFocusAreas,
+          }),
+        },
+      }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+
+    const result = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(upstreamFetch.mock.calls.map(([url]) => url)).toEqual([
+      "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+      "https://www.sciencedaily.com/rss/all.xml",
+      "https://phys.org/rss-feed/",
+    ]);
+    expect(upstreamFetch.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
+    expect(upstreamFetch.mock.calls.some(([url]) => url === insecureTarget)).toBe(false);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0]?.[0].messages[0].content).not.toContain(
+      "Real-world inspiration headlines",
+    );
+  });
+
+  it("uses headlines from a trusted HTTPS redirect in scheduled imports", async () => {
+    const fixture = createContentPackContractFixture(Date.now());
+    const firstFeedUrl = "https://www.nasa.gov/rss/dyn/breaking_news.rss";
+    const trustedTarget = "https://nasa.gov/rss/dyn/breaking_news.rss";
+    const headline = "Verified headline from trusted redirected feed";
+    const upstreamFetch = vi.fn(async (url: string) => {
+      if (url === firstFeedUrl) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: trustedTarget },
+        });
+      }
+      if (url === trustedTarget) {
+        return new Response(
+          `<rss><channel><item><title>${headline}</title></item></channel></rss>`,
+          { status: 200, headers: { "content-type": "application/rss+xml" } },
+        );
+      }
+      return new Response("", { status: 503 });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const create = vi.fn(async () => ({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            themeContext: fixture.themeContext,
+            activeEvents: fixture.activeEvents,
+            npcMoodShifts: fixture.npcMoodShifts,
+            gedFocusAreas: fixture.gedFocusAreas,
+          }),
+        },
+      }],
+    }));
+    const testServer = await startApp(app =>
+      registerRoutes(app, {
+        storage: makeStorage(),
+        openai: makeChatOpenAI(create),
+        skipContentRefresh: true,
+      }),
+    );
+
+    const result = await request(testServer, "/api/content-pack/refresh", {
+      method: "POST",
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(upstreamFetch.mock.calls.map(([url]) => url)).toEqual([
+      firstFeedUrl,
+      trustedTarget,
+      "https://www.sciencedaily.com/rss/all.xml",
+      "https://phys.org/rss-feed/",
+    ]);
+    expect(upstreamFetch.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0]?.[0].messages[0].content).toContain(headline);
+
+    const pack = await request(testServer, "/api/content-pack");
+    expect(pack.response.status).toBe(200);
+    expect(pack.body.rssHeadlines).toContain(headline);
+  });
+
   it("allows trusted subdomains but rejects lookalike hosts before fetching", async () => {
     const upstreamFetch = vi.fn(async () => new Response("temporarily unavailable", { status: 503 }));
     vi.stubGlobal("fetch", upstreamFetch);
