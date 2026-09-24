@@ -213,4 +213,53 @@ describe("Citation Engine URL import errors", () => {
       false,
     );
   });
+
+  it("aborts an in-flight request after closing and reopening Citation Engine", async () => {
+    const pendingRequest = deferred<Response>();
+    let requestSignal: AbortSignal | undefined;
+    const fetcher = vi.fn((_input: string, init?: RequestInit) => {
+      requestSignal = init?.signal as AbortSignal | undefined;
+      requestSignal?.addEventListener("abort", () => {
+        pendingRequest.reject(
+          Object.assign(new Error("The operation was aborted"), {
+            name: "AbortError",
+          }),
+        );
+      }, { once: true });
+      return pendingRequest.promise;
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const renderer = renderUrlImport();
+
+    await act(async () => {
+      findButton(renderer, "FETCH & CITE").props.onClick();
+      await Promise.resolve();
+    });
+    expect(textContent(renderer.root)).toContain("FETCHING...");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      renderer.unmount();
+    });
+    expect(requestSignal?.aborted).toBe(true);
+    await flushPendingImport();
+
+    let reopenedRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      reopenedRenderer = TestRenderer.create(<CitationEngineApp />);
+    });
+
+    act(() => {
+      findButton(reopenedRenderer, "URL IMPORT").props.onClick();
+    });
+
+    const reopenedText = textContent(reopenedRenderer.root);
+    expect(reopenedText).not.toContain("FETCHING...");
+    expect(reopenedText).not.toContain("SIGNAL LOST");
+    expect(reopenedText).not.toContain("RETRY");
+    expect(reopenedText).not.toContain("EXTRACTED METADATA");
+    expect(reopenedRenderer.root.find((instance) => String(instance.type) === "input").props.value)
+      .toBe("");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1519,7 +1519,16 @@ async function registerUrlMetaRoute(app: Express) {
     }
     const controller = new AbortController();
     let timedOut = false;
-    const timeout = setTimeout(() => {
+    let clientDisconnected = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const abortOnDisconnect = () => {
+      if (res.writableEnded) return;
+      clientDisconnected = true;
+      controller.abort();
+      if (timeout) clearTimeout(timeout);
+    };
+    res.on('close', abortOnDisconnect);
+    timeout = setTimeout(() => {
       timedOut = true;
       controller.abort();
     }, URL_METADATA_TIMEOUT_MS);
@@ -1562,6 +1571,7 @@ async function registerUrlMetaRoute(app: Express) {
       };
       res.json(result);
     } catch (e: unknown) {
+      if (clientDisconnected) return;
       if (timedOut || isUrlMetadataTimeout(e)) {
         // 504 tells the citation UI this failure is temporary and safe to retry.
         res.status(504).json({
@@ -1573,7 +1583,8 @@ async function registerUrlMetaRoute(app: Express) {
       const msg = e instanceof Error ? e.message : 'Fetch failed';
       res.status(500).json({ error: `Could not retrieve URL: ${msg}` });
     } finally {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
+      res.off('close', abortOnDisconnect);
     }
   });
 }

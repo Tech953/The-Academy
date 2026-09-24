@@ -777,6 +777,48 @@ describe("RSS and URL metadata routes", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("aborts upstream metadata fetching when the client disconnects", async () => {
+    let requestSignal: AbortSignal | undefined;
+    let resolveUpstreamStarted!: () => void;
+    const upstreamStarted = new Promise<void>(resolve => {
+      resolveUpstreamStarted = resolve;
+    });
+    const upstreamFetch = vi.fn((_input: string, init?: RequestInit) => {
+      requestSignal = init?.signal as AbortSignal | undefined;
+      resolveUpstreamStarted();
+      return new Promise<Response>((_resolve, reject) => {
+        requestSignal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("The operation was aborted"), {
+            name: "AbortError",
+          }));
+        }, { once: true });
+      });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+    const testServer = await startApp(app =>
+      registerRoutes(app, { storage: makeStorage(), skipContentRefresh: true }),
+    );
+    const clientRequest = httpRequest(
+      `${testServer.baseUrl}/api/fetch-url-meta?url=https%3A%2F%2Fexample.com%2Farticle`,
+    );
+    clientRequest.on("error", () => {});
+    clientRequest.end();
+
+    await upstreamStarted;
+    expect(requestSignal?.aborted).toBe(false);
+    clientRequest.destroy();
+    await new Promise<void>(resolve => {
+      if (requestSignal?.aborted) {
+        resolve();
+      } else {
+        requestSignal?.addEventListener("abort", () => resolve(), { once: true });
+      }
+    });
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("returns the upstream status when URL metadata responds with an error", async () => {
     const upstreamFetch = vi.fn(async () => new Response("temporarily unavailable", { status: 503 }));
     vi.stubGlobal("fetch", upstreamFetch);

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Copy, CheckCircle, BookOpen, FlaskConical, FileText, RefreshCw, ChevronDown, ChevronUp, Link, Loader } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────
@@ -1430,19 +1430,31 @@ function UrlImportTab() {
   const [retryUrl, setRetryUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<UrlMeta | null>(null);
   const latestRequestId = useRef(0);
+  const activeRequests = useRef(new Set<AbortController>());
   const { copied, copy } = useClipboard();
+
+  useEffect(() => () => {
+    latestRequestId.current += 1;
+    activeRequests.current.forEach(controller => controller.abort());
+    activeRequests.current.clear();
+  }, []);
 
   const fetchMeta = async (requestedUrl = url) => {
     const normalizedUrl = requestedUrl.trim();
     if (!normalizedUrl) return;
     const requestId = ++latestRequestId.current;
+    const controller = new AbortController();
+    activeRequests.current.add(controller);
     setLoading(true);
     setError(null);
     setRetryableError(false);
     setRetryUrl(null);
     setMeta(null);
     try {
-      const res = await fetch(`/api/fetch-url-meta?url=${encodeURIComponent(normalizedUrl)}`);
+      const res = await fetch(
+        `/api/fetch-url-meta?url=${encodeURIComponent(normalizedUrl)}`,
+        { signal: controller.signal },
+      );
       if (!res.ok) {
         const d: { error?: string; retryable?: boolean } = await res.json().catch(() => ({}));
         const requestError = new Error(d.error ?? res.statusText) as Error & {
@@ -1461,6 +1473,7 @@ function UrlImportTab() {
       setRetryableError(requestError.retryable === true);
       setRetryUrl(requestError.retryable === true ? normalizedUrl : null);
     } finally {
+      activeRequests.current.delete(controller);
       if (requestId === latestRequestId.current) setLoading(false);
     }
   };
