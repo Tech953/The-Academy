@@ -45,6 +45,7 @@ export default function MessagesApp() {
   const [showDirectory, setShowDirectory] = useState(false);
   const [connectingNPC, setConnectingNPC] = useState<string | null>(null);
   const [voiceRetryState, setVoiceRetryState] = useState<VoiceRetryState | null>(null);
+  const [expandedVoiceRetryMessageId, setExpandedVoiceRetryMessageId] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -84,6 +85,7 @@ export default function MessagesApp() {
 
   const handleConversationClick = (conv: Conversation) => {
     cancelVoiceRetry();
+    setExpandedVoiceRetryMessageId(null);
     setSelectedConversation(conv);
     setShowDirectory(false);
     conv.messages.forEach(m => {
@@ -104,6 +106,10 @@ export default function MessagesApp() {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const toggleVoiceRetryGuidance = (messageId: string) => {
+    setExpandedVoiceRetryMessageId(currentId => currentId === messageId ? null : messageId);
   };
 
   const alreadyConnected = conversations.map(c => c.participantName);
@@ -143,6 +149,7 @@ export default function MessagesApp() {
         isFromPlayer: false,
         conversationId: conversation.participantName,
       });
+      setExpandedVoiceRetryMessageId(null);
       setVoiceRetryState(null);
     } catch (error) {
       setVoiceRetryState({
@@ -339,8 +346,12 @@ export default function MessagesApp() {
           <button
             onClick={() => {
               cancelVoiceRetry();
+              setExpandedVoiceRetryMessageId(null);
               setSelectedConversation(null);
             }}
+            type="button"
+            aria-label="Back to conversations"
+            data-testid="button-back-to-conversations"
             style={{ background: 'transparent', border: 'none', color: NEON_GREEN, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
             <ArrowLeft size={16} />
@@ -380,6 +391,9 @@ export default function MessagesApp() {
             currentConv.messages.map((msg) => (
               (() => {
                 const isVoiceFailure = msg.content === VOICE_FAILURE_MARKER;
+                const retryState = voiceRetryState?.messageId === msg.id ? voiceRetryState : null;
+                const retryGuidanceOpen = expandedVoiceRetryMessageId === msg.id;
+                const retryGuidanceId = `voice-retry-guidance-${msg.id}`;
                 return (
                   <div
                     key={msg.id}
@@ -414,9 +428,12 @@ export default function MessagesApp() {
                               Your voice message was saved. Record it again to retry.
                             </div>
                             <button
-                              onClick={() => void startVoiceRetry(msg.id, currentConv)}
+                              type="button"
+                              onClick={() => toggleVoiceRetryGuidance(msg.id)}
                               disabled={Boolean(voiceRetryState && voiceRetryState.status !== 'error')}
-                              aria-label="Record voice message again"
+                              aria-label={retryGuidanceOpen ? 'Hide voice retry guidance' : 'Show voice retry guidance'}
+                              aria-expanded={retryGuidanceOpen}
+                              aria-controls={retryGuidanceId}
                               data-testid={`button-retry-voice-${msg.id}`}
                               style={{
                                 marginTop: 8, background: `${NEON_RED}18`,
@@ -427,77 +444,111 @@ export default function MessagesApp() {
                                 fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
                               }}
                             >
-                              {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'recording'
-                                ? 'RECORDING'
-                                : 'RETRY'}
+                              RETRY
                             </button>
-                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'starting' && (
-                              <div
-                                role="status"
-                                aria-live="polite"
-                                data-testid={`status-voice-retry-${msg.id}`}
-                                style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
-                              >
-                                Waiting for microphone access. Allow it if your browser asks.
+                            <div
+                              id={retryGuidanceId}
+                              role="region"
+                              aria-label="Voice retry options"
+                              hidden={!retryGuidanceOpen}
+                              data-testid={`voice-retry-guidance-${msg.id}`}
+                              style={{ marginTop: 8, fontSize: 10, lineHeight: 1.4 }}
+                            >
+                              <div style={{ color: NEON_AMBER, marginBottom: 8 }}>
+                                Record a replacement voice message, then select STOP &amp; SEND. Its transcript and reply will appear in this conversation.
                               </div>
-                            )}
-                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'recording' && (
-                              <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => void startVoiceRetry(msg.id, currentConv)}
+                                disabled={Boolean(voiceRetryState && voiceRetryState.status !== 'error')}
+                                aria-label={retryState?.status === 'error' ? 'Try recording the replacement message again' : 'Start recording the replacement message'}
+                                data-testid={`button-start-voice-${msg.id}`}
+                                style={{
+                                  background: `${NEON_GREEN}18`, border: `1px solid ${NEON_GREEN}70`,
+                                  color: NEON_GREEN,
+                                  cursor: voiceRetryState && voiceRetryState.status !== 'error' ? 'not-allowed' : 'pointer',
+                                  opacity: voiceRetryState && voiceRetryState.status !== 'error' ? 0.5 : 1,
+                                  padding: '4px 8px', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+                                }}
+                              >
+                                {retryState?.status === 'starting'
+                                  ? 'STARTING...'
+                                  : retryState?.status === 'recording'
+                                  ? 'RECORDING...'
+                                  : retryState?.status === 'sending'
+                                  ? 'SENDING...'
+                                  : retryState?.status === 'error'
+                                  ? 'TRY RECORDING AGAIN'
+                                  : 'START RECORDING'}
+                              </button>
+                              {retryState?.status === 'starting' && (
                                 <div
                                   role="status"
                                   aria-live="polite"
                                   data-testid={`status-voice-retry-${msg.id}`}
-                                  style={{ flexBasis: '100%', color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
+                                  style={{ marginTop: 8, color: NEON_AMBER }}
                                 >
-                                  Recording. Select STOP &amp; SEND when you finish.
+                                  Waiting for microphone access. Allow it if your browser asks.
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => stopAndSendVoiceRetry(msg.id, currentConv)}
-                                  aria-label="Stop recording and send voice message"
-                                  data-testid={`button-stop-send-voice-${msg.id}`}
-                                  style={{
-                                    background: `${NEON_GREEN}18`, border: `1px solid ${NEON_GREEN}70`,
-                                    color: NEON_GREEN, cursor: 'pointer', padding: '4px 8px',
-                                    fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
-                                  }}
+                              )}
+                              {retryState?.status === 'recording' && (
+                                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  <div
+                                    role="status"
+                                    aria-live="polite"
+                                    data-testid={`status-voice-retry-${msg.id}`}
+                                    style={{ flexBasis: '100%', color: NEON_AMBER }}
+                                  >
+                                    Recording. Select STOP &amp; SEND when you finish.
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => stopAndSendVoiceRetry(msg.id, currentConv)}
+                                    aria-label="Stop recording and send voice message"
+                                    data-testid={`button-stop-send-voice-${msg.id}`}
+                                    style={{
+                                      background: `${NEON_GREEN}18`, border: `1px solid ${NEON_GREEN}70`,
+                                      color: NEON_GREEN, cursor: 'pointer', padding: '4px 8px',
+                                      fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+                                    }}
+                                  >
+                                    STOP &amp; SEND
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelVoiceRetry}
+                                    aria-label="Cancel voice recording"
+                                    data-testid={`button-cancel-voice-${msg.id}`}
+                                    style={{
+                                      background: 'transparent', border: `1px solid ${NEON_AMBER}70`,
+                                      color: NEON_AMBER, cursor: 'pointer', padding: '4px 8px',
+                                      fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
+                                    }}
+                                  >
+                                    CANCEL
+                                  </button>
+                                </div>
+                              )}
+                              {retryState?.status === 'sending' && (
+                                <div
+                                  role="status"
+                                  aria-live="polite"
+                                  data-testid={`status-voice-retry-${msg.id}`}
+                                  style={{ marginTop: 8, color: NEON_AMBER }}
                                 >
-                                  STOP &amp; SEND
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelVoiceRetry}
-                                  aria-label="Cancel voice recording"
-                                  data-testid={`button-cancel-voice-${msg.id}`}
-                                  style={{
-                                    background: 'transparent', border: `1px solid ${NEON_AMBER}70`,
-                                    color: NEON_AMBER, cursor: 'pointer', padding: '4px 8px',
-                                    fontFamily: 'inherit', fontSize: 9, letterSpacing: 1,
-                                  }}
+                                  Sending your voice message and waiting for a reply...
+                                </div>
+                              )}
+                              {retryState?.status === 'error' && (
+                                <div
+                                  role="alert"
+                                  data-testid={`status-voice-retry-${msg.id}`}
+                                  style={{ marginTop: 8, color: NEON_AMBER }}
                                 >
-                                  CANCEL
-                                </button>
-                              </div>
-                            )}
-                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'sending' && (
-                              <div
-                                role="status"
-                                aria-live="polite"
-                                data-testid={`status-voice-retry-${msg.id}`}
-                                style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
-                              >
-                                Sending your voice message and waiting for a reply...
-                              </div>
-                            )}
-                            {voiceRetryState?.messageId === msg.id && voiceRetryState.status === 'error' && (
-                              <div
-                                role="alert"
-                                data-testid={`status-voice-retry-${msg.id}`}
-                                style={{ marginTop: 8, color: NEON_AMBER, fontSize: 10, lineHeight: 1.4 }}
-                              >
-                                {voiceRetryState.error}
-                              </div>
-                            )}
+                                  {retryState.error}
+                                </div>
+                              )}
+                            </div>
                           </>
                         ) : msg.content}
                       </div>

@@ -199,8 +199,19 @@ describe("ChatLink voice failure messages", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const renderer = openFailureConversation();
-    await act(async () => {
+    act(() => {
       findButton(renderer, "RETRY").props.onClick();
+    });
+    const retryGuidance = renderer.root.findByProps({
+      "data-testid": "voice-retry-guidance-voice-failure",
+    });
+    expect(retryGuidance.props.hidden).toBe(false);
+    expect(textContent(retryGuidance)).toContain("Record a replacement voice message");
+    expect(getUserMedia).not.toHaveBeenCalled();
+
+    await act(async () => {
+      renderer.root.findByProps({ "data-testid": "button-start-voice-voice-failure" })
+        .props.onClick();
       await new Promise(resolve => setTimeout(resolve, 0));
     });
     expect(textContent(renderer.root)).toContain("Recording. Select STOP & SEND when you finish.");
@@ -237,13 +248,75 @@ describe("ChatLink voice failure messages", () => {
     expect(textContent(renderer.root)).toContain("Here is the answer.");
   });
 
+  it("keeps retry guidance keyboard-accessible after leaving and reopening a conversation", () => {
+    const renderer = openFailureConversation();
+    const firstRetry = renderer.root.findByProps({
+      "data-testid": "button-retry-voice-voice-failure",
+    });
+
+    expect(firstRetry.type).toBe("button");
+    expect(firstRetry.props.type).toBe("button");
+    expect(firstRetry.props["aria-label"]).toBe("Show voice retry guidance");
+    expect(firstRetry.props["aria-expanded"]).toBe(false);
+    expect(firstRetry.props.tabIndex).not.toBe(-1);
+
+    act(() => {
+      firstRetry.props.onClick();
+    });
+    expect(renderer.root.findByProps({
+      "data-testid": "button-retry-voice-voice-failure",
+    }).props["aria-label"]).toBe("Hide voice retry guidance");
+    expect(renderer.root.findByProps({
+      "data-testid": "voice-retry-guidance-voice-failure",
+    }).props.hidden).toBe(false);
+    expect(mocked.gameState.addMessage).not.toHaveBeenCalled();
+    expect(mocked.gameState.sendMessage).not.toHaveBeenCalled();
+    expect(mocked.gameState.messages).toHaveLength(1);
+    expect(mocked.gameState.conversations[0].messages).toHaveLength(1);
+
+    act(() => {
+      renderer.root.findByProps({ "data-testid": "button-back-to-conversations" })
+        .props.onClick();
+    });
+    const conversationRow = renderer.root.findAll(instance =>
+      Boolean(instance.props.onClick) && textContent(instance).includes("NPC"),
+    )[0];
+    expect(conversationRow).toBeDefined();
+    act(() => {
+      conversationRow.props.onClick();
+    });
+
+    const reopenedRetry = renderer.root.findByProps({
+      "data-testid": "button-retry-voice-voice-failure",
+    });
+    expect(textContent(reopenedRetry)).toBe("RETRY");
+    expect(reopenedRetry.props["aria-expanded"]).toBe(false);
+    expect(renderer.root.findByProps({
+      "data-testid": "voice-retry-guidance-voice-failure",
+    }).props.hidden).toBe(true);
+
+    act(() => {
+      reopenedRetry.props.onClick();
+    });
+    expect(renderer.root.findByProps({
+      "data-testid": "voice-retry-guidance-voice-failure",
+    }).props.hidden).toBe(false);
+    expect(textContent(renderer.root)).toContain("Record a replacement voice message");
+    expect(mocked.gameState.addMessage).not.toHaveBeenCalled();
+    expect(mocked.gameState.sendMessage).not.toHaveBeenCalled();
+  });
+
   it("shows an actionable fallback when recording is unsupported", async () => {
     vi.stubGlobal("navigator", {});
     vi.stubGlobal("MediaRecorder", undefined);
     const renderer = openFailureConversation();
 
-    await act(async () => {
+    act(() => {
       findButton(renderer, "RETRY").props.onClick();
+    });
+    await act(async () => {
+      renderer.root.findByProps({ "data-testid": "button-start-voice-voice-failure" })
+        .props.onClick();
       await Promise.resolve();
     });
 
@@ -265,8 +338,12 @@ describe("ChatLink voice failure messages", () => {
     });
     const renderer = openFailureConversation();
 
-    await act(async () => {
+    act(() => {
       findButton(renderer, "RETRY").props.onClick();
+    });
+    await act(async () => {
+      renderer.root.findByProps({ "data-testid": "button-start-voice-voice-failure" })
+        .props.onClick();
       await new Promise(resolve => setTimeout(resolve, 0));
     });
 
