@@ -58,6 +58,7 @@ import {
   getDeviceLocale,
 } from "../constants/locales";
 import { GameProvider, useGame } from "../context/GameContext";
+import { CONTENT_PACK_STORAGE_KEY } from "../lib/contentPackFallback";
 
 type Game = ReturnType<typeof useGame>;
 
@@ -119,6 +120,83 @@ describe("GameProvider NPC dialogue weekly theme", () => {
 
   afterEach(() => {
     delete (globalThis as { window?: unknown }).window;
+  });
+
+  it("shows a cached synced theme while refresh is pending, then uses the refreshed theme", async () => {
+    const localStorage = createLocalStorageFixture();
+    const day = 8;
+    const cachedTheme = "Cached Student Showcase Week";
+    const refreshedTheme = "New Campus Arts Week";
+    const cachedPack = {
+      ...generateOfflineContentPack(day),
+      version: "cached-synced-theme",
+      generatedBy: "gpt" as const,
+      weeklyTheme: cachedTheme,
+      eventsRepaired: false,
+    };
+    const refreshedPack = {
+      ...generateOfflineContentPack(day),
+      version: "refreshed-synced-theme",
+      generatedBy: "gpt" as const,
+      weeklyTheme: refreshedTheme,
+      eventsRepaired: false,
+    };
+
+    localStorage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({ hasStarted: true, day }),
+    );
+    localStorage.setItem(CONTENT_PACK_STORAGE_KEY, JSON.stringify(cachedPack));
+
+    let releaseRefresh!: (
+      pack: ReturnType<typeof generateOfflineContentPack>,
+    ) => void;
+    mocks.fetchContentPack.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          releaseRefresh = resolve;
+        }),
+    );
+
+    let game: Game | undefined;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <GameProvider>
+          <ThemeProbe onUpdate={nextGame => (game = nextGame)} />
+        </GameProvider>,
+      );
+    });
+
+    try {
+      await waitFor(
+        () =>
+          game?.ready === true &&
+          game.contentPackLoading === true &&
+          game.contentPack?.version === cachedPack.version,
+        renderer,
+      );
+
+      expect(game?.contentPack?.weeklyTheme).toBe(cachedTheme);
+      expect(game?.weeklyTheme).toBe(cachedTheme);
+      expect(mocks.fetchContentPack).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        releaseRefresh(refreshedPack);
+      });
+      await waitFor(
+        () =>
+          game?.contentPackLoading === false &&
+          game.contentPack?.version === refreshedPack.version,
+        renderer,
+      );
+
+      expect(game?.contentPack?.weeklyTheme).toBe(refreshedTheme);
+      expect(game?.weeklyTheme).toBe(refreshedTheme);
+      expect(game?.weeklyTheme).not.toBe(generateOfflineContentPack(day).weeklyTheme);
+    } finally {
+      renderer.unmount();
+    }
   });
 
   it("passes a restored synced theme to NPC fallback generation", async () => {
