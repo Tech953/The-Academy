@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { gameState, scrollCalls } = vi.hoisted(() => ({
+const { gameState, scrollCalls, windowDimensions } = vi.hoisted(() => ({
   gameState: {
     weeklyTheme: "",
     dialogueHistory: {} as Record<string, Array<{ role: "player" | "npc"; text: string; timestamp: number }>>,
@@ -12,6 +12,7 @@ const { gameState, scrollCalls } = vi.hoisted(() => ({
     | { type: "scrollTo"; y: number; animated: boolean }
     | { type: "scrollToEnd"; animated: boolean }
   >,
+  windowDimensions: { fontScale: 1 },
 }));
 
 vi.mock("react-native", async () => {
@@ -45,6 +46,12 @@ vi.mock("react-native", async () => {
       select: (options: Record<string, unknown>) =>
         options.web ?? options.default ?? options.ios ?? options.android,
     },
+    useWindowDimensions: () => ({
+      width: 375,
+      height: 812,
+      scale: 1,
+      fontScale: windowDimensions.fontScale,
+    }),
     Pressable: ({
       children,
       disabled,
@@ -105,6 +112,7 @@ vi.mock("react-native", async () => {
   };
 });
 
+
 vi.mock("@expo/vector-icons", async () => {
   const React = await import("react");
   return {
@@ -147,16 +155,30 @@ vi.mock("@/context/GameContext", () => ({
 
 import NpcScreen from "../app/(tabs)/npcs";
 import { selectWeeklyTheme } from "../lib/themeSelection";
+import { NPCS } from "@workspace/game-engine";
 
 const NpcScreenWithInitialNpc = NpcScreen as React.ComponentType<{
   initialNpcId?: string | null;
 }>;
+
+function flattenStyle(style: unknown): Record<string, unknown> {
+  if (Array.isArray(style)) {
+    return style.reduce<Record<string, unknown>>(
+      (result, item) => ({ ...result, ...flattenStyle(item) }),
+      {},
+    );
+  }
+  return style && typeof style === "object"
+    ? (style as Record<string, unknown>)
+    : {};
+}
 
 describe("NPC directory weekly theme cue", () => {
   beforeEach(() => {
     gameState.weeklyTheme = "";
     gameState.dialogueHistory = {};
     scrollCalls.length = 0;
+    windowDimensions.fontScale = 1;
   });
 
   it("renders the deterministic offline weekly theme before opening a conversation", () => {
@@ -440,5 +462,76 @@ describe("NPC directory weekly theme cue", () => {
         ),
       );
     expect(themeCue).toBeDefined();
+    expect(flattenStyle(themeCue!.props.style)).toMatchObject({
+      flexDirection: "row",
+      maxWidth: "100%",
+    });
+  });
+
+  it("separates and wraps the synced theme at large system text sizes", () => {
+    const longTheme = "Community Science Showcase and Evening Study Sessions";
+    const npc = NPCS.receptionist_emily;
+    gameState.weeklyTheme = longTheme;
+    windowDimensions.fontScale = 2;
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    const themeCue = renderer.root.findAllByType("div").find((instance) => {
+      const style = flattenStyle(instance.props.style);
+      return style.borderLeftWidth === 2 && style.flexDirection === "column";
+    });
+    expect(themeCue).toBeDefined();
+    expect(flattenStyle(themeCue!.props.style)).toMatchObject({
+      alignItems: "stretch",
+      maxWidth: "100%",
+    });
+
+    const cueText = themeCue!.findAllByType("span");
+    expect(cueText.map((instance) => instance.children.join(""))).toEqual([
+      "WEEKLY THEME",
+      longTheme,
+    ]);
+    expect(flattenStyle(cueText[0].props.style)).toMatchObject({
+      color: "#00ff99",
+      flexShrink: 1,
+      minWidth: 0,
+    });
+    expect(flattenStyle(cueText[1].props.style)).toMatchObject({
+      color: "#ffffff",
+      flex: 0,
+      flexShrink: 1,
+      minWidth: 0,
+    });
+
+    const renderedText = renderer.root
+      .findAllByType("span")
+      .map((instance) => instance.children.join(""))
+      .join(" ");
+    expect(renderedText).toContain(npc.name.toUpperCase());
+    expect(renderedText).toContain(npc.title);
+    expect(flattenStyle(
+      renderer.root
+        .findAllByType("span")
+        .find((instance) => instance.children.some(
+          (child) => typeof child === "string" && child.startsWith(npc.title),
+        ))!.props.style,
+    )).toMatchObject({ flexShrink: 1 });
+    expect(renderer.root.findAllByType("button")).toHaveLength(2);
+
+    const largeTextHeader = renderer.root.findAllByType("div").find((instance) => {
+      const style = flattenStyle(instance.props.style);
+      return style.borderBottomWidth === 1 && style.flexDirection === "column";
+    });
+    expect(largeTextHeader).toBeDefined();
+    expect(flattenStyle(largeTextHeader!.props.style)).toMatchObject({
+      alignItems: "stretch",
+    });
   });
 });

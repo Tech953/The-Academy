@@ -50,8 +50,10 @@ export function StatusBadge({
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     borderWidth: 1,
+    maxWidth: "100%",
     paddingHorizontal: 8,
     paddingVertical: 4,
     gap: 6,
@@ -67,6 +69,8 @@ const styles = StyleSheet.create({
   label: {
     ...monoFontBold,
     fontSize: 11,
+    flexShrink: 1,
+    minWidth: 0,
     letterSpacing: 1,
   },
 });

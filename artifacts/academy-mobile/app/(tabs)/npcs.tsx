@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { StatusBadge } from "@/components/StatusBadge";
@@ -68,6 +69,8 @@ function NpcListItem({
 
 export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: string | null } = {}) {
   const colors = useColors();
+  const { fontScale } = useWindowDimensions();
+  const useLargeTextLayout = fontScale >= 1.3;
   const {
     isOnline,
     enrichmentStatus,
@@ -170,8 +173,20 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
   if (!activeNpc) {
     return (
       <View style={[styles.flex, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { borderColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
+        <View
+          style={[
+            styles.header,
+            useLargeTextLayout && styles.headerLargeText,
+            { borderColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.headerTitle,
+              useLargeTextLayout && styles.headerTitleLargeText,
+              { color: colors.primary, textShadowColor: colors.primary },
+            ]}
+          >
             CAMPUS DIRECTORY
           </Text>
           <StatusBadge
@@ -204,7 +219,13 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <View style={[styles.header, { borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.header,
+          useLargeTextLayout && styles.headerLargeText,
+          { borderColor: colors.border },
+        ]}
+      >
         <Pressable
           onPress={() => {
             dismissThemeNotice(undefined, false);
@@ -213,7 +234,13 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
           style={styles.backRow}
         >
           <Feather name="chevron-left" size={18} color={colors.primary} />
-          <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
+          <Text
+            style={[
+              styles.headerTitle,
+              useLargeTextLayout && styles.headerTitleLargeText,
+              { color: colors.primary, textShadowColor: colors.primary },
+            ]}
+          >
             {activeNpc.name.toUpperCase()}
           </Text>
         </Pressable>
@@ -226,9 +253,31 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
         {activeNpc.title} · {activeRelationship?.tier ?? "stranger"}
       </Text>
-      <View style={[styles.chatThemeCue, { borderColor: colors.accent }]}>
-        <Text style={[styles.chatThemeLabel, { color: colors.accent }]}>WEEKLY THEME</Text>
-        <Text style={[styles.chatThemeValue, { color: colors.foreground }]}>{weeklyTheme}</Text>
+      <View
+        style={[
+          styles.chatThemeCue,
+          useLargeTextLayout && styles.chatThemeCueLargeText,
+          { borderColor: colors.accent },
+        ]}
+      >
+        <Text
+          style={[
+            styles.chatThemeLabel,
+            useLargeTextLayout && styles.chatThemeLabelLargeText,
+            { color: colors.accent },
+          ]}
+        >
+          WEEKLY THEME
+        </Text>
+        <Text
+          style={[
+            styles.chatThemeValue,
+            useLargeTextLayout && styles.chatThemeValueLargeText,
+            { color: colors.foreground },
+          ]}
+        >
+          {weeklyTheme}
+        </Text>
       </View>
       {themeUpdateNotice ? (
         <View
@@ -384,13 +433,21 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+  headerLargeText: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+  },
   headerTitle: {
     ...monoFontBold,
     fontSize: 16,
+    flexShrink: 1,
+    minWidth: 0,
     letterSpacing: 1,
     textShadowRadius: 6,
     textShadowOffset: { width: 0, height: 0 },
   },
+  headerTitleLargeText: { maxWidth: "100%" },
   backRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   listContent: { padding: 16, gap: 10 },
   npcRow: {
@@ -416,6 +473,7 @@ const styles = StyleSheet.create({
   npcTitleSub: {
     ...monoFont,
     fontSize: 11,
+    flexShrink: 1,
     paddingHorizontal: 16,
     paddingTop: 8,
     letterSpacing: 0.5,
@@ -444,9 +502,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginHorizontal: 16,
     marginTop: 6,
+    maxWidth: "100%",
     paddingLeft: 8,
     paddingVertical: 5,
     borderLeftWidth: 2,
+  },
+  chatThemeCueLargeText: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 4,
+    paddingVertical: 7,
   },
   chatThemeLabel: {
     ...monoFontBold,
@@ -454,6 +519,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
     flexShrink: 0,
   },
+  chatThemeLabelLargeText: { flexShrink: 1, minWidth: 0 },
   chatThemeValue: {
     ...monoFont,
     flex: 1,
@@ -462,6 +528,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 14,
   },
+  chatThemeValueLargeText: { flex: 0, alignSelf: "stretch" },
   themeUpdateNotice: {
     flexDirection: "row",
     alignItems: "center",
