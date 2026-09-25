@@ -1,0 +1,121 @@
+.trailer-player {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 360px;
+  overflow: hidden;
+  background: #000;
+}
+
+.video-controls-sensor {
+  position: absolute;
+  z-index: 50;
+  inset: auto 0 0;
+  height: 25%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.video-controls-filler {
+  flex: 1;
+  width: 100%;
+}
+
+.video-control-bar {
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  color: rgba(239,255,242,.78);
+  border-top: 1px solid rgba(68,255,118,.22);
+  background: rgba(0,5,2,.88);
+  backdrop-filter: blur(8px);
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 200ms ease-out, opacity 200ms ease-out;
+}
+
+.video-control-bar.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.video-control-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: rgba(239,255,242,.68);
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.video-control-button:hover,
+.video-control-button.is-selected {
+  color: var(--color-primary);
+  background: rgba(68,255,118,.11);
+}
+
+.video-control-button svg {
+  width: 25px;
+  height: 25px;
+  stroke-width: 1.7;
+}
+
+.video-collapse-button svg {
+  width: 29px;
+  height: 29px;
+}
+
+.video-control-divider {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(68,255,118,.2);
+  margin: 4px 1px;
+}
+
+.video-segments {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.video-segment {
+  position: relative;
+  flex: 1;
+  min-width: 2px;
+  height: 9px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 99px;
+  background: rgba(239,255,242,.19);
+  cursor: pointer;
+  transition: height 120ms ease, background 120ms ease;
+}
+
+.video-segment:hover { height: 12px; background: rgba(239,255,242,.3); }
+.video-segment > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--color-primary); }
+.video-scene-count, .video-time { flex: 0 0 auto; font: 500 14px/1 var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.video-scene-count { color: rgba(239,255,242,.6); }
+.video-time { min-width: 10ch; color: rgba(239,255,242,.86); text-align: right; }
+
+@media (max-width: 720px) {
+  .video-control-bar { min-height: 56px; gap: 5px; padding: 6px 8px; }
+  .video-control-button { flex-basis: 34px; width: 34px; height: 38px; }
+  .video-control-button svg { width: 20px; height: 20px; }
+  .video-collapse-button svg { width: 23px; height: 23px; }
+  .video-scene-count, .video-time { font-size: 10px; }
+  .video-time { min-width: 8ch; }
+  .video-segments { gap: 2px; }
+}

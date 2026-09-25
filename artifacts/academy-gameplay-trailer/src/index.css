@@ -51,6 +51,26 @@ body {
   margin: 0;
 }
 
+.academy-global-cursor {
+  position: absolute;
+  z-index: 30;
+  left: 5.4%;
+  bottom: 4.1%;
+  width: .8vmin;
+  height: 1.55vmin;
+  background: var(--color-primary);
+  box-shadow: 0 0 1.6vmin rgba(68, 255, 118, .8);
+  pointer-events: none;
+}
+
+.academy-frame-line {
+  position: absolute;
+  z-index: 20;
+  inset: 3.2%;
+  border: 1px solid rgba(68, 255, 118, .12);
+  pointer-events: none;
+}
+
 .video-media-frame {
   box-sizing: border-box;
   height: 100%;

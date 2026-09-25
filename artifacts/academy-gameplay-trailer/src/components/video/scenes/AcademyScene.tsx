@@ -16,7 +16,7 @@ function SceneArtwork({
   scene: AcademySceneData;
   beat: number;
 }) {
-  const active = beat % Math.max(1, scene.records.length);
+  const active = Math.min(beat, Math.max(0, scene.records.length - 1));
 
   if (mode === 'boot') {
     return (
@@ -138,7 +138,7 @@ function SceneArtwork({
   if (mode === 'confluence') {
     return (
       <div className="confluence-stage">
-        <div className="argument-column claim"><span>01 // RECORD</span><b>A CLAIM.</b><i>THE ARCHIVE<br />SAYS YES.</i></div>
+        <div className="argument-column claim"><span>01 // RECORD</span><b>A CLAIM.</b><i>STATEMENT<br />ON FILE.</i></div>
         <div className="contradiction-map" aria-hidden="true">
           <svg viewBox="0 0 600 440">
             <motion.path d="M40 70 C180 70 190 220 300 220 S430 365 560 365" fill="none" stroke="var(--color-primary)" strokeWidth="3" strokeDasharray="10 10" animate={{ strokeDashoffset: [0, -40] }} transition={{ duration: 6, repeat: Infinity, ease: 'linear' }} />
@@ -146,7 +146,7 @@ function SceneArtwork({
             {[['40','70'],['40','365'],['300','220'],['560','70'],['560','365']].map(([cx, cy], index) => <motion.circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={index === 2 ? 12 : 8} fill={index === 2 ? 'var(--color-warning)' : 'var(--color-primary)'} animate={{ scale: index === active % 5 ? [1, 1.5, 1] : 1 }} transition={{ duration: 0.8 }} />)}
           </svg>
         </div>
-        <div className="argument-column counterpoint"><span>02 // EVIDENCE</span><b>A COUNTERPOINT.</b><i>THE RECORD<br />SAYS NO.</i></div>
+        <div className="argument-column counterpoint"><span>02 // EVIDENCE</span><b>A COUNTERPOINT.</b><i>CONFLICTING<br />ACCOUNT.</i></div>
         <motion.div className="confluence-seal" animate={{ rotate: [0, 90, 180, 270, 360] }} transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}>CONFLUENCE</motion.div>
       </div>
     );
@@ -157,7 +157,7 @@ function SceneArtwork({
       <div className="course-catalog">
         <div className="catalog-spine"><span>GED</span><b>COURSE<br />CATALOG</b><i>ACADEMIC HALL</i></div>
         <div className="course-grid">{scene.records.map((record, index) => <motion.div className={`course-card course-${index}`} key={record} animate={{ y: active === index ? -12 : 0, scale: active === index ? 1.03 : 1, borderColor: active === index ? 'var(--color-primary)' : 'rgba(68,255,118,.28)' }} transition={{ duration: 0.35 }}><span>0{index + 1}</span><b>{record}</b><i>{active === index ? 'SELECTED' : 'COURSE AREA'}</i></motion.div>)}</div>
-        <motion.div className="enrollment-slip" animate={{ rotate: active >= 4 ? -2 : 1, x: active >= 4 ? 0 : 18 }} transition={{ duration: 0.4 }}><span>&gt; ENROLL</span><b>✓ ADDED TO YOUR STUDENT FILE</b></motion.div>
+        <motion.div className="enrollment-slip" animate={{ rotate: beat >= 4 ? -2 : 1, x: beat >= 4 ? 0 : 18 }} transition={{ duration: 0.4 }}><span>&gt; ENROLL</span><b>✓ ADDED TO YOUR STUDENT FILE</b></motion.div>
       </div>
     );
   }
@@ -166,7 +166,7 @@ function SceneArtwork({
     return (
       <div className="practice-stage">
         <div className="practice-equation"><span>x</span><b>+</b><span>7</span><b>=</b><span>12</span><i>WHICH OPERATION ISOLATES X?</i></div>
-        <div className="answer-stack">{scene.records.slice(1).map((answer, index) => <motion.div key={answer} className={`answer-tile answer-${index} ${active === index + 5 ? 'is-selected' : ''}`} animate={{ x: active === index + 5 ? 20 : 0, scale: active === index + 5 ? 1.03 : 1 }} transition={{ duration: 0.3 }}><span>0{index + 1}</span><b>{answer}</b>{active === index + 5 && <i>✓</i>}</motion.div>)}</div>
+        <div className="answer-stack">{scene.records.slice(1).map((answer, index) => <motion.div key={answer} className={`answer-tile answer-${index} ${active === index + 1 ? 'is-selected' : ''}`} animate={{ x: active === index + 1 ? 20 : 0, scale: active === index + 1 ? 1.03 : 1 }} transition={{ duration: 0.3 }}><span>0{index + 1}</span><b>{answer}</b>{active === index + 1 && <i>✓</i>}</motion.div>)}</div>
         <motion.div className="reasoning-ring" animate={{ rotate: 360 }} transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}><span>CHECK<br />YOUR<br />REASONING</span></motion.div>
       </div>
     );
@@ -175,9 +175,9 @@ function SceneArtwork({
   if (mode === 'progress') {
     return (
       <div className="progress-panoramic">
-        <div className="progress-status"><span>STUDENT FILE / GED TRACK</span><b>{active >= 6 ? 'GED READY' : active >= 2 ? 'IN PROGRESS' : 'ENROLLED'}</b></div>
+        <div className="progress-status"><span>STUDENT FILE / GED TRACK</span><b>{beat >= 6 ? 'GED READY' : beat >= 2 ? 'IN PROGRESS' : 'ENROLLED'}</b></div>
         {scene.records.map((name, index) => <div className="progress-domain" key={name}><span>{name}</span><div className="progress-track"><motion.i animate={{ width: `${Math.min(96, 16 + ((index * 17 + active * 11) % 78))}%` }} transition={{ duration: 1.2, ease: CURVE }} /></div><b>0{index + 1}</b></div>)}
-        <motion.div className="ged-ready-seal" animate={{ scale: active >= 6 ? [0.92, 1.08, 1] : 0.92, opacity: active >= 6 ? 1 : 0.72 }} transition={{ duration: 0.9 }}>GED<br />READY</motion.div>
+        <motion.div className="ged-ready-seal" animate={{ scale: beat >= 6 ? [0.92, 1.08, 1] : 0.92, opacity: beat >= 6 ? 1 : 0.72 }} transition={{ duration: 0.9 }}>GED<br />READY</motion.div>
       </div>
     );
   }
@@ -196,7 +196,7 @@ function SceneArtwork({
     return (
       <div className="radiant-dialogue-stage">
         <div className="context-orbit">{scene.records.map((record, index) => <motion.div className={`context-chip chip-${index} ${active === index + 1 ? 'is-active' : ''}`} key={record} animate={{ scale: active === index + 1 ? 1.08 : 1, opacity: active === index + 1 ? 1 : 0.68 }} transition={{ duration: 0.3 }}><i>{['⌘', '↻', '◉'][index]}</i>{record}</motion.div>)}</div>
-        <div className="radiant-chat"><div className="radiant-identity"><span>R</span><b>RADIANT AI</b><i>CONTEXTUAL DIALOGUE</i></div><motion.p key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>{active >= 5 ? 'There may be more here than books.' : 'You asked about the library.'}</motion.p><div className="radiant-status"><span className={active >= 6 ? 'local' : ''} /><b>{active >= 6 ? 'LOCAL' : 'LIVE'}</b><i>WHEN AVAILABLE</i></div></div>
+        <div className="radiant-chat"><div className="radiant-identity"><span>R</span><b>RADIANT AI</b><i>CONTEXTUAL DIALOGUE</i></div><motion.p key={beat} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>{beat >= 5 ? 'There may be more here than books.' : 'You asked about the library.'}</motion.p><div className="radiant-status"><span className={beat >= 6 ? 'local' : ''} /><b>{beat >= 6 ? 'LOCAL' : 'LIVE'}</b><i>WHEN AVAILABLE</i></div></div>
       </div>
     );
   }
@@ -287,7 +287,7 @@ export default function AcademyScene({ scene, index }: { scene: AcademySceneData
           {scene.headline}
         </motion.h1>
         <motion.p className="shot-beat" key={`${scene.key}-${beat}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: CURVE }}>
-          {scene.beats[beat % scene.beats.length]}
+          {scene.beats[Math.min(beat, scene.beats.length - 1)]}
         </motion.p>
       </div>
       <div className="shot-corner shot-corner-bottom"><span>EDUCATION // ADVENTURE // PROGRESS</span><b>{String(beat + 1).padStart(2, '0')} / 13</b></div>
