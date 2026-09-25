@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 
-export function SlideFrame({ no, eyebrow, title, subtitle, children, dark = false }: { no: string; eyebrow: string; title: string; subtitle?: string; children: ReactNode; dark?: boolean }) {
+export function SlideFrame({ no, eyebrow, title, subtitle, children, dark = false, coreStep }: { no: string; eyebrow: string; title: string; subtitle?: string; children: ReactNode; dark?: boolean; coreStep?: string }) {
   return (
     <div className={`w-screen h-screen overflow-hidden relative deck-frame ${dark ? "bg-[#050b07]" : ""}`}>
       <div className="absolute left-[5.5vw] right-[5.5vw] top-[4.2vh] z-10">
-        <div className="flex items-center justify-between text-[1.5vw] tracking-[0.18em] text-[#79ff86]"><span>THE ACADEMY / SYSTEM PITCH</span><span className="crt-muted">SLIDE {no} / 30</span></div>
+        <div className="flex items-center justify-between text-[1.5vw] tracking-[0.18em] text-[#79ff86]">
+          <span>THE ACADEMY / SYSTEM PITCH</span>
+          <span className="text-right">
+            {coreStep ? <span className="text-[#ffbd69]">{coreStep} · </span> : null}
+            <span className="crt-muted">SLIDE {no} / 30</span>
+          </span>
+        </div>
         <div className="mt-[1.8vh] pixel-rule" />
       </div>
       <div className="absolute left-[5.5vw] right-[5.5vw] top-[11vh] bottom-[7vh] z-10">

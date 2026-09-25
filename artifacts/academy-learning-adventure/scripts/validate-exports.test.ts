@@ -10,7 +10,7 @@ import {
 
 const representativeExpectations: Array<SlideExpectation> = [
   { position: 1, title: 'The Academy' },
-  { position: 30, title: 'Make the return visit worth making.' },
+  { position: 12, title: 'Build a place worth returning to.' },
 ];
 
 test('explains missing export types and the expected output directory', () => {
@@ -33,7 +33,7 @@ test('validates representative PPTX content, including wrapped closing titles', 
     validateSlideContent(
       [
         'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
-        'SYSTEM STATUS Make the return visit worth making. The Academy is a playable place',
+        'DESIGN GOAL Build a place worth returning to. Bring GED practice into one experience',
       ],
       representativeExpectations,
       'PPTX',
@@ -48,13 +48,13 @@ test('validates representative PDF content and reports the failing slide', () =>
       validateSlideContent(
         [
           'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
-          'SYSTEM STATUS\nMake the return visit possible. The Academy is a playable place',
+          'DESIGN GOAL\nBuild a place worth coming back to. Bring GED practice into one experience',
         ],
         representativeExpectations,
         'PDF',
         '/reviewed/academy.pdf',
       ),
-    /PDF export slide 30 is missing expected title "Make the return visit worth making\."; extracted text excerpt: "SYSTEM STATUS Make the return visit possible\. The Academy is a playable place"/,
+    /PDF export slide 12 is missing expected title "Build a place worth returning to\."; extracted text excerpt: "DESIGN GOAL Build a place worth coming back to\. Bring GED practice into one experience"/,
   );
 });
 
@@ -107,8 +107,8 @@ test('uses the manifest titles for the cover and closing vision', () => {
     position: 1,
     title: 'The Academy',
   });
-  assert.deepEqual(manifest.at(-1), {
-    position: 30,
-    title: 'Make the return visit worth making.',
+  assert.deepEqual(manifest.find((slide) => slide.position === 12), {
+    position: 12,
+    title: 'Build a place worth returning to.',
   });
 });

@@ -2,7 +2,7 @@ import { Panel, PanelLabel, SlideFrame } from "../../components/DeckPrimitives";
 
 export default function Slide04Disconnected() {
   return (
-    <SlideFrame no="04" eyebrow="03 / THE GAP" title="Why studying feels disconnected">
+    <SlideFrame no="14" eyebrow="SUPPORT / DESIGN CONTEXT" title="A design hypothesis: make the next step visible">
       <div className="grid h-full grid-cols-[1fr_0.86fr] gap-[3vw]">
         <Panel className="micro-grid">
           <PanelLabel>FRAGMENTED STUDY PATH</PanelLabel>

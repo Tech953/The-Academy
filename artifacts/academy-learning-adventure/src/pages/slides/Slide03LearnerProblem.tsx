@@ -2,7 +2,7 @@ import { Panel, PanelLabel, SlideFrame } from "../../components/DeckPrimitives";
 
 export default function Slide03LearnerProblem() {
   return (
-    <SlideFrame no="03" eyebrow="02 / THE LEARNER PROBLEM" title="Studying asks for effort before it gives a reason to return">
+    <SlideFrame no="02" eyebrow="CORE 02 / DESIGN HYPOTHESIS" title="Study needs context, feedback, and a next step" coreStep="CORE PATH · 02/12">
       <div className="grid h-full grid-cols-3 gap-[1.6vw]">
         <Panel>
           <PanelLabel color="amber">01 / START</PanelLabel>
@@ -20,7 +20,6 @@ export default function Slide03LearnerProblem() {
           <div className="mt-[2vh] text-[1.9vw] leading-[1.45] text-[#a5cda8]">A learner can finish an item without feeling that a next chapter is waiting.</div>
         </Panel>
       </div>
-      <div className="absolute bottom-[10vh] left-0 text-[1.7vw] tracking-[0.1em] text-[#527659]">THE ACADEMY STARTS WITH THE RETURN VISIT</div>
     </SlideFrame>
   );
 }

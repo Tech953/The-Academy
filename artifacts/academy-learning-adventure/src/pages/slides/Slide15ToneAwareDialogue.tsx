@@ -2,7 +2,7 @@ import { Arrow, Panel, PanelLabel, SlideFrame } from "../../components/DeckPrimi
 
 export default function Slide15ToneAwareDialogue() {
   return (
-    <SlideFrame no="15" eyebrow="14 / DIALOGUE" title="Tone-aware dialogue makes the learner's voice part of the system">
+    <SlideFrame no="20" eyebrow="SUPPORT / DIALOGUE" title="Dialogue can adapt to tone and relationship context">
       <div className="grid h-full grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-[1vw]">
         <Panel><PanelLabel>PLAYER INPUT</PanelLabel><div className="mt-[3vh] text-[2.5vw] leading-[1.2] text-[#d8ffda]">“I’m stuck, but I’m not done.”</div><div className="mt-[2.5vh] text-[1.6vw] text-[#86aa8b]">MESSAGE / RECEIVED</div></Panel>
         <Arrow />
