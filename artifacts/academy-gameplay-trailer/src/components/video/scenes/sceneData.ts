@@ -295,7 +295,7 @@ export const ACADEMY_SCENES: AcademySceneData[] = [
     key: 'finale',
     title: 'The Academy',
     mode: 'finale',
-    eyebrow: 'BUILDATHON PROJECT',
+    eyebrow: 'THEEACADEMY GAMEPLAY',
     headline: 'THE ACADEMY',
     beats: [
       'PLAY.',

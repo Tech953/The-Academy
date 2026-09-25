@@ -1,9 +1,11 @@
 - [Academy mobile artifact](academy-mobile.md) — Expo companion: offline-first engine, workflow name, font/color conventions, gotchas.
+- [Academy desktop capture](academy-desktop-capture.md) — Start the game session before sending automated desktop gameplay commands.
 - [Game engine shared lib](game-engine-lib.md) — @workspace/game-engine: single source for offline content, GED templates, world layout shared by web + mobile.
 - [Mobile Vitest boundary](mobile-vitest-boundary.md) — Keep pure context selectors in `.ts` modules; importing native-heavy provider TSX breaks the Node test transformer.
 - [Deck export safe areas](deck-export-safe-areas.md) — Fixed 1920×1080 slides need bounded normal-flow content; intrinsic grids and absolute notes can defeat footer spacing.
 - [IPv6 rate-limit identity](ipv6-rate-limit.md) — IPv6 quotas are subnet-grouped; isolation tests need distinct prefixes.
 - [Nested preview helpers](nested-preview-helpers.md) — Root-relative Replit Vite helpers do not work through a path-based artifact preview.
+- [Trailer media loading](trailer-media-loading.md) — Keep a real captured poster so long-video previews show footage before decoding finishes.
 - [Release retry summaries](release-retry-summaries.md) — Stable profile archives carry health/AI attempt counts and mark recovery only for eventual passes.
 - [Native handoff failure stages](native-handoff-failure-stages.md) — Keep preflight connectivity success separate from later EAS build failures in archived reports.
 - [Release report schema](release-report-schema.md) — Archived release reports carry an explicit version; field additions and shape changes require an intentional bump.

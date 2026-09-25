@@ -1,63 +1,32 @@
 import { useEffect, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
   VideoCanvas,
   type VideoAspectRatio,
   VideoPausedContext,
   useVideoPlayer,
 } from '@/lib/video';
-import { Scene01Archive } from './scenes/Scene01Archive';
-import { Scene02Student } from './scenes/Scene02Student';
-import { Scene03Alignment } from './scenes/Scene03Alignment';
-import { Scene04Campus } from './scenes/Scene04Campus';
-import { Scene05Commands } from './scenes/Scene05Commands';
-import { Scene06People } from './scenes/Scene06People';
-import { Scene07Confluence } from './scenes/Scene07Confluence';
-import { Scene08Courses } from './scenes/Scene08Courses';
-import { Scene09Practice } from './scenes/Scene09Practice';
-import { Scene10Mastery } from './scenes/Scene10Mastery';
-import { Scene11Notebook } from './scenes/Scene11Notebook';
-import { Scene12Radiant } from './scenes/Scene12Radiant';
-import { Scene13Character } from './scenes/Scene13Character';
-import { Scene14Mobile } from './scenes/Scene14Mobile';
-import { Scene15Finale } from './scenes/Scene15Finale';
+import { GAMEPLAY_CHAPTERS, LiveFootageScene } from './LiveFootageScene';
 
 export const SCENE_DURATIONS: Record<string, number> = {
-  archive: 20_000,
-  student: 20_000,
-  alignment: 20_000,
-  campus: 20_000,
-  commands: 20_000,
-  people: 20_000,
-  confluence: 20_000,
-  courses: 20_000,
-  practice: 20_000,
-  mastery: 20_000,
-  notebook: 20_000,
-  radiant: 20_000,
-  character: 20_000,
-  mobile: 20_000,
-  finale: 20_000,
+  archive: 60_000,
+  student: 60_000,
+  alignment: 60_000,
+  campus: 60_000,
+  commands: 60_000,
+  people: 60_000,
+  confluence: 60_000,
+  courses: 60_000,
+  practice: 60_000,
+  mastery: 60_000,
+  notebook: 60_000,
+  radiant: 60_000,
+  character: 60_000,
+  mobile: 60_000,
+  finale: 60_000,
 };
 
 const VIDEO_ASPECT_RATIO: VideoAspectRatio = '16:9';
-const SCENE_COMPONENTS = [
-  Scene01Archive,
-  Scene02Student,
-  Scene03Alignment,
-  Scene04Campus,
-  Scene05Commands,
-  Scene06People,
-  Scene07Confluence,
-  Scene08Courses,
-  Scene09Practice,
-  Scene10Mastery,
-  Scene11Notebook,
-  Scene12Radiant,
-  Scene13Character,
-  Scene14Mobile,
-  Scene15Finale,
-];
 
 const SCENE_START_SEC = (() => {
   const starts: Record<string, number> = {};
@@ -69,7 +38,7 @@ const SCENE_START_SEC = (() => {
   return starts;
 })();
 
-const AUDIO_SEEK_EPSILON_SEC = 0.18;
+const MEDIA_SEEK_EPSILON_SEC = 0.18;
 
 export default function VideoTemplate({
   durations = SCENE_DURATIONS,
@@ -86,19 +55,50 @@ export default function VideoTemplate({
 } = {}) {
   const { currentSceneKey } = useVideoPlayer({ durations, loop, paused });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const footageRef = useRef<HTMLVideoElement | null>(null);
   const lastSceneKeyRef = useRef<string | null>(null);
+  const lastFootageSceneKeyRef = useRef<string | null>(null);
   const baseSceneKey = currentSceneKey.replace(/_r[12]$/, '');
   const sceneIndex = Object.keys(SCENE_DURATIONS).indexOf(baseSceneKey);
-  const SceneComponent = SCENE_COMPONENTS[sceneIndex];
+  const chapter = GAMEPLAY_CHAPTERS[sceneIndex];
 
   useEffect(() => {
     onSceneChange?.(currentSceneKey);
   }, [currentSceneKey, onSceneChange]);
 
   useEffect(() => {
+    const footage = footageRef.current;
+    if (!footage) return;
+
+    const syncFootage = () => {
+      if (lastFootageSceneKeyRef.current !== currentSceneKey) {
+        lastFootageSceneKeyRef.current = currentSceneKey;
+        const targetTime = SCENE_START_SEC[baseSceneKey] ?? 0;
+        if (Math.abs(footage.currentTime - targetTime) > MEDIA_SEEK_EPSILON_SEC) {
+          footage.currentTime = targetTime;
+        }
+      }
+
+      if (paused) {
+        footage.pause();
+        return;
+      }
+      footage.play().catch(() => {});
+    };
+
+    if (footage.readyState >= 1) {
+      syncFootage();
+      return;
+    }
+
+    footage.addEventListener('loadedmetadata', syncFootage, { once: true });
+    return () => footage.removeEventListener('loadedmetadata', syncFootage);
+  }, [currentSceneKey, baseSceneKey, paused]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.75;
+    audio.volume = 0.5;
     if (paused) {
       audio.pause();
       return;
@@ -106,7 +106,7 @@ export default function VideoTemplate({
     if (lastSceneKeyRef.current !== currentSceneKey) {
       lastSceneKeyRef.current = currentSceneKey;
       const targetTime = SCENE_START_SEC[baseSceneKey] ?? 0;
-      if (Math.abs(audio.currentTime - targetTime) > AUDIO_SEEK_EPSILON_SEC) {
+      if (Math.abs(audio.currentTime - targetTime) > MEDIA_SEEK_EPSILON_SEC) {
         audio.currentTime = targetTime;
       }
     }
@@ -115,15 +115,30 @@ export default function VideoTemplate({
 
   return (
     <VideoPausedContext.Provider value={paused}>
-      <VideoCanvas aspectRatio={VIDEO_ASPECT_RATIO} style={{ backgroundColor: 'var(--color-bg-light)' }}>
-        <motion.div className="academy-global-cursor" initial={false} animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} aria-hidden="true" />
-        <div className="academy-frame-line" aria-hidden="true" />
+      <VideoCanvas aspectRatio={VIDEO_ASPECT_RATIO} style={{ backgroundColor: '#030604' }}>
+        <video
+          ref={footageRef}
+          className="live-gameplay-footage"
+          src={`${import.meta.env.BASE_URL}gameplay/live-gameplay-15min.mp4`}
+          poster={`${import.meta.env.BASE_URL}gameplay/live-gameplay-poster.jpg`}
+          preload="auto"
+          autoPlay
+          muted
+          playsInline
+          aria-hidden="true"
+        />
         <AnimatePresence mode="sync">
-      {SceneComponent ? <SceneComponent key={currentSceneKey} /> : null}
+          {chapter ? (
+            <LiveFootageScene
+              key={currentSceneKey}
+              chapter={chapter}
+              chapterIndex={sceneIndex}
+            />
+          ) : null}
         </AnimatePresence>
         <audio
           ref={audioRef}
-          src={`${import.meta.env.BASE_URL}audio/bg_music.mp3`}
+          src={`${import.meta.env.BASE_URL}audio/bg_music_15min.mp3`}
           preload="auto"
           autoPlay
           muted={muted}
