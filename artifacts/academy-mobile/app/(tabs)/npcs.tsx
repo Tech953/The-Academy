@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -83,10 +83,13 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
   const [activeNpcId, setActiveNpcId] = useState<string | null>(initialNpcId);
   const [draft, setDraft] = useState("");
   const [visibleShiftAt, setVisibleShiftAt] = useState<number | null>(null);
+  const [themeUpdateNotice, setThemeUpdateNotice] = useState<{ id: number } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
   const pendingThemeScrollOffsetRef = useRef<number | null>(null);
   const previousWeeklyThemeRef = useRef(weeklyTheme);
+  const themeNoticeIdRef = useRef(0);
+  const themeNoticeRef = useRef<{ id: number } | null>(null);
   // Timestamps of shifts already shown (or discarded), per NPC — a shift is
   // displayed at most once, so reopening a chat never replays an old banner.
   const seenShiftsRef = useRef<Record<string, number>>({});
@@ -97,7 +100,12 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
     if (previousWeeklyThemeRef.current === weeklyTheme) return;
     pendingThemeScrollOffsetRef.current = scrollOffsetRef.current;
     previousWeeklyThemeRef.current = weeklyTheme;
-  }, [weeklyTheme]);
+    if (!activeNpcId) return;
+
+    const notice = { id: ++themeNoticeIdRef.current };
+    themeNoticeRef.current = notice;
+    setThemeUpdateNotice(notice);
+  }, [weeklyTheme, activeNpcId]);
 
   const restoreThemeScrollOffset = () => {
     const offset = pendingThemeScrollOffsetRef.current;
@@ -105,6 +113,21 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
     scrollRef.current?.scrollTo({ y: offset, animated: false });
     pendingThemeScrollOffsetRef.current = null;
   };
+
+  const dismissThemeNotice = useCallback((expectedId?: number, preserveScroll = true) => {
+    const currentNotice = themeNoticeRef.current;
+    if (!currentNotice || (expectedId !== undefined && currentNotice.id !== expectedId)) return;
+    if (preserveScroll) pendingThemeScrollOffsetRef.current = scrollOffsetRef.current;
+    themeNoticeRef.current = null;
+    setThemeUpdateNotice(null);
+  }, []);
+
+  useEffect(() => {
+    if (!themeUpdateNotice) return;
+    const noticeId = themeUpdateNotice.id;
+    const timer = setTimeout(() => dismissThemeNotice(noticeId), 6000);
+    return () => clearTimeout(timer);
+  }, [themeUpdateNotice, dismissThemeNotice]);
 
   // Flash the shift indicator briefly when a NEW shift lands for the open chat.
   useEffect(() => {
@@ -131,6 +154,8 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
     if (existing) seenShiftsRef.current[id] = existing.timestamp;
     setActiveNpcId(id);
     setVisibleShiftAt(null);
+    themeNoticeRef.current = null;
+    setThemeUpdateNotice(null);
     if (!dialogueHistory[id] || dialogueHistory[id].length === 0) {
       resetNpcConversation(id);
     }
@@ -180,7 +205,13 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
       keyboardVerticalOffset={90}
     >
       <View style={[styles.header, { borderColor: colors.border }]}>
-        <Pressable onPress={() => setActiveNpcId(null)} style={styles.backRow}>
+        <Pressable
+          onPress={() => {
+            dismissThemeNotice(undefined, false);
+            setActiveNpcId(null);
+          }}
+          style={styles.backRow}
+        >
           <Feather name="chevron-left" size={18} color={colors.primary} />
           <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
             {activeNpc.name.toUpperCase()}
@@ -199,6 +230,33 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
         <Text style={[styles.chatThemeLabel, { color: colors.accent }]}>WEEKLY THEME</Text>
         <Text style={[styles.chatThemeValue, { color: colors.foreground }]}>{weeklyTheme}</Text>
       </View>
+      {themeUpdateNotice ? (
+        <View
+          accessibilityRole="text"
+          accessibilityLiveRegion="polite"
+          style={[styles.themeUpdateNotice, { borderColor: colors.accent }]}
+        >
+          <Feather name="info" size={13} color={colors.accent} />
+          <View style={styles.themeUpdateCopy}>
+            <Text style={[styles.themeUpdateTitle, { color: colors.accent }]}>
+              WEEKLY THEME UPDATED
+            </Text>
+            <Text style={[styles.themeUpdateMessage, { color: colors.foreground }]}>
+              This conversation now follows the updated campus theme.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss weekly theme update notice"
+            accessibilityHint="The updated weekly theme remains visible above."
+            hitSlop={8}
+            onPress={() => dismissThemeNotice(themeUpdateNotice.id)}
+            style={styles.themeUpdateDismiss}
+          >
+            <Feather name="x" size={14} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+      ) : null}
       {activeRelationship ? (
         <View style={styles.chatProgress}>
           <View style={styles.chatProgressMeta}>
@@ -403,6 +461,24 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 10,
     lineHeight: 14,
+  },
+  themeUpdateNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  themeUpdateCopy: { flex: 1, flexShrink: 1, minWidth: 0, gap: 2 },
+  themeUpdateTitle: { ...monoFontBold, fontSize: 9, letterSpacing: 0.7 },
+  themeUpdateMessage: { ...monoFont, fontSize: 10, lineHeight: 14 },
+  themeUpdateDismiss: {
+    padding: 3,
+    alignItems: "center",
+    justifyContent: "center",
   },
   chatProgress: {
     paddingHorizontal: 16,

@@ -19,11 +19,24 @@ vi.mock("react-native", async () => {
   const primitive = (tag: string) =>
     ({
       children,
+      accessibilityRole,
+      accessibilityLiveRegion,
       ...props
     }: {
       children?: React.ReactNode;
+      accessibilityRole?: string;
+      accessibilityLiveRegion?: "none" | "polite" | "assertive";
       [key: string]: unknown;
-    }) => React.createElement(tag, props, children);
+    }) =>
+      React.createElement(
+        tag,
+        {
+          ...props,
+          ...(accessibilityRole ? { role: accessibilityRole } : {}),
+          ...(accessibilityLiveRegion ? { "aria-live": accessibilityLiveRegion } : {}),
+        },
+        children,
+      );
 
   return {
     KeyboardAvoidingView: primitive("main"),
@@ -36,14 +49,26 @@ vi.mock("react-native", async () => {
       children,
       disabled,
       onPress,
+      accessibilityRole,
+      accessibilityLabel,
+      accessibilityHint,
     }: {
       children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
       disabled?: boolean;
       onPress?: () => void;
+      accessibilityRole?: string;
+      accessibilityLabel?: string;
+      accessibilityHint?: string;
     }) =>
       React.createElement(
         "button",
-        { disabled, onPress },
+        {
+          disabled,
+          onPress,
+          ...(accessibilityRole ? { role: accessibilityRole } : {}),
+          ...(accessibilityLabel ? { "aria-label": accessibilityLabel } : {}),
+          ...(accessibilityHint ? { "aria-description": accessibilityHint } : {}),
+        },
         typeof children === "function" ? children({ pressed: false }) : children,
       ),
     ScrollView: React.forwardRef<
@@ -218,10 +243,98 @@ describe("NPC directory weekly theme cue", () => {
       .join(" ");
 
     expect(renderedText).toContain(syncedTheme);
+    expect(renderedText).toContain("WEEKLY THEME UPDATED");
     expect(renderedText).toContain("Welcome back to the Academy.");
+    const notice = renderer.root
+      .findAllByType("div")
+      .find(instance => instance.props.role === "text" && instance.props["aria-live"] === "polite");
+    expect(notice).toBeDefined();
     expect(renderer.root.findByType("input").props.value).toBe(
       "I want to ask about the new theme.",
     );
+  });
+
+  it("lets learners dismiss the notice without losing the updated compact cue", () => {
+    gameState.weeklyTheme = "Careful Preparation";
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    gameState.weeklyTheme = "Student Showcase Week";
+    act(() => {
+      renderer.update(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    const dismissButton = renderer.root
+      .findAllByType("button")
+      .find(instance => instance.props["aria-label"] === "Dismiss weekly theme update notice");
+    expect(dismissButton).toBeDefined();
+    expect(dismissButton?.props["aria-description"]).toBe(
+      "The updated weekly theme remains visible above.",
+    );
+    act(() => dismissButton?.props.onPress());
+
+    const renderedText = renderer.root
+      .findAll((instance: ReactTestInstance) => typeof instance.type === "string")
+      .map(instance => instance.children.filter(child => typeof child === "string").join(""))
+      .join(" ");
+    expect(renderedText).not.toContain("WEEKLY THEME UPDATED");
+    expect(renderedText).toContain("WEEKLY THEME");
+    expect(renderedText).toContain("Student Showcase Week");
+    renderer.unmount();
+  });
+
+  it("times out the notice while keeping the updated compact cue visible", () => {
+    vi.useFakeTimers();
+    let renderer!: TestRenderer.ReactTestRenderer;
+    try {
+      gameState.weeklyTheme = "Careful Preparation";
+      act(() => {
+        renderer = TestRenderer.create(
+          React.createElement(NpcScreenWithInitialNpc, {
+            initialNpcId: "receptionist_emily",
+          }),
+        );
+      });
+
+      gameState.weeklyTheme = "Student Showcase Week";
+      act(() => {
+        renderer.update(
+          React.createElement(NpcScreenWithInitialNpc, {
+            initialNpcId: "receptionist_emily",
+          }),
+        );
+      });
+      expect(
+        renderer.root
+          .findAllByType("div")
+          .some(instance => instance.props.role === "text" && instance.props["aria-live"] === "polite"),
+      ).toBe(true);
+
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+
+      const renderedText = renderer.root
+        .findAll((instance: ReactTestInstance) => typeof instance.type === "string")
+        .map(instance => instance.children.filter(child => typeof child === "string").join(""))
+        .join(" ");
+      expect(renderedText).not.toContain("WEEKLY THEME UPDATED");
+      expect(renderedText).toContain("WEEKLY THEME");
+      expect(renderedText).toContain("Student Showcase Week");
+      renderer.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("restores the reading position after a weekly theme changes the chat layout", () => {
