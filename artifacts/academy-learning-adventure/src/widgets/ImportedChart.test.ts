@@ -37,6 +37,57 @@ test('percent-stacked rows scale non-null values around null points', () => {
   ]);
 });
 
+test('percent-stacked mixed-sign rows preserve signs and normalize absolute totals', () => {
+  const chart: ImportedChartModel = {
+    type: 'column',
+    grouping: 'percentStacked',
+    series: [
+      {
+        name: 'Gains',
+        categories: ['Net positive', 'Net negative'],
+        values: [30, -60],
+      },
+      {
+        name: 'Losses',
+        values: [-20, 20],
+      },
+    ],
+  };
+
+  const rows = chartRows(chart);
+
+  assert.deepEqual(rows, [
+    { category: 'Net positive', 'series-0': 60, 'series-1': -40 },
+    { category: 'Net negative', 'series-0': -75, 'series-1': 25 },
+  ]);
+
+  const expectedSigns = [
+    [1, -1],
+    [-1, 1],
+  ];
+  rows.forEach((row, index) => {
+    const first = row['series-0'];
+    const second = row['series-1'];
+    assert.ok(typeof first === 'number', `${row.category}: first series stays numeric`);
+    assert.ok(typeof second === 'number', `${row.category}: second series stays numeric`);
+    assert.equal(
+      Math.sign(first),
+      expectedSigns[index]?.[0],
+      `${row.category}: first series keeps its source sign`,
+    );
+    assert.equal(
+      Math.sign(second),
+      expectedSigns[index]?.[1],
+      `${row.category}: second series keeps its source sign`,
+    );
+    assert.equal(
+      Math.abs(first) + Math.abs(second),
+      100,
+      `${row.category}: absolute normalized values total 100%`,
+    );
+  });
+});
+
 test('categorical pie data omits null slices without shifting values', () => {
   const series: ImportedSeries = {
     name: 'Enrollment',

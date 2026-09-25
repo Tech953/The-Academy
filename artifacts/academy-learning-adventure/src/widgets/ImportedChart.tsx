@@ -92,6 +92,8 @@ export function chartRows(chart: ImportedChartModel): Array<ImportedChartRow> {
       (sum: number, value) => sum + Math.abs(value ?? 0),
       0,
     );
+    // Percent-stacked rows normalize nonzero absolute magnitude to 100
+    // while preserving source signs.
     const scale = percent && total > 0 ? 100 / total : 1;
 
     return {
