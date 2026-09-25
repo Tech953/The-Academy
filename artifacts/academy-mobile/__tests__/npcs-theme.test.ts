@@ -3,11 +3,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import TestRenderer, { act, type ReactTestInstance } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { gameState } = vi.hoisted(() => ({
+const { gameState, scrollCalls } = vi.hoisted(() => ({
   gameState: {
     weeklyTheme: "",
     dialogueHistory: {} as Record<string, Array<{ role: "player" | "npc"; text: string; timestamp: number }>>,
   },
+  scrollCalls: [] as Array<
+    | { type: "scrollTo"; y: number; animated: boolean }
+    | { type: "scrollToEnd"; animated: boolean }
+  >,
 }));
 
 vi.mock("react-native", async () => {
@@ -42,7 +46,25 @@ vi.mock("react-native", async () => {
         { disabled, onPress },
         typeof children === "function" ? children({ pressed: false }) : children,
       ),
-    ScrollView: primitive("section"),
+    ScrollView: React.forwardRef<
+      {
+        scrollTo: (options: { y: number; animated?: boolean }) => void;
+        scrollToEnd: (options?: { animated?: boolean }) => void;
+      },
+      { children?: React.ReactNode; [key: string]: unknown }
+    >(({ children, ...props }, ref) => {
+      React.useImperativeHandle(ref, () => ({
+        scrollTo: ({ y, animated }) =>
+          scrollCalls.push({ type: "scrollTo", y, animated: animated ?? false }),
+        scrollToEnd: ({ animated } = {}) =>
+          scrollCalls.push({ type: "scrollToEnd", animated: animated ?? false }),
+      }));
+      return React.createElement(
+        "section",
+        props as React.HTMLAttributes<HTMLElement>,
+        children as React.ReactNode,
+      );
+    }),
     StyleSheet: { create: <T,>(styles: T): T => styles },
     Text: primitive("span"),
     TextInput: ({
@@ -109,6 +131,7 @@ describe("NPC directory weekly theme cue", () => {
   beforeEach(() => {
     gameState.weeklyTheme = "";
     gameState.dialogueHistory = {};
+    scrollCalls.length = 0;
   });
 
   it("renders the deterministic offline weekly theme before opening a conversation", () => {
@@ -199,6 +222,68 @@ describe("NPC directory weekly theme cue", () => {
     expect(renderer.root.findByType("input").props.value).toBe(
       "I want to ask about the new theme.",
     );
+  });
+
+  it("restores the reading position after a weekly theme changes the chat layout", () => {
+    gameState.weeklyTheme = "Careful Preparation";
+    gameState.dialogueHistory = {
+      receptionist_emily: [
+        { role: "npc", text: "Welcome back to the Academy.", timestamp: 1 },
+      ],
+    };
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    act(() => {
+      renderer.root.findByType("input").props.onChangeText("Keep this draft.");
+    });
+
+    const initialScrollView = renderer.root
+      .findAllByType("section")
+      .find((instance) => typeof instance.props.onScroll === "function");
+    expect(initialScrollView).toBeDefined();
+    act(() => {
+      (initialScrollView!.props.onScroll as (event: {
+        nativeEvent: { contentOffset: { y: number } };
+      }) => void)({ nativeEvent: { contentOffset: { y: 180 } } });
+    });
+
+    gameState.weeklyTheme = "Community Science Showcase and Evening Study Sessions";
+    act(() => {
+      renderer.update(
+        React.createElement(NpcScreenWithInitialNpc, {
+          initialNpcId: "receptionist_emily",
+        }),
+      );
+    });
+
+    const updatedScrollView = renderer.root
+      .findAllByType("section")
+      .find((instance) => typeof instance.props.onLayout === "function");
+    expect(updatedScrollView).toBeDefined();
+    act(() => {
+      (updatedScrollView!.props.onLayout as () => void)();
+    });
+
+    expect(scrollCalls).toContainEqual({
+      type: "scrollTo",
+      y: 180,
+      animated: false,
+    });
+    expect(renderer.root.findByType("input").props.value).toBe("Keep this draft.");
+    expect(renderer.root.findAllByType("span").some((instance) =>
+      instance.children.includes("Welcome back to the Academy."),
+    )).toBe(true);
+    expect(renderer.root.findAllByType("span").some((instance) =>
+      instance.children.includes("Community Science Showcase and Evening Study Sessions"),
+    )).toBe(true);
   });
 
   it("lets a long theme wrap inside the compact cue on narrow layouts", () => {

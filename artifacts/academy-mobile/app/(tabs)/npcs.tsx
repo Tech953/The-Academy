@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -84,11 +84,27 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
   const [draft, setDraft] = useState("");
   const [visibleShiftAt, setVisibleShiftAt] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const pendingThemeScrollOffsetRef = useRef<number | null>(null);
+  const previousWeeklyThemeRef = useRef(weeklyTheme);
   // Timestamps of shifts already shown (or discarded), per NPC — a shift is
   // displayed at most once, so reopening a chat never replays an old banner.
   const seenShiftsRef = useRef<Record<string, number>>({});
 
   const activeShift = activeNpcId ? relationshipShifts[activeNpcId] : undefined;
+
+  useLayoutEffect(() => {
+    if (previousWeeklyThemeRef.current === weeklyTheme) return;
+    pendingThemeScrollOffsetRef.current = scrollOffsetRef.current;
+    previousWeeklyThemeRef.current = weeklyTheme;
+  }, [weeklyTheme]);
+
+  const restoreThemeScrollOffset = () => {
+    const offset = pendingThemeScrollOffsetRef.current;
+    if (offset === null) return;
+    scrollRef.current?.scrollTo({ y: offset, animated: false });
+    pendingThemeScrollOffsetRef.current = null;
+  };
 
   // Flash the shift indicator briefly when a NEW shift lands for the open chat.
   useEffect(() => {
@@ -238,7 +254,17 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
         ref={scrollRef}
         style={styles.chatLog}
         contentContainerStyle={styles.chatContent}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        onLayout={restoreThemeScrollOffset}
+        onScroll={(event) => {
+          scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        onContentSizeChange={() => {
+          if (pendingThemeScrollOffsetRef.current !== null) {
+            restoreThemeScrollOffset();
+            return;
+          }
+          scrollRef.current?.scrollToEnd({ animated: true });
+        }}
       >
         {history.map((msg, idx) => (
           <View
