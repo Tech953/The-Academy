@@ -145,6 +145,18 @@ function flattenText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function flattenStyle(style: unknown): Record<string, unknown> {
+  if (Array.isArray(style)) {
+    return style.reduce<Record<string, unknown>>(
+      (result, item) => ({ ...result, ...flattenStyle(item) }),
+      {},
+    );
+  }
+  return style && typeof style === "object"
+    ? (style as Record<string, unknown>)
+    : {};
+}
+
 function renderedText(renderer: TestRenderer.ReactTestRenderer): string {
   return renderer.root
     .findAll((instance: ReactTestInstance) => String(instance.type) === "Text")
@@ -206,6 +218,53 @@ describe("rendered bulletin accessibility", () => {
     gameState.contentPackLoading = false;
     gameState.contentPack = null;
     gameState.day = 1;
+  });
+
+  it("keeps a long synced theme distinct and wrappable in the bulletin", () => {
+    const longTheme =
+      "Community Science Showcase and Evening Study Sessions";
+    gameState.contentPack = {
+      activeEvents: [
+        {
+          description: "Students can bring projects and review their notes.",
+          title: "Community study forum",
+        },
+      ],
+      weeklyTheme: longTheme,
+    };
+
+    const renderer = renderScreen();
+    const textNodes = renderer.root.findAll(
+      (instance: ReactTestInstance) => String(instance.type) === "Text",
+    );
+    const label = textNodes.find(
+      (instance) => flattenText(instance.props.children) === "CAMPUS BULLETIN",
+    );
+    const theme = textNodes.find(
+      (instance) => flattenText(instance.props.children) === longTheme.toUpperCase(),
+    );
+    const bulletin = renderer.root
+      .findAll((instance: ReactTestInstance) => String(instance.type) === "View")
+      .find((instance) => flattenStyle(instance.props.style).borderStyle === "dashed");
+
+    expect(label).toBeDefined();
+    expect(theme).toBeDefined();
+    expect(theme?.props.numberOfLines).toBeUndefined();
+    expect(flattenStyle(theme?.props.style)).toMatchObject({
+      flexShrink: 1,
+      minWidth: 0,
+      maxWidth: "100%",
+    });
+    expect(bulletin).toBeDefined();
+    expect(flattenStyle(bulletin?.props.style)).toMatchObject({
+      maxWidth: "100%",
+      minWidth: 0,
+    });
+    expect(renderedText(renderer)).toContain(longTheme.toUpperCase());
+    expect(renderedText(renderer)).toContain(
+      "Community study forum: Students can bring projects and review their notes.",
+    );
+    expect(renderer.root.findAllByType("button").length).toBeGreaterThan(0);
   });
 
   it("renders the repaired bulletin cue with the expected native props", () => {
@@ -285,6 +344,8 @@ describe("rendered bulletin accessibility", () => {
 
     expect(renderedText(renderer)).toContain("Current study session");
     expect(renderedText(renderer)).not.toContain("Next study session");
+    expect(renderedText(renderer)).toContain("CURRENT PREPARATION");
+    expect(renderedText(renderer)).not.toContain("NEXT PREPARATION");
 
     await act(async () => {
       controller.beginDayRefresh();
@@ -294,6 +355,8 @@ describe("rendered bulletin accessibility", () => {
     expect(gameState.contentPackLoading).toBe(true);
     expect(renderedText(renderer)).toContain("Current study session");
     expect(renderedText(renderer)).not.toContain("Next study session");
+    expect(renderedText(renderer)).toContain("CURRENT PREPARATION");
+    expect(renderedText(renderer)).not.toContain("NEXT PREPARATION");
 
     await act(async () => {
       controller.resolve(nextPack);
@@ -302,6 +365,8 @@ describe("rendered bulletin accessibility", () => {
     expect(gameState.contentPackLoading).toBe(false);
     expect(renderedText(renderer)).not.toContain("Current study session");
     expect(renderedText(renderer)).toContain("Next study session");
+    expect(renderedText(renderer)).not.toContain("CURRENT PREPARATION");
+    expect(renderedText(renderer)).toContain("NEXT PREPARATION");
     renderer.unmount();
   });
 });

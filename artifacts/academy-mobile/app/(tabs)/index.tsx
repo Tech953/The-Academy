@@ -137,7 +137,9 @@ export default function AdventureScreen() {
         {contentPack ? (
           <View style={[styles.bulletin, { borderColor: colors.accent }]}>
             <Text style={[styles.bulletinLabel, { color: colors.accent }]}>
-              {getMobileCopy("campusBulletin", bulletinLocale)} —{" "}
+              {getMobileCopy("campusBulletin", bulletinLocale)}
+            </Text>
+            <Text style={[styles.bulletinTheme, { color: colors.foreground }]}>
               {contentPack.weeklyTheme.toUpperCase()}
             </Text>
             {headlineEvent ? (
@@ -318,11 +320,24 @@ const styles = StyleSheet.create({
     padding: 8,
     marginTop: 8,
     gap: 3,
+    maxWidth: "100%",
+    minWidth: 0,
   },
   bulletinLabel: {
     ...monoFontBold,
     fontSize: 10,
     letterSpacing: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "100%",
+  },
+  bulletinTheme: {
+    ...monoFontBold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "100%",
   },
   bulletinBody: {
     ...monoFont,

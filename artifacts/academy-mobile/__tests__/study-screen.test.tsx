@@ -170,6 +170,18 @@ function visibleText(renderer: TestRenderer.ReactTestRenderer): string[] {
     .map(textContent);
 }
 
+function flattenStyle(style: unknown): Record<string, unknown> {
+  if (Array.isArray(style)) {
+    return style.reduce<Record<string, unknown>>(
+      (result, item) => ({ ...result, ...flattenStyle(item) }),
+      {},
+    );
+  }
+  return style && typeof style === "object"
+    ? (style as Record<string, unknown>)
+    : {};
+}
+
 function openMathStudy(
   renderer: TestRenderer.ReactTestRenderer,
   topic = focusTopics[0],
@@ -183,6 +195,42 @@ function openMathStudy(
     subjectButton?.props.onPress();
   });
 }
+
+describe("Study weekly theme wrapping", () => {
+  it("keeps a long synced theme inside the weekly focus card without truncation", () => {
+    const longTheme =
+      "Community Science Showcase and Evening Study Sessions";
+    const pack = {
+      ...makeStudyPack("synced-long-theme", focusTopics[0], "gpt"),
+      weeklyTheme: longTheme,
+    };
+    const { renderer } = renderStudyScreen(pack);
+    const themeText = renderer.root
+      .findAll((instance) => String(instance.type) === "Text")
+      .find((instance) => textContent(instance) === longTheme);
+    const focusPanel = renderer.root
+      .findAll((instance) => String(instance.type) === "View")
+      .find((instance) => {
+        const style = flattenStyle(instance.props.style);
+        return style.borderWidth === 1 && style.padding === 12 && style.gap === 8;
+      });
+
+    expect(themeText).toBeDefined();
+    expect(themeText?.props.numberOfLines).toBeUndefined();
+    expect(flattenStyle(themeText?.props.style)).toMatchObject({
+      flexShrink: 1,
+      minWidth: 0,
+      maxWidth: "100%",
+    });
+    expect(focusPanel).toBeDefined();
+    expect(flattenStyle(focusPanel?.props.style)).toMatchObject({
+      maxWidth: "100%",
+      minWidth: 0,
+    });
+    expect(visibleText(renderer)).toContain(longTheme);
+    expect(visibleText(renderer).some((text) => text.includes("Math Reasoning"))).toBe(true);
+  });
+});
 
 describe("Study question focus badges", () => {
   it("labels a focus-matched question as weekly focus", () => {
