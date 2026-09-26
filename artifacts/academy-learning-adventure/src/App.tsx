@@ -27,6 +27,10 @@ import {
   hasActiveSdmSelection,
   isSdmEditingActive,
 } from '@/.sdm/editingState';
+import {
+  adjacentSlidePrefetchMode,
+  getBrowserConnectionHints,
+} from '@/slidePrefetchPolicy';
 import { useLocation } from 'wouter';
 
 function getSlideIndex(pathname: string): number {
@@ -88,8 +92,15 @@ function SlideEditor() {
 
   useEffect(() => {
     if (currentIndex === -1) return;
+    const prefetchMode = adjacentSlidePrefetchMode(
+      getBrowserConnectionHints(),
+    );
+    if (prefetchMode === 'none') return;
+
     prefetchSlide(slides[currentIndex + 1]);
-    prefetchSlide(slides[currentIndex - 1]);
+    if (prefetchMode === 'both') {
+      prefetchSlide(slides[currentIndex - 1]);
+    }
   }, [currentIndex]);
 
   useEffect(() => {
