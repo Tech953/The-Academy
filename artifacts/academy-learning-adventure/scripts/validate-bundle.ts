@@ -30,6 +30,16 @@ export interface InitialPayloadMeasurement {
   assets: Array<InitialJavaScriptAssetMeasurement>;
 }
 
+export interface EmittedJavaScriptModule {
+  relativePath: string;
+  source: string;
+}
+
+type JavaScriptImportReference = {
+  kind: 'static' | 'dynamic';
+  specifier: string;
+};
+
 function javascriptFiles(directory: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -210,6 +220,157 @@ function initialAssetByteSize(reference: string): number {
   return stats.size;
 }
 
+function emittedJavaScriptImports(source: string): Array<JavaScriptImportReference> {
+  const imports: Array<JavaScriptImportReference> = [];
+  const dynamicImportPattern =
+    /\bimport\s*\(\s*["']([^"']+\.m?js(?:[?#][^"']*)?)["']/gi;
+  const staticImportPattern =
+    /\b(?:from\s*|import\s*)["']([^"']+\.m?js(?:[?#][^"']*)?)["']/gi;
+
+  for (const match of source.matchAll(dynamicImportPattern)) {
+    if (match[1]) imports.push({ kind: 'dynamic', specifier: match[1] });
+  }
+  for (const match of source.matchAll(staticImportPattern)) {
+    if (match[1]) imports.push({ kind: 'static', specifier: match[1] });
+  }
+  return imports;
+}
+
+function emittedImportTarget(
+  importerPath: string,
+  specifier: string,
+): string | undefined {
+  let target: URL;
+  try {
+    const importerUrl = new URL(
+      `/assets/${importerPath}`,
+      `${bundleOrigin}/`,
+    );
+    target = new URL(specifier, importerUrl);
+  } catch {
+    throw new Error(
+      `Invalid JavaScript import in ${importerPath}: ${specifier}`,
+    );
+  }
+  if (target.origin !== bundleOrigin) return undefined;
+  return initialAssetRelativePath(target.href);
+}
+
+function reachableJavaScriptModules(
+  startPaths: Array<string>,
+  modulesByPath: Map<string, EmittedJavaScriptModule>,
+): {
+  paths: Set<string>;
+  dynamicTargets: Set<string>;
+} {
+  const paths = new Set<string>();
+  const dynamicTargets = new Set<string>();
+  const pending = [...startPaths];
+
+  while (pending.length > 0) {
+    const importerPath = pending.pop();
+    if (!importerPath || paths.has(importerPath)) continue;
+
+    const importer = modulesByPath.get(importerPath);
+    if (!importer) {
+      throw new Error(
+        `Initial JavaScript entry is missing from the build: ${importerPath}`,
+      );
+    }
+    paths.add(importerPath);
+
+    for (const { kind, specifier } of emittedJavaScriptImports(importer.source)) {
+      const targetPath = emittedImportTarget(importerPath, specifier);
+      if (!targetPath) continue;
+
+      if (!modulesByPath.has(targetPath)) {
+        throw new Error(
+          `Broken ${kind} import in ${importerPath}: ${specifier} resolves to missing emitted asset ${targetPath}`,
+        );
+      }
+      if (kind === 'dynamic') dynamicTargets.add(targetPath);
+      if (!paths.has(targetPath)) pending.push(targetPath);
+    }
+  }
+
+  return { paths, dynamicTargets };
+}
+
+export function validateDeferredChartReachability(
+  indexDocument: string,
+  emittedModules: Array<EmittedJavaScriptModule>,
+): void {
+  validateInitialEntry(indexDocument);
+
+  const modulesByPath = new Map<string, EmittedJavaScriptModule>();
+  for (const module of emittedModules) {
+    const relativePath = path.posix.normalize(
+      module.relativePath.replaceAll('\\', '/'),
+    );
+    if (
+      path.posix.isAbsolute(relativePath) ||
+      relativePath === '..' ||
+      relativePath.startsWith('../')
+    ) {
+      throw new Error(
+        `Invalid emitted JavaScript module path: ${module.relativePath}`,
+      );
+    }
+    if (modulesByPath.has(relativePath)) {
+      throw new Error(`Duplicate emitted JavaScript module: ${relativePath}`);
+    }
+    modulesByPath.set(relativePath, { ...module, relativePath });
+  }
+
+  const importedChartModules = [...modulesByPath.keys()].filter((modulePath) =>
+    /(?:^|\/)ImportedChart(?:-[^/]+)?\.m?js$/i.test(modulePath),
+  );
+  if (importedChartModules.length !== 1) {
+    throw new Error(
+      `Expected one emitted ImportedChart module, found ${importedChartModules.length}`,
+    );
+  }
+
+  const chartVendorModules = [...modulesByPath.keys()].filter((modulePath) =>
+    /(?:^|\/)vendor-charts(?:-[^/]+)?\.m?js$/i.test(modulePath),
+  );
+  if (chartVendorModules.length !== 1) {
+    throw new Error(
+      `Expected one emitted vendor-charts module, found ${chartVendorModules.length}`,
+    );
+  }
+
+  const entryPaths = initialJavaScriptReferences(indexDocument)
+    .filter(({ kind }) => kind === 'entry')
+    .map(({ url }) => initialAssetRelativePath(url));
+  if (entryPaths.length === 0) {
+    throw new Error('No initial JavaScript entry scripts found in built HTML');
+  }
+
+  const importedChartPath = importedChartModules[0];
+  const chartVendorPath = chartVendorModules[0];
+  if (!importedChartPath || !chartVendorPath) {
+    throw new Error('Imported chart production chunks could not be identified');
+  }
+
+  const entryGraph = reachableJavaScriptModules(entryPaths, modulesByPath);
+  if (!entryGraph.dynamicTargets.has(importedChartPath)) {
+    throw new Error(
+      `ImportedChart module ${importedChartPath} is emitted but not reachable through a dynamic import from the initial entry`,
+    );
+  }
+
+  const chartGraph = reachableJavaScriptModules(
+    [importedChartPath],
+    modulesByPath,
+  );
+  if (!chartGraph.paths.has(chartVendorPath)) {
+    throw new Error(
+      `vendor-charts module ${chartVendorPath} is emitted but not reachable from ImportedChart module ${importedChartPath}`,
+    );
+  }
+}
+
 function main(): void {
   const indexDocument = readFileSync(builtIndexPath, 'utf8');
   validateInitialEntry(indexDocument);
@@ -246,6 +407,20 @@ function main(): void {
         .join(', ')}`,
     );
   }
+
+  validateDeferredChartReachability(
+    indexDocument,
+    chunks.map(({ filePath }) => ({
+      relativePath: path
+        .relative(assetsDirectory, filePath)
+        .split(path.sep)
+        .join('/'),
+      source: readFileSync(filePath, 'utf8'),
+    })),
+  );
+  console.log(
+    '✓ ImportedChart and vendor-charts remain emitted and reachable through deferred imports',
+  );
 
   const largest = [...chunks].sort((left, right) => right.bytes - left.bytes)[0];
   console.log(

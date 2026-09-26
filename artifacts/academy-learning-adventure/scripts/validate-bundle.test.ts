@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   initialAssetRelativePath,
   measureInitialJavaScriptPayload,
+  validateDeferredChartReachability,
   validateInitialEntry,
   validateInitialPayloadBudget,
 } from './validate-bundle';
@@ -102,5 +103,92 @@ test('maps base-path asset URLs to local files without network access', () => {
   assert.throws(
     () => initialAssetRelativePath('https://cdn.example.com/app.js'),
     /Cannot measure external initial JavaScript asset offline/,
+  );
+});
+
+test('confirms the deferred chart module and vendor chunk are reachable', () => {
+  assert.doesNotThrow(() =>
+    validateDeferredChartReachability(
+      '<script type="module" src="/academy-learning-adventure/assets/index-aaa.js"></script>',
+      [
+        {
+          relativePath: 'index-aaa.js',
+          source: 'const chartWidget = () => import("./ImportedChart-bbb.js");',
+        },
+        {
+          relativePath: 'ImportedChart-bbb.js',
+          source: 'import { Chart } from "./vendor-charts-ccc.js"; export { Chart };',
+        },
+        {
+          relativePath: 'vendor-charts-ccc.js',
+          source: 'export const Chart = {};',
+        },
+      ],
+    ),
+  );
+});
+
+test('fails when a dynamic chart import points to a missing emitted asset', () => {
+  assert.throws(
+    () =>
+      validateDeferredChartReachability(
+        '<script type="module" src="/academy-learning-adventure/assets/index-aaa.js"></script>',
+        [
+          {
+            relativePath: 'index-aaa.js',
+            source: 'const chartWidget = () => import("./ImportedChart-missing.js");',
+          },
+          {
+            relativePath: 'ImportedChart-bbb.js',
+            source: 'import { Chart } from "./vendor-charts-ccc.js"; export { Chart };',
+          },
+          {
+            relativePath: 'vendor-charts-ccc.js',
+            source: 'export const Chart = {};',
+          },
+        ],
+      ),
+    /Broken dynamic import in index-aaa\.js: \.\/ImportedChart-missing\.js resolves to missing emitted asset ImportedChart-missing\.js/,
+  );
+});
+
+test('requires the imported chart to stay dynamic and reach the chart vendor chunk', () => {
+  const indexDocument =
+    '<script type="module" src="/academy-learning-adventure/assets/index-aaa.js"></script>';
+  const vendorModule = {
+    relativePath: 'vendor-charts-ccc.js',
+    source: 'export const Chart = {};',
+  };
+
+  assert.throws(
+    () =>
+      validateDeferredChartReachability(indexDocument, [
+        {
+          relativePath: 'index-aaa.js',
+          source: 'import { Chart } from "./ImportedChart-bbb.js";',
+        },
+        {
+          relativePath: 'ImportedChart-bbb.js',
+          source: 'import { Chart } from "./vendor-charts-ccc.js"; export { Chart };',
+        },
+        vendorModule,
+      ]),
+    /ImportedChart module ImportedChart-bbb\.js is emitted but not reachable through a dynamic import/,
+  );
+
+  assert.throws(
+    () =>
+      validateDeferredChartReachability(indexDocument, [
+        {
+          relativePath: 'index-aaa.js',
+          source: 'const chartWidget = () => import("./ImportedChart-bbb.js");',
+        },
+        {
+          relativePath: 'ImportedChart-bbb.js',
+          source: 'export const Chart = {};',
+        },
+        vendorModule,
+      ]),
+    /vendor-charts module vendor-charts-ccc\.js is emitted but not reachable from ImportedChart module/,
   );
 });
