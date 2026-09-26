@@ -6,6 +6,7 @@ import {
   type SlideManifestEntry as SlideEntry,
 } from '@/.sdm/core/slidesManifest';
 import { SdmSlide } from '@/.sdm/SdmSlide';
+import { createRetryableSlideLoader } from './slideLoaderPromise';
 
 export interface SlideComponentProps {
   active?: boolean;
@@ -32,11 +33,7 @@ const sdmModules = import.meta.glob<{ default: unknown }>(
 );
 
 function lazySlide(loader: SlideModuleLoader): LazySlide {
-  let loadPromise: Promise<{ default: SlideComponent }> | undefined;
-  const load = () => {
-    loadPromise ??= loader();
-    return loadPromise;
-  };
+  const load = createRetryableSlideLoader(loader);
   const LazyComponent = lazy(load);
   return {
     Component: function LoadedLazySlide(props: SlideComponentProps) {
