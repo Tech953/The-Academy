@@ -108,6 +108,19 @@ function routeUrl(origin: string, previewPath: string, position: number): URL {
   return new URL(`${normalizedPath}slide${position}`, `${origin}/`);
 }
 
+function artifactFileUrl(
+  origin: string,
+  previewPath: string,
+  relativePath: string,
+): URL {
+  const artifactPath = previewPath.replace(/^\/+|\/+$/g, '');
+  const normalizedPath = artifactPath ? `/${artifactPath}/` : '/';
+  return new URL(
+    `${normalizedPath}${relativePath.replace(/^\/+/, '')}`,
+    `${origin}/`,
+  );
+}
+
 function normalizeText(value: string): string {
   return value
     .normalize('NFKC')
@@ -157,6 +170,84 @@ export function browserRenderFailure(
   }
   if (!normalizeText(bodyText).includes(normalizeText(expectedTitle))) {
     return `did not render expected title "${expectedTitle}"`;
+  }
+
+  return undefined;
+}
+
+export function radarVisualCheckFailure(
+  document: string,
+): string | undefined {
+  const encodedReport = /<html\b[^>]*\bdata-radar-visual-report="([^"]*)"/i.exec(
+    document,
+  )?.[1];
+  if (!encodedReport) {
+    return 'did not finish measuring the rendered radar labels';
+  }
+
+  let report: Record<string, unknown>;
+  try {
+    report = JSON.parse(decodeURIComponent(encodedReport)) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    return 'reported invalid radar label measurements';
+  }
+
+  if (report.ready !== true) {
+    return 'did not render all expected radar labels';
+  }
+  if (
+    typeof report.viewportWidth !== 'number' ||
+    report.viewportWidth < 1920 ||
+    typeof report.viewportHeight !== 'number' ||
+    report.viewportHeight < 1080
+  ) {
+    return 'was not checked at 1920×1080 presentation size';
+  }
+
+  const categoryLabels = Array.isArray(report.categoryLabels)
+    ? report.categoryLabels
+    : [];
+  if (
+    categoryLabels.length !== 5 ||
+    categoryLabels.some(
+      (label) => typeof label !== 'string' || label.trim().length < 30,
+    )
+  ) {
+    return 'did not preserve all five full category labels';
+  }
+
+  const seriesLabels = Array.isArray(report.seriesLabels)
+    ? report.seriesLabels
+    : [];
+  if (
+    seriesLabels.length !== 2 ||
+    seriesLabels.some(
+      (label) => typeof label !== 'string' || label.trim().length < 50,
+    )
+  ) {
+    return 'did not preserve both full series names';
+  }
+
+  const allInside = (value: unknown, count: number) =>
+    Array.isArray(value) &&
+    value.length === count &&
+    value.every((inside) => inside === true);
+  if (
+    !allInside(report.categoryInsideFrame, 5) ||
+    !allInside(report.seriesInsideFrame, 2)
+  ) {
+    return 'clipped a category label or series name at the chart frame';
+  }
+
+  if (
+    report.categoryOverlaps !== 0 ||
+    report.seriesOverlaps !== 0 ||
+    report.categorySeriesOverlaps !== 0
+  ) {
+    return 'had category labels or series names that collided';
   }
 
   return undefined;
@@ -219,6 +310,52 @@ async function validateBrowserRoute(
   }
 }
 
+async function validateRadarChartVisualRoute(
+  url: URL,
+  browserPath: string,
+): Promise<void> {
+  let document: string;
+  try {
+    const result = await execFileAsync(
+      browserPath,
+      [
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--window-size=1920,1167',
+        '--dump-dom',
+        '--virtual-time-budget=9000',
+        url.toString(),
+      ],
+      {
+        encoding: 'utf8',
+        maxBuffer: 8 * 1024 * 1024,
+        timeout: 25_000,
+      },
+    );
+    document = result.stdout;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `${url.pathname} radar visual check could not complete: ${message}`,
+    );
+  }
+
+  const renderFailure = browserRenderFailure(
+    document,
+    'Radar chart visual check',
+  );
+  if (renderFailure) {
+    throw new Error(`${url.pathname} browser render check ${renderFailure}`);
+  }
+
+  const visualFailure = radarVisualCheckFailure(document);
+  if (visualFailure) {
+    throw new Error(`${url.pathname} radar visual check ${visualFailure}`);
+  }
+}
+
 async function validateBrowserRoutes(
   routes: Array<{ url: URL; entry: SlideManifestEntry }>,
   browserPath: string,
@@ -235,7 +372,7 @@ async function validateBrowserRoutes(
     }
   };
 
-  const workerCount = Math.min(4, routes.length);
+  const workerCount = Math.min(2, routes.length);
   await Promise.all(
     Array.from({ length: workerCount }, () => worker()),
   );
@@ -271,6 +408,14 @@ async function main(): Promise<void> {
   const browserPath = process.env.ACADEMY_BROWSER_PATH ?? 'chromium';
   await validateBrowserRoutes(routes, browserPath);
 
+  const radarVisualUrl = artifactFileUrl(
+    origin,
+    previewPath,
+    'scripts/radar-chart-visual-check.html',
+  );
+  await validateHtmlRoute(radarVisualUrl);
+  await validateRadarChartVisualRoute(radarVisualUrl, browserPath);
+
   const representativePositions = [
     positions[0],
     positions[Math.floor(positions.length / 2)],
@@ -281,6 +426,9 @@ async function main(): Promise<void> {
   );
   console.log(
     `  Browser sweep: ${browserPath} checked all ${routes.length} routes`,
+  );
+  console.log(
+    '  Radar fallback labels: full category and series labels fit without collisions at 1920×1080',
   );
   console.log(
     `  Representative routes: ${representativePositions

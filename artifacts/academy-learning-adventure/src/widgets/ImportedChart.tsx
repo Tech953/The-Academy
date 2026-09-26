@@ -139,6 +139,128 @@ export function pieData(series?: ImportedSeries): Array<ImportedPieDatum> {
   });
 }
 
+function wrapCategoryLabel(label: string, maxLineLength = 20): Array<string> {
+  const words = label.split(/\s+/).filter(Boolean);
+  const lines: Array<string> = [];
+
+  for (const word of words) {
+    const currentLine = lines.at(-1);
+    if (
+      currentLine &&
+      `${currentLine} ${word}`.length <= maxLineLength
+    ) {
+      lines[lines.length - 1] = `${currentLine} ${word}`;
+    } else {
+      lines.push(word);
+    }
+  }
+
+  return lines.length > 0 ? lines : [''];
+}
+
+function RadarCategoryTick({
+  x = 0,
+  y = 0,
+  payload,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: unknown };
+}) {
+  const label = String(payload?.value ?? '');
+  const lines = wrapCategoryLabel(label);
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <text
+        data-radar-category-label="true"
+        aria-label={label}
+        textAnchor="middle"
+        fill="#334155"
+        fontSize={26}
+        fontWeight={500}
+      >
+        <title>{label}</title>
+        {lines.map((line, index) => (
+          <tspan
+            key={`${index}-${line}`}
+            x={0}
+            dy={index === 0 ? '1.15em' : '1.1em'}
+          >
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+}
+
+function RadarSeriesLegend({
+  series,
+}: {
+  series: Array<ImportedSeries>;
+}) {
+  return (
+    <div
+      role="list"
+      aria-label="Chart series"
+      style={{
+        width: '100%',
+        height: '100%',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px 40px',
+        padding: '8px 24px 0',
+      }}
+    >
+      {series.map((item, index) => (
+        <div
+          key={seriesKey(index)}
+          data-radar-series-item="true"
+          role="listitem"
+          style={{
+            flex: '1 1 42%',
+            minWidth: 0,
+            maxWidth: '48%',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 18,
+              height: 18,
+              marginTop: 6,
+              flex: '0 0 18px',
+              borderRadius: 3,
+              background: seriesColor(item, index),
+            }}
+          />
+          <span
+            data-radar-series-label="true"
+            aria-label={item.name}
+            style={{
+              minWidth: 0,
+              color: '#334155',
+              fontSize: 24,
+              fontWeight: 600,
+              lineHeight: 1.25,
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {item.name}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function chartHasRenderableData(
   chart: ImportedChartModel,
   rows: Array<ImportedChartRow>,
@@ -323,16 +445,32 @@ export default function ImportedChart({
     if (chart.type !== 'column' && chart.type !== 'radar') {
       throw new Error(`Unsupported imported chart type: ${chart.type}`);
     }
+    const isRadar = chart.type === 'radar';
     graphic = (
-      <BarChart {...common}>
+      <BarChart
+        {...common}
+        margin={
+          isRadar
+            ? { top: 12, right: 28, bottom: 12, left: 20 }
+            : common.margin
+        }
+      >
         <CartesianGrid
           stroke="#E2E8F0"
           strokeDasharray="4 4"
           vertical={false}
         />
-        <XAxis dataKey="category" tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey="category"
+          tickLine={false}
+          axisLine={false}
+          interval={isRadar ? 0 : undefined}
+          height={isRadar ? 144 : undefined}
+          tickMargin={isRadar ? 6 : undefined}
+          tick={isRadar ? <RadarCategoryTick /> : undefined}
+        />
         <YAxis tickLine={false} axisLine={false} tickFormatter={percentTick} />
-        {decorations}
+        {isRadar ? <Tooltip animationDuration={0} /> : decorations}
         {chart.series.map((series, index) => (
           <Bar
             key={seriesKey(index)}
@@ -376,16 +514,36 @@ export default function ImportedChart({
         </div>
       ) : null}
       {graphic ? (
-        <div
-          style={{
-            width: '100%',
-            height: chart.title ? 'calc(100% - 44px)' : '100%',
-          }}
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            {graphic}
-          </ResponsiveContainer>
-        </div>
+        chart.type === 'radar' ? (
+          <div
+            style={{
+              width: '100%',
+              height: chart.title ? 'calc(100% - 44px)' : '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{ minHeight: 0, flex: '1 1 auto' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                {graphic}
+              </ResponsiveContainer>
+            </div>
+            <div style={{ height: 136, flex: '0 0 136px' }}>
+              <RadarSeriesLegend series={chart.series} />
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: chart.title ? 'calc(100% - 44px)' : '100%',
+            }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              {graphic}
+            </ResponsiveContainer>
+          </div>
+        )
       ) : (
         <div
           role="status"
