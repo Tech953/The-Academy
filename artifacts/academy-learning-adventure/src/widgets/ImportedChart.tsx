@@ -139,6 +139,28 @@ export function pieData(series?: ImportedSeries): Array<ImportedPieDatum> {
   });
 }
 
+function chartHasRenderableData(
+  chart: ImportedChartModel,
+  rows: Array<ImportedChartRow>,
+): boolean {
+  if (chart.type === 'pie' || chart.type === 'doughnut') {
+    return pieData(chart.series[0]).length > 0;
+  }
+
+  if (chart.type === 'scatter' || chart.type === 'bubble') {
+    const chartType = chart.type;
+    return chart.series.some(
+      (series) => scatterPoints(series, chartType).length > 0,
+    );
+  }
+
+  return rows.some((row) =>
+    chart.series.some(
+      (_, index) => typeof row[seriesKey(index)] === 'number',
+    ),
+  );
+}
+
 export default function ImportedChart({
   chart,
 }: {
@@ -148,6 +170,7 @@ export default function ImportedChart({
   const stackId =
     chart.grouping === 'stacked' || isPercent ? 'stack' : undefined;
   const rows = chartRows(chart);
+  const hasRenderableData = chartHasRenderableData(chart, rows);
   const common = {
     data: rows,
     margin: { top: 12, right: 20, bottom: 12, left: 4 },
@@ -162,7 +185,7 @@ export default function ImportedChart({
     </>
   );
 
-  let graphic;
+  let graphic: React.ReactNode;
   if (chart.type === 'scatter' || chart.type === 'bubble') {
     const scatterType = chart.type;
     graphic = (
@@ -325,6 +348,10 @@ export default function ImportedChart({
     );
   }
 
+  if (!hasRenderableData) {
+    graphic = null;
+  }
+
   return (
     <div
       style={{
@@ -348,16 +375,36 @@ export default function ImportedChart({
           {chart.title}
         </div>
       ) : null}
-      <div
-        style={{
-          width: '100%',
-          height: chart.title ? 'calc(100% - 44px)' : '100%',
-        }}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          {graphic}
-        </ResponsiveContainer>
-      </div>
+      {graphic ? (
+        <div
+          style={{
+            width: '100%',
+            height: chart.title ? 'calc(100% - 44px)' : '100%',
+          }}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            {graphic}
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            width: '100%',
+            height: chart.title ? 'calc(100% - 44px)' : '100%',
+            display: 'grid',
+            placeItems: 'center',
+            boxSizing: 'border-box',
+            padding: 24,
+            color: '#64748B',
+            fontSize: 16,
+            textAlign: 'center',
+          }}
+        >
+          No chart data available
+        </div>
+      )}
     </div>
   );
 }

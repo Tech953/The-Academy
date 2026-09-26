@@ -143,3 +143,133 @@ test('radar charts use categorical rows and render through the fallback', () => 
     renderToStaticMarkup(createElement(ImportedChart, { chart })),
   );
 });
+
+test('empty and all-null imports render a clear no-data state', () => {
+  const emptyCharts: Array<{
+    label: string;
+    chart: ImportedChartModel;
+  }> = [
+    {
+      label: 'empty series',
+      chart: { type: 'column', title: 'No readings', series: [] },
+    },
+    {
+      label: 'empty categories',
+      chart: {
+        type: 'bar',
+        series: [{ name: 'No readings', categories: [], values: [] }],
+      },
+    },
+    {
+      label: 'all-null categories',
+      chart: {
+        type: 'column',
+        series: [
+          {
+            name: 'No readings',
+            categories: ['Week 1', 'Week 2'],
+            values: [null, null],
+          },
+        ],
+      },
+    },
+    {
+      label: 'all-null line values',
+      chart: {
+        type: 'line',
+        series: [
+          {
+            name: 'No readings',
+            categories: ['Week 1'],
+            values: [null],
+          },
+        ],
+      },
+    },
+    {
+      label: 'empty area categories',
+      chart: {
+        type: 'area',
+        series: [{ name: 'No readings', categories: [], values: [] }],
+      },
+    },
+    {
+      label: 'empty radar series',
+      chart: { type: 'radar', series: [] },
+    },
+    {
+      label: 'all-null pie slices',
+      chart: {
+        type: 'pie',
+        series: [
+          {
+            name: 'Enrollment',
+            categories: ['Foundations', 'Writing'],
+            values: [null, null],
+          },
+        ],
+      },
+    },
+    {
+      label: 'all-null doughnut slices',
+      chart: {
+        type: 'doughnut',
+        series: [
+          {
+            name: 'Enrollment',
+            categories: ['Foundations', 'Writing'],
+            values: [null, null],
+          },
+        ],
+      },
+    },
+    {
+      label: 'all-null scatter points',
+      chart: {
+        type: 'scatter',
+        series: [{ name: 'Study hours', values: [null, null] }],
+      },
+    },
+    {
+      label: 'bubble points without usable sizes',
+      chart: {
+        type: 'bubble',
+        series: [
+          {
+            name: 'Study hours',
+            values: [10, 20],
+            bubbleSizes: [null, null],
+          },
+        ],
+      },
+    },
+  ];
+
+  for (const { label, chart } of emptyCharts) {
+    const markup = renderToStaticMarkup(
+      createElement(ImportedChart, { chart }),
+    );
+
+    assert.match(markup, /role="status"/, label);
+    assert.match(markup, /No chart data available/, label);
+    assert.doesNotMatch(markup, /recharts-responsive-container/, label);
+  }
+});
+
+test('zero-valued Cartesian data remains valid instead of showing the empty state', () => {
+  const chart: ImportedChartModel = {
+    type: 'column',
+    series: [
+      {
+        name: 'No change',
+        categories: ['Stable'],
+        values: [0],
+      },
+    ],
+  };
+  const markup = renderToStaticMarkup(
+    createElement(ImportedChart, { chart }),
+  );
+
+  assert.doesNotMatch(markup, /No chart data available/);
+});
