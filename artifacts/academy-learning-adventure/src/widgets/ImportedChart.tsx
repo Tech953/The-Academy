@@ -29,21 +29,78 @@ export interface ImportedSeries {
   color?: string;
 }
 
+const supportedChartTypes = [
+  'bar',
+  'column',
+  'line',
+  'area',
+  'pie',
+  'doughnut',
+  'scatter',
+  'radar',
+  'bubble',
+] as const;
+
+type SupportedChartType = (typeof supportedChartTypes)[number];
+
 export interface ImportedChartModel {
-  type:
-    | 'bar'
-    | 'column'
-    | 'line'
-    | 'area'
-    | 'pie'
-    | 'doughnut'
-    | 'scatter'
-    | 'radar'
-    | 'bubble';
+  type: SupportedChartType;
   title?: string;
   series: Array<ImportedSeries>;
   grouping?: 'clustered' | 'stacked' | 'percentStacked' | 'standard';
   holeSize?: number;
+}
+
+function importedChartIdentity(chart: unknown): string {
+  if (!chart || typeof chart !== 'object') return 'unknown chart';
+
+  const record = chart as Record<string, unknown>;
+  const title =
+    typeof record.title === 'string' ? record.title.trim() : '';
+  if (title) return `chart ${JSON.stringify(title)}`;
+
+  const firstSeries = Array.isArray(record.series)
+    ? record.series[0]
+    : undefined;
+  if (firstSeries && typeof firstSeries === 'object') {
+    const seriesName = (firstSeries as { name?: unknown }).name;
+    if (typeof seriesName === 'string' && seriesName.trim()) {
+      return `chart with first series ${JSON.stringify(seriesName.trim())}`;
+    }
+  }
+
+  return 'untitled chart';
+}
+
+export function importedChartTypeValidationMessage(
+  chart: unknown,
+): string | undefined {
+  const record =
+    chart && typeof chart === 'object'
+      ? (chart as Record<string, unknown>)
+      : undefined;
+  const chartType = record?.type;
+  if (
+    typeof chartType === 'string' &&
+    (supportedChartTypes as readonly string[]).includes(chartType)
+  ) {
+    return undefined;
+  }
+
+  const chartTypeLabel =
+    chartType === undefined
+      ? 'missing'
+      : (JSON.stringify(chartType) ?? String(chartType));
+  return (
+    `Unsupported chart type ${chartTypeLabel} in ${importedChartIdentity(chart)}. ` +
+    `Supported chart types are ${supportedChartTypes.join(', ')}. ` +
+    'Convert it to a supported type or remove it before release.'
+  );
+}
+
+function assertSupportedImportedChartType(chart: unknown): void {
+  const message = importedChartTypeValidationMessage(chart);
+  if (message) throw new Error(message);
 }
 
 const palette = [
@@ -288,6 +345,8 @@ export default function ImportedChart({
 }: {
   chart: ImportedChartModel;
 }) {
+  assertSupportedImportedChartType(chart);
+
   const isPercent = chart.grouping === 'percentStacked';
   const stackId =
     chart.grouping === 'stacked' || isPercent ? 'stack' : undefined;

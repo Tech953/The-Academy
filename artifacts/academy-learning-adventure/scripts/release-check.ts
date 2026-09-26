@@ -8,6 +8,32 @@ export type ReleaseCheckCommand = {
   args: Array<string>;
 };
 
+export function releaseCommandFailureMessage(
+  command: ReleaseCheckCommand,
+  status: number | null,
+  stdout: string,
+  stderr: string,
+): string {
+  const baseMessage =
+    `Release command exited with status ${status ?? 1}: ` +
+    `"${command.command} ${command.args.join(" ")}"`;
+  if (command.gate !== "Imported chart fixtures") return baseMessage;
+
+  const outputLines = `${stderr}\n${stdout}`
+    .split(/\r?\n/)
+    .map((line) => line.trim());
+  const diagnosticIndex = outputLines.findIndex((line) =>
+    line.includes("Unsupported chart type"),
+  );
+  const chartDiagnostic =
+    diagnosticIndex >= 0
+      ? outputLines.slice(diagnosticIndex, diagnosticIndex + 4).join("\n")
+      : undefined;
+  return chartDiagnostic
+    ? `${baseMessage}\n${chartDiagnostic}`
+    : baseMessage;
+}
+
 export function releaseCheckCommands(
   exportArgs: Array<string> = [],
 ): Array<ReleaseCheckCommand> {
@@ -53,11 +79,31 @@ export function runReleaseCheck(
   }
 }
 
-function runReleaseCommand({ command, args }: ReleaseCheckCommand): void {
-  const result = spawnSync(command, args, {
-    cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
-    stdio: "inherit",
-  });
+function runReleaseCommand({
+  gate,
+  command,
+  args,
+}: ReleaseCheckCommand): void {
+  const check = { gate, command, args };
+  const cwd = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const result =
+    gate === "Imported chart fixtures"
+      ? spawnSync(command, args, {
+          cwd,
+          encoding: "utf8",
+          maxBuffer: 8 * 1024 * 1024,
+          stdio: ["inherit", "pipe", "pipe"],
+        })
+      : spawnSync(command, args, {
+          cwd,
+          stdio: "inherit",
+        });
+  const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+  const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+  if (gate === "Imported chart fixtures") {
+    if (stdout) process.stdout.write(stdout);
+    if (stderr) process.stderr.write(stderr);
+  }
 
   if (result.error) {
     throw new Error(
@@ -66,7 +112,12 @@ function runReleaseCommand({ command, args }: ReleaseCheckCommand): void {
   }
   if (result.status !== 0) {
     throw new Error(
-      `Release command exited with status ${result.status ?? 1}: "${command} ${args.join(" ")}"`,
+      releaseCommandFailureMessage(
+        check,
+        result.status,
+        stdout,
+        stderr,
+      ),
     );
   }
 }

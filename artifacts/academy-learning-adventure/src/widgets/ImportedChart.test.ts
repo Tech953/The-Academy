@@ -144,6 +144,34 @@ test('radar charts use categorical rows and render through the fallback', () => 
   );
 });
 
+test('unsupported chart imports identify the affected chart and suggest a fix', () => {
+  const unsupportedWithTitle = {
+    type: 'treemap',
+    title: 'Learner progress by subject',
+    series: [],
+  } as unknown as ImportedChartModel;
+
+  assert.throws(
+    () =>
+      renderToStaticMarkup(
+        createElement(ImportedChart, { chart: unsupportedWithTitle }),
+      ),
+    /Unsupported chart type "treemap" in chart "Learner progress by subject"\. Supported chart types are bar, column, line, area, pie, doughnut, scatter, radar, bubble\. Convert it to a supported type or remove it before release\./,
+  );
+
+  const unsupportedWithoutTitle = {
+    type: 'treemap',
+    series: [{ name: 'Enrollment totals', values: [12] }],
+  } as unknown as ImportedChartModel;
+  assert.throws(
+    () =>
+      renderToStaticMarkup(
+        createElement(ImportedChart, { chart: unsupportedWithoutTitle }),
+      ),
+    /chart with first series "Enrollment totals"/,
+  );
+});
+
 test('empty and all-null imports render a clear no-data state', () => {
   const emptyCharts: Array<{
     label: string;

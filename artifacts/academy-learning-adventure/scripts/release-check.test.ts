@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  releaseCommandFailureMessage,
   releaseCheckCommands,
   runReleaseCheck,
   type ReleaseCheckCommand,
@@ -81,6 +82,46 @@ test("stops the handoff when imported chart fixtures fail", () => {
     seen.some((command) => command.args.includes("validate-slides")),
     false,
   );
+});
+
+test("includes the named unsupported chart in the handoff failure", () => {
+  const importedChartGate = releaseCheckCommands().find(
+    ({ gate }) => gate === "Imported chart fixtures",
+  );
+  assert.ok(importedChartGate);
+
+  const detail = releaseCommandFailureMessage(
+    importedChartGate,
+    1,
+    "",
+    [
+      "Test failed while rendering an imported chart.",
+      'Error: Unsupported chart type "treemap" in chart "Learner progress by subject".',
+      "Supported chart types are bar, column, line, area, pie, doughnut, scatter, radar, bubble.",
+      "Convert it to a supported type or remove it before release.",
+    ].join("\n"),
+  );
+  assert.match(
+    detail,
+    /Unsupported chart type "treemap" in chart "Learner progress by subject"/,
+  );
+  assert.match(detail, /Convert it to a supported type or remove it before release/);
+
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    assert.throws(
+      () =>
+        runReleaseCheck((command) => {
+          if (command.gate === "Imported chart fixtures") {
+            throw new Error(detail);
+          }
+        }),
+      /Release gate "Imported chart fixtures" failed:[\s\S]*Unsupported chart type "treemap" in chart "Learner progress by subject"/,
+    );
+  } finally {
+    console.log = originalLog;
+  }
 });
 
 test("labels every release gate before executing it", () => {
