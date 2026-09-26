@@ -426,6 +426,33 @@ if (exitCode !== 0) {
     preloadPath,
     `const checkReleasePath = ${JSON.stringify(checkReleasePath)};
 const checkRelease = require(checkReleasePath);
+const validateAndroidReleaseIdentity = checkRelease.validateAndroidReleaseIdentity;
+if (process.env.RELEASE_IDENTITY_DRIFT === "production-autoIncrement") {
+  checkRelease.validateAndroidReleaseIdentity = (profile, options) => {
+    if (profile !== "production") {
+      return validateAndroidReleaseIdentity(profile, options);
+    }
+    return validateAndroidReleaseIdentity(profile, {
+      ...options,
+      appConfig: {
+        expo: { android: { package: "com.theacademy.mobile" } }
+      },
+      easConfig: {
+        build: {
+          production: {
+            autoIncrement: false,
+            android: { buildType: "app-bundle" }
+          }
+        }
+      },
+      generatedManifest: {
+        extra: {
+          expoClient: { android: { package: "com.theacademy.mobile" } }
+        }
+      }
+    });
+  };
+}
 const failed = process.env.RELEASE_PREFLIGHT_RESULT === "failed";
 const result = failed
   ? {
@@ -485,6 +512,7 @@ function runNativeHandoffSubprocess(
   easExitCode = "0",
   platform: "android" | "ios" = "android",
   profile = "preview",
+  identityDrift = "",
 ) {
   return spawnSync(
     process.execPath,
@@ -509,6 +537,7 @@ function runNativeHandoffSubprocess(
         RELEASE_PLATFORM: platform,
         RELEASE_PROFILE: profile,
         RELEASE_REPORT_PATH: fixture.reportPath,
+        RELEASE_IDENTITY_DRIFT: identityDrift,
       },
     },
   );
@@ -986,7 +1015,10 @@ describe("native handoff platform selection", () => {
         },
         easConfig: {
           build: {
-            production: { android: { buildType: "app-bundle" } },
+            production: {
+              autoIncrement: true,
+              android: { buildType: "app-bundle" },
+            },
           },
         },
         generatedManifest: {
@@ -1305,6 +1337,7 @@ describe("release smoke check", () => {
           android: { buildType: "apk" },
         },
         production: {
+          autoIncrement: true,
           android: { buildType: "app-bundle" },
         },
       },
@@ -1366,7 +1399,12 @@ describe("release smoke check", () => {
   });
 
   it("matches Android identity across app, EAS production, and generated metadata", () => {
-    expect(validateAndroidProductionIdentity(validIdentity())).toEqual({
+    expect(
+      validateAndroidProductionIdentity({
+        ...validIdentity(),
+        easConfig: readReleaseConfig(),
+      }),
+    ).toEqual({
       androidPackage: "com.theacademy.mobile",
       generatedAndroidPackage: "com.theacademy.mobile",
       productionBuildType: "app-bundle",
@@ -1387,6 +1425,31 @@ describe("release smoke check", () => {
       }),
     ).toThrow(
       /production Android buildType must be "app-bundle"; found apk/,
+    );
+  });
+
+  it("reports production version-increment drift before an app-bundle handoff", () => {
+    const identity = validIdentity();
+    identity.easConfig.build.production.autoIncrement = false;
+
+    expect(() => validateAndroidProductionIdentity(identity)).toThrow(
+      /EAS production autoIncrement must be true to prevent Android version reuse; found false/,
+    );
+
+    const missingSettingIdentity = {
+      ...validIdentity(),
+      easConfig: {
+        build: {
+          production: {
+            android: { buildType: "app-bundle" },
+          },
+        },
+      },
+    };
+    expect(() =>
+      validateAndroidProductionIdentity(missingSettingIdentity),
+    ).toThrow(
+      /EAS production autoIncrement must be true to prevent Android version reuse; found missing/,
     );
   });
 
@@ -2185,6 +2248,28 @@ describe("release smoke check", () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toMatch(
         /Release connectivity failed before EAS build: production: HTTP 503/,
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(false);
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("does not start production EAS when Android version increment is disabled", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "android",
+        "production",
+        "production-autoIncrement",
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /Aborted before EAS build: \[release-identity\] EAS production autoIncrement must be true to prevent Android version reuse; found false/,
       );
       expect(existsSync(fixture.easRecordPath)).toBe(false);
     } finally {

@@ -65,6 +65,7 @@ function validateAndroidProfileIdentity({
   profileName,
   expectedDistribution,
   expectedBuildType,
+  expectedAutoIncrement,
   appConfig,
   easConfig,
   generatedManifest,
@@ -104,6 +105,18 @@ function validateAndroidProfileIdentity({
   if (releaseProfile.android?.buildType !== expectedBuildType) {
     throw new Error(
       `[release-identity] EAS ${profileName} Android buildType must be "${expectedBuildType}"; found ${releaseProfile.android?.buildType || "missing"}.`,
+    );
+  }
+  if (
+    expectedAutoIncrement !== undefined &&
+    releaseProfile.autoIncrement !== expectedAutoIncrement
+  ) {
+    const configuredAutoIncrement =
+      releaseProfile.autoIncrement === undefined
+        ? "missing"
+        : String(releaseProfile.autoIncrement);
+    throw new Error(
+      `[release-identity] EAS ${profileName} autoIncrement must be ${expectedAutoIncrement} to prevent Android version reuse; found ${configuredAutoIncrement}.`,
     );
   }
 
@@ -149,6 +162,7 @@ function validateAndroidProductionIdentity(options = {}) {
     ...options,
     profileName: "production",
     expectedBuildType: "app-bundle",
+    expectedAutoIncrement: true,
   });
 
   return {
