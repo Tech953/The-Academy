@@ -1231,6 +1231,7 @@ describe("release smoke check", () => {
   const runHandoffGateSubprocess = (
     handoffReport: ReturnType<typeof validHandoffReport>,
     installerPath: string,
+    platform: "android" | "ios" = "android",
   ) => {
     const fixtureDirectory = mkdtempSync(
       path.join(tmpdir(), "academy-handoff-gate-"),
@@ -1243,6 +1244,10 @@ describe("release smoke check", () => {
       [
         checkReleasePath,
         "--handoff",
+        "--platform",
+        platform,
+        "--profile",
+        "preview",
         "--verify-checksum",
         installerPath,
       ],
@@ -1253,7 +1258,7 @@ describe("release smoke check", () => {
           ...process.env,
           RELEASE_HANDOFF_PATH: handoffReportPath,
           RELEASE_REPORT_PATH: releaseReportPath,
-          RELEASE_PLATFORM: "android",
+          RELEASE_PLATFORM: platform,
           RELEASE_PROFILE: "preview",
         },
       },
@@ -1279,7 +1284,7 @@ describe("release smoke check", () => {
     },
   });
 
-  const validIosHandoffReport = () => ({
+  const validIosHandoffReport = (): ReturnType<typeof validHandoffReport> => ({
     status: "completed",
     platform: "ios",
     profile: "preview",
@@ -1487,6 +1492,73 @@ describe("release smoke check", () => {
     }
   });
 
+  it("verifies a downloaded iOS IPA against its local handoff checksum", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-ios-gated-installer-"),
+    );
+    const localIpaPath = path.join(artifactDirectory, "academy-preview.ipa");
+    const downloadedIpaPath = path.join(
+      artifactDirectory,
+      "downloaded-academy-preview.ipa",
+    );
+    writeFileSync(localIpaPath, "local IPA package bytes\n", "utf8");
+    writeFileSync(downloadedIpaPath, "local IPA package bytes\n", "utf8");
+    const report = validIosHandoffReport();
+    report.build.installerUrl = null;
+    report.build.installerPath = localIpaPath;
+    report.build.installerSha256 = computeReleaseFileSha256(localIpaPath);
+    report.build.installerSha256Source = "local";
+
+    try {
+      const passingGate = runHandoffGateSubprocess(
+        report,
+        downloadedIpaPath,
+        "ios",
+      );
+      try {
+        expect(passingGate.result.status).toBe(0);
+        expect(passingGate.result.stdout).toContain(
+          `[release-checksum] SHA-256 verified for ${downloadedIpaPath}: ${report.build.installerSha256}`,
+        );
+        expect(
+          JSON.parse(readFileSync(passingGate.releaseReportPath, "utf8")),
+        ).toMatchObject({
+          status: "passed",
+          handoff: {
+            platform: "ios",
+            installerSha256: report.build.installerSha256,
+            installerSha256Source: "local",
+          },
+        });
+      } finally {
+        rmSync(passingGate.fixtureDirectory, { recursive: true, force: true });
+      }
+
+      writeFileSync(downloadedIpaPath, "modified IPA package bytes\n", "utf8");
+      const foundChecksum = computeReleaseFileSha256(downloadedIpaPath);
+      const failingGate = runHandoffGateSubprocess(
+        report,
+        downloadedIpaPath,
+        "ios",
+      );
+      try {
+        const mismatch = `[release-checksum] SHA-256 mismatch for ${downloadedIpaPath}: expected ${report.build.installerSha256}, found ${foundChecksum}.`;
+        expect(failingGate.result.status).toBe(1);
+        expect(failingGate.result.stderr).toContain(mismatch);
+        expect(
+          JSON.parse(readFileSync(failingGate.releaseReportPath, "utf8")),
+        ).toMatchObject({
+          status: "failed",
+          error: mismatch,
+        });
+      } finally {
+        rmSync(failingGate.fixtureDirectory, { recursive: true, force: true });
+      }
+    } finally {
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("keeps cloud handoffs valid when the gate has no checksum to compare", () => {
     const artifactDirectory = mkdtempSync(
       path.join(tmpdir(), "academy-cloud-installer-"),
@@ -1504,6 +1576,35 @@ describe("release smoke check", () => {
       expect(
         JSON.parse(readFileSync(gate.releaseReportPath, "utf8")),
       ).toMatchObject({ status: "passed" });
+    } finally {
+      rmSync(gate.fixtureDirectory, { recursive: true, force: true });
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps cloud-only iOS handoffs valid when no checksum is recorded", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-cloud-ios-installer-"),
+    );
+    const artifactPath = path.join(
+      artifactDirectory,
+      "downloaded-academy-preview.ipa",
+    );
+    writeFileSync(artifactPath, "cloud IPA package bytes\n", "utf8");
+    const report = validIosHandoffReport();
+    const gate = runHandoffGateSubprocess(report, artifactPath, "ios");
+
+    try {
+      expect(gate.result.status).toBe(0);
+      expect(gate.result.stdout).toContain(
+        `[release-checksum] Skipping file comparison for ${artifactPath}: no SHA-256 checksum is recorded.`,
+      );
+      expect(
+        JSON.parse(readFileSync(gate.releaseReportPath, "utf8")),
+      ).toMatchObject({
+        status: "passed",
+        handoff: { platform: "ios" },
+      });
     } finally {
       rmSync(gate.fixtureDirectory, { recursive: true, force: true });
       rmSync(artifactDirectory, { recursive: true, force: true });

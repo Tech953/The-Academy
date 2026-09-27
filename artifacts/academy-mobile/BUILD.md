@@ -256,6 +256,16 @@ RELEASE_HANDOFF_PATH=.local/outputs/academy-mobile-native-handoff.json \
   --handoff --verify-checksum /path/to/downloaded/academy-preview.apk
 ```
 
+For a downloaded iOS IPA, select the iOS handoff contract and pass the `.ipa`
+file to the same gate:
+
+```bash
+RELEASE_HANDOFF_PATH=.local/outputs/academy-mobile-native-handoff.json \
+  pnpm --filter @workspace/academy-mobile run check-release -- \
+  --handoff --platform ios --profile preview \
+  --verify-checksum /path/to/downloaded/academy-preview.ipa
+```
+
 When a SHA-256 is recorded, a mismatch exits unsuccessfully and the failure
 report includes the artifact path and expected and found digests. If the cloud
 handoff has no recorded digest, the gate logs that file comparison was skipped
