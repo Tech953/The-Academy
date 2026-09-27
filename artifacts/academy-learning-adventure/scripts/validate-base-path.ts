@@ -6,6 +6,7 @@ import { cartographer } from "@replit/vite-plugin-cartographer";
 import { devBanner } from "@replit/vite-plugin-dev-banner";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { createServer } from "vite";
+import * as ts from "typescript";
 
 import { validateRuntimeErrorHmr } from "./runtime-error-hmr-smoke";
 
@@ -377,6 +378,356 @@ function isAssetLikeUrl(value: string): boolean {
   );
 }
 
+type WorkerUrlReference = {
+  value: string;
+  base: "document" | "module" | "absolute";
+};
+
+type WorkerUrlInspection = {
+  urls: string[];
+  unresolvedExpressions: string[];
+};
+
+type StaticPrimitive = string | number | boolean | null;
+
+function unwrapWorkerExpression(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function staticPrimitiveValue(
+  expression: ts.Expression,
+  checker: ts.TypeChecker,
+  activeSymbols = new Set<ts.Symbol>(),
+): StaticPrimitive | undefined {
+  const node = unwrapWorkerExpression(expression);
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isNumericLiteral(node)) {
+    const value = Number(node.text.replaceAll("_", ""));
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (node.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (node.kind === ts.SyntaxKind.NullKeyword) return null;
+
+  if (ts.isIdentifier(node)) {
+    const symbol = checker.getSymbolAtLocation(node);
+    const declaration = symbol?.valueDeclaration;
+    if (
+      !symbol ||
+      activeSymbols.has(symbol) ||
+      !declaration ||
+      !ts.isVariableDeclaration(declaration) ||
+      !ts.isVariableDeclarationList(declaration.parent) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const) ||
+      !declaration.initializer
+    ) {
+      return undefined;
+    }
+    activeSymbols.add(symbol);
+    const value = staticPrimitiveValue(
+      declaration.initializer,
+      checker,
+      activeSymbols,
+    );
+    activeSymbols.delete(symbol);
+    return value;
+  }
+
+  if (ts.isTemplateExpression(node)) {
+    let value = node.head.text;
+    for (const span of node.templateSpans) {
+      const part = staticPrimitiveValue(span.expression, checker, activeSymbols);
+      if (part === undefined) return undefined;
+      value += String(part) + span.literal.text;
+    }
+    return value;
+  }
+
+  if (
+    ts.isBinaryExpression(node) &&
+    node.operatorToken.kind === ts.SyntaxKind.PlusToken
+  ) {
+    const left = staticPrimitiveValue(node.left, checker, activeSymbols);
+    const right = staticPrimitiveValue(node.right, checker, activeSymbols);
+    if (left === undefined || right === undefined) return undefined;
+    if (typeof left === "string" || typeof right === "string") {
+      return String(left) + String(right);
+    }
+    if (typeof left === "number" && typeof right === "number") {
+      return left + right;
+    }
+    return undefined;
+  }
+
+  if (ts.isConditionalExpression(node)) {
+    const condition = staticPrimitiveValue(
+      node.condition,
+      checker,
+      activeSymbols,
+    );
+    if (condition !== undefined) {
+      return staticPrimitiveValue(
+        condition ? node.whenTrue : node.whenFalse,
+        checker,
+        activeSymbols,
+      );
+    }
+    const whenTrue = staticPrimitiveValue(
+      node.whenTrue,
+      checker,
+      activeSymbols,
+    );
+    const whenFalse = staticPrimitiveValue(
+      node.whenFalse,
+      checker,
+      activeSymbols,
+    );
+    return whenTrue !== undefined &&
+      whenFalse !== undefined &&
+      Object.is(whenTrue, whenFalse)
+      ? whenTrue
+      : undefined;
+  }
+
+  return undefined;
+}
+
+function isImportMetaUrl(expression: ts.Expression): boolean {
+  const node = unwrapWorkerExpression(expression);
+  return (
+    ts.isPropertyAccessExpression(node) &&
+    node.name.text === "url" &&
+    ts.isMetaProperty(node.expression) &&
+    node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
+    node.expression.name.text === "meta"
+  );
+}
+
+function isUrlConstructor(expression: ts.Expression): boolean {
+  const node = unwrapWorkerExpression(expression);
+  return (
+    ts.isIdentifier(node) && node.text === "URL"
+  ) || (
+    ts.isPropertyAccessExpression(node) &&
+    node.name.text === "URL" &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "globalThis"
+  );
+}
+
+function resolveWorkerUrlExpression(
+  expression: ts.Expression,
+  checker: ts.TypeChecker,
+  activeSymbols = new Set<ts.Symbol>(),
+): WorkerUrlReference | undefined {
+  const node = unwrapWorkerExpression(expression);
+
+  if (ts.isIdentifier(node)) {
+    const symbol = checker.getSymbolAtLocation(node);
+    const declaration = symbol?.valueDeclaration;
+    if (
+      !symbol ||
+      activeSymbols.has(symbol) ||
+      !declaration ||
+      !ts.isVariableDeclaration(declaration) ||
+      !ts.isVariableDeclarationList(declaration.parent) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const) ||
+      !declaration.initializer
+    ) {
+      return undefined;
+    }
+    activeSymbols.add(symbol);
+    const value = resolveWorkerUrlExpression(
+      declaration.initializer,
+      checker,
+      activeSymbols,
+    );
+    activeSymbols.delete(symbol);
+    return value;
+  }
+
+  if (ts.isNewExpression(node) && isUrlConstructor(node.expression)) {
+    const [urlArgument, baseArgument] = node.arguments ?? [];
+    if (!urlArgument) return undefined;
+    const urlValue = staticPrimitiveValue(
+      urlArgument,
+      checker,
+      activeSymbols,
+    );
+    if (urlValue === undefined) return undefined;
+    const value = String(urlValue);
+
+    if (baseArgument && isImportMetaUrl(baseArgument)) {
+      return { value, base: "module" };
+    }
+    if (baseArgument) {
+      const baseValue = staticPrimitiveValue(
+        baseArgument,
+        checker,
+        activeSymbols,
+      );
+      if (baseValue === undefined) return undefined;
+      try {
+        return {
+          value: new URL(value, String(baseValue)).href,
+          base: "absolute",
+        };
+      } catch {
+        return undefined;
+      }
+    }
+    try {
+      return { value: new URL(value).href, base: "absolute" };
+    } catch {
+      return undefined;
+    }
+  }
+
+  const value = staticPrimitiveValue(node, checker, activeSymbols);
+  return value === undefined
+    ? undefined
+    : { value: String(value), base: "document" };
+}
+
+function workerExpressionDescription(
+  expression: ts.Expression,
+  checker: ts.TypeChecker,
+  sourceFile: ts.SourceFile,
+): string {
+  const node = unwrapWorkerExpression(expression);
+  if (ts.isIdentifier(node)) {
+    const declaration = checker.getSymbolAtLocation(node)?.valueDeclaration;
+    if (
+      declaration &&
+      ts.isVariableDeclaration(declaration) &&
+      ts.isVariableDeclarationList(declaration.parent) &&
+      declaration.initializer
+    ) {
+      return `${node.text} = ${declaration.initializer.getText(sourceFile)}`;
+    }
+  }
+  return node.getText(sourceFile);
+}
+
+function workerConstructorName(
+  expression: ts.Expression,
+  checker: ts.TypeChecker,
+  activeSymbols = new Set<ts.Symbol>(),
+): "Worker" | "SharedWorker" | undefined {
+  const node = unwrapWorkerExpression(expression);
+  const name = ts.isPropertyAccessExpression(node)
+    ? node.name.text
+    : ts.isIdentifier(node)
+      ? node.text
+      : undefined;
+  if (name === "Worker" || name === "SharedWorker") return name;
+
+  if (ts.isIdentifier(node)) {
+    const symbol = checker.getSymbolAtLocation(node);
+    const declaration = symbol?.valueDeclaration;
+    if (
+      symbol &&
+      !activeSymbols.has(symbol) &&
+      declaration &&
+      ts.isVariableDeclaration(declaration) &&
+      ts.isVariableDeclarationList(declaration.parent) &&
+      declaration.parent.flags & ts.NodeFlags.Const &&
+      declaration.initializer
+    ) {
+      activeSymbols.add(symbol);
+      const constructorName = workerConstructorName(
+        declaration.initializer,
+        checker,
+        activeSymbols,
+      );
+      activeSymbols.delete(symbol);
+      return constructorName;
+    }
+  }
+
+  return undefined;
+}
+
+function inspectGeneratedWorkerUrls(
+  sourceFile: ts.SourceFile,
+  checker: ts.TypeChecker,
+  filePath: string,
+  outputDirectory: string,
+  previewPath: string,
+): WorkerUrlInspection {
+  const urls = new Set<string>();
+  const unresolvedExpressions = new Set<string>();
+  const previewOrigin = "https://academy-preview.invalid";
+  const documentUrl = new URL(previewPath, previewOrigin);
+  const relativeFile = path
+    .relative(outputDirectory, filePath)
+    .split(path.sep)
+    .join("/");
+  const moduleUrl = new URL(relativeFile, documentUrl);
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isNewExpression(node) || ts.isCallExpression(node)) {
+      const workerName = workerConstructorName(node.expression, checker);
+      if (workerName) {
+        const argument = node.arguments?.[0];
+        const resolution = argument
+          ? resolveWorkerUrlExpression(argument, checker)
+          : undefined;
+        if (!argument || !resolution) {
+          const expression = argument
+            ? workerExpressionDescription(argument, checker, sourceFile)
+            : "(missing URL argument)";
+          unresolvedExpressions.add(
+            `${workerName} URL expression "${expression}" cannot be proven safe`,
+          );
+        } else {
+          try {
+            const base =
+              resolution.base === "document"
+                ? documentUrl
+                : resolution.base === "module"
+                  ? moduleUrl
+                  : undefined;
+            const resolvedUrl = base
+              ? new URL(resolution.value, base)
+              : new URL(resolution.value);
+            if (
+              (resolvedUrl.protocol === "http:" ||
+                resolvedUrl.protocol === "https:") &&
+              resolvedUrl.origin === previewOrigin
+            ) {
+              urls.add(
+                `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`,
+              );
+            }
+          } catch {
+            unresolvedExpressions.add(
+              `${workerName} URL "${resolution.value}" could not be resolved`,
+            );
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return {
+    urls: [...urls],
+    unresolvedExpressions: [...unresolvedExpressions],
+  };
+}
+
 function generatedAssetUrls(document: string, extension: string): string[] {
   const urls = new Set<string>();
   const isBrowserMetadata = /\.(?:json|webmanifest)$/i.test(extension);
@@ -391,15 +742,6 @@ function generatedAssetUrls(document: string, extension: string): string[] {
   const dynamicImportPattern = /\bimport\(\s*(["'`])(\/[^"'`\s)]*)\1\s*\)/g;
   for (const match of document.matchAll(dynamicImportPattern)) {
     const value = match[2];
-    if (value) {
-      urls.add(value);
-    }
-  }
-
-  const workerPattern =
-    /\b(?:new\s+)?(?:SharedWorker|Worker)\s*\(\s*(?:(["'`])(\/[^"'`\s)]*)\1|new\s+URL\(\s*(["'`])(\/[^"'`\s)]*)\3)/g;
-  for (const match of document.matchAll(workerPattern)) {
-    const value = match[2] ?? match[4];
     if (value) {
       urls.add(value);
     }
@@ -423,22 +765,82 @@ export function validateGeneratedAssetReferences(
   previewPath: string,
   outputDirectory = buildOutputDirectory,
 ): void {
+  const files = generatedAssetFiles(outputDirectory);
+  const javascriptFiles = files.filter((filePath) =>
+    /\.(?:js|mjs)$/i.test(filePath),
+  );
+  const workerProgram =
+    javascriptFiles.length > 0
+      ? ts.createProgram(javascriptFiles, {
+          allowJs: true,
+          checkJs: false,
+          noResolve: true,
+          noLib: true,
+          target: ts.ScriptTarget.Latest,
+          module: ts.ModuleKind.ESNext,
+          moduleDetection: ts.ModuleDetectionKind.Force,
+        })
+      : undefined;
+  const workerChecker = workerProgram?.getTypeChecker();
   const assetEscapes: string[] = [];
   const metadataEscapes: string[] = [];
+  const workerEscapes: string[] = [];
 
-  for (const filePath of generatedAssetFiles(outputDirectory)) {
+  for (const filePath of files) {
     const document = readFileSync(filePath, "utf8");
+    const relativeFile = path
+      .relative(outputDirectory, filePath)
+      .split(path.sep)
+      .join("/");
+    if (/\.(?:js|mjs)$/i.test(filePath)) {
+      const sourceFile = workerProgram?.getSourceFile(filePath);
+      if (!sourceFile || !workerChecker) {
+        workerEscapes.push(
+          `${relativeFile}: generated JavaScript could not be parsed for Worker URL inspection`,
+        );
+      } else if (sourceFile.parseDiagnostics.length > 0) {
+        const parseError = ts.flattenDiagnosticMessageText(
+          sourceFile.parseDiagnostics[0]!.messageText,
+          " ",
+        );
+        workerEscapes.push(
+          `${relativeFile}: generated JavaScript could not be parsed for Worker URL inspection: ${parseError}`,
+        );
+      } else {
+        const workerInspection = inspectGeneratedWorkerUrls(
+          sourceFile,
+          workerChecker,
+          filePath,
+          outputDirectory,
+          previewPath,
+        );
+        for (const value of workerInspection.urls) {
+          if (!value.startsWith(previewPath)) {
+            workerEscapes.push(`${relativeFile}: ${value}`);
+          }
+        }
+        for (const expression of workerInspection.unresolvedExpressions) {
+          workerEscapes.push(`${relativeFile}: ${expression}`);
+        }
+      }
+    }
+
     const isBrowserMetadata = /\.(?:json|webmanifest)$/i.test(
       path.extname(filePath),
     );
     for (const value of generatedAssetUrls(document, path.extname(filePath))) {
       if (!value.startsWith(previewPath)) {
-        const escape = `${path.relative(outputDirectory, filePath)}: ${value}`;
+        const escape = `${relativeFile}: ${value}`;
         (isBrowserMetadata ? metadataEscapes : assetEscapes).push(escape);
       }
     }
   }
 
+  if (workerEscapes.length > 0) {
+    throw new Error(
+      `Generated Worker and SharedWorker URLs bypass ${previewPath} or cannot be proven safe: ${workerEscapes.join(", ")}`,
+    );
+  }
   if (metadataEscapes.length > 0) {
     throw new Error(
       `Generated metadata files contain URLs that bypass ${previewPath}: ${metadataEscapes.join(", ")}`,

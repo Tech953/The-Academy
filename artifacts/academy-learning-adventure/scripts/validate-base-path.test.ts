@@ -358,6 +358,86 @@ test("does not reject route strings or already-prefixed worker URLs", () => {
   );
 });
 
+test("rejects root-only Worker and SharedWorker URLs assembled from constants", () => {
+  withOutputDirectory(
+    {
+      "assets/main.js": [
+        'const workerRoot = "/workers";',
+        'const workerPath = `${workerRoot}/slide-worker.js`;',
+        "new Worker(workerPath);",
+        'const sharedRoot = "/workers/shared";',
+        "new SharedWorker(`${sharedRoot}.js`);",
+        'const modulePath = "/workers/module-worker.js";',
+        "new Worker(new URL(modulePath, import.meta.url));",
+        "const WorkerAlias = Worker;",
+        'new WorkerAlias("/workers/aliased-worker.js");',
+        'SharedWorker("/workers/invoked-shared-worker.js");',
+      ].join("\n"),
+    },
+    (directory) => {
+      assert.throws(
+        () => validateGeneratedAssetReferences(previewPath, directory),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes("assets/main.js: /workers/slide-worker.js") &&
+          error.message.includes("assets/main.js: /workers/shared.js") &&
+          error.message.includes("assets/main.js: /workers/module-worker.js") &&
+          error.message.includes("assets/main.js: /workers/aliased-worker.js") &&
+          error.message.includes(
+            "assets/main.js: /workers/invoked-shared-worker.js",
+          ),
+      );
+    },
+  );
+});
+
+test("accepts constant and template worker URLs that stay under the preview path", () => {
+  withOutputDirectory(
+    {
+      "assets/main.js": [
+        'const workerRoot = "/academy-learning-adventure/workers";',
+        "new Worker(`${workerRoot}/slide-worker.js`);",
+        'const sharedPath = "/academy-learning-adventure/workers/shared-study.js";',
+        "new SharedWorker(sharedPath);",
+        'const moduleWorker = new URL("../workers/module-worker.js", import.meta.url);',
+        "new Worker(moduleWorker);",
+        'new Worker("./local-worker.js");',
+      ].join("\n"),
+    },
+    (directory) => {
+      assert.doesNotThrow(() =>
+        validateGeneratedAssetReferences(previewPath, directory),
+      );
+    },
+  );
+});
+
+test("fails closed when Worker URLs depend on runtime values", () => {
+  withOutputDirectory(
+    {
+      "assets/main.js": [
+        "const workerPath = buildWorkerPath();",
+        "new Worker(workerPath);",
+        "const WorkerAlias = Worker;",
+        "new WorkerAlias(workerPath);",
+        "const runtimeName = window.name;",
+        "new SharedWorker(`/academy-learning-adventure/workers/${runtimeName}`);",
+      ].join("\n"),
+    },
+    (directory) => {
+      assert.throws(
+        () => validateGeneratedAssetReferences(previewPath, directory),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes("assets/main.js") &&
+          error.message.includes("cannot be proven safe") &&
+          error.message.includes("buildWorkerPath()") &&
+          error.message.includes("runtimeName"),
+      );
+    },
+  );
+});
+
 test("rejects root-relative URLs in browser-consumed metadata", () => {
   withOutputDirectory(
     {
