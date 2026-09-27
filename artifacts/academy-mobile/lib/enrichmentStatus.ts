@@ -7,6 +7,19 @@ export type EnrichmentStatus =
   | "fallback"
   | "rate_limited";
 
+export type StudyAvailabilityNoticeStatus =
+  | "retrying"
+  | Exclude<EnrichmentStatus, "checking" | "live">;
+
+export function getStudyAvailabilityNoticeStatus(
+  status: EnrichmentStatus,
+  retrying: boolean,
+): StudyAvailabilityNoticeStatus | null {
+  if (status === "live") return null;
+  if (status === "checking") return retrying ? "retrying" : null;
+  return status;
+}
+
 export function getInitialEnrichmentStatus(
   networkOnline: boolean,
   apiConfigured: boolean,

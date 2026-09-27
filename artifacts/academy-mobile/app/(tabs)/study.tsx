@@ -8,7 +8,10 @@ import {
   type MobileCopyKey,
 } from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
-import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
+import {
+  getStudyAvailabilityNoticeStatus,
+  type EnrichmentStatus,
+} from "@/lib/enrichmentStatus";
 import { useColors } from "@/hooks/useColors";
 import {
   focusSubjectKey,
@@ -121,43 +124,48 @@ function StudyAvailabilityNotice({
   isOnline,
   onRetry,
   retryLoading,
+  retrying,
   locale,
 }: {
   status: EnrichmentStatus;
   isOnline: boolean;
   onRetry?: () => void;
   retryLoading: boolean;
+  retrying: boolean;
   locale: string;
 }) {
-  if (status === "checking" || status === "live") return null;
+  const noticeStatus = getStudyAvailabilityNoticeStatus(status, retrying);
+  if (noticeStatus === null) return null;
 
   return (
     <View style={styles.availabilityNotice}>
       <Text style={styles.availabilityTitle}>
-        {status === "rate_limited"
+        {noticeStatus === "retrying"
+          ? getMobileCopy("retryingLiveRefresh", locale)
+          : noticeStatus === "rate_limited"
           ? getMobileCopy("liveRequestPaused", locale)
-          : status === "fallback"
+          : noticeStatus === "fallback"
           ? getMobileCopy("liveEnrichmentUnavailable", locale)
           : getMobileCopy("offlineStudyMode", locale)}
       </Text>
       <Text style={styles.availabilityCopy}>
-        {status === "rate_limited"
+        {noticeStatus === "rate_limited"
           ? getMobileCopy("liveRequestsPausedCopy", locale)
           : getMobileCopy("bundledStudyContentCopy", locale)}
       </Text>
-      {status === "fallback" && isOnline ? (
+      {noticeStatus === "fallback" && isOnline ? (
         <Pressable
           accessibilityLabel={getMobileCopy("retryLiveEnrichment", locale)}
           accessibilityRole="button"
-          disabled={retryLoading}
+          disabled={retryLoading || retrying}
           onPress={onRetry}
           style={({ pressed }) => [
             styles.retryButton,
-            { opacity: pressed || retryLoading ? 0.6 : 1 },
+            { opacity: pressed || retryLoading || retrying ? 0.6 : 1 },
           ]}
         >
           <Text style={styles.retryButtonText}>
-            {retryLoading
+            {retryLoading || retrying
               ? getMobileCopy("retryingLiveRefresh", locale)
               : getMobileCopy("retryLiveRefresh", locale)}
           </Text>
@@ -184,6 +192,7 @@ export default function StudyScreen() {
   } = useGame();
   const [subject, setSubject] = useState<GEDSubjectKey | null>(null);
   const [questions, setQuestions] = useState<StudyQuestion[]>([]);
+  const [retryingLiveRefresh, setRetryingLiveRefresh] = useState(false);
   const preserveQuestionsAfterRetryRef = useRef(false);
   const previousStudyDayRef = useRef(day);
 
@@ -228,7 +237,12 @@ export default function StudyScreen() {
   }, [getQuizSet]);
   const retryLiveRefresh = useCallback(async () => {
     preserveQuestionsAfterRetryRef.current = true;
-    await refreshContentPack();
+    setRetryingLiveRefresh(true);
+    try {
+      await refreshContentPack();
+    } finally {
+      setRetryingLiveRefresh(false);
+    }
   }, [refreshContentPack]);
 
   useEffect(() => {
@@ -264,7 +278,8 @@ export default function StudyScreen() {
             isOnline={isOnline}
             onRetry={retryLiveRefresh}
             retryLoading={contentPackLoading}
-              locale={bulletinLocale}
+            retrying={retryingLiveRefresh}
+            locale={bulletinLocale}
           />
           <View style={[styles.focusPanel, { borderColor: colors.accent }]}>
             <Text style={[styles.focusLabel, { color: colors.accent }]}>
@@ -357,6 +372,7 @@ export default function StudyScreen() {
           isOnline={isOnline}
           onRetry={retryLiveRefresh}
           retryLoading={contentPackLoading}
+          retrying={retryingLiveRefresh}
           locale={bulletinLocale}
         />
         {relatedFocusPractice.map((match) => (

@@ -431,6 +431,87 @@ describe("Study question focus badges", () => {
 });
 
 describe("Study enrichment retry", () => {
+  it("shows retry progress while keeping current questions answerable", async () => {
+    let finishRefresh!: () => void;
+    let retryPromise!: Promise<void>;
+    const refreshContentPack = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        }),
+    );
+    const fallbackPack = makeStudyPack(
+      "fallback-pack",
+      focusTopics[0],
+      "deterministic",
+    );
+    const getQuizSet = vi.fn(() => [focusedQuestion]);
+    const answerQuestion = vi.fn(() => true);
+    const sharedContext = {
+      isOnline: true,
+      enrichmentStatus: "fallback" as const,
+      contentPackLoading: false,
+      refreshContentPack,
+      day: 1,
+      week: 1,
+      studyProgress: {
+        math: { correct: 0, answered: 0 },
+        language_arts: { correct: 0, answered: 0 },
+        science: { correct: 0, answered: 0 },
+        social_studies: { correct: 0, answered: 0 },
+      },
+      contentPack: fallbackPack,
+      getQuizSet,
+      answerQuestion,
+    };
+    gameContextMock.useGame.mockReturnValue(sharedContext);
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(<StudyScreen />);
+    });
+    openMathStudy(renderer);
+
+    const retryButton = renderer.root
+      .findAll((instance) => String(instance.type) === "Pressable")
+      .find((pressable) => textContent(pressable).includes("RETRY LIVE REFRESH"));
+    expect(retryButton).toBeDefined();
+
+    act(() => {
+      retryPromise = retryButton?.props.onPress();
+    });
+
+    gameContextMock.useGame.mockReturnValue({
+      ...sharedContext,
+      enrichmentStatus: "checking",
+      contentPackLoading: true,
+    });
+    act(() => {
+      renderer.update(<StudyScreen />);
+    });
+
+    expect(visibleText(renderer)).toContain("RETRYING LIVE REFRESH...");
+    expect(visibleText(renderer)).toContain(
+      "Bundled study content is active. You can keep answering questions.",
+    );
+    expect(visibleText(renderer)).toContain(focusedQuestion.question);
+
+    const answerButton = renderer.root
+      .findAll((instance) => String(instance.type) === "Pressable")
+      .find((pressable) => textContent(pressable).includes("x = 3"));
+    expect(answerButton?.props.disabled).toBe(false);
+
+    act(() => {
+      answerButton?.props.onPress();
+    });
+    expect(answerQuestion).toHaveBeenCalledWith(focusedQuestion, "x = 3");
+
+    await act(async () => {
+      finishRefresh();
+      await retryPromise;
+    });
+  });
+
   it("offers an online retry without replacing the active questions", async () => {
     const refreshContentPack = vi.fn(async () => {});
     const fallbackPack = makeStudyPack(

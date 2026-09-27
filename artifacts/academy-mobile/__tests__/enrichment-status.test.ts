@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEnrichmentStatusForSource,
   getInitialEnrichmentStatus,
+  getStudyAvailabilityNoticeStatus,
 } from "../lib/enrichmentStatus";
 
 describe("enrichment status", () => {
@@ -25,5 +26,12 @@ describe("enrichment status", () => {
 
   it("reports a temporary rate limit without switching to raw server errors", () => {
     expect(getEnrichmentStatusForSource("rate_limited")).toBe("rate_limited");
+  });
+
+  it("shows checking only when it is an explicit study retry", () => {
+    expect(getStudyAvailabilityNoticeStatus("checking", false)).toBeNull();
+    expect(getStudyAvailabilityNoticeStatus("checking", true)).toBe("retrying");
+    expect(getStudyAvailabilityNoticeStatus("live", true)).toBeNull();
+    expect(getStudyAvailabilityNoticeStatus("fallback", true)).toBe("fallback");
   });
 });
