@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { loadConfigFromFile } from "vite";
 
 import {
   validateDevelopmentConfiguration,
@@ -11,6 +19,24 @@ import {
 } from "./validate-base-path";
 
 const previewPath = "/academy-learning-adventure/";
+const viteConfigPath = fileURLToPath(
+  new URL("../vite.config.ts", import.meta.url),
+);
+const nonRootPreviewPaths = [
+  previewPath,
+  "/custom-preview/",
+  "/nested/custom/",
+];
+
+function pluginNames(plugins: unknown): string[] {
+  if (Array.isArray(plugins)) {
+    return plugins.flatMap(pluginNames);
+  }
+  if (plugins && typeof plugins === "object" && "name" in plugins) {
+    return [String(plugins.name)];
+  }
+  return [];
+}
 
 test("accepts the nested Vite development configuration", () => {
   assert.doesNotThrow(() =>
@@ -44,28 +70,117 @@ test("rejects a Vite config that enables the dev banner for nested previews", ()
         `,
         previewPath,
       ),
-    /dev banner must remain disabled/,
+    /dev banner must be enabled only by a root-path BASE_PATH check/,
   );
 });
 
-test("rejects root-only Replit helpers in development HTML", () => {
+test("rejects a custom non-root BASE_PATH in the dev banner gate", () => {
   assert.throws(
     () =>
-      validateDevelopmentHtml(
-        '<script id="replit-dev-banner" src="/@replit/vite-plugin-dev-banner/banner-script.js"></script>',
+      validateDevelopmentConfiguration(
+        `
+          const basePath = process.env.BASE_PATH ?? '/academy-learning-adventure/';
+          export default defineConfig({
+            base: basePath,
+            plugins: [
+              ...(basePath === '/' || basePath === '/custom-preview/'
+                ? [devBanner()]
+                : []),
+            ],
+          });
+        `,
         previewPath,
       ),
-    /root-only Replit helper URLs.*vite-plugin-dev-banner/,
+    /dev banner must be enabled only by a root-path BASE_PATH check/,
   );
 });
 
-test("accepts a base-prefixed Replit helper in development HTML", () => {
-  assert.doesNotThrow(() =>
-    validateDevelopmentHtml(
-      '<script src="/academy-learning-adventure/@replit/vite-plugin-dev-banner/banner-script.js"></script>',
-      previewPath,
-    ),
+test("enables the dev banner only for root-path development", async () => {
+  const previousEnvironment = new Map(
+    ["BASE_PATH", "NODE_ENV", "REPL_ID", "PORT"].map((key) => [
+      key,
+      process.env[key],
+    ]),
   );
+  const cases = [
+    { label: "root path", basePath: "/", bannerAllowed: true },
+    {
+      label: "configured nested default",
+      basePath: undefined,
+      bannerAllowed: false,
+    },
+    {
+      label: "custom preview path",
+      basePath: "/custom-preview/",
+      bannerAllowed: false,
+    },
+    {
+      label: "deeper custom preview path",
+      basePath: "/nested/custom/",
+      bannerAllowed: false,
+    },
+  ];
+
+  try {
+    process.env.NODE_ENV = "development";
+    process.env.REPL_ID = "base-path-fixture";
+    process.env.PORT = "21366";
+    assert.doesNotThrow(() =>
+      validateDevelopmentConfiguration(
+        readFileSync(viteConfigPath, "utf8"),
+        previewPath,
+      ),
+    );
+
+    for (const scenario of cases) {
+      if (scenario.basePath === undefined) {
+        delete process.env.BASE_PATH;
+      } else {
+        process.env.BASE_PATH = scenario.basePath;
+      }
+
+      const loaded = await loadConfigFromFile(
+        { command: "serve", mode: "development" },
+        viteConfigPath,
+      );
+      assert.ok(loaded, `Vite config should load for ${scenario.label}`);
+      const names = pluginNames(loaded.config.plugins);
+      assert.equal(
+        names.includes("@replit/vite-plugin-dev-banner"),
+        scenario.bannerAllowed,
+        `dev banner eligibility should match ${scenario.label}`,
+      );
+    }
+  } finally {
+    for (const [key, value] of previousEnvironment) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
+
+test("rejects root-only Replit helper injection for every non-root preview path", () => {
+  const rootOnlyHelper =
+    '<script id="replit-dev-banner" src="/@replit/vite-plugin-dev-banner/banner-script.js"></script>';
+  const prefixedHelper = (basePath: string) =>
+    `<script src="${basePath}@replit/vite-plugin-dev-banner/banner-script.js"></script>`;
+
+  for (const basePath of nonRootPreviewPaths) {
+    assert.throws(
+      () => validateDevelopmentHtml(rootOnlyHelper, basePath),
+      /root-only Replit helper URLs.*vite-plugin-dev-banner/,
+      `root-only helper should be rejected for ${basePath}`,
+    );
+    assert.doesNotThrow(
+      () => validateDevelopmentHtml(prefixedHelper(basePath), basePath),
+      `base-prefixed helper should be accepted for ${basePath}`,
+    );
+  }
+
+  assert.doesNotThrow(() => validateDevelopmentHtml(rootOnlyHelper, "/"));
 });
 
 function withOutputDirectory(

@@ -66,11 +66,12 @@ export function validateDevelopmentConfiguration(
       "Vite development configuration must use the shared basePath value.",
     );
   }
-  if (
-    !/basePath\s*===\s*['"]\/['"][\s\S]*devBanner\s*\(/.test(viteConfig)
-  ) {
+  const devBannerCalls = [...viteConfig.matchAll(/\bdevBanner\s*\(/g)];
+  const rootOnlyDevBannerBranch =
+    /\bbasePath\s*===\s*(['"])\/\1\s*\?\s*\[[^\]]*\bdevBanner\s*\(/;
+  if (devBannerCalls.length !== 1 || !rootOnlyDevBannerBranch.test(viteConfig)) {
     throw new Error(
-      "The Replit dev banner must remain disabled for the nested Academy base path.",
+      "The Replit dev banner must be enabled only by a root-path BASE_PATH check.",
     );
   }
 }
