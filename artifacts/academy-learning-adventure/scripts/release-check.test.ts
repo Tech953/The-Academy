@@ -44,16 +44,21 @@ test("runs export validation last and forwards explicit export paths", () => {
 
 test("stops the handoff when a prerequisite command fails", () => {
   const seen: Array<ReleaseCheckCommand> = [];
+  const metadataDiagnostic =
+    'Unclassified browser-loaded metadata output(s): assets/plugin-browser-map.json (referenced by assets/main.js as "/academy-learning-adventure/assets/plugin-browser-map.json"). Add each supported Vite/plugin output and its producer to browserMetadataOutputAllowlist.';
 
   assert.throws(
     () =>
       runReleaseCheck((command) => {
         seen.push(command);
         if (command.args.includes("validate-base-path")) {
-          throw new Error("simulated base-path validation failure");
+          throw new Error(metadataDiagnostic);
         }
       }),
-    /Release gate "Base path" failed: simulated base-path validation failure/,
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes('Release gate "Base path" failed:') &&
+      error.message.includes(metadataDiagnostic),
   );
 
   assert.equal(seen.at(-1)?.args[1], "validate-base-path");
@@ -61,6 +66,24 @@ test("stops the handoff when a prerequisite command fails", () => {
     seen.some((command) => command.args.includes("validate-exports")),
     false,
   );
+});
+
+test("preserves unclassified browser metadata details in base-path failures", () => {
+  const basePathGate = releaseCheckCommands().find(
+    ({ gate }) => gate === "Base path",
+  );
+  assert.ok(basePathGate);
+
+  const diagnostic =
+    "Academy base-path validation failed: Unclassified browser-loaded metadata output(s): assets/new-index.json.";
+  const message = releaseCommandFailureMessage(
+    basePathGate,
+    1,
+    "",
+    diagnostic,
+  );
+  assert.match(message, /Unclassified browser-loaded metadata output/);
+  assert.match(message, /assets\/new-index\.json/);
 });
 
 test("stops the handoff when imported chart fixtures fail", () => {

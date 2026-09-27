@@ -22,11 +22,24 @@ const artifactConfigPath = path.join(
 const viteConfigPath = path.join(projectRoot, "vite.config.ts");
 const buildOutputDirectory = path.join(projectRoot, "dist", "public");
 const builtIndexPath = path.join(buildOutputDirectory, "index.html");
-const browserMetadataBasenames = new Set([
-  "manifest.json",
-  "asset-manifest.json",
-  "metadata.json",
-]);
+const browserMetadataOutputAllowlist = [
+  {
+    basename: "manifest.json",
+    producer: "Vite build.manifest output, commonly .vite/manifest.json",
+  },
+  {
+    basename: "asset-manifest.json",
+    producer: "asset-manifest build plugins and host integrations",
+  },
+  {
+    basename: "metadata.json",
+    producer: "plugin-generated metadata sidecars",
+  },
+  {
+    extension: ".webmanifest",
+    producer: "browser Web App Manifest outputs",
+  },
+] as const;
 
 type AssetKind = "script" | "stylesheet" | "favicon";
 
@@ -352,21 +365,43 @@ function fileForReference(value: string, previewPath: string): string {
   return filePath;
 }
 
-function generatedAssetFiles(directory: string): string[] {
+function generatedOutputFiles(directory: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      files.push(...generatedAssetFiles(entryPath));
-    } else if (
-      /\.(?:css|js|mjs)$/i.test(entry.name) ||
-      browserMetadataBasenames.has(entry.name.toLowerCase()) ||
-      /\.webmanifest$/i.test(entry.name)
-    ) {
+      files.push(...generatedOutputFiles(entryPath));
+    } else if (entry.isFile()) {
       files.push(entryPath);
     }
   }
-  return files;
+  return files.sort();
+}
+
+function isAllowlistedBrowserMetadata(relativeFile: string): boolean {
+  const basename = path.posix.basename(relativeFile).toLowerCase();
+  const extension = path.posix.extname(relativeFile).toLowerCase();
+  return browserMetadataOutputAllowlist.some((output) =>
+    "basename" in output
+      ? basename === output.basename
+      : extension === output.extension,
+  );
+}
+
+function generatedAssetFiles(
+  directory: string,
+  outputFiles = generatedOutputFiles(directory),
+): string[] {
+  return outputFiles.filter((filePath) => {
+    const relativeFile = path
+      .relative(directory, filePath)
+      .split(path.sep)
+      .join("/");
+    return (
+      /\.(?:css|js|mjs)$/i.test(filePath) ||
+      isAllowlistedBrowserMetadata(relativeFile)
+    );
+  });
 }
 
 function isAssetLikeUrl(value: string): boolean {
@@ -762,11 +797,197 @@ function generatedAssetUrls(document: string, extension: string): string[] {
   return [...urls];
 }
 
+type BrowserMetadataReference = {
+  url: string;
+  base: "document" | "module";
+};
+
+function isBrowserMetadataUrl(value: string): boolean {
+  return /\.(?:json|webmanifest)$/i.test(referencePath(value));
+}
+
+function generatedBrowserMetadataReferences(
+  document: string,
+  extension: string,
+): BrowserMetadataReference[] {
+  const references = new Map<string, BrowserMetadataReference>();
+  const addReference = (
+    url: string | undefined,
+    base: BrowserMetadataReference["base"],
+  ) => {
+    if (!url || url.includes("${") || !isBrowserMetadataUrl(url)) return;
+    references.set(`${base}\u0000${url}`, { url, base });
+  };
+
+  if (extension.toLowerCase() === ".html") {
+    for (const reference of localReferences(document)) {
+      addReference(reference.value, "document");
+    }
+  }
+
+  const requestPatterns: Array<{
+    pattern: RegExp;
+    urlGroup: number;
+    base: BrowserMetadataReference["base"];
+  }> = [
+    {
+      pattern: /\bfetch\s*\(\s*(["'`])([^"'`]+)\1/gi,
+      urlGroup: 2,
+      base: "document",
+    },
+    {
+      pattern:
+        /\bopen\s*\(\s*(["'`])(?:GET|HEAD|POST|PUT|PATCH|DELETE)\1\s*,\s*(["'`])([^"'`]+)\2/gi,
+      urlGroup: 3,
+      base: "document",
+    },
+    {
+      pattern:
+        /\b(?:fetch|import|importScripts)\s*\(\s*new\s+URL\s*\(\s*(["'`])([^"'`]+)\1/gi,
+      urlGroup: 2,
+      base: "module",
+    },
+    {
+      pattern:
+        /\b(?:import|importScripts)\s*\(\s*(["'`])([^"'`]+)\1/gi,
+      urlGroup: 2,
+      base: "module",
+    },
+    {
+      pattern:
+        /\b(?:import|export)\s+(?:[^"'`;\n]*?\s+from\s*)?(["'`])([^"'`]+)\1/gi,
+      urlGroup: 2,
+      base: "module",
+    },
+  ];
+
+  for (const { pattern, urlGroup, base } of requestPatterns) {
+    for (const match of document.matchAll(pattern)) {
+      addReference(match[urlGroup], base);
+    }
+  }
+
+  if (extension.toLowerCase() === ".css") {
+    const cssUrlPattern =
+      /url\(\s*(?:(["'])([^"')\s]+)\1|([^"')\s]+))\s*\)/gi;
+    for (const match of document.matchAll(cssUrlPattern)) {
+      addReference(match[2] ?? match[3], "document");
+    }
+  }
+
+  return [...references.values()];
+}
+
+function generatedMetadataFileForReference(
+  reference: BrowserMetadataReference,
+  sourceFile: string,
+  outputDirectory: string,
+  previewPath: string,
+): string | undefined {
+  if (isExternalReference(reference.url)) return undefined;
+  const urlPath = referencePath(reference.url);
+  const sourceRelative = path
+    .relative(outputDirectory, sourceFile)
+    .split(path.sep)
+    .join("/");
+  let relativePath: string;
+
+  if (urlPath.startsWith(previewPath)) {
+    relativePath = urlPath.slice(previewPath.length);
+  } else if (urlPath.startsWith("/")) {
+    relativePath = urlPath.replace(/^\/+/, "");
+  } else if (reference.base === "module") {
+    relativePath = path.posix.join(
+      path.posix.dirname(sourceRelative),
+      urlPath,
+    );
+  } else {
+    relativePath = urlPath;
+  }
+
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(relativePath);
+  } catch {
+    return undefined;
+  }
+
+  const filePath = path.resolve(outputDirectory, decodedPath);
+  const relativeOutputPath = path.relative(outputDirectory, filePath);
+  if (
+    relativeOutputPath.startsWith("..") ||
+    path.isAbsolute(relativeOutputPath) ||
+    !existsSync(filePath) ||
+    !statSync(filePath).isFile()
+  ) {
+    return undefined;
+  }
+  return filePath;
+}
+
+function unclassifiedBrowserMetadataOutputs(
+  outputDirectory: string,
+  outputFiles: string[],
+  previewPath: string,
+): string[] {
+  const referenceSources = outputFiles.filter((filePath) => {
+    const relativeFile = path
+      .relative(outputDirectory, filePath)
+      .split(path.sep)
+      .join("/");
+    const extension = path.extname(filePath).toLowerCase();
+    return (
+      [".css", ".html", ".js", ".mjs"].includes(extension) ||
+      isAllowlistedBrowserMetadata(relativeFile)
+    );
+  });
+  const unclassified = new Set<string>();
+
+  for (const sourceFile of referenceSources) {
+    const sourceRelative = path
+      .relative(outputDirectory, sourceFile)
+      .split(path.sep)
+      .join("/");
+    const extension = path.extname(sourceFile);
+    const contents = readFileSync(sourceFile, "utf8");
+    for (const reference of generatedBrowserMetadataReferences(
+      contents,
+      extension,
+    )) {
+      const metadataFile = generatedMetadataFileForReference(
+        reference,
+        sourceFile,
+        outputDirectory,
+        previewPath,
+      );
+      if (!metadataFile) continue;
+
+      const relativeMetadataFile = path
+        .relative(outputDirectory, metadataFile)
+        .split(path.sep)
+        .join("/");
+      if (!isAllowlistedBrowserMetadata(relativeMetadataFile)) {
+        unclassified.add(
+          `${relativeMetadataFile} (referenced by ${sourceRelative} as "${reference.url}")`,
+        );
+      }
+    }
+  }
+
+  return [...unclassified].sort();
+}
+
 export function validateGeneratedAssetReferences(
   previewPath: string,
   outputDirectory = buildOutputDirectory,
 ): void {
-  const files = generatedAssetFiles(outputDirectory);
+  const outputFiles = generatedOutputFiles(outputDirectory);
+  const files = generatedAssetFiles(outputDirectory, outputFiles);
+  const unclassifiedMetadata = unclassifiedBrowserMetadataOutputs(
+    outputDirectory,
+    outputFiles,
+    previewPath,
+  );
   const javascriptFiles = files.filter((filePath) =>
     /\.(?:js|mjs)$/i.test(filePath),
   );
@@ -835,6 +1056,19 @@ export function validateGeneratedAssetReferences(
         (isBrowserMetadata ? metadataEscapes : assetEscapes).push(escape);
       }
     }
+  }
+
+  if (unclassifiedMetadata.length > 0) {
+    const allowlistEntries = browserMetadataOutputAllowlist
+      .map((output) =>
+        "basename" in output
+          ? `${output.basename} (${output.producer})`
+          : `*${output.extension} (${output.producer})`,
+      )
+      .join(", ");
+    throw new Error(
+      `Unclassified browser-loaded metadata output(s): ${unclassifiedMetadata.join(", ")}. Add each supported Vite/plugin output and its producer to browserMetadataOutputAllowlist in validate-base-path.ts before URL inspection. Current entries: ${allowlistEntries}.`,
+    );
   }
 
   if (workerEscapes.length > 0) {

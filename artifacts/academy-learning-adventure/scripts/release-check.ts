@@ -17,13 +17,19 @@ export function releaseCommandFailureMessage(
   const baseMessage =
     `Release command exited with status ${status ?? 1}: ` +
     `"${command.command} ${command.args.join(" ")}"`;
-  if (command.gate !== "Imported chart fixtures") return baseMessage;
+  const diagnosticMarker =
+    command.gate === "Imported chart fixtures"
+      ? "Unsupported chart type"
+      : command.gate === "Base path"
+        ? "Unclassified browser-loaded metadata output"
+        : undefined;
+  if (!diagnosticMarker) return baseMessage;
 
   const outputLines = `${stderr}\n${stdout}`
     .split(/\r?\n/)
     .map((line) => line.trim());
   const diagnosticIndex = outputLines.findIndex((line) =>
-    line.includes("Unsupported chart type"),
+    line.includes(diagnosticMarker),
   );
   const chartDiagnostic =
     diagnosticIndex >= 0
@@ -86,21 +92,19 @@ function runReleaseCommand({
 }: ReleaseCheckCommand): void {
   const check = { gate, command, args };
   const cwd = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const result =
-    gate === "Imported chart fixtures"
-      ? spawnSync(command, args, {
+  const capturesOutput =
+    gate === "Imported chart fixtures" || gate === "Base path";
+  const result = capturesOutput
+    ? spawnSync(command, args, {
           cwd,
           encoding: "utf8",
           maxBuffer: 8 * 1024 * 1024,
           stdio: ["inherit", "pipe", "pipe"],
         })
-      : spawnSync(command, args, {
-          cwd,
-          stdio: "inherit",
-        });
+    : spawnSync(command, args, { cwd, stdio: "inherit" });
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';
   const stderr = typeof result.stderr === 'string' ? result.stderr : '';
-  if (gate === "Imported chart fixtures") {
+  if (capturesOutput) {
     if (stdout) process.stdout.write(stdout);
     if (stderr) process.stderr.write(stderr);
   }

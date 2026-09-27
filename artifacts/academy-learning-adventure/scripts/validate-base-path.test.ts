@@ -495,10 +495,40 @@ test("accepts prefixed browser metadata and ignores debug-only metadata", () => 
       `,
       "assets/debug.json": '{"debugRoute":"/debug-only"}',
       "assets/source.map": '{"sources":["/debug-only"]}',
+      "site.webmanifest": `{"start_url":"/academy-learning-adventure/"}`,
     },
     (directory) => {
       assert.doesNotThrow(() =>
         validateGeneratedAssetReferences(previewPath, directory),
+      );
+    },
+  );
+});
+
+test("rejects referenced metadata outputs without an allowlisted producer", () => {
+  withOutputDirectory(
+    {
+      "index.html": `<link rel="manifest" href="${previewPath}assets/site-index.json">`,
+      "assets/main.js": `fetch("${previewPath}assets/plugin-browser-map.json");`,
+      "assets/site-index.json": '{"start_url":"/academy-learning-adventure/"}',
+      "assets/plugin-browser-map.json": '{"entry":"/academy-learning-adventure/assets/index.js"}',
+      "assets/debug.json": '{"debugRoute":"/debug-only"}',
+      "assets/source.map": '{"sources":["/debug-only"]}',
+    },
+    (directory) => {
+      assert.throws(
+        () => validateGeneratedAssetReferences(previewPath, directory),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes("Unclassified browser-loaded metadata") &&
+          error.message.includes("assets/site-index.json") &&
+          error.message.includes("index.html") &&
+          error.message.includes("assets/plugin-browser-map.json") &&
+          error.message.includes("assets/main.js") &&
+          error.message.includes("browserMetadataOutputAllowlist") &&
+          error.message.includes("Vite build.manifest") &&
+          !error.message.includes("assets/debug.json") &&
+          !error.message.includes("assets/source.map"),
       );
     },
   );
