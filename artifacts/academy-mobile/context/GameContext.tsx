@@ -165,6 +165,39 @@ const DEFAULT_STUDY_PROGRESS: Record<GEDSubjectKey, StudyProgress> = {
   social_studies: { answered: 0, correct: 0 },
 };
 
+const STUDY_SUBJECTS = Object.keys(DEFAULT_STUDY_PROGRESS) as GEDSubjectKey[];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeStudyCount(value: unknown): number {
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : 0;
+}
+
+function normalizeStudyProgress(value: unknown): Record<GEDSubjectKey, StudyProgress> {
+  const savedProgress = isRecord(value) ? value : {};
+  const normalized = {} as Record<GEDSubjectKey, StudyProgress>;
+
+  for (const subject of STUDY_SUBJECTS) {
+    const savedSubjectProgress = isRecord(savedProgress[subject])
+      ? savedProgress[subject]
+      : {};
+    const correct = normalizeStudyCount(savedSubjectProgress.correct);
+    const answered = Math.max(
+      normalizeStudyCount(savedSubjectProgress.answered),
+      correct,
+    );
+    normalized[subject] = { answered, correct };
+  }
+
+  return normalized;
+}
+
 function defaultState(): PersistedState {
   return {
     playerName: "",
@@ -306,8 +339,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const parsed = JSON.parse(raw) as PersistedState;
-          setState({ ...defaultState(), ...parsed });
+          const parsed: unknown = JSON.parse(raw);
+          const savedState = isRecord(parsed)
+            ? (parsed as Partial<PersistedState>)
+            : {};
+          setState({
+            ...defaultState(),
+            ...savedState,
+            studyProgress: normalizeStudyProgress(savedState.studyProgress),
+          });
         }
       } catch {
         // Corrupt or missing storage — fall back to a fresh game.

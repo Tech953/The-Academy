@@ -552,6 +552,77 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     }
   });
 
+  it("normalizes partial saved study progress and keeps the study screen usable", async () => {
+    const localStorage = createLocalStorageFixture();
+    mocks.apiConfigured = false;
+    localStorage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({
+        hasStarted: true,
+        playerName: "Rae",
+        day: 2,
+        xp: 27,
+        studyProgress: {
+          math: { answered: 4, correct: 3 },
+          language_arts: { correct: 1 },
+          science: { answered: -2, correct: 3 },
+        },
+      }),
+    );
+
+    let game: Game | undefined;
+    let renderer: TestRenderer.ReactTestRenderer | null = null;
+    try {
+      await act(async () => {
+        renderer = TestRenderer.create(
+          <GameProvider>
+            <>
+              <StudyScreen />
+              <ThemeProbe onUpdate={nextGame => (game = nextGame)} />
+            </>
+          </GameProvider>,
+        );
+      });
+      await waitFor(
+        () =>
+          game?.ready === true &&
+          game.contentPackLoading === false &&
+          game.isOnline === false,
+        renderer!,
+      );
+
+      expect(game?.playerName).toBe("Rae");
+      expect(game?.day).toBe(2);
+      expect(game?.xp).toBe(27);
+      expect(game?.studyProgress).toEqual({
+        math: { answered: 4, correct: 3 },
+        language_arts: { answered: 1, correct: 1 },
+        science: { answered: 3, correct: 3 },
+        social_studies: { answered: 0, correct: 0 },
+      });
+      expect(visibleText(renderer!)).toContain("3/4 correct");
+      expect(visibleText(renderer!)).toContain("1/1 correct");
+
+      const firstQuestions = game!.getQuizSet("math");
+      const repeatedQuestions = game!.getQuizSet("math");
+      expect(repeatedQuestions.map(question => question.id)).toEqual(
+        firstQuestions.map(question => question.id),
+      );
+
+      const mathButton = findPressableWithText(renderer!, "Math Reasoning");
+      expect(mathButton).toBeDefined();
+      await act(async () => {
+        mathButton?.props.onPress();
+      });
+      expect(visibleText(renderer!)).toContain(firstQuestions[0].question);
+      expect(mocks.fetchContentPack).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        renderer?.unmount();
+      });
+    }
+  });
+
   it("restores the latest progress after several rapid offline answers", async () => {
     const localStorage = createLocalStorageFixture();
     mocks.apiConfigured = false;
