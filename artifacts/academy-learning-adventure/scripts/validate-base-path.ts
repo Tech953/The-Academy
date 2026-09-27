@@ -80,21 +80,37 @@ export function validateDevelopmentHtml(
   document: string,
   previewPath: string,
 ): void {
-  const rootOnlyHelpers = [...document.matchAll(
+  const rootOnlyHelpers = new Set<string>();
+  for (const match of document.matchAll(
     /\b(?:src|href)\s*=\s*["'](\/[^"']+)["']/gi,
-  )]
-    .map((match) => match[1])
-    .filter(
-      (value): value is string =>
-        value !== undefined &&
-        value.startsWith("/@replit/") &&
-        !value.startsWith(previewPath),
-    );
+  )) {
+    const value = match[1];
+    if (value?.startsWith("/@replit/")) {
+      rootOnlyHelpers.add(value);
+    }
+  }
 
-  if (rootOnlyHelpers.length > 0) {
+  const quotedHelperUrl = /(["'`])(\/@replit\/[^"'`\s]*)\1/g;
+  for (const match of document.matchAll(
+    /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi,
+  )) {
+    const script = match[1] ?? "";
+    for (const urlMatch of script.matchAll(quotedHelperUrl)) {
+      const value = urlMatch[2];
+      if (value) {
+        rootOnlyHelpers.add(value);
+      }
+    }
+  }
+
+  const offendingHelpers = [...rootOnlyHelpers].filter(
+    (value) => !value.startsWith(previewPath),
+  );
+
+  if (offendingHelpers.length > 0) {
     throw new Error(
       `Development HTML injects root-only Replit helper URLs that bypass ${previewPath}: ${[
-        ...new Set(rootOnlyHelpers),
+        ...offendingHelpers,
       ].join(", ")}`,
     );
   }

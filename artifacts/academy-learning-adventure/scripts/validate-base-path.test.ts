@@ -183,6 +183,45 @@ test("rejects root-only Replit helper injection for every non-root preview path"
   assert.doesNotThrow(() => validateDevelopmentHtml(rootOnlyHelper, "/"));
 });
 
+test("rejects inline root-only module URLs and reports each URL with the preview path", () => {
+  const inlineHelpers = `
+    <script type="module">
+      import("/@replit/vite-plugin-dev-banner/banner-script.js");
+      const overlayUrl = '/@replit/vite-plugin-runtime-error-modal/overlay.js';
+    </script>
+  `;
+  const offendingUrls = [
+    "/@replit/vite-plugin-dev-banner/banner-script.js",
+    "/@replit/vite-plugin-runtime-error-modal/overlay.js",
+  ];
+
+  for (const basePath of nonRootPreviewPaths) {
+    assert.throws(
+      () => validateDevelopmentHtml(inlineHelpers, basePath),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message.includes(basePath) &&
+        offendingUrls.every((url) => error.message.includes(url)),
+      `inline root-only helper URLs should identify ${basePath}`,
+    );
+  }
+});
+
+test("accepts base-prefixed inline module URLs for every non-root preview path", () => {
+  for (const basePath of nonRootPreviewPaths) {
+    const inlineHelpers = `
+      <script type="module">
+        import("${basePath}@replit/vite-plugin-dev-banner/banner-script.js");
+        const overlayUrl = '${basePath}@replit/vite-plugin-runtime-error-modal/overlay.js';
+      </script>
+    `;
+    assert.doesNotThrow(
+      () => validateDevelopmentHtml(inlineHelpers, basePath),
+      `base-prefixed inline helpers should be accepted for ${basePath}`,
+    );
+  }
+});
+
 function withOutputDirectory(
   files: Record<string, string>,
   callback: (directory: string) => void,
