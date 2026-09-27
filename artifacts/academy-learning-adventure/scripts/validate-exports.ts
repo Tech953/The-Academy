@@ -220,6 +220,9 @@ function normalizeText(value: string): string {
 }
 
 const MAX_TEXT_EXCERPT_LENGTH = 160;
+const TEXT_EXCERPT_PREFIX_LENGTH = 64;
+const TEXT_EXCERPT_SUFFIX_LENGTH =
+  MAX_TEXT_EXCERPT_LENGTH - TEXT_EXCERPT_PREFIX_LENGTH - 3;
 
 function textExcerpt(value: string): string {
   const sanitized = value
@@ -231,9 +234,9 @@ function textExcerpt(value: string): string {
     return sanitized;
   }
 
-  return `${sanitized
-    .slice(0, MAX_TEXT_EXCERPT_LENGTH - 3)
-    .trimEnd()}...`;
+  return `${sanitized.slice(0, TEXT_EXCERPT_PREFIX_LENGTH).trimEnd()}...${sanitized
+    .slice(-TEXT_EXCERPT_SUFFIX_LENGTH)
+    .trimStart()}`;
 }
 
 function expectedTitleFound(text: string, title: string): boolean {

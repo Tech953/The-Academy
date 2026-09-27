@@ -86,6 +86,48 @@ test('bounds and sanitizes title mismatch excerpts', () => {
   );
 });
 
+for (const format of ['PPTX', 'PDF'] as const) {
+  test(`keeps a late title clue in a bounded ${format} mismatch excerpt`, () => {
+    const longPreamble =
+      'LEGAL NOTICE navigation contents and export disclaimer. '.repeat(18);
+    const mismatchedTitle = 'Observed title: A different destination.';
+    const text = `${longPreamble}\n${mismatchedTitle}`;
+    const filePath =
+      format === 'PPTX' ? '/reviewed/academy.pptx' : '/reviewed/academy.pdf';
+
+    assert.throws(
+      () =>
+        validateSlideContent(
+          [
+            'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
+            text,
+          ],
+          representativeExpectations,
+          format,
+          filePath,
+        ),
+      (error: unknown) => {
+        assert(error instanceof Error);
+        assert.ok(
+          error.message.includes(
+            `${format} export slide 12 is missing expected title "${representativeExpectations[1].title}"`,
+          ),
+        );
+        const excerpt = error.message.match(
+          /extracted text excerpt: "([^"]*)": /,
+        )?.[1];
+        assert.ok(excerpt);
+        assert.ok(excerpt.includes(mismatchedTitle));
+        assert.ok(excerpt.includes('...'));
+        assert.ok(excerpt.length <= 160);
+        assert.ok(!error.message.includes(longPreamble));
+        assert.ok(error.message.includes(filePath));
+        return true;
+      },
+    );
+  });
+}
+
 test('reports an unexpectedly empty slide before handoff', () => {
   assert.throws(
     () =>
