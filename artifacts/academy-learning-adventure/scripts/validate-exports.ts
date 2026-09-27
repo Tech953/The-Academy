@@ -49,9 +49,11 @@ export type SlideExpectation = {
 
 export function exportDirectoryIssue(
   directory: string,
-  pptxCount: number,
-  pdfCount: number,
+  pptxFiles: Array<string>,
+  pdfFiles: Array<string>,
 ): string | undefined {
+  const pptxCount = pptxFiles.length;
+  const pdfCount = pdfFiles.length;
   if (pptxCount === 1 && pdfCount === 1) {
     return undefined;
   }
@@ -60,12 +62,26 @@ export function exportDirectoryIssue(
   if (pptxCount === 0) {
     problems.push('missing a PPTX (.pptx) export');
   } else if (pptxCount !== 1) {
-    problems.push(`found ${pptxCount} PPTX (.pptx) exports; expected exactly one`);
+    const filenames = pptxFiles
+      .map((file) => path.basename(file))
+      .sort((left, right) => left.localeCompare(right))
+      .map((filename) => JSON.stringify(filename))
+      .join(', ');
+    problems.push(
+      `found ${pptxCount} PPTX (.pptx) exports; expected exactly one; files: ${filenames}`,
+    );
   }
   if (pdfCount === 0) {
     problems.push('missing a PDF (.pdf) export');
   } else if (pdfCount !== 1) {
-    problems.push(`found ${pdfCount} PDF (.pdf) exports; expected exactly one`);
+    const filenames = pdfFiles
+      .map((file) => path.basename(file))
+      .sort((left, right) => left.localeCompare(right))
+      .map((filename) => JSON.stringify(filename))
+      .join(', ');
+    problems.push(
+      `found ${pdfCount} PDF (.pdf) exports; expected exactly one; files: ${filenames}`,
+    );
   }
 
   return (
@@ -273,8 +289,8 @@ export function resolveExportPaths(args: {
 
   const issue = exportDirectoryIssue(
     directory,
-    pptxFiles.length,
-    pdfFiles.length,
+    pptxFiles,
+    pdfFiles,
   );
   if (issue !== undefined) {
     throw new Error(issue);

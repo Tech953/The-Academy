@@ -47,17 +47,40 @@ function excerptFromMismatch(message: string): string {
 
 test('explains missing export types and the expected output directory', () => {
   assert.equal(
-    exportDirectoryIssue('/reviewed/outputs', 0, 0),
+    exportDirectoryIssue('/reviewed/outputs', [], []),
     'Export preflight failed for /reviewed/outputs: missing a PPTX (.pptx) export; missing a PDF (.pdf) export. Expected exactly one PPTX (.pptx) and one PDF (.pdf) in this output directory.',
   );
 });
 
 test('explains incomplete export directories without accepting them', () => {
+  const directory = '/reviewed/outputs';
   assert.match(
-    exportDirectoryIssue('/reviewed/outputs', 2, 0) ?? '',
-    /Export preflight failed for \/reviewed\/outputs: found 2 PPTX \(\.pptx\) exports; expected exactly one; missing a PDF \(\.pdf\) export/,
+    exportDirectoryIssue(
+      directory,
+      [
+        `${directory}/academy-z-final.pptx`,
+        `${directory}/academy-a-review.pptx`,
+      ],
+      [],
+    ) ?? '',
+    /Export preflight failed for \/reviewed\/outputs: found 2 PPTX \(\.pptx\) exports; expected exactly one; files: "academy-a-review\.pptx", "academy-z-final\.pptx"; missing a PDF \(\.pdf\) export/,
   );
-  assert.equal(exportDirectoryIssue('/reviewed/outputs', 1, 1), undefined);
+  assert.match(
+    exportDirectoryIssue(
+      directory,
+      [`${directory}/academy-a.pptx`, `${directory}/academy-b.pptx`],
+      [`${directory}/academy-a.pdf`, `${directory}/academy-b.pdf`],
+    ) ?? '',
+    /files: "academy-a\.pptx", "academy-b\.pptx"; found 2 PDF \(\.pdf\) exports; expected exactly one; files: "academy-a\.pdf", "academy-b\.pdf"/,
+  );
+  assert.equal(
+    exportDirectoryIssue(
+      directory,
+      [`${directory}/academy.pptx`],
+      [`${directory}/academy.pdf`],
+    ),
+    undefined,
+  );
 });
 
 test('accepts a matched export pair newer than the current review input', () => {
