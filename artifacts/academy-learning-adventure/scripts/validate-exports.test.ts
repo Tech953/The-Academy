@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import {
   exportDirectoryIssue,
+  exportPairFreshnessIssue,
   readSlideManifest,
+  resolveExportPaths,
   validateSlideContent,
   type SlideExpectation,
 } from './validate-exports';
@@ -56,6 +58,90 @@ test('explains incomplete export directories without accepting them', () => {
     /Export preflight failed for \/reviewed\/outputs: found 2 PPTX \(\.pptx\) exports; expected exactly one; missing a PDF \(\.pdf\) export/,
   );
   assert.equal(exportDirectoryIssue('/reviewed/outputs', 1, 1), undefined);
+});
+
+test('accepts a matched export pair newer than the current review input', () => {
+  assert.equal(
+    exportPairFreshnessIssue({
+      source: 'directory',
+      pptxPath: '/reviewed/academy.pptx',
+      pdfPath: '/reviewed/academy.pdf',
+      pptxMtimeMs: 2_000_000,
+      pdfMtimeMs: 2_120_000,
+      reviewInput: {
+        filePath: '/deck/src/pages/slides/Slide01Cover.tsx',
+        mtimeMs: 1_000_000,
+      },
+    }),
+    undefined,
+  );
+});
+
+test('names both files and explains how to regenerate a stale pair', () => {
+  const issue = exportPairFreshnessIssue({
+    source: 'directory',
+    pptxPath: '/reviewed/academy.pptx',
+    pdfPath: '/reviewed/academy.pdf',
+    pptxMtimeMs: 1_000_000,
+    pdfMtimeMs: 1_000_000,
+    reviewInput: {
+      filePath: '/deck/src/pages/slides/Slide01Cover.tsx',
+      mtimeMs: 2_000_000,
+    },
+  });
+
+  assert.ok(issue);
+  assert.ok(issue.includes('/reviewed/academy.pptx'));
+  assert.ok(issue.includes('/reviewed/academy.pdf'));
+  assert.ok(issue.includes('/deck/src/pages/slides/Slide01Cover.tsx'));
+  assert.match(issue, /older than current review input/);
+  assert.match(issue, /Regenerate both exports .* same review run/);
+});
+
+test('rejects export files that are too far apart to trust as one review run', () => {
+  const issue = exportPairFreshnessIssue({
+    source: 'directory',
+    pptxPath: '/reviewed/academy.pptx',
+    pdfPath: '/reviewed/academy.pdf',
+    pptxMtimeMs: 1_000_000,
+    pdfMtimeMs: 1_000_000 + 30 * 60 * 1000,
+    reviewInput: {
+      filePath: '/deck/src/data/slides-manifest.json',
+      mtimeMs: 500_000,
+    },
+  });
+
+  assert.ok(issue);
+  assert.ok(issue.includes('/reviewed/academy.pptx'));
+  assert.ok(issue.includes('/reviewed/academy.pdf'));
+  assert.match(issue, /different review runs/);
+  assert.match(issue, /Regenerate both exports .* same review run/);
+});
+
+test('keeps explicit PPTX and PDF path selection unchanged', () => {
+  const paths = resolveExportPaths({
+    pptx: '/reviewed/academy.pptx',
+    pdf: '/reviewed/academy.pdf',
+  });
+  assert.deepEqual(paths, {
+    pptx: '/reviewed/academy.pptx',
+    pdf: '/reviewed/academy.pdf',
+    source: 'explicit',
+  });
+  assert.equal(
+    exportPairFreshnessIssue({
+      source: paths.source,
+      pptxPath: paths.pptx,
+      pdfPath: paths.pdf,
+      pptxMtimeMs: 1_000,
+      pdfMtimeMs: 1_000,
+      reviewInput: {
+        filePath: '/deck/src/pages/slides/Slide01Cover.tsx',
+        mtimeMs: 2_000,
+      },
+    }),
+    undefined,
+  );
 });
 
 test('validates representative PPTX content, including wrapped closing titles', () => {

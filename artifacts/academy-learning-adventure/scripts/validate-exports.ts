@@ -13,10 +13,33 @@ const manifestPath = path.join(
 const defaultOutputDirectory =
   process.env.SLIDES_EXPORT_DIR ??
   path.resolve(projectRoot, '..', '..', '.local', 'outputs');
+// Sequential manual exports can take minutes; a wider gap makes their shared run ambiguous.
+const MAX_EXPORT_PAIR_SKEW_MS = 15 * 60 * 1000;
+const currentReviewInputRoots = [
+  path.join(projectRoot, 'src'),
+  path.join(projectRoot, 'public'),
+  path.join(projectRoot, 'index.html'),
+  path.join(projectRoot, 'vite.config.ts'),
+];
 
-type ExportPaths = {
+export type ExportPaths = {
   pptx: string;
   pdf: string;
+  source: 'directory' | 'explicit';
+};
+
+export type ReviewInputSnapshot = {
+  filePath: string;
+  mtimeMs: number;
+};
+
+export type ExportFreshnessSnapshot = {
+  source: ExportPaths['source'];
+  pptxPath: string;
+  pdfPath: string;
+  pptxMtimeMs: number;
+  pdfMtimeMs: number;
+  reviewInput: ReviewInputSnapshot;
 };
 
 export type SlideExpectation = {
@@ -48,6 +71,83 @@ export function exportDirectoryIssue(
   return (
     `Export preflight failed for ${directory}: ${problems.join('; ')}. ` +
     'Expected exactly one PPTX (.pptx) and one PDF (.pdf) in this output directory.'
+  );
+}
+
+function reviewInputFilesAt(filePath: string): Array<string> {
+  if (!existsSync(filePath)) return [];
+  const info = statSync(filePath);
+  if (info.isFile()) return [filePath];
+  if (!info.isDirectory()) return [];
+
+  const files: Array<string> = [];
+  for (const entry of readdirSync(filePath, { withFileTypes: true })) {
+    if (entry.name === '.slide-thumbnails' || entry.name === '.gitignore') {
+      continue;
+    }
+    const entryPath = path.join(filePath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...reviewInputFilesAt(entryPath));
+    } else if (
+      entry.isFile() &&
+      !/(?:^|\.)(?:test|spec)\.[^.]+$/i.test(entry.name)
+    ) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+function latestReviewInput(): ReviewInputSnapshot {
+  const files = currentReviewInputRoots
+    .flatMap((root) => reviewInputFilesAt(root))
+    .sort();
+  if (files.length === 0) {
+    throw new Error(
+      'Could not identify the current slide review input under src/, public/, index.html, or vite.config.ts.',
+    );
+  }
+
+  return files
+    .map((filePath) => ({ filePath, mtimeMs: statSync(filePath).mtimeMs }))
+    .sort(
+      (left, right) =>
+        right.mtimeMs - left.mtimeMs ||
+        left.filePath.localeCompare(right.filePath),
+    )[0]!;
+}
+
+export function exportPairFreshnessIssue(
+  snapshot: ExportFreshnessSnapshot,
+): string | undefined {
+  if (snapshot.source === 'explicit') return undefined;
+
+  const issues: Array<string> = [];
+  const pairSkewMs = Math.abs(snapshot.pptxMtimeMs - snapshot.pdfMtimeMs);
+  if (pairSkewMs > MAX_EXPORT_PAIR_SKEW_MS) {
+    const pairSkewMinutes = Math.ceil(pairSkewMs / 60_000);
+    issues.push(
+      `their modification times are ${pairSkewMinutes} minutes apart (maximum ${MAX_EXPORT_PAIR_SKEW_MS / 60_000} minutes), so they may come from different review runs`,
+    );
+  }
+
+  const staleExports: Array<string> = [];
+  if (snapshot.pptxMtimeMs < snapshot.reviewInput.mtimeMs) {
+    staleExports.push(`PPTX "${snapshot.pptxPath}"`);
+  }
+  if (snapshot.pdfMtimeMs < snapshot.reviewInput.mtimeMs) {
+    staleExports.push(`PDF "${snapshot.pdfPath}"`);
+  }
+  if (staleExports.length > 0) {
+    issues.push(
+      `${staleExports.join(' and ')} ${staleExports.length === 1 ? 'is' : 'are'} older than current review input "${snapshot.reviewInput.filePath}"`,
+    );
+  }
+
+  if (issues.length === 0) return undefined;
+  return (
+    `Export freshness preflight failed for PPTX "${snapshot.pptxPath}" and PDF "${snapshot.pdfPath}": ${issues.join('; ')}. ` +
+    'Regenerate both exports from the current slide sources in the same review run, then rerun the handoff.'
   );
 }
 
@@ -145,7 +245,7 @@ function assertFile(filePath: string, label: string): void {
   }
 }
 
-function resolveExportPaths(args: {
+export function resolveExportPaths(args: {
   directory?: string;
   pptx?: string;
   pdf?: string;
@@ -154,6 +254,7 @@ function resolveExportPaths(args: {
     return {
       pptx: path.resolve(args.pptx),
       pdf: path.resolve(args.pdf),
+      source: 'explicit',
     };
   }
 
@@ -179,7 +280,11 @@ function resolveExportPaths(args: {
     throw new Error(issue);
   }
 
-  return { pptx: pptxFiles[0], pdf: pdfFiles[0] };
+  return {
+    pptx: pptxFiles[0],
+    pdf: pdfFiles[0],
+    source: 'directory',
+  };
 }
 
 function readZipListing(filePath: string): string {
@@ -401,6 +506,22 @@ function main(): void {
   const args = parseArgs(process.argv.slice(2));
   const expectations = readSlideManifest();
   const paths = resolveExportPaths(args);
+
+  if (paths.source === 'directory') {
+    assertFile(paths.pptx, 'PPTX export');
+    assertFile(paths.pdf, 'PDF export');
+    const freshnessIssue = exportPairFreshnessIssue({
+      source: paths.source,
+      pptxPath: paths.pptx,
+      pdfPath: paths.pdf,
+      pptxMtimeMs: statSync(paths.pptx).mtimeMs,
+      pdfMtimeMs: statSync(paths.pdf).mtimeMs,
+      reviewInput: latestReviewInput(),
+    });
+    if (freshnessIssue) {
+      throw new Error(freshnessIssue);
+    }
+  }
 
   validatePptx(paths.pptx, expectations);
   validatePdf(paths.pdf, expectations);
