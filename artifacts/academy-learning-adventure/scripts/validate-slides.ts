@@ -15,6 +15,7 @@ import {
   decodeYamlValue,
   encodeSlideDocumentText,
 } from '../src/.sdm/core/serialization';
+import * as ts from 'typescript';
 import {
   validateSlidesManifest,
   type SlideManifestIssue,
@@ -361,31 +362,258 @@ function decodeJsxText(value: string): string {
     .replace(/&gt;/g, '>');
 }
 
-function flattenJsxText(value: string): string {
-  return decodeJsxText(value.replace(/<[^>]*>/g, ' '))
-    .replace(/\s+/g, ' ')
-    .trim();
+type SourceTitleExtraction =
+  | { kind: 'resolved'; title: string }
+  | { kind: 'missing' }
+  | { kind: 'unsupported'; expression: string };
+
+function collectConstInitializers(
+  sourceFile: ts.SourceFile,
+): Map<string, ts.Expression | undefined> {
+  const initializers = new Map<string, ts.Expression | undefined>();
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      ts.isVariableDeclarationList(node.parent) &&
+      (node.parent.flags & ts.NodeFlags.Const) !== 0
+    ) {
+      const name = node.name.text;
+      if (initializers.has(name)) {
+        initializers.set(name, undefined);
+      } else {
+        initializers.set(name, node.initializer);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return initializers;
 }
 
-export function extractSourceTitle(source: string): string | undefined {
-  const slideFrameTitle = /<SlideFrame\b[^>]*\btitle\s*=\s*(?:"([^"]*)"|'([^']*)'|\{(["'])(.*?)\4\})/s.exec(
-    source,
-  );
-  const frameTitle =
-    slideFrameTitle?.[1] ??
-    slideFrameTitle?.[2] ??
-    slideFrameTitle?.[5];
-  if (frameTitle !== undefined && frameTitle.trim()) {
-    return decodeJsxText(frameTitle).trim();
+function resolveStaticString(
+  expression: ts.Expression,
+  initializers: ReadonlyMap<string, ts.Expression | undefined>,
+  resolving = new Set<string>(),
+): string | undefined {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  ) {
+    current = current.expression;
   }
 
-  const heading = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(source)?.[1];
-  if (heading !== undefined) {
-    const headingTitle = flattenJsxText(heading);
-    return headingTitle || undefined;
+  if (
+    ts.isStringLiteral(current) ||
+    ts.isNoSubstitutionTemplateLiteral(current)
+  ) {
+    return current.text;
+  }
+
+  if (ts.isIdentifier(current)) {
+    const initializer = initializers.get(current.text);
+    if (!initializer || resolving.has(current.text)) {
+      return undefined;
+    }
+    const nextResolving = new Set(resolving);
+    nextResolving.add(current.text);
+    return resolveStaticString(initializer, initializers, nextResolving);
+  }
+
+  if (
+    ts.isBinaryExpression(current) &&
+    current.operatorToken.kind === ts.SyntaxKind.PlusToken
+  ) {
+    const left = resolveStaticString(current.left, initializers, resolving);
+    const right = resolveStaticString(current.right, initializers, resolving);
+    return left === undefined || right === undefined
+      ? undefined
+      : `${left}${right}`;
+  }
+
+  if (ts.isTemplateExpression(current)) {
+    let result = current.head.text;
+    for (const span of current.templateSpans) {
+      const value = resolveStaticString(
+        span.expression,
+        initializers,
+        resolving,
+      );
+      if (value === undefined) {
+        return undefined;
+      }
+      result += `${value}${span.literal.text}`;
+    }
+    return result;
+  }
+
+  if (ts.isConditionalExpression(current)) {
+    if (current.condition.kind === ts.SyntaxKind.TrueKeyword) {
+      return resolveStaticString(current.whenTrue, initializers, resolving);
+    }
+    if (current.condition.kind === ts.SyntaxKind.FalseKeyword) {
+      return resolveStaticString(current.whenFalse, initializers, resolving);
+    }
   }
 
   return undefined;
+}
+
+function expressionForDiagnostic(
+  expression: ts.Node,
+  sourceFile: ts.SourceFile,
+): string {
+  const value = expression.getText(sourceFile).replace(/\s+/g, ' ').trim();
+  return value.length > 120 ? `${value.slice(0, 117)}...` : value || '<empty>';
+}
+
+function resolveJsxChildrenTitle(
+  children: ts.NodeArray<ts.JsxChild>,
+  initializers: ReadonlyMap<string, ts.Expression | undefined>,
+  sourceFile: ts.SourceFile,
+): SourceTitleExtraction {
+  const parts: Array<string> = [];
+  for (const child of children) {
+    if (ts.isJsxText(child)) {
+      parts.push(decodeJsxText(child.text));
+    } else if (ts.isJsxExpression(child)) {
+      if (child.expression === undefined) {
+        continue;
+      }
+      const value = resolveStaticString(child.expression, initializers);
+      if (value === undefined) {
+        return {
+          kind: 'unsupported',
+          expression: expressionForDiagnostic(child.expression, sourceFile),
+        };
+      }
+      parts.push(value);
+    } else if (ts.isJsxElement(child) || ts.isJsxFragment(child)) {
+      const nested = resolveJsxChildrenTitle(
+        child.children,
+        initializers,
+        sourceFile,
+      );
+      if (nested.kind === 'unsupported') {
+        return nested;
+      }
+      if (nested.kind === 'resolved') {
+        parts.push(nested.title);
+      }
+    }
+  }
+
+  const title = parts.join(' ').replace(/\s+/g, ' ').trim();
+  return title ? { kind: 'resolved', title } : { kind: 'missing' };
+}
+
+function sourceTitleExtraction(source: string): SourceTitleExtraction {
+  const sourceFile = ts.createSourceFile(
+    'slide.tsx',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const initializers = collectConstInitializers(sourceFile);
+  const slideFrameAttributes: Array<ts.JsxAttributes> = [];
+  const headings: Array<ts.JsxElement> = [];
+
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      ts.isIdentifier(node.tagName) &&
+      node.tagName.text === 'SlideFrame'
+    ) {
+      slideFrameAttributes.push(node.attributes);
+    }
+    if (
+      ts.isJsxElement(node) &&
+      ts.isIdentifier(node.openingElement.tagName) &&
+      node.openingElement.tagName.text === 'h1'
+    ) {
+      headings.push(node);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+
+  if (slideFrameAttributes.length > 1) {
+    return {
+      kind: 'unsupported',
+      expression: 'multiple <SlideFrame> elements in one source file',
+    };
+  }
+
+  const frameAttributes = slideFrameAttributes[0];
+  if (frameAttributes !== undefined) {
+    const titleAttribute = frameAttributes.properties.find(
+      (property): property is ts.JsxAttribute =>
+        ts.isJsxAttribute(property) &&
+        property.name.getText(sourceFile) === 'title',
+    );
+    if (titleAttribute !== undefined) {
+      const initializer = titleAttribute.initializer;
+      if (initializer === undefined) {
+        return {
+          kind: 'unsupported',
+          expression: 'title attribute without a value',
+        };
+      }
+      if (ts.isStringLiteral(initializer)) {
+        const title = decodeJsxText(initializer.text).trim();
+        return title ? { kind: 'resolved', title } : { kind: 'missing' };
+      }
+      if (ts.isJsxExpression(initializer) && initializer.expression) {
+        const title = resolveStaticString(initializer.expression, initializers);
+        if (title !== undefined) {
+          const trimmedTitle = title.trim();
+          return trimmedTitle
+            ? { kind: 'resolved', title: trimmedTitle }
+            : { kind: 'missing' };
+        }
+        return {
+          kind: 'unsupported',
+          expression: expressionForDiagnostic(
+            initializer.expression,
+            sourceFile,
+          ),
+        };
+      }
+      return {
+        kind: 'unsupported',
+        expression: expressionForDiagnostic(initializer, sourceFile),
+      };
+    }
+
+    const spreadAttribute = frameAttributes.properties.find(
+      ts.isJsxSpreadAttribute,
+    );
+    if (spreadAttribute !== undefined) {
+      return {
+        kind: 'unsupported',
+        expression: expressionForDiagnostic(spreadAttribute, sourceFile),
+      };
+    }
+  }
+
+  if (headings[0] !== undefined) {
+    return resolveJsxChildrenTitle(
+      headings[0].children,
+      initializers,
+      sourceFile,
+    );
+  }
+  return { kind: 'missing' };
+}
+
+export function extractSourceTitle(source: string): string | undefined {
+  const extraction = sourceTitleExtraction(source);
+  return extraction.kind === 'resolved' ? extraction.title : undefined;
 }
 
 export function findSourceTitleIssues(
@@ -396,8 +624,28 @@ export function findSourceTitleIssues(
     .filter((entry) => entry.kind !== 'sdm')
     .flatMap((entry) => {
       const source = readSource(entry.filepath);
+      if (source === undefined) {
+        return [
+          {
+            message: `Slide ${entry.position} source title could not be read in ${entry.filepath}: expected "${entry.title}", found "<unreadable source>"`,
+          },
+        ];
+      }
+
+      const extraction = sourceTitleExtraction(source);
+      if (extraction.kind === 'unsupported') {
+        return [
+          {
+            message:
+              `Slide ${entry.position} source title expression could not be resolved in ${entry.filepath}: ` +
+              `expected "${entry.title}", found dynamic expression ${JSON.stringify(extraction.expression)}. ` +
+              'Use a string literal or a local const initialized with a static string.',
+          },
+        ];
+      }
+
       const currentTitle =
-        source === undefined ? '<unreadable source>' : extractSourceTitle(source);
+        extraction.kind === 'resolved' ? extraction.title : undefined;
       const displayTitle = currentTitle ?? '<missing>';
 
       if (currentTitle === entry.title) {
@@ -406,10 +654,7 @@ export function findSourceTitleIssues(
 
       return [
         {
-          message:
-            currentTitle === '<unreadable source>'
-              ? `Slide ${entry.position} source title could not be read in ${entry.filepath}: expected "${entry.title}", found "${displayTitle}"`
-              : `Slide ${entry.position} source title drift in ${entry.filepath}: expected "${entry.title}", found "${displayTitle}"`,
+          message: `Slide ${entry.position} source title drift in ${entry.filepath}: expected "${entry.title}", found "${displayTitle}"`,
         },
       ];
     });

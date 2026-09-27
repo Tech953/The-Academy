@@ -29,6 +29,16 @@ test('extracts titles from SlideFrame props and standalone headings', () => {
   );
   assert.equal(
     extractSourceTitle(
+      [
+        "const titlePrefix = 'A constant-backed';",
+        'const slideTitle = `${titlePrefix} title`;',
+        '<SlideFrame title={slideTitle} />',
+      ].join('\n'),
+    ),
+    'A constant-backed title',
+  );
+  assert.equal(
+    extractSourceTitle(
       '<h1><div>Make the return</div><div>visit worth making.</div></h1>',
     ),
     'Make the return visit worth making.',
@@ -39,13 +49,30 @@ test('reports source title drift with position and expected/current values', () 
   const issues = findSourceTitleIssues(entries, (filepath) =>
     filepath.endsWith('Slide01Cover.tsx')
       ? '<h1>The Academy</h1>'
-      : '<SlideFrame title="A different title" />',
+      : [
+          "const titlePrefix = 'A different';",
+          'const slideTitle = `${titlePrefix} title`;',
+          '<SlideFrame title={slideTitle} />',
+        ].join('\n'),
   );
 
   assert.deepEqual(issues, [
     {
       message:
         'Slide 2 source title drift in src/pages/slides/Slide02Thesis.tsx: expected "A study system with a world around it", found "A different title"',
+    },
+  ]);
+});
+
+test('reports unsupported dynamic title expressions with an actionable hint', () => {
+  const issues = findSourceTitleIssues(entries.slice(1), () =>
+    '<SlideFrame title={getSlideTitle()} />',
+  );
+
+  assert.deepEqual(issues, [
+    {
+      message:
+        'Slide 2 source title expression could not be resolved in src/pages/slides/Slide02Thesis.tsx: expected "A study system with a world around it", found dynamic expression "getSlideTitle()". Use a string literal or a local const initialized with a static string.',
     },
   ]);
 });
