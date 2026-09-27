@@ -4,6 +4,7 @@
 - [Mobile Vitest boundary](mobile-vitest-boundary.md) — Keep pure context selectors in `.ts` modules; importing native-heavy provider TSX breaks the Node test transformer.
 - [Deck export safe areas](deck-export-safe-areas.md) — Fixed 1920×1080 slides need bounded normal-flow content; intrinsic grids and absolute notes can defeat footer spacing.
 - [Slide export freshness](slide-export-freshness.md) — Directory-discovered pairs use source and file mtimes; explicit export paths deliberately bypass freshness gating.
+- [Release gate timing output](release-gate-timing-output.md) — Use monotonic per-gate durations and retain failure timing in captured handoff diagnostics.
 - [Slides browser visual QA](slides-browser-visual-qa.md) — Headless Chromium outer window size differs from the presentation viewport; verify actual dimensions and avoid oversubscribing browser sweeps.
 - [IPv6 rate-limit identity](ipv6-rate-limit.md) — IPv6 quotas are subnet-grouped; isolation tests need distinct prefixes.
 - [Nested preview helpers](nested-preview-helpers.md) — Root-relative helpers fail, and Vite request observers must capture paths before middleware strips the base.

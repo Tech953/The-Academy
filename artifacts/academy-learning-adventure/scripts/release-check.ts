@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { performance } from "node:perf_hooks";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -70,17 +71,34 @@ export function releaseCheckCommands(
   ];
 }
 
+function formatElapsedDuration(elapsedMs: number): string {
+  const roundedMs = Math.max(0, Math.round(elapsedMs));
+  return roundedMs < 1000
+    ? `${roundedMs}ms`
+    : `${(roundedMs / 1000).toFixed(2)}s`;
+}
+
 export function runReleaseCheck(
   runCommand: (command: ReleaseCheckCommand) => void = runReleaseCommand,
   exportArgs: Array<string> = process.argv.slice(2),
+  now: () => number = () => performance.now(),
 ): void {
   for (const command of releaseCheckCommands(exportArgs)) {
     console.log(`[release] Starting gate: ${command.gate}`);
+    const startedAt = now();
     try {
       runCommand(command);
+      const elapsed = formatElapsedDuration(now() - startedAt);
+      console.log(
+        `[release] Completed gate: ${command.gate} (took ${elapsed})`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Release gate "${command.gate}" failed: ${message}`);
+      const elapsed = formatElapsedDuration(now() - startedAt);
+      throw new Error(
+        `Release gate "${command.gate}" failed: ${message}\n` +
+          `[release] Failed gate: ${command.gate} (took ${elapsed})`,
+      );
     }
   }
 }

@@ -44,6 +44,7 @@ test("runs export validation last and forwards explicit export paths", () => {
 
 test("stops the handoff when a prerequisite command fails", () => {
   const seen: Array<ReleaseCheckCommand> = [];
+  let clock = 0;
   const metadataDiagnostic =
     'Unclassified browser-loaded metadata output(s): assets/plugin-browser-map.json (referenced by assets/main.js as "/academy-learning-adventure/assets/plugin-browser-map.json"). Add each supported Vite/plugin output and its producer to browserMetadataOutputAllowlist.';
 
@@ -54,11 +55,18 @@ test("stops the handoff when a prerequisite command fails", () => {
         if (command.args.includes("validate-base-path")) {
           throw new Error(metadataDiagnostic);
         }
+      }, [], () => {
+        const currentTime = clock;
+        clock += 125;
+        return currentTime;
       }),
     (error: unknown) =>
       error instanceof Error &&
       error.message.includes('Release gate "Base path" failed:') &&
-      error.message.includes(metadataDiagnostic),
+      error.message.includes(metadataDiagnostic) &&
+      error.message.includes(
+        "[release] Failed gate: Base path (took 125ms)",
+      ),
   );
 
   assert.equal(seen.at(-1)?.args[1], "validate-base-path");
@@ -147,26 +155,33 @@ test("includes the named unsupported chart in the handoff failure", () => {
   }
 });
 
-test("labels every release gate before executing it", () => {
+test("reports elapsed duration for every completed release gate", () => {
   const messages: Array<string> = [];
   const originalLog = console.log;
   console.log = (message?: unknown) => {
     messages.push(String(message));
   };
+  let clock = 0;
 
   try {
-    runReleaseCheck(() => {});
+    runReleaseCheck(
+      () => {},
+      [],
+      () => {
+        const currentTime = clock;
+        clock += 1234;
+        return currentTime;
+      },
+    );
   } finally {
     console.log = originalLog;
   }
 
-  assert.deepEqual(messages, [
-    "[release] Starting gate: Typecheck",
-    "[release] Starting gate: Imported chart fixtures",
-    "[release] Starting gate: Slide manifest",
-    "[release] Starting gate: Base path",
-    "[release] Starting gate: Bundle",
-    "[release] Starting gate: Routes",
-    "[release] Starting gate: Exports",
-  ]);
+  assert.deepEqual(
+    messages,
+    releaseCheckCommands().flatMap(({ gate }) => [
+      `[release] Starting gate: ${gate}`,
+      `[release] Completed gate: ${gate} (took 1.23s)`,
+    ]),
+  );
 });
