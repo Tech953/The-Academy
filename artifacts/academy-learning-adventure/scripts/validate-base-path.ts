@@ -7,6 +7,8 @@ import { devBanner } from "@replit/vite-plugin-dev-banner";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { createServer } from "vite";
 
+import { validateRuntimeErrorHmr } from "./runtime-error-hmr-smoke";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
@@ -475,6 +477,24 @@ async function validate(): Promise<void> {
   }
 
   const document = readFileSync(builtIndexPath, "utf8");
+  if (
+    document.includes("/@vite/client") ||
+    document.includes("runtime-error-plugin:error")
+  ) {
+    throw new Error(
+      "The production index includes development-only runtime-error overlay output.",
+    );
+  }
+  await validateRuntimeErrorHmr(previewPath);
+  if (readFileSync(builtIndexPath, "utf8") !== document) {
+    throw new Error(
+      "The development runtime-error HMR smoke changed the production index.html.",
+    );
+  }
+  console.log(
+    `✓ Runtime errors report through the nested HMR path under ${previewPath}`,
+  );
+
   const references = localReferences(document);
   if (references.length === 0) {
     throw new Error(

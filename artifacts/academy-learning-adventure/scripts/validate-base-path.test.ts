@@ -19,6 +19,7 @@ import {
   validateInstalledPreviewHelperCompatibility,
   validateInstalledPreviewHelperOutput,
 } from "./validate-base-path";
+import { validateRuntimeErrorHmr } from "./runtime-error-hmr-smoke";
 
 const previewPath = "/academy-learning-adventure/";
 const viteConfigPath = fileURLToPath(
@@ -243,6 +244,10 @@ test("checks installed Replit helper output under nested preview paths", async (
   for (const basePath of nonRootPreviewPaths) {
     await validateInstalledPreviewHelperCompatibility(basePath);
   }
+});
+
+test("reports browser runtime errors through the nested HMR connection", async () => {
+  await validateRuntimeErrorHmr(previewPath);
 });
 
 test("reports the installed helper and preview path for root-relative output", () => {
