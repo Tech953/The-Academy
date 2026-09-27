@@ -186,7 +186,7 @@ function normalizeBuildMetadata(
         : "ipa";
   const expectedArtifactLabel =
     platform === "android" && profile === "production"
-      ? "production Android App Bundle (.aab)"
+      ? "production Android App Bundle (.aab) for store distribution"
       : platform === "android"
         ? "preview Android APK (.apk)"
         : "iOS IPA (.ipa)";

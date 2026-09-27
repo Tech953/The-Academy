@@ -398,7 +398,8 @@ const fs = require("node:fs");
 const platform = process.env.RELEASE_PLATFORM || "android";
 const profile = process.env.RELEASE_PROFILE || "preview";
 const artifactExtension =
-  platform === "ios" ? "ipa" : profile === "production" ? "aab" : "apk";
+  process.env.EAS_ARTIFACT_EXTENSION ||
+  (platform === "ios" ? "ipa" : profile === "production" ? "aab" : "apk");
 fs.writeFileSync(
   process.env.EAS_RECORD_PATH,
   JSON.stringify({ args: process.argv.slice(2) }),
@@ -513,6 +514,7 @@ function runNativeHandoffSubprocess(
   platform: "android" | "ios" = "android",
   profile = "preview",
   identityDrift = "",
+  artifactExtension = "",
 ) {
   return spawnSync(
     process.execPath,
@@ -538,6 +540,7 @@ function runNativeHandoffSubprocess(
         RELEASE_PROFILE: profile,
         RELEASE_REPORT_PATH: fixture.reportPath,
         RELEASE_IDENTITY_DRIFT: identityDrift,
+        EAS_ARTIFACT_EXTENSION: artifactExtension,
       },
     },
   );
@@ -958,7 +961,9 @@ describe("native handoff build metadata", () => {
           capturedAt: "2026-09-15T15:01:00.000Z",
         },
       ),
-    ).toThrow(/expected production Android App Bundle \(\.aab\); found .*\.apk/);
+    ).toThrow(
+      /expected production Android App Bundle \(\.aab\) for store distribution; found .*\.apk/,
+    );
   });
 
   it("fails clearly instead of creating a handoff without an installer", () => {
@@ -2397,6 +2402,116 @@ describe("release smoke check", () => {
           },
         ],
       });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("completes a production store handoff when stub EAS returns an AAB", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "android",
+        "production",
+      );
+
+      expect(result.status).toBe(0);
+      expect(JSON.parse(readFileSync(fixture.easRecordPath, "utf8"))).toEqual({
+        args: [
+          "build",
+          "--platform",
+          "android",
+          "--profile",
+          "production",
+          "--json",
+        ],
+      });
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as Record<string, unknown>;
+      expect(report).toMatchObject({
+        platform: "android",
+        profile: "production",
+        androidProfile: "production",
+        status: "completed",
+        build: {
+          profile: "production",
+          installerUrl: "https://expo.dev/builds/stub-build.aab",
+        },
+      });
+      expect(
+        validateNativeHandoff({
+          ...validHandoffConfig(),
+          profile: "production",
+          handoffReport: report,
+        }),
+      ).toMatchObject({
+        status: "passed",
+        platform: "android",
+        profile: "production",
+        distribution: "store",
+        buildType: "app-bundle",
+      });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails the production handoff when stub EAS returns an APK", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "android",
+        "production",
+        "",
+        "apk",
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /expected production Android App Bundle \(\.aab\) for store distribution; found .*\.apk/,
+      );
+      expect(JSON.parse(readFileSync(fixture.easRecordPath, "utf8"))).toEqual({
+        args: [
+          "build",
+          "--platform",
+          "android",
+          "--profile",
+          "production",
+          "--json",
+        ],
+      });
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as Record<string, unknown>;
+      expect(report).toMatchObject({
+        platform: "android",
+        profile: "production",
+        androidProfile: "production",
+        status: "failed",
+        failureStage: "build-metadata",
+        easExitCode: 0,
+      });
+      expect(report.error).toMatch(
+        /production Android App Bundle \(\.aab\) for store distribution/,
+      );
+      expect(report).not.toHaveProperty("build");
+      expect(report.status).not.toBe("completed");
+      expect(() =>
+        validateNativeHandoff({
+          ...validHandoffConfig(),
+          profile: "production",
+          handoffReport: report,
+        }),
+      ).toThrow(/handoff status must be "completed"/);
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
