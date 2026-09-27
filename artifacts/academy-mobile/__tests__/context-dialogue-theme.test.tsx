@@ -552,7 +552,7 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     }
   });
 
-  it("restores answered offline study progress after a provider relaunch", async () => {
+  it("restores the latest progress after several rapid offline answers", async () => {
     const localStorage = createLocalStorageFixture();
     mocks.apiConfigured = false;
     localStorage.setItem(
@@ -560,72 +560,135 @@ describe("GameProvider NPC dialogue weekly theme", () => {
       JSON.stringify({ hasStarted: true, day: 1 }),
     );
 
-    let firstGame: Game | undefined;
-    let firstRenderer!: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      firstRenderer = TestRenderer.create(
-        <GameProvider>
-          <ThemeProbe onUpdate={game => (firstGame = game)} />
-        </GameProvider>,
-      );
-    });
-    await waitFor(
-      () =>
-        firstGame?.ready === true &&
-        firstGame.contentPackLoading === false &&
-        firstGame.isOnline === false,
-      firstRenderer,
-    );
-
-    const question = firstGame!.getQuizSet("math")[0];
-    let answerResult = false;
-    await act(async () => {
-      answerResult = firstGame!.answerQuestion(question, question.answer);
-    });
-    expect(answerResult).toBe(true);
-    await waitFor(
-      () =>
-        firstGame?.studyProgress.math.answered === 1 &&
-        firstGame.studyProgress.math.correct === 1,
-      firstRenderer,
-    );
-    await waitFor(
-      () => {
-        const persisted = JSON.parse(
-          localStorage.getItem("academy-mobile-state-v1") ?? "{}",
-        ) as {
-          studyProgress?: { math?: { answered?: number; correct?: number } };
+    const storageKey = "academy-mobile-state-v1";
+    const originalSetItem = AsyncStorage.setItem.bind(AsyncStorage);
+    const pendingStateWrites: Array<{ commit: () => Promise<void> }> = [];
+    let activeStateWrites = 0;
+    let maxConcurrentStateWrites = 0;
+    const setItemSpy = vi
+      .spyOn(AsyncStorage, "setItem")
+      .mockImplementation((key, value) => {
+        if (key !== storageKey) return originalSetItem(key, value);
+        const snapshot = JSON.parse(value) as {
+          studyProgress?: { math?: { answered?: number } };
         };
-        return (
-          persisted.studyProgress?.math?.answered === 1 &&
-          persisted.studyProgress.math.correct === 1
+        if ((snapshot.studyProgress?.math?.answered ?? 0) === 0) {
+          return originalSetItem(key, value);
+        }
+
+        activeStateWrites += 1;
+        maxConcurrentStateWrites = Math.max(
+          maxConcurrentStateWrites,
+          activeStateWrites,
         );
-      },
-      firstRenderer,
-    );
-    firstRenderer.unmount();
+        return new Promise<void>((resolve, reject) => {
+          pendingStateWrites.push({
+            commit: async () => {
+              try {
+                await originalSetItem(key, value);
+                resolve();
+              } catch (error) {
+                reject(error);
+                throw error;
+              } finally {
+                activeStateWrites -= 1;
+              }
+            },
+          });
+        });
+      });
 
+    let firstGame: Game | undefined;
     let relaunchedGame: Game | undefined;
-    let relaunchedRenderer!: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      relaunchedRenderer = TestRenderer.create(
-        <GameProvider>
-          <ThemeProbe onUpdate={game => (relaunchedGame = game)} />
-        </GameProvider>,
+    let firstRenderer: TestRenderer.ReactTestRenderer | null = null;
+    let relaunchedRenderer: TestRenderer.ReactTestRenderer | null = null;
+    try {
+      await act(async () => {
+        firstRenderer = TestRenderer.create(
+          <GameProvider>
+            <ThemeProbe onUpdate={game => (firstGame = game)} />
+          </GameProvider>,
+        );
+      });
+      await waitFor(
+        () =>
+          firstGame?.ready === true &&
+          firstGame.contentPackLoading === false &&
+          firstGame.isOnline === false,
+        firstRenderer!,
       );
-    });
-    await waitFor(
-      () =>
-        relaunchedGame?.ready === true &&
-        relaunchedGame.studyProgress.math.answered === 1 &&
-        relaunchedGame.studyProgress.math.correct === 1,
-      relaunchedRenderer,
-    );
 
-    expect(relaunchedGame?.isOnline).toBe(false);
-    expect(relaunchedGame?.getQuizSet("math")[0]).toBeDefined();
-    expect(mocks.fetchContentPack).not.toHaveBeenCalled();
-    relaunchedRenderer.unmount();
+      const questions = firstGame!.getQuizSet("math").slice(0, 3);
+      expect(questions).toHaveLength(3);
+      expect(new Set(questions.map(question => question.id)).size).toBe(3);
+      for (const question of questions) {
+        await act(async () => {
+          expect(firstGame!.answerQuestion(question, question.answer)).toBe(true);
+        });
+      }
+      await waitFor(
+        () =>
+          firstGame?.studyProgress.math.answered === questions.length &&
+          firstGame.studyProgress.math.correct === questions.length,
+        firstRenderer!,
+      );
+
+      for (let writeIndex = 0; writeIndex < questions.length; writeIndex += 1) {
+        await waitFor(
+          () => pendingStateWrites.length > 0,
+          firstRenderer!,
+        );
+        const pendingWrite = pendingStateWrites.pop()!;
+        await act(async () => {
+          await pendingWrite.commit();
+        });
+      }
+
+      const persisted = JSON.parse(
+        localStorage.getItem(storageKey) ?? "{}",
+      ) as {
+        studyProgress?: { math?: { answered?: number; correct?: number } };
+      };
+      expect(persisted.studyProgress?.math).toEqual({
+        answered: questions.length,
+        correct: questions.length,
+      });
+      expect(maxConcurrentStateWrites).toBe(1);
+      await act(async () => {
+        firstRenderer?.unmount();
+      });
+      firstRenderer = null;
+      setItemSpy.mockRestore();
+
+      await act(async () => {
+        relaunchedRenderer = TestRenderer.create(
+          <GameProvider>
+            <ThemeProbe onUpdate={game => (relaunchedGame = game)} />
+          </GameProvider>,
+        );
+      });
+      await waitFor(
+        () =>
+          relaunchedGame?.ready === true &&
+          relaunchedGame.studyProgress.math.answered === questions.length &&
+          relaunchedGame.studyProgress.math.correct === questions.length,
+        relaunchedRenderer!,
+      );
+
+      expect(relaunchedGame?.isOnline).toBe(false);
+      expect(relaunchedGame?.getQuizSet("math")[0]).toBeDefined();
+      expect(mocks.fetchContentPack).not.toHaveBeenCalled();
+      await act(async () => {
+        relaunchedRenderer?.unmount();
+      });
+      relaunchedRenderer = null;
+    } finally {
+      await act(async () => {
+        firstRenderer?.unmount();
+        relaunchedRenderer?.unmount();
+      });
+      setItemSpy.mockRestore();
+    }
   });
 
   it("persists a selected bulletin language and resets to the device locale", async () => {

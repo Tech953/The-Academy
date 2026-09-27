@@ -284,6 +284,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       onRetrySuccess: () => setContentPackStorageStatus("stored"),
     }),
   ).current;
+  const stateWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [enrichmentStatus, setEnrichmentStatus] = useState<EnrichmentStatus>(() =>
     getInitialEnrichmentStatus(networkOnline, apiConfigured),
   );
@@ -369,7 +370,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!ready) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
+    // AsyncStorage writes may finish out of order; keep each state snapshot in sequence.
+    const snapshot = JSON.stringify(state);
+    stateWriteQueueRef.current = stateWriteQueueRef.current
+      .catch(() => {})
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, snapshot))
+      .catch(() => {});
   }, [state, ready]);
 
   const appendLog = useCallback((entry: Omit<LogEntry, "id" | "timestamp">) => {
