@@ -1,5 +1,8 @@
 import React, { useEffect } from "react";
-import TestRenderer, { act } from "react-test-renderer";
+import TestRenderer, {
+  act,
+  type ReactTestInstance,
+} from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 (
@@ -53,6 +56,7 @@ vi.mock("@workspace/game-engine", async () => {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { generateOfflineContentPack } from "@workspace/game-engine";
+import StudyScreen from "../app/(tabs)/study";
 import {
   BULLETIN_LOCALE_STORAGE_KEY,
   getDeviceLocale,
@@ -70,6 +74,29 @@ function ThemeProbe({ onUpdate }: { onUpdate: (game: Game) => void }) {
   }, [game, onUpdate]);
 
   return null;
+}
+
+function textContent(instance: ReactTestInstance): string {
+  return instance.children
+    .map((child) =>
+      typeof child === "string" ? child : textContent(child as ReactTestInstance),
+    )
+    .join("");
+}
+
+function visibleText(renderer: TestRenderer.ReactTestRenderer): string[] {
+  return renderer.root
+    .findAll((instance) => String(instance.type) === "Text")
+    .map(textContent);
+}
+
+function findPressableWithText(
+  renderer: TestRenderer.ReactTestRenderer,
+  text: string,
+): ReactTestInstance | undefined {
+  return renderer.root
+    .findAll((instance) => String(instance.type) === "Pressable")
+    .find((pressable) => textContent(pressable).includes(text));
 }
 
 function createLocalStorageFixture() {
@@ -421,6 +448,108 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     );
     expect(mocks.fetchContentPack).toHaveBeenCalledTimes(2);
     renderer.unmount();
+  });
+
+  it("keeps answered study progress and fallback status after a failed retry", async () => {
+    const localStorage = createLocalStorageFixture();
+    localStorage.setItem(
+      "academy-mobile-state-v1",
+      JSON.stringify({ hasStarted: true, day: 1 }),
+    );
+    mocks.fetchContentPack
+      .mockRejectedValueOnce(new Error("initial refresh unavailable"))
+      .mockRejectedValueOnce(new Error("retry refresh unavailable"));
+
+    let game: Game | undefined;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <GameProvider>
+          <>
+            <StudyScreen />
+            <ThemeProbe onUpdate={nextGame => (game = nextGame)} />
+          </>
+        </GameProvider>,
+      );
+    });
+
+    try {
+      await waitFor(
+        () =>
+          game?.ready === true &&
+          game.enrichmentStatus === "fallback" &&
+          game.contentPackLoading === false,
+        renderer,
+      );
+      expect(visibleText(renderer)).toContain("LIVE ENRICHMENT UNAVAILABLE");
+
+      const mathButton = findPressableWithText(renderer, "Math Reasoning");
+      expect(mathButton).toBeDefined();
+      await act(async () => {
+        mathButton?.props.onPress();
+      });
+
+      const answeredQuestion = game!.getQuizSet("math")[0];
+      const answerButton = findPressableWithText(
+        renderer,
+        answeredQuestion.answer,
+      );
+      expect(answerButton).toBeDefined();
+      await act(async () => {
+        answerButton?.props.onPress();
+      });
+      await waitFor(
+        () =>
+          game?.studyProgress.math.answered === 1 &&
+          game.studyProgress.math.correct === 1,
+        renderer,
+      );
+      const answerFeedback = `CORRECT — ${answeredQuestion.explanation}`;
+      expect(visibleText(renderer)).toContain(answerFeedback);
+
+      const answeredProgress = game!.studyProgress;
+      expect(answeredProgress.math).toEqual({ answered: 1, correct: 1 });
+      const answeredLogEntry = game!.log.at(-1);
+      expect(answeredLogEntry).toMatchObject({
+        type: "quiz",
+        text: `Correct! ${answeredQuestion.explanation}`,
+      });
+      const answeredXp = game!.xp;
+
+      const retryButton = findPressableWithText(
+        renderer,
+        "RETRY LIVE REFRESH",
+      );
+      expect(retryButton).toBeDefined();
+      await act(async () => {
+        await retryButton?.props.onPress();
+      });
+      await waitFor(
+        () =>
+          game?.enrichmentStatus === "fallback" &&
+          game.contentPackLoading === false,
+        renderer,
+      );
+
+      expect(mocks.fetchContentPack).toHaveBeenCalledTimes(2);
+      expect(game?.studyProgress).toEqual(answeredProgress);
+      expect(game?.log.at(-1)).toEqual(answeredLogEntry);
+      expect(game?.xp).toBe(answeredXp);
+      expect(visibleText(renderer)).toContain("LIVE ENRICHMENT UNAVAILABLE");
+      expect(visibleText(renderer)).toContain(
+        "Bundled study content is active. You can keep answering questions.",
+      );
+      expect(visibleText(renderer)).toContain(answerFeedback);
+
+      const backButton = findPressableWithText(renderer, "< MATH");
+      expect(backButton).toBeDefined();
+      await act(async () => {
+        backButton?.props.onPress();
+      });
+      expect(visibleText(renderer)).toContain("1/1 correct");
+    } finally {
+      renderer.unmount();
+    }
   });
 
   it("restores answered offline study progress after a provider relaunch", async () => {
