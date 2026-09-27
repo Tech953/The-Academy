@@ -495,11 +495,51 @@ test("accepts prefixed browser metadata and ignores debug-only metadata", () => 
       `,
       "assets/debug.json": '{"debugRoute":"/debug-only"}',
       "assets/source.map": '{"sources":["/debug-only"]}',
-      "site.webmanifest": `{"start_url":"/academy-learning-adventure/"}`,
+      "site.webmanifest": JSON.stringify({
+        start_url: `${previewPath}start/`,
+        scope: previewPath,
+        icons: [
+          {
+            src: `${previewPath}assets/academy-icon.png`,
+            sizes: "192x192",
+            type: "image/png",
+          },
+        ],
+      }),
     },
     (directory) => {
       assert.doesNotThrow(() =>
         validateGeneratedAssetReferences(previewPath, directory),
+      );
+    },
+  );
+});
+
+test("rejects root-relative webmanifest start and icon URLs", () => {
+  withOutputDirectory(
+    {
+      "site.webmanifest": JSON.stringify({
+        start_url: "/start/",
+        scope: previewPath,
+        icons: [{ src: "/icons/academy-icon.png", sizes: "192x192" }],
+      }),
+      "assets/debug.json": '{"debugRoute":"/debug-only"}',
+      "assets/source.map": '{"sources":["/debug-only"]}',
+    },
+    (directory) => {
+      assert.throws(
+        () => validateGeneratedAssetReferences(previewPath, directory),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.message.includes(
+            "Generated metadata files contain URLs that bypass",
+          ) &&
+          error.message.includes("site.webmanifest: /start/") &&
+          error.message.includes(
+            "site.webmanifest: /icons/academy-icon.png",
+          ) &&
+          !error.message.includes("assets/debug.json") &&
+          !error.message.includes("assets/source.map"),
       );
     },
   );
