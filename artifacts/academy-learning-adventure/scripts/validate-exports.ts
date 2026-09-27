@@ -226,7 +226,7 @@ const TEXT_EXCERPT_SUFFIX_LENGTH =
 
 function textExcerpt(value: string): string {
   const sanitized = value
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\p{Cc}/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -275,7 +275,7 @@ export function validateSlideContent(
     }
     if (!expectedTitleFound(text, expectation.title)) {
       throw new Error(
-        `${format} export slide ${expectation.position} is missing expected title "${expectation.title}"; extracted text excerpt: "${textExcerpt(text)}": ${filePath}`,
+        `${format} export slide ${expectation.position} is missing expected title ${JSON.stringify(expectation.title)}; extracted text excerpt: ${JSON.stringify(textExcerpt(text))}: ${filePath}`,
       );
     }
   }

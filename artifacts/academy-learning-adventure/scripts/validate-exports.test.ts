@@ -13,6 +13,36 @@ const representativeExpectations: Array<SlideExpectation> = [
   { position: 12, title: 'Build a place worth returning to.' },
 ];
 
+function titleMismatchMessage(
+  format: 'PPTX' | 'PDF',
+  text: string,
+  filePath: string,
+): string {
+  try {
+    validateSlideContent(
+      [
+        'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
+        text,
+      ],
+      representativeExpectations,
+      format,
+      filePath,
+    );
+  } catch (error) {
+    assert(error instanceof Error);
+    return error.message;
+  }
+  assert.fail('Expected a slide title mismatch.');
+}
+
+function excerptFromMismatch(message: string): string {
+  const serializedExcerpt = message.match(
+    /extracted text excerpt: ("(?:\\.|[^"\\])*"): /,
+  )?.[1];
+  assert.ok(serializedExcerpt);
+  return JSON.parse(serializedExcerpt) as string;
+}
+
 test('explains missing export types and the expected output directory', () => {
   assert.equal(
     exportDirectoryIssue('/reviewed/outputs', 0, 0),
@@ -94,37 +124,61 @@ for (const format of ['PPTX', 'PDF'] as const) {
     const text = `${longPreamble}\n${mismatchedTitle}`;
     const filePath =
       format === 'PPTX' ? '/reviewed/academy.pptx' : '/reviewed/academy.pdf';
+    const message = titleMismatchMessage(format, text, filePath);
+    const excerpt = excerptFromMismatch(message);
 
-    assert.throws(
-      () =>
-        validateSlideContent(
-          [
-            'THE ACADEMY / SYSTEM PITCH The Academy A GED-focused academic RPG',
-            text,
-          ],
-          representativeExpectations,
-          format,
-          filePath,
-        ),
-      (error: unknown) => {
-        assert(error instanceof Error);
-        assert.ok(
-          error.message.includes(
-            `${format} export slide 12 is missing expected title "${representativeExpectations[1].title}"`,
-          ),
-        );
-        const excerpt = error.message.match(
-          /extracted text excerpt: "([^"]*)": /,
-        )?.[1];
-        assert.ok(excerpt);
-        assert.ok(excerpt.includes(mismatchedTitle));
-        assert.ok(excerpt.includes('...'));
-        assert.ok(excerpt.length <= 160);
-        assert.ok(!error.message.includes(longPreamble));
-        assert.ok(error.message.includes(filePath));
-        return true;
-      },
+    assert.ok(
+      message.includes(
+        `${format} export slide 12 is missing expected title "${representativeExpectations[1].title}"`,
+      ),
     );
+    assert.ok(excerpt.includes(mismatchedTitle));
+    assert.ok(excerpt.includes('...'));
+    assert.ok(excerpt.length <= 160);
+    assert.ok(!message.includes(longPreamble));
+    assert.ok(message.includes(filePath));
+  });
+}
+
+for (const format of ['PPTX', 'PDF'] as const) {
+  test(`quotes and preserves Unicode in ${format} mismatch diagnostics`, () => {
+    const longPreamble = 'Partner handoff notice and navigation. '.repeat(16);
+    const mismatchedTitle = 'Observed title: "visiting 東京" — café 🚀';
+    const text = `${longPreamble}\n${mismatchedTitle}\nA short description follows.`;
+    const filePath =
+      format === 'PPTX' ? '/reviewed/academy.pptx' : '/reviewed/academy.pdf';
+    const message = titleMismatchMessage(format, text, filePath);
+    const excerpt = excerptFromMismatch(message);
+
+    assert.ok(
+      message.includes(
+        'missing expected title "Build a place worth returning to."',
+      ),
+    );
+    assert.ok(
+      message.includes('Observed title: \\"visiting 東京\\" — café 🚀'),
+    );
+    assert.ok(!message.includes('Observed title: "visiting 東京"'));
+    assert.ok(excerpt.includes(mismatchedTitle));
+    assert.ok(excerpt.length <= 160);
+    assert.ok(message.length < 500);
+  });
+}
+
+for (const format of ['PPTX', 'PDF'] as const) {
+  test(`removes terminal controls from ${format} mismatch diagnostics`, () => {
+    const longPreamble = 'Partner handoff notice and navigation. '.repeat(16);
+    const text = `${longPreamble}\u001b[31mObserved title\u001b[0m \u009b1mwith controls\u009b0m`;
+    const filePath =
+      format === 'PPTX' ? '/reviewed/academy.pptx' : '/reviewed/academy.pdf';
+    const message = titleMismatchMessage(format, text, filePath);
+    const excerpt = excerptFromMismatch(message);
+
+    assert.ok(!/\p{Cc}/u.test(message));
+    assert.ok(excerpt.includes('Observed title'));
+    assert.ok(excerpt.includes('with controls'));
+    assert.ok(excerpt.length <= 160);
+    assert.ok(message.length < 500);
   });
 }
 
@@ -137,7 +191,14 @@ test('reports an unexpectedly empty slide before handoff', () => {
         'PPTX',
         '/reviewed/academy.pptx',
       ),
-    /PPTX export slide 1 is unexpectedly empty/,
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.equal(
+        error.message,
+        'PPTX export slide 1 is unexpectedly empty: /reviewed/academy.pptx',
+      );
+      return true;
+    },
   );
 });
 
