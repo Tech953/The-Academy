@@ -4,7 +4,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const DEFAULT_PROFILE = "preview";
-const RELEASE_REPORT_SCHEMA_VERSION = 2;
+const RELEASE_REPORT_SCHEMA_VERSION = 3;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
@@ -929,6 +929,8 @@ if (require.main === module) {
     reportFlagIndex >= 0
       ? args[reportFlagIndex + 1]
       : process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
+  const identityProfile = allProfiles ? DEFAULT_PROFILE : profile;
+  const handoffAndroidProfile = platform === "android" ? profile : undefined;
 
   if (verifyChecksumIndex >= 0) {
     const artifactPath = args[verifyChecksumIndex + 1];
@@ -966,6 +968,9 @@ if (require.main === module) {
       const report = writeReleaseReport(reportPath, {
         command: "check-release --handoff",
         status: "passed",
+        ...(handoffAndroidProfile
+          ? { androidProfile: handoffAndroidProfile }
+          : {}),
         handoff,
       });
       console.log(
@@ -974,7 +979,12 @@ if (require.main === module) {
     } catch (error) {
       handleReleaseFailure(
         reportPath,
-        { command: "check-release --handoff" },
+        {
+          command: "check-release --handoff",
+          ...(handoffAndroidProfile
+            ? { androidProfile: handoffAndroidProfile }
+            : {}),
+        },
         error,
       );
     }
@@ -983,16 +993,15 @@ if (require.main === module) {
 
   let androidIdentity;
   try {
-    androidIdentity = validateAndroidReleaseIdentity(
-      allProfiles ? DEFAULT_PROFILE : profile,
-    );
+    androidIdentity = validateAndroidReleaseIdentity(identityProfile);
     console.log(
-      `[release-identity] Android package ${androidIdentity.androidPackage} matches app.json, EAS ${allProfiles ? DEFAULT_PROFILE : profile} settings, and generated metadata.`,
+      `[release-identity] Android package ${androidIdentity.androidPackage} matches app.json, EAS ${identityProfile} settings, and generated metadata.`,
     );
     if (identityOnly) {
       const report = writeReleaseReport(reportPath, {
         command: "check-release --identity-only",
         status: "passed",
+        androidProfile: identityProfile,
         androidIdentity,
       });
       console.log(`[release-identity] Report written to ${report}`);
@@ -1001,7 +1010,10 @@ if (require.main === module) {
   } catch (error) {
     handleReleaseFailure(
       reportPath,
-      { command: `check-release ${identityOnly ? "--identity-only" : profile}` },
+      {
+        command: `check-release ${identityOnly ? "--identity-only" : profile}`,
+        androidProfile: identityProfile,
+      },
       error,
     );
     return;
@@ -1016,6 +1028,7 @@ if (require.main === module) {
       reportPath,
       {
         command: `check-release ${allProfiles ? "--all" : profile}`,
+        androidProfile: identityProfile,
         androidIdentity,
       },
       error,
@@ -1028,6 +1041,7 @@ if (require.main === module) {
         const summary = summarizeReleaseSmokeResult(result);
         const report = writeReleaseReport(reportPath, {
           command: "check-release --all",
+          androidProfile: identityProfile,
           androidIdentity,
           offlineGedFocus,
           ...result,
@@ -1054,6 +1068,7 @@ if (require.main === module) {
         const report = writeReleaseReport(reportPath, {
           command: `check-release ${result.profile}`,
           status: "passed",
+          androidProfile: identityProfile,
           androidIdentity,
           offlineGedFocus,
           result,
@@ -1069,7 +1084,10 @@ if (require.main === module) {
     .catch((error) => {
       handleReleaseFailure(
         reportPath,
-        { command: `check-release ${allProfiles ? "--all" : profile}` },
+        {
+          command: `check-release ${allProfiles ? "--all" : profile}`,
+          androidProfile: identityProfile,
+        },
         error,
       );
     });

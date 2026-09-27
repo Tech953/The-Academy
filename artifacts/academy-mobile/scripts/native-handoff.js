@@ -394,12 +394,39 @@ async function main() {
   );
 
   const reportPath = process.env.RELEASE_REPORT_PATH || DEFAULT_REPORT_PATH;
-  const identity = validatePlatformIdentity(platform, profile);
+  const androidProfile = platform === "android" ? profile : undefined;
+  let identity;
+  try {
+    identity = validatePlatformIdentity(platform, profile);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      writeReleaseReport(reportPath, {
+        command: "native-handoff",
+        platform,
+        profile,
+        ...(androidProfile ? { androidProfile } : {}),
+        status: "failed",
+        failureStage: "identity",
+        error: message,
+      });
+    } catch (archiveError) {
+      const archiveMessage =
+        archiveError instanceof Error
+          ? archiveError.message
+          : String(archiveError);
+      console.error(
+        `[release-report] Could not archive identity failure report: ${archiveMessage}`,
+      );
+    }
+    throw error;
+  }
   const appConfig = readAppConfig();
   const reportBase = {
     command: "native-handoff",
     platform,
     profile,
+    ...(androidProfile ? { androidProfile } : {}),
     identity,
     appId:
       platform === "ios"

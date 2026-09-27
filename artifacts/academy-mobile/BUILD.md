@@ -118,9 +118,11 @@ is missing or stale, refresh it with the local static build before retrying the
 release check.
 
 Every archived report written by the release tooling includes
-`schemaVersion: 1`. Consumers should require the current version before reading
-report fields; a missing or unknown version should be treated as an unsupported
-report rather than silently interpreted as the current contract. Future field
+`schemaVersion: 3`. Android identity and native-handoff reports include the
+selected EAS profile as `androidProfile`; existing identity fields remain
+unchanged. Consumers should require the current version before reading report
+fields; a missing or unknown version should be treated as an unsupported report
+rather than silently interpreted as the current contract. Future field
 additions, renames, removals, or incompatible shape changes require an
 intentional version increment and corresponding contract updates.
 

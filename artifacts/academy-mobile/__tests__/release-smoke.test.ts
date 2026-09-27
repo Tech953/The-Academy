@@ -1523,11 +1523,57 @@ describe("release smoke check", () => {
     }
   });
 
-  it("keeps the standalone check-release identity report workflow covered", () => {
+  it("records the selected Android profile in preview and production identity reports", () => {
     const reportDirectory = mkdtempSync(
       path.join(tmpdir(), "academy-identity-report-"),
     );
-    const reportPath = path.join(reportDirectory, "identity.json");
+    try {
+      for (const androidProfile of ["preview", "production"]) {
+        const reportPath = path.join(
+          reportDirectory,
+          `${androidProfile}-identity.json`,
+        );
+        const result = spawnSync(
+          "pnpm",
+          ["run", "check-release:identity", "--", "--report", reportPath],
+          {
+            cwd: path.resolve(__dirname, ".."),
+            encoding: "utf8",
+            env: { ...process.env, RELEASE_PROFILE: androidProfile },
+          },
+        );
+
+        expect(result.status).toBe(0);
+        const report = JSON.parse(readFileSync(reportPath, "utf8")) as {
+          command: string;
+          status: string;
+          androidProfile: string;
+          androidIdentity: {
+            androidPackage: string;
+            generatedAndroidPackage: string;
+          };
+        };
+        expect(report).toMatchObject({
+          schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+          command: "check-release --identity-only",
+          status: "passed",
+          androidProfile,
+          androidIdentity: {
+            androidPackage: "com.theacademy.mobile",
+            generatedAndroidPackage: "com.theacademy.mobile",
+          },
+        });
+      }
+    } finally {
+      rmSync(reportDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("records the selected Android profile in failed identity reports", () => {
+    const reportDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-identity-failure-"),
+    );
+    const reportPath = path.join(reportDirectory, "identity-failed.json");
     try {
       const result = spawnSync(
         "pnpm",
@@ -1535,28 +1581,25 @@ describe("release smoke check", () => {
         {
           cwd: path.resolve(__dirname, ".."),
           encoding: "utf8",
+          env: { ...process.env, RELEASE_PROFILE: "production-drift" },
         },
       );
 
-      expect(result.status).toBe(0);
-      const report = JSON.parse(
-        readFileSync(reportPath, "utf8"),
-      ) as {
+      expect(result.status).toBe(1);
+      const report = JSON.parse(readFileSync(reportPath, "utf8")) as {
+        schemaVersion: number;
         command: string;
         status: string;
-        androidIdentity: {
-          androidPackage: string;
-          generatedAndroidPackage: string;
-        };
+        androidProfile: string;
+        error: string;
       };
       expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
         command: "check-release --identity-only",
-        status: "passed",
-        androidIdentity: {
-          androidPackage: "com.theacademy.mobile",
-          generatedAndroidPackage: "com.theacademy.mobile",
-        },
+        status: "failed",
+        androidProfile: "production-drift",
       });
+      expect(report.error).toMatch(/Unsupported Android release profile/);
     } finally {
       rmSync(reportDirectory, { recursive: true, force: true });
     }
@@ -2027,7 +2070,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(2);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(3);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
@@ -2172,7 +2215,9 @@ describe("release smoke check", () => {
       const report = JSON.parse(
         readFileSync(fixture.reportPath, "utf8"),
       ) as {
+        schemaVersion: number;
         status: string;
+        androidProfile: string;
         summary: {
           status: string;
           profiles: Array<{
@@ -2189,6 +2234,11 @@ describe("release smoke check", () => {
           failed: Array<{ profile: string; error: string }>;
         };
       };
+      expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+        status: "failed",
+        androidProfile: "preview",
+      });
       expect(report.status).toBe("failed");
       expect(report.summary).toEqual({
         status: "failed",
@@ -2272,6 +2322,18 @@ describe("release smoke check", () => {
         /Aborted before EAS build: \[release-identity\] EAS production autoIncrement must be true to prevent Android version reuse; found false/,
       );
       expect(existsSync(fixture.easRecordPath)).toBe(false);
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as Record<string, unknown>;
+      expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+        platform: "android",
+        profile: "production",
+        androidProfile: "production",
+        status: "failed",
+        failureStage: "identity",
+      });
+      expect(report.error).toMatch(/autoIncrement must be true/);
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
@@ -2297,6 +2359,8 @@ describe("release smoke check", () => {
       const report = JSON.parse(
         readFileSync(fixture.reportPath, "utf8"),
       ) as {
+        androidProfile: string;
+        profile: string;
         status: string;
         summary: {
           status: string;
@@ -2304,6 +2368,8 @@ describe("release smoke check", () => {
         };
       };
       expect(report.status).toBe("completed");
+      expect(report.androidProfile).toBe("preview");
+      expect(report.profile).toBe("preview");
       expect(report.summary).toEqual({
         status: "passed",
         profiles: [
