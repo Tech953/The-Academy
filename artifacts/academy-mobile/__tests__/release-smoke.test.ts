@@ -408,6 +408,9 @@ process.stdout.write(JSON.stringify([{
   id: "stub-build",
   status: "finished",
   profile,
+  ...(platform === "android" && profile === "production"
+    ? { androidVersionCode: 42 }
+    : {}),
   appVersion: "1.0.0",
   appIdentifier: "com.theacademy.mobile",
   completedAt: "2026-09-16T12:00:00.000Z",
@@ -933,7 +936,69 @@ describe("native handoff build metadata", () => {
       version: "1.0.0",
       package: "com.theacademy.mobile",
       profile: "production",
+      androidVersionCode: 42,
     });
+  });
+
+  it("rejects invalid Android version-code metadata", () => {
+    expect(() =>
+      normalizeBuildMetadata(
+        {
+          stdout: JSON.stringify([
+            {
+              id: "invalid-version-code",
+              status: "finished",
+              profile: "production",
+              appVersion: "1.0.0",
+              androidVersionCode: 0,
+              appIdentifier: "com.theacademy.mobile",
+              artifacts: {
+                buildUrl: "https://example.invalid/academy-production.aab",
+              },
+            },
+          ]),
+          stderr: "",
+        },
+        {
+          platform: "android",
+          profile: "production",
+          appConfig,
+          capturedAt: "2026-09-15T15:01:00.000Z",
+        },
+      ),
+    ).toThrow(/invalid Android version code "0"/);
+  });
+
+  it("keeps production AAB metadata valid when EAS omits the version code", () => {
+    const normalized = normalizeBuildMetadata(
+      {
+        stdout: JSON.stringify([
+          {
+            id: "production-without-version-code",
+            status: "finished",
+            profile: "production",
+            appVersion: "1.0.0",
+            appIdentifier: "com.theacademy.mobile",
+            artifacts: {
+              buildUrl: "https://example.invalid/academy-production.aab",
+            },
+          },
+        ]),
+        stderr: "",
+      },
+      {
+        platform: "android",
+        profile: "production",
+        appConfig,
+        capturedAt: "2026-09-15T15:01:00.000Z",
+      },
+    );
+
+    expect(normalized).toMatchObject({
+      installerUrl: "https://example.invalid/academy-production.aab",
+      version: "1.0.0",
+    });
+    expect(normalized).not.toHaveProperty("androidVersionCode");
   });
 
   it("rejects an APK when a production handoff expects an AAB", () => {
@@ -1146,13 +1211,13 @@ describe("release smoke check", () => {
   });
 
   it("accepts a complete iOS preview IPA handoff without contacting a device", () => {
-    expect(
-      validateNativeHandoff({
-        ...validIosHandoffConfig(),
-        platform: "ios",
-        handoffReport: validIosHandoffReport(),
-      }),
-    ).toMatchObject({
+    const validated = validateNativeHandoff({
+      ...validIosHandoffConfig(),
+      platform: "ios",
+      handoffReport: validIosHandoffReport(),
+    });
+
+    expect(validated).toMatchObject({
       status: "passed",
       platform: "ios",
       profile: "preview",
@@ -1163,6 +1228,7 @@ describe("release smoke check", () => {
       installerUrl: "https://example.invalid/academy-preview.ipa?sig=redacted",
       installerPath: null,
     });
+    expect(validated).not.toHaveProperty("androidVersionCode");
   });
 
   it("rejects a non-IPA reference in an iOS handoff", () => {
@@ -1256,12 +1322,30 @@ describe("release smoke check", () => {
       buildType: "app-bundle",
       version: "1.0.0",
       androidPackage: "com.theacademy.mobile",
+      androidVersionCode: 42,
       installerUrl:
         "https://example.invalid/academy-production.aab?sig=redacted",
       installerPath: null,
       timestamp: "2026-09-15T15:00:00.000Z",
       buildId: "build-123",
     });
+  });
+
+  it("rejects an invalid Android version code in a saved handoff", () => {
+    const report = validHandoffReport();
+    report.profile = "production";
+    report.build.profile = "production";
+    report.build.installerUrl =
+      "https://example.invalid/academy-production.aab?sig=redacted";
+    report.build.androidVersionCode = 0;
+
+    expect(() =>
+      validateNativeHandoff({
+        ...validHandoffConfig(),
+        profile: "production",
+        handoffReport: report,
+      }),
+    ).toThrow(/build\.androidVersionCode must be a positive safe integer/);
   });
 
   it("rejects an APK reference in a production handoff", () => {
@@ -2075,7 +2159,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(3);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(4);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
@@ -2367,6 +2451,7 @@ describe("release smoke check", () => {
         androidProfile: string;
         profile: string;
         status: string;
+        build: Record<string, unknown>;
         summary: {
           status: string;
           profiles: Array<Record<string, unknown>>;
@@ -2375,6 +2460,7 @@ describe("release smoke check", () => {
       expect(report.status).toBe("completed");
       expect(report.androidProfile).toBe("preview");
       expect(report.profile).toBe("preview");
+      expect(report.build).not.toHaveProperty("androidVersionCode");
       expect(report.summary).toEqual({
         status: "passed",
         profiles: [
@@ -2434,12 +2520,15 @@ describe("release smoke check", () => {
         readFileSync(fixture.reportPath, "utf8"),
       ) as Record<string, unknown>;
       expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
         platform: "android",
         profile: "production",
         androidProfile: "production",
         status: "completed",
         build: {
           profile: "production",
+          version: "1.0.0",
+          androidVersionCode: 42,
           installerUrl: "https://expo.dev/builds/stub-build.aab",
         },
       });
@@ -2550,6 +2639,7 @@ describe("release smoke check", () => {
         build: {
           package: string;
           installerUrl: string | null;
+          androidVersionCode?: number;
         };
       };
       expect(report).toMatchObject({
@@ -2562,6 +2652,7 @@ describe("release smoke check", () => {
         },
       });
       expect(report.build.installerUrl).toMatch(/\.ipa$/);
+      expect(report.build).not.toHaveProperty("androidVersionCode");
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }

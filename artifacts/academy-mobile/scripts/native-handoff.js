@@ -201,6 +201,27 @@ function normalizeBuildMetadata(
   ]);
   const version =
     findFirstValue(record, ["appVersion", "version"]) ?? expo.version;
+  const rawAndroidVersionCode =
+    platform === "android"
+      ? findFirstValue(record, ["androidVersionCode"])
+      : undefined;
+  const androidVersionCode =
+    rawAndroidVersionCode === undefined
+      ? undefined
+      : typeof rawAndroidVersionCode === "number"
+        ? rawAndroidVersionCode
+        : typeof rawAndroidVersionCode === "string" &&
+            rawAndroidVersionCode.trim()
+          ? Number(rawAndroidVersionCode)
+          : Number.NaN;
+  if (
+    rawAndroidVersionCode !== undefined &&
+    (!Number.isSafeInteger(androidVersionCode) || androidVersionCode < 1)
+  ) {
+    throw new Error(
+      `[native-handoff] Incomplete EAS build metadata: invalid Android version code "${rawAndroidVersionCode}".`,
+    );
+  }
   const outputProfile = findFirstValue(record, ["buildProfile", "profile"]);
   const timestampValue = findFirstValue(record, [
     "completedAt",
@@ -268,6 +289,7 @@ function normalizeBuildMetadata(
     version: String(version),
     package: configuredPackage ?? outputPackage,
     profile,
+    ...(androidVersionCode !== undefined ? { androidVersionCode } : {}),
     timestamp: normalizeBuildTimestamp(timestampValue, capturedAt),
     buildId: findFirstValue(record, ["id", "buildId"]) ?? null,
     buildDetailsPageUrl: findFirstValue(record, ["buildDetailsPageUrl"]) ?? null,

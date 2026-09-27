@@ -118,13 +118,17 @@ is missing or stale, refresh it with the local static build before retrying the
 release check.
 
 Every archived report written by the release tooling includes
-`schemaVersion: 3`. Android identity and native-handoff reports include the
+`schemaVersion: 4`. Android identity and native-handoff reports include the
 selected EAS profile as `androidProfile`; existing identity fields remain
-unchanged. Consumers should require the current version before reading report
-fields; a missing or unknown version should be treated as an unsupported report
-rather than silently interpreted as the current contract. Future field
-additions, renames, removals, or incompatible shape changes require an
-intentional version increment and corresponding contract updates.
+unchanged. Production Android handoff records also retain EAS's optional
+`build.androidVersionCode` separately from the human-facing `build.version`.
+The code is omitted when EAS does not supply it, so preview and iOS reports
+without it retain their prior field shape. Consumers should require the current
+version before reading report fields; a missing or unknown version should be
+treated as an unsupported report rather than silently interpreted as the
+current contract. Future field additions, renames, removals, or incompatible
+shape changes require an intentional version increment and corresponding
+contract updates.
 
 To run only this credential-free identity check without contacting the API:
 
@@ -190,6 +194,8 @@ After a successful EAS build, the command writes the durable handoff report to
 - `installerSha256` for a local installer when the handoff process can read the
   file; cloud-only handoffs record no checksum and remain valid
 - `version` from the EAS response, falling back to `app.json`
+- optional `androidVersionCode` from EAS when the Android build returns one;
+  this can auto-increment independently of the human-facing app version
 - the platform package identity, selected EAS `profile`, and build/capture
   `timestamp`
 - safe EAS `buildId` and build-details page URL when supplied
@@ -232,8 +238,9 @@ Android `preview` must remain an internal APK handoff, while Android
 store-distribution IPA handoff. Each platform must keep the completed status,
 selected profile, recorded version, installer type, and platform-specific
 package identity aligned with `app.json` (`expo.android.package` or
-`expo.ios.bundleIdentifier`). EAS Android version-code auto-increment metadata is
-allowed alongside that app version.
+`expo.ios.bundleIdentifier`). When EAS provides an Android version code, it is
+recorded separately from the app version; it is optional, so preview and iOS
+reports without that field remain valid.
 Validation failures list every actionable mismatch and write a failed release
 report instead of passing.
 

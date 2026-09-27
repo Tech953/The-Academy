@@ -4,7 +4,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const DEFAULT_PROFILE = "preview";
-const RELEASE_REPORT_SCHEMA_VERSION = 3;
+const RELEASE_REPORT_SCHEMA_VERSION = 4;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
@@ -712,6 +712,15 @@ function validateNativeHandoff({
     ) {
       errors.push("installerSha256 must be a 64-character SHA-256 hex digest");
     }
+    if (
+      !isIos &&
+      build.androidVersionCode !== undefined &&
+      build.androidVersionCode !== null &&
+      (!Number.isSafeInteger(build.androidVersionCode) ||
+        build.androidVersionCode < 1)
+    ) {
+      errors.push("build.androidVersionCode must be a positive safe integer");
+    }
   }
 
   if (errors.length > 0) {
@@ -731,6 +740,11 @@ function validateNativeHandoff({
     ...(isIos
       ? { iosBundleIdentifier: configuredPackage }
       : { androidPackage: configuredPackage }),
+    ...(!isIos &&
+    build.androidVersionCode !== undefined &&
+    build.androidVersionCode !== null
+      ? { androidVersionCode: build.androidVersionCode }
+      : {}),
     installerUrl: build.installerUrl || null,
     installerPath: build.installerPath || null,
     timestamp: build.timestamp,
