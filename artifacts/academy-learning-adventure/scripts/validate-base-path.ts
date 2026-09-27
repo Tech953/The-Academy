@@ -2,6 +2,11 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { cartographer } from "@replit/vite-plugin-cartographer";
+import { devBanner } from "@replit/vite-plugin-dev-banner";
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { createServer } from "vite";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
@@ -76,43 +81,173 @@ export function validateDevelopmentConfiguration(
   }
 }
 
-export function validateDevelopmentHtml(
-  document: string,
-  previewPath: string,
-): void {
-  const rootOnlyHelpers = new Set<string>();
+function previewHelperFamily(value: string): string | undefined {
+  if (/^\/@replit(?:\/|[?#]|$)/.test(value)) {
+    return "Replit";
+  }
+  if (/^\/@vite(?:\/|[?#]|$)/.test(value)) {
+    return "Vite";
+  }
+  if (/^\/@react-refresh(?:\/|[?#]|$)/.test(value)) {
+    return "React refresh";
+  }
+  if (/^\/@[^/?#]+(?:\/|[?#]|$)/.test(value)) {
+    return "development-server";
+  }
+  return undefined;
+}
+
+function previewHelperUrls(document: string): string[] {
+  const urls = new Set<string>();
+  const addUrl = (value: string | undefined) => {
+    if (value && previewHelperFamily(value)) {
+      urls.add(value);
+    }
+  };
+
   for (const match of document.matchAll(
     /\b(?:src|href)\s*=\s*["'](\/[^"']+)["']/gi,
   )) {
-    const value = match[1];
-    if (value?.startsWith("/@replit/")) {
-      rootOnlyHelpers.add(value);
-    }
+    addUrl(match[1]);
   }
 
-  const quotedHelperUrl = /(["'`])(\/@replit\/[^"'`\s]*)\1/g;
+  const quotedHelperUrl = /(["'`])(\/@[^"'`\s]*)\1/g;
   for (const match of document.matchAll(
     /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi,
   )) {
-    const script = match[1] ?? "";
-    for (const urlMatch of script.matchAll(quotedHelperUrl)) {
-      const value = urlMatch[2];
-      if (value) {
-        rootOnlyHelpers.add(value);
-      }
+    for (const urlMatch of (match[1] ?? "").matchAll(quotedHelperUrl)) {
+      addUrl(urlMatch[2]);
     }
   }
 
-  const offendingHelpers = [...rootOnlyHelpers].filter(
+  return [...urls];
+}
+
+export function validateInstalledPreviewHelperOutput(
+  document: string,
+  helperName: string,
+  previewPath: string,
+): void {
+  const offendingHelpers = previewHelperUrls(document).filter(
     (value) => !value.startsWith(previewPath),
   );
 
   if (offendingHelpers.length > 0) {
+    const details = offendingHelpers
+      .map((value) => `${previewHelperFamily(value)} ${value}`)
+      .join(", ");
     throw new Error(
-      `Development HTML injects root-only Replit helper URLs that bypass ${previewPath}: ${[
-        ...offendingHelpers,
-      ].join(", ")}`,
+      `${helperName} emitted root-relative preview helper URL(s) that bypass ${previewPath}: ${details}`,
     );
+  }
+}
+
+export function validateDevelopmentHtml(
+  document: string,
+  previewPath: string,
+): void {
+  const offendingHelpers = previewHelperUrls(document).filter(
+    (value) => !value.startsWith(previewPath),
+  );
+
+  if (offendingHelpers.length > 0) {
+    const families = [
+      ...new Set(offendingHelpers.map(previewHelperFamily).filter(Boolean)),
+    ];
+    const details = offendingHelpers
+      .map((value) => `${previewHelperFamily(value)} ${value}`)
+      .join(", ");
+    const helperLabel =
+      families.length === 1 && families[0] === "Replit"
+        ? "Replit helper URLs"
+        : `${families.join(" and ")} helper URLs`;
+    throw new Error(
+      `Development HTML injects root-only ${helperLabel} that bypass ${previewPath}: ${details}`,
+    );
+  }
+}
+
+export async function validateInstalledPreviewHelperCompatibility(
+  previewPath: string,
+): Promise<void> {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
+
+  const helpers = [
+    {
+      name: "@replit/vite-plugin-runtime-error-modal",
+      previewPath,
+      createPlugin: () => runtimeErrorOverlay(),
+      outputMarker: "runtime-error-plugin:error",
+    },
+    {
+      name: "@replit/vite-plugin-cartographer",
+      previewPath,
+      createPlugin: () =>
+        cartographer({ root: path.resolve(projectRoot, "..") }),
+      outputMarker: "replit-init-tailwind",
+    },
+    {
+      name: "@replit/vite-plugin-dev-banner",
+      previewPath: "/",
+      createPlugin: () => devBanner(),
+      outputMarker: 'id="replit-dev-banner"',
+    },
+  ];
+  const fixtureHtml =
+    "<!doctype html><html><head></head><body></body></html>";
+
+  try {
+    for (const helper of helpers) {
+      let server: Awaited<ReturnType<typeof createServer>> | undefined;
+      try {
+        server = await createServer({
+          configFile: false,
+          root: projectRoot,
+          base: helper.previewPath,
+          mode: "development",
+          logLevel: "silent",
+          plugins: [helper.createPlugin()],
+          server: { middlewareMode: true, hmr: false },
+        });
+        const document = await server.transformIndexHtml(
+          helper.previewPath,
+          fixtureHtml,
+        );
+
+        if (!document.includes(helper.outputMarker)) {
+          throw new Error(
+            `${helper.name} did not inject its expected development helper output under ${helper.previewPath}`,
+          );
+        }
+        validateInstalledPreviewHelperOutput(
+          document,
+          helper.name,
+          helper.previewPath,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes(helper.name) &&
+          error.message.includes(helper.previewPath)
+        ) {
+          throw error;
+        }
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Could not verify installed helper ${helper.name} under ${helper.previewPath}: ${reason}`,
+          { cause: error },
+        );
+      } finally {
+        await server?.close();
+      }
+    }
+  } finally {
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   }
 }
 
@@ -314,11 +449,15 @@ export function validateGeneratedAssetReferences(
   }
 }
 
-function validate(): void {
+async function validate(): Promise<void> {
   const previewPath = readPreviewPath();
   validateDevelopmentConfiguration(
     readFileSync(viteConfigPath, "utf8"),
     previewPath,
+  );
+  await validateInstalledPreviewHelperCompatibility(previewPath);
+  console.log(
+    `✓ Installed Replit preview helpers are compatible with ${previewPath}`,
   );
 
   const developmentHtmlPath = process.env.DEV_HTML_PATH;
@@ -387,11 +526,9 @@ function validate(): void {
 }
 
 if (path.resolve(process.argv[1] ?? "") === __filename) {
-  try {
-    validate();
-  } catch (error) {
+  void validate().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Academy base-path validation failed: ${message}`);
     process.exitCode = 1;
-  }
+  });
 }

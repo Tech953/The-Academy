@@ -16,6 +16,8 @@ import {
   validateDevelopmentConfiguration,
   validateDevelopmentHtml,
   validateGeneratedAssetReferences,
+  validateInstalledPreviewHelperCompatibility,
+  validateInstalledPreviewHelperOutput,
 } from "./validate-base-path";
 
 const previewPath = "/academy-learning-adventure/";
@@ -207,6 +209,21 @@ test("rejects inline root-only module URLs and reports each URL with the preview
   }
 });
 
+test("rejects root-only Vite client URLs in transformed development HTML", () => {
+  assert.throws(
+    () =>
+      validateDevelopmentHtml(
+        '<script type="module">import("/@vite/client");</script>',
+        previewPath,
+      ),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes("Vite helper URLs") &&
+      error.message.includes("/@vite/client") &&
+      error.message.includes(previewPath),
+  );
+});
+
 test("accepts base-prefixed inline module URLs for every non-root preview path", () => {
   for (const basePath of nonRootPreviewPaths) {
     const inlineHelpers = `
@@ -220,6 +237,28 @@ test("accepts base-prefixed inline module URLs for every non-root preview path",
       `base-prefixed inline helpers should be accepted for ${basePath}`,
     );
   }
+});
+
+test("checks installed Replit helper output under nested preview paths", async () => {
+  for (const basePath of nonRootPreviewPaths) {
+    await validateInstalledPreviewHelperCompatibility(basePath);
+  }
+});
+
+test("reports the installed helper and preview path for root-relative output", () => {
+  assert.throws(
+    () =>
+      validateInstalledPreviewHelperOutput(
+        '<script type="module">import("/@vite/client");</script>',
+        "@replit/vite-plugin-runtime-error-modal",
+        previewPath,
+      ),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes("@replit/vite-plugin-runtime-error-modal") &&
+      error.message.includes("/@vite/client") &&
+      error.message.includes(previewPath),
+  );
 });
 
 function withOutputDirectory(
