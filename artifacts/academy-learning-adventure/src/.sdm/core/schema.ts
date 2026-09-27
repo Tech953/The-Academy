@@ -522,6 +522,8 @@ export const SlideDocumentSchema = Type.Object(
   {
     format: Type.Literal(SDM_FORMAT),
     version: Type.Literal(SDM_VERSION),
+    // Optional for version-1 compatibility; manifest validation requires a matching title.
+    title: Type.Optional(Type.String()),
     size: SizeSchema,
     background: PaintSchema,
     theme: Type.Optional(ThemeSchema),

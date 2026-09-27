@@ -801,6 +801,18 @@ export function validateSdmEntries(
       }
       continue;
     }
+    const expectedTitle = entry.title.trim();
+    const sourceTitle = result.document.title?.trim();
+    if (sourceTitle !== expectedTitle) {
+      messages.push(
+        formatMessage(
+          entry.filepath,
+          'source-title',
+          [],
+          `Slide ${entry.position} source title mismatch: expected ${JSON.stringify(expectedTitle)}, found ${JSON.stringify(sourceTitle || '<missing>')}.`,
+        ),
+      );
+    }
     for (const issue of analyzeSlideLayout(result.document)) {
       messages.push(
         formatMessage(
