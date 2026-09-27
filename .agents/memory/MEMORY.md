@@ -8,6 +8,7 @@
 - [Nested preview helpers](nested-preview-helpers.md) — Root-relative Replit Vite helpers do not work through a path-based artifact preview.
 - [Trailer media loading](trailer-media-loading.md) — Keep a real captured poster so long-video previews show footage before decoding finishes.
 - [Release retry summaries](release-retry-summaries.md) — Stable profile archives carry health/AI attempt counts and mark recovery only for eventual passes.
+- [EAS installer digests](eas-installer-digests.md) — EAS build JSON may include artifact URLs without a digest; the build fingerprint is not an installer checksum.
 - [Native handoff failure stages](native-handoff-failure-stages.md) — Keep preflight connectivity success separate from later EAS build failures in archived reports.
 - [Release report schema](release-report-schema.md) — Archived release reports carry an explicit version; field additions and shape changes require an intentional bump.
 - [Atomic release reports](atomic-release-reports.md) — Write reports to validated temporary JSON and rename atomically so interruptions preserve the prior archive.

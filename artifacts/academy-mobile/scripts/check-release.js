@@ -4,7 +4,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const DEFAULT_PROFILE = "preview";
-const RELEASE_REPORT_SCHEMA_VERSION = 4;
+const RELEASE_REPORT_SCHEMA_VERSION = 5;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
@@ -713,6 +713,23 @@ function validateNativeHandoff({
       errors.push("installerSha256 must be a 64-character SHA-256 hex digest");
     }
     if (
+      build.installerSha256Source !== undefined &&
+      build.installerSha256Source !== null &&
+      !["local", "eas"].includes(build.installerSha256Source)
+    ) {
+      errors.push('installerSha256Source must be "local" or "eas"');
+    }
+    if (
+      build.installerSha256Source !== undefined &&
+      build.installerSha256Source !== null &&
+      (typeof build.installerSha256 !== "string" ||
+        !/^[a-f0-9]{64}$/i.test(build.installerSha256))
+    ) {
+      errors.push(
+        "installerSha256Source requires a valid installerSha256 digest",
+      );
+    }
+    if (
       !isIos &&
       build.androidVersionCode !== undefined &&
       build.androidVersionCode !== null &&
@@ -745,6 +762,13 @@ function validateNativeHandoff({
     build.androidVersionCode !== null
       ? { androidVersionCode: build.androidVersionCode }
       : {}),
+    ...(build.installerSha256Source === "local" ||
+    build.installerSha256Source === "eas"
+      ? {
+          installerSha256: build.installerSha256,
+          installerSha256Source: build.installerSha256Source,
+        }
+      : {}),
     installerUrl: build.installerUrl || null,
     installerPath: build.installerPath || null,
     timestamp: build.timestamp,
@@ -773,7 +797,9 @@ function verifyInstallerChecksum({
   const report =
     handoffReport ??
     readJsonFile(handoffReportPath, "native handoff report");
-  const expectedChecksum = report?.build?.installerSha256;
+  const build = report?.build;
+  const expectedChecksum = build?.installerSha256;
+  const checksumSource = build?.installerSha256Source;
 
   if (!artifactPath) {
     throw new Error(
@@ -785,7 +811,16 @@ function verifyInstallerChecksum({
     !/^[a-f0-9]{64}$/i.test(expectedChecksum)
   ) {
     throw new Error(
-      "[release-checksum] The handoff report has no local installer checksum; cloud-only handoffs remain valid without one.",
+      "[release-checksum] The handoff report has no valid SHA-256 checksum; cloud-only handoffs without a provider checksum cannot be verified.",
+    );
+  }
+  if (
+    checksumSource !== undefined &&
+    checksumSource !== null &&
+    !["local", "eas"].includes(checksumSource)
+  ) {
+    throw new Error(
+      "[release-checksum] The handoff report has an unsupported checksum source.",
     );
   }
 
@@ -800,6 +835,9 @@ function verifyInstallerChecksum({
     status: "passed",
     artifactPath,
     installerSha256: actualChecksum,
+    ...(checksumSource === "local" || checksumSource === "eas"
+      ? { installerSha256Source: checksumSource }
+      : {}),
   };
 }
 

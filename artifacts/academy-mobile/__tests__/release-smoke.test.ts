@@ -68,6 +68,9 @@ const {
     version: string;
     androidPackage?: string;
     iosBundleIdentifier?: string;
+    androidVersionCode?: number;
+    installerSha256?: string;
+    installerSha256Source?: "local" | "eas";
     installerUrl: string | null;
     installerPath: string | null;
     timestamp: string;
@@ -82,6 +85,7 @@ const {
     status: string;
     artifactPath: string;
     installerSha256: string;
+    installerSha256Source?: "local" | "eas";
   };
   validateAndroidPreviewIdentity: (options?: {
     appConfig?: unknown;
@@ -239,7 +243,8 @@ const {
     timestamp: string;
     buildId: string | null;
     buildDetailsPageUrl: string | null;
-      installerSha256?: string | null;
+    installerSha256?: string | null;
+    installerSha256Source?: "local" | "eas";
   };
   computeFileSha256: (filePath: string) => Promise<string>;
   attachInstallerChecksum: (buildMetadata: {
@@ -248,6 +253,7 @@ const {
   }) => Promise<
     Record<string, unknown> & {
       installerSha256: string | null;
+      installerSha256Source?: "local" | "eas";
     }
   >;
   parseArgs: (args: string[]) => {
@@ -411,6 +417,9 @@ process.stdout.write(JSON.stringify([{
   ...(platform === "android" && profile === "production"
     ? { androidVersionCode: 42 }
     : {}),
+  ...(process.env.EAS_ARTIFACT_SHA256
+    ? { artifacts: { sha256: process.env.EAS_ARTIFACT_SHA256 } }
+    : {}),
   appVersion: "1.0.0",
   appIdentifier: "com.theacademy.mobile",
   completedAt: "2026-09-16T12:00:00.000Z",
@@ -518,6 +527,7 @@ function runNativeHandoffSubprocess(
   profile = "preview",
   identityDrift = "",
   artifactExtension = "",
+  easArtifactSha256 = "",
 ) {
   return spawnSync(
     process.execPath,
@@ -544,6 +554,7 @@ function runNativeHandoffSubprocess(
         RELEASE_REPORT_PATH: fixture.reportPath,
         RELEASE_IDENTITY_DRIFT: identityDrift,
         EAS_ARTIFACT_EXTENSION: artifactExtension,
+        EAS_ARTIFACT_SHA256: easArtifactSha256,
       },
     },
   );
@@ -879,7 +890,7 @@ describe("native handoff build metadata", () => {
     });
   });
 
-  it("records a SHA-256 for a local installer and leaves cloud-only handoffs valid", async () => {
+  it("records local or EAS SHA-256 while keeping checksum-optional cloud handoffs valid", async () => {
     const artifactDirectory = mkdtempSync(
       path.join(tmpdir(), "academy-installer-"),
     );
@@ -896,15 +907,39 @@ describe("native handoff build metadata", () => {
         installerUrl: "https://example.invalid/academy-preview.apk",
         installerPath: null,
       });
+      const easChecksum = "b".repeat(64);
+      const providerMetadata = await attachInstallerChecksum({
+        installerUrl: "https://example.invalid/academy-preview.apk",
+        installerPath: null,
+        installerSha256: easChecksum,
+        installerSha256Source: "eas",
+      });
+      const localWithProviderMetadata = await attachInstallerChecksum({
+        installerUrl: null,
+        installerPath: artifactPath,
+        installerSha256: easChecksum,
+        installerSha256Source: "eas",
+      });
 
       expect(localMetadata.installerSha256).toBe(expectedChecksum);
+      expect(localMetadata.installerSha256Source).toBe("local");
+      expect(localWithProviderMetadata).toMatchObject({
+        installerSha256: expectedChecksum,
+        installerSha256Source: "local",
+      });
       expect(cloudMetadata.installerSha256).toBeNull();
+      expect(cloudMetadata).not.toHaveProperty("installerSha256Source");
+      expect(providerMetadata).toMatchObject({
+        installerSha256: easChecksum,
+        installerSha256Source: "eas",
+      });
     } finally {
       rmSync(artifactDirectory, { recursive: true, force: true });
     }
   });
 
   it("normalizes a production AAB while allowing EAS auto-increment metadata", () => {
+    const easChecksum = "A".repeat(64);
     const output = {
       stdout: JSON.stringify([
         {
@@ -918,6 +953,7 @@ describe("native handoff build metadata", () => {
           buildDetailsPageUrl: "https://expo.dev/builds/production-build-123",
           artifacts: {
             buildUrl: "https://example.invalid/academy-production.aab",
+            sha256: easChecksum,
           },
         },
       ]),
@@ -937,7 +973,40 @@ describe("native handoff build metadata", () => {
       package: "com.theacademy.mobile",
       profile: "production",
       androidVersionCode: 42,
+      installerSha256: easChecksum.toLowerCase(),
+      installerSha256Source: "eas",
     });
+  });
+
+  it("does not treat unrelated EAS hashes as installer checksums", () => {
+    const normalized = normalizeBuildMetadata(
+      {
+        stdout: JSON.stringify([
+          {
+            id: "build-with-fingerprint",
+            status: "finished",
+            profile: "preview",
+            appVersion: "1.0.0",
+            appIdentifier: "com.theacademy.mobile",
+            fingerprint: { hash: "f".repeat(64) },
+            artifacts: {
+              buildUrl: "https://example.invalid/academy-preview.apk",
+              checksum: "not-a-sha256-digest",
+            },
+          },
+        ]),
+        stderr: "",
+      },
+      {
+        platform: "android",
+        profile: "preview",
+        appConfig,
+        capturedAt: "2026-09-15T15:01:00.000Z",
+      },
+    );
+
+    expect(normalized).not.toHaveProperty("installerSha256");
+    expect(normalized).not.toHaveProperty("installerSha256Source");
   });
 
   it("rejects invalid Android version-code metadata", () => {
@@ -1139,6 +1208,7 @@ describe("release smoke check", () => {
       buildDetailsPageUrl: string | null;
       androidVersionCode?: number;
       installerSha256?: string | null;
+      installerSha256Source?: "local" | "eas";
     };
   } => ({
       status: "completed",
@@ -1295,6 +1365,42 @@ describe("release smoke check", () => {
           handoffReport: report,
         }),
       ).toThrow(/SHA-256 mismatch/);
+    } finally {
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("validates and verifies a cloud installer with EAS checksum provenance", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-eas-checksum-"),
+    );
+    const artifactPath = path.join(artifactDirectory, "academy-preview.apk");
+    writeFileSync(artifactPath, "cloud-downloaded installer contents\n", "utf8");
+    const report = validHandoffReport();
+    report.build.installerSha256 = computeReleaseFileSha256(artifactPath);
+    report.build.installerSha256Source = "eas";
+
+    try {
+      expect(
+        validateNativeHandoff({
+          ...validHandoffConfig(),
+          handoffReport: report,
+        }),
+      ).toMatchObject({
+        installerSha256: report.build.installerSha256,
+        installerSha256Source: "eas",
+      });
+      expect(
+        verifyInstallerChecksum({
+          artifactPath,
+          handoffReport: report,
+        }),
+      ).toEqual({
+        status: "passed",
+        artifactPath,
+        installerSha256: report.build.installerSha256,
+        installerSha256Source: "eas",
+      });
     } finally {
       rmSync(artifactDirectory, { recursive: true, force: true });
     }
@@ -2159,7 +2265,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(4);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(5);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
@@ -2495,6 +2601,7 @@ describe("release smoke check", () => {
 
   it("completes a production store handoff when stub EAS returns an AAB", () => {
     const fixture = createNativeHandoffSubprocessFixture();
+    const providerChecksum = "c".repeat(64);
     try {
       const result = runNativeHandoffSubprocess(
         fixture,
@@ -2502,6 +2609,9 @@ describe("release smoke check", () => {
         "0",
         "android",
         "production",
+        "",
+        "",
+        providerChecksum,
       );
 
       expect(result.status).toBe(0);
@@ -2529,6 +2639,8 @@ describe("release smoke check", () => {
           profile: "production",
           version: "1.0.0",
           androidVersionCode: 42,
+          installerSha256: providerChecksum,
+          installerSha256Source: "eas",
           installerUrl: "https://expo.dev/builds/stub-build.aab",
         },
       });

@@ -136,6 +136,53 @@ function findFirstValue(value, keys) {
   return undefined;
 }
 
+function normalizeEasSha256(value) {
+  let digest = value;
+  if (digest && typeof digest === "object") {
+    const algorithm = findFirstValue(digest, ["algorithm", "hashAlgorithm"]);
+    if (algorithm && !/^sha-?256$/i.test(String(algorithm))) return undefined;
+    digest = findFirstValue(digest, [
+      "sha256",
+      "digest",
+      "hex",
+      "value",
+      "hash",
+    ]);
+  }
+  if (typeof digest !== "string") return undefined;
+  const match = digest
+    .trim()
+    .match(/^(?:sha-?256\s*[:=-]\s*)?([a-f0-9]{64})$/i);
+  return match ? match[1].toLowerCase() : undefined;
+}
+
+function findEasArtifactSha256(record) {
+  const checksumKeys = [
+    "installerSha256",
+    "applicationArchiveSha256",
+    "artifactSha256",
+    "artifactChecksum",
+    "buildArtifactSha256",
+    "buildSha256",
+    "sha256Checksum",
+    "sha256",
+    "checksum",
+  ];
+  const artifactChecksum = findFirstValue(record?.artifacts, checksumKeys);
+  const normalizedArtifactChecksum = normalizeEasSha256(artifactChecksum);
+  if (normalizedArtifactChecksum) return normalizedArtifactChecksum;
+  return normalizeEasSha256(
+    findFirstValue(record, [
+      "installerSha256",
+      "applicationArchiveSha256",
+      "artifactSha256",
+      "artifactChecksum",
+      "buildArtifactSha256",
+      "buildSha256",
+    ]),
+  );
+}
+
 function extractBuildMetadata(output) {
   const combinedOutput = `${output.stdout ?? ""}\n${output.stderr ?? ""}`;
   const payloads = parseJsonPayloads(combinedOutput);
@@ -214,6 +261,7 @@ function normalizeBuildMetadata(
             rawAndroidVersionCode.trim()
           ? Number(rawAndroidVersionCode)
           : Number.NaN;
+  const easInstallerSha256 = findEasArtifactSha256(record);
   if (
     rawAndroidVersionCode !== undefined &&
     (!Number.isSafeInteger(androidVersionCode) || androidVersionCode < 1)
@@ -290,6 +338,12 @@ function normalizeBuildMetadata(
     package: configuredPackage ?? outputPackage,
     profile,
     ...(androidVersionCode !== undefined ? { androidVersionCode } : {}),
+    ...(easInstallerSha256
+      ? {
+          installerSha256: easInstallerSha256,
+          installerSha256Source: "eas",
+        }
+      : {}),
     timestamp: normalizeBuildTimestamp(timestampValue, capturedAt),
     buildId: findFirstValue(record, ["id", "buildId"]) ?? null,
     buildDetailsPageUrl: findFirstValue(record, ["buildDetailsPageUrl"]) ?? null,
@@ -307,17 +361,40 @@ function computeFileSha256(filePath) {
 }
 
 async function attachInstallerChecksum(buildMetadata) {
+  const easInstallerSha256 =
+    buildMetadata.installerSha256Source === "eas"
+      ? normalizeEasSha256(buildMetadata.installerSha256)
+      : undefined;
   if (!buildMetadata.installerPath) {
-    return { ...buildMetadata, installerSha256: null };
+    if (easInstallerSha256) {
+      return {
+        ...buildMetadata,
+        installerSha256: easInstallerSha256,
+        installerSha256Source: "eas",
+      };
+    }
+    const metadataWithoutChecksumSource = { ...buildMetadata };
+    delete metadataWithoutChecksumSource.installerSha256Source;
+    return { ...metadataWithoutChecksumSource, installerSha256: null };
   }
 
   try {
     return {
       ...buildMetadata,
       installerSha256: await computeFileSha256(buildMetadata.installerPath),
+      installerSha256Source: "local",
     };
   } catch {
-    return { ...buildMetadata, installerSha256: null };
+    if (easInstallerSha256) {
+      return {
+        ...buildMetadata,
+        installerSha256: easInstallerSha256,
+        installerSha256Source: "eas",
+      };
+    }
+    const metadataWithoutChecksumSource = { ...buildMetadata };
+    delete metadataWithoutChecksumSource.installerSha256Source;
+    return { ...metadataWithoutChecksumSource, installerSha256: null };
   }
 }
 

@@ -118,7 +118,7 @@ is missing or stale, refresh it with the local static build before retrying the
 release check.
 
 Every archived report written by the release tooling includes
-`schemaVersion: 4`. Android identity and native-handoff reports include the
+`schemaVersion: 5`. Android identity and native-handoff reports include the
 selected EAS profile as `androidProfile`; existing identity fields remain
 unchanged. Production Android handoff records also retain EAS's optional
 `build.androidVersionCode` separately from the human-facing `build.version`.
@@ -191,8 +191,11 @@ After a successful EAS build, the command writes the durable handoff report to
 
 - `installerUrl` for a cloud APK, AAB, or IPA, or `installerPath` for a local
   installer artifact
-- `installerSha256` for a local installer when the handoff process can read the
-  file; cloud-only handoffs record no checksum and remain valid
+- `installerSha256` for a local installer the handoff process can read, or for a
+  cloud artifact when EAS provides a supported SHA-256 digest
+- optional `installerSha256Source` set to `local` for a locally computed digest
+  or `eas` for an EAS-provided digest; older reports without this field remain
+  valid
 - `version` from the EAS response, falling back to `app.json`
 - optional `androidVersionCode` from EAS when the Android build returns one;
   this can auto-increment independently of the human-facing app version
@@ -244,8 +247,9 @@ reports without that field remain valid.
 Validation failures list every actionable mismatch and write a failed release
 report instead of passing.
 
-When a handoff report contains `build.installerSha256`, verify a downloaded
-installer before distributing it:
+When a handoff report contains `build.installerSha256`, verify the installer
+before distributing it. The same command works for a local artifact or a file
+downloaded from the EAS URL:
 
 ```bash
 RELEASE_HANDOFF_PATH=.local/outputs/academy-mobile-native-handoff.json \
@@ -253,6 +257,7 @@ RELEASE_HANDOFF_PATH=.local/outputs/academy-mobile-native-handoff.json \
   --verify-checksum /path/to/downloaded/academy-preview.apk
 ```
 
-The command exits successfully only when the downloaded file matches the
-recorded SHA-256. Reports for cloud-only installers do not contain a checksum;
-their normal handoff validation remains valid without a local file to hash.
+The command exits successfully only when the file matches the recorded SHA-256.
+If EAS does not supply an artifact digest for a cloud build, normal handoff
+validation still succeeds, but checksum verification is unavailable until a
+digest is recorded.
