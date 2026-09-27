@@ -793,6 +793,7 @@ function verifyInstallerChecksum({
   artifactPath,
   handoffReport,
   handoffReportPath = DEFAULT_HANDOFF_REPORT_PATH,
+  allowMissingChecksum = false,
 } = {}) {
   const report =
     handoffReport ??
@@ -807,20 +808,36 @@ function verifyInstallerChecksum({
     );
   }
   if (
-    typeof expectedChecksum !== "string" ||
-    !/^[a-f0-9]{64}$/i.test(expectedChecksum)
-  ) {
-    throw new Error(
-      "[release-checksum] The handoff report has no valid SHA-256 checksum; cloud-only handoffs without a provider checksum cannot be verified.",
-    );
-  }
-  if (
     checksumSource !== undefined &&
     checksumSource !== null &&
     !["local", "eas"].includes(checksumSource)
   ) {
     throw new Error(
       "[release-checksum] The handoff report has an unsupported checksum source.",
+    );
+  }
+  if (
+    expectedChecksum === undefined ||
+    expectedChecksum === null ||
+    expectedChecksum === ""
+  ) {
+    if (allowMissingChecksum) {
+      return {
+        status: "skipped",
+        artifactPath,
+        reason: "checksum-not-recorded",
+      };
+    }
+    throw new Error(
+      "[release-checksum] The handoff report has no valid SHA-256 checksum; cloud-only handoffs without a provider checksum cannot be verified.",
+    );
+  }
+  if (
+    typeof expectedChecksum !== "string" ||
+    !/^[a-f0-9]{64}$/i.test(expectedChecksum)
+  ) {
+    throw new Error(
+      "[release-checksum] The handoff report has no valid SHA-256 checksum; cloud-only handoffs without a provider checksum cannot be verified.",
     );
   }
 
@@ -984,7 +1001,7 @@ if (require.main === module) {
   const identityProfile = allProfiles ? DEFAULT_PROFILE : profile;
   const handoffAndroidProfile = platform === "android" ? profile : undefined;
 
-  if (verifyChecksumIndex >= 0) {
+  if (verifyChecksumIndex >= 0 && !handoffOnly) {
     const artifactPath = args[verifyChecksumIndex + 1];
     if (!artifactPath || artifactPath.startsWith("--")) {
       console.error("[release-checksum] --verify-checksum requires a file path.");
@@ -1011,12 +1028,38 @@ if (require.main === module) {
   if (handoffOnly) {
     const handoffReportPath =
       process.env.RELEASE_HANDOFF_PATH || DEFAULT_HANDOFF_REPORT_PATH;
+    const checksumArtifactPath =
+      verifyChecksumIndex >= 0 ? args[verifyChecksumIndex + 1] : undefined;
+    if (
+      verifyChecksumIndex >= 0 &&
+      (!checksumArtifactPath || checksumArtifactPath.startsWith("--"))
+    ) {
+      console.error("[release-checksum] --verify-checksum requires a file path.");
+      process.exitCode = 1;
+      return;
+    }
     try {
       const handoff = validateNativeHandoff({
         handoffReportPath,
         profile,
         platform,
       });
+      if (checksumArtifactPath) {
+        const verification = verifyInstallerChecksum({
+          artifactPath: checksumArtifactPath,
+          handoffReportPath,
+          allowMissingChecksum: true,
+        });
+        if (verification.status === "skipped") {
+          console.log(
+            `[release-checksum] Skipping file comparison for ${verification.artifactPath}: no SHA-256 checksum is recorded.`,
+          );
+        } else {
+          console.log(
+            `[release-checksum] SHA-256 verified for ${verification.artifactPath}: ${verification.installerSha256}`,
+          );
+        }
+      }
       const report = writeReleaseReport(reportPath, {
         command: "check-release --handoff",
         status: "passed",

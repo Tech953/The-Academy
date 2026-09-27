@@ -247,17 +247,18 @@ reports without that field remain valid.
 Validation failures list every actionable mismatch and write a failed release
 report instead of passing.
 
-When a handoff report contains `build.installerSha256`, verify the installer
-before distributing it. The same command works for a local artifact or a file
-downloaded from the EAS URL:
+Pass the downloaded installer to the handoff gate to validate its metadata and
+verify its checksum before distribution:
 
 ```bash
 RELEASE_HANDOFF_PATH=.local/outputs/academy-mobile-native-handoff.json \
   pnpm --filter @workspace/academy-mobile run check-release -- \
-  --verify-checksum /path/to/downloaded/academy-preview.apk
+  --handoff --verify-checksum /path/to/downloaded/academy-preview.apk
 ```
 
-The command exits successfully only when the file matches the recorded SHA-256.
-If EAS does not supply an artifact digest for a cloud build, normal handoff
-validation still succeeds, but checksum verification is unavailable until a
-digest is recorded.
+When a SHA-256 is recorded, a mismatch exits unsuccessfully and the failure
+report includes the artifact path and expected and found digests. If the cloud
+handoff has no recorded digest, the gate logs that file comparison was skipped
+and still runs all other handoff checks. The standalone
+`--verify-checksum /path/to/installer` command remains strict and requires a
+recorded checksum.

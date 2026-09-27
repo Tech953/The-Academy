@@ -81,11 +81,13 @@ const {
     artifactPath: string;
     handoffReport?: unknown;
     handoffReportPath?: string;
+    allowMissingChecksum?: boolean;
   }) => {
     status: string;
     artifactPath: string;
-    installerSha256: string;
+    installerSha256?: string;
     installerSha256Source?: "local" | "eas";
+    reason?: string;
   };
   validateAndroidPreviewIdentity: (options?: {
     appConfig?: unknown;
@@ -1226,6 +1228,40 @@ describe("release smoke check", () => {
       },
     });
 
+  const runHandoffGateSubprocess = (
+    handoffReport: ReturnType<typeof validHandoffReport>,
+    installerPath: string,
+  ) => {
+    const fixtureDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-handoff-gate-"),
+    );
+    const handoffReportPath = path.join(fixtureDirectory, "handoff-report.json");
+    const releaseReportPath = path.join(fixtureDirectory, "release-report.json");
+    writeFileSync(handoffReportPath, JSON.stringify(handoffReport), "utf8");
+    const result = spawnSync(
+      process.execPath,
+      [
+        checkReleasePath,
+        "--handoff",
+        "--verify-checksum",
+        installerPath,
+      ],
+      {
+        cwd: path.resolve(__dirname, ".."),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          RELEASE_HANDOFF_PATH: handoffReportPath,
+          RELEASE_REPORT_PATH: releaseReportPath,
+          RELEASE_PLATFORM: "android",
+          RELEASE_PROFILE: "preview",
+        },
+      },
+    );
+
+    return { fixtureDirectory, releaseReportPath, result };
+  };
+
   const validIosHandoffConfig = () => ({
     appConfig: {
       expo: {
@@ -1404,6 +1440,106 @@ describe("release smoke check", () => {
     } finally {
       rmSync(artifactDirectory, { recursive: true, force: true });
     }
+  });
+
+  it("verifies the installer in the handoff gate and blocks checksum mismatches", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-gated-installer-"),
+    );
+    const artifactPath = path.join(artifactDirectory, "academy-preview.apk");
+    writeFileSync(artifactPath, "verified package bytes\n", "utf8");
+    const report = validHandoffReport();
+    report.build.installerSha256 = computeReleaseFileSha256(artifactPath);
+    report.build.installerSha256Source = "eas";
+
+    try {
+      const passingGate = runHandoffGateSubprocess(report, artifactPath);
+      try {
+        expect(passingGate.result.status).toBe(0);
+        expect(passingGate.result.stdout).toContain(
+          `[release-checksum] SHA-256 verified for ${artifactPath}: ${report.build.installerSha256}`,
+        );
+        expect(
+          JSON.parse(readFileSync(passingGate.releaseReportPath, "utf8")),
+        ).toMatchObject({ status: "passed" });
+      } finally {
+        rmSync(passingGate.fixtureDirectory, { recursive: true, force: true });
+      }
+
+      writeFileSync(artifactPath, "tampered package bytes\n", "utf8");
+      const foundChecksum = computeReleaseFileSha256(artifactPath);
+      const failingGate = runHandoffGateSubprocess(report, artifactPath);
+      try {
+        const mismatch = `[release-checksum] SHA-256 mismatch for ${artifactPath}: expected ${report.build.installerSha256}, found ${foundChecksum}.`;
+        expect(failingGate.result.status).toBe(1);
+        expect(failingGate.result.stderr).toContain(mismatch);
+        expect(
+          JSON.parse(readFileSync(failingGate.releaseReportPath, "utf8")),
+        ).toMatchObject({
+          status: "failed",
+          error: mismatch,
+        });
+      } finally {
+        rmSync(failingGate.fixtureDirectory, { recursive: true, force: true });
+      }
+    } finally {
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps cloud handoffs valid when the gate has no checksum to compare", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-cloud-installer-"),
+    );
+    const artifactPath = path.join(artifactDirectory, "academy-preview.apk");
+    writeFileSync(artifactPath, "cloud package bytes\n", "utf8");
+    const gateReport = validHandoffReport();
+    const gate = runHandoffGateSubprocess(gateReport, artifactPath);
+
+    try {
+      expect(gate.result.status).toBe(0);
+      expect(gate.result.stdout).toContain(
+        `[release-checksum] Skipping file comparison for ${artifactPath}: no SHA-256 checksum is recorded.`,
+      );
+      expect(
+        JSON.parse(readFileSync(gate.releaseReportPath, "utf8")),
+      ).toMatchObject({ status: "passed" });
+    } finally {
+      rmSync(gate.fixtureDirectory, { recursive: true, force: true });
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks the handoff when a checksumed installer cannot be read", () => {
+    const artifactDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-unreadable-installer-"),
+    );
+    const artifactPath = path.join(artifactDirectory, "missing-preview.apk");
+    const report = validHandoffReport();
+    report.build.installerSha256 = "a".repeat(64);
+    const gate = runHandoffGateSubprocess(report, artifactPath);
+
+    try {
+      expect(gate.result.status).toBe(1);
+      expect(gate.result.stderr).toContain(
+        `[release-checksum] Could not read installer artifact at ${artifactPath}`,
+      );
+      expect(
+        JSON.parse(readFileSync(gate.releaseReportPath, "utf8")),
+      ).toMatchObject({ status: "failed" });
+    } finally {
+      rmSync(gate.fixtureDirectory, { recursive: true, force: true });
+      rmSync(artifactDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the standalone checksum command strict when no digest is recorded", () => {
+    expect(() =>
+      verifyInstallerChecksum({
+        artifactPath: "/tmp/no-checksum-installer.apk",
+        handoffReport: validHandoffReport(),
+      }),
+    ).toThrow(/no valid SHA-256 checksum/);
   });
 
   it("accepts a complete production AAB handoff with auto-increment metadata", () => {
