@@ -20,6 +20,10 @@ import {
   validateInstalledPreviewHelperOutput,
 } from "./validate-base-path";
 import { validateRuntimeErrorHmr } from "./runtime-error-hmr-smoke";
+import {
+  validateWorkerRequestPaths,
+  validateWorkerUrlRequests,
+} from "./worker-url-smoke";
 
 const previewPath = "/academy-learning-adventure/";
 const viteConfigPath = fileURLToPath(
@@ -248,6 +252,27 @@ test("checks installed Replit helper output under nested preview paths", async (
 
 test("reports browser runtime errors through the nested HMR connection", async () => {
   await validateRuntimeErrorHmr(previewPath);
+});
+
+test("confirms browser Worker and SharedWorker requests stay under the preview path", async () => {
+  await validateWorkerUrlRequests(previewPath);
+});
+
+test("reports root-only browser worker requests with their source and URL", () => {
+  const source = "http://127.0.0.1:21366/academy-learning-adventure/main.js";
+  const url = "http://127.0.0.1:21366/workers/root-only-worker.js";
+
+  assert.throws(
+    () =>
+      validateWorkerRequestPaths(previewPath, [
+        { kind: "Worker", source, url },
+      ]),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes(source) &&
+      error.message.includes(url) &&
+      error.message.includes(previewPath),
+  );
 });
 
 test("reports the installed helper and preview path for root-relative output", () => {

@@ -35,7 +35,7 @@ type CdpEnvelope = {
   error?: { message: string };
 };
 
-type CdpClient = {
+export type CdpClient = {
   command(
     method: string,
     params?: Record<string, unknown>,
@@ -53,7 +53,7 @@ type CdpPendingCommand = {
   timeout: ReturnType<typeof setTimeout>;
 };
 
-type CdpTarget = {
+export type CdpTarget = {
   type: string;
   webSocketDebuggerUrl: string;
 };
@@ -63,7 +63,7 @@ type RuntimeErrorPayload = {
   stack?: string;
 };
 
-async function freeLocalPort(): Promise<number> {
+export async function freeLocalPort(): Promise<number> {
   const probe = createNetServer();
   return new Promise((resolve, reject) => {
     probe.once("error", reject);
@@ -85,7 +85,7 @@ async function freeLocalPort(): Promise<number> {
   });
 }
 
-function connectDevTools(webSocketUrl: string): Promise<CdpClient> {
+export function connectDevTools(webSocketUrl: string): Promise<CdpClient> {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(webSocketUrl);
     const pending = new Map<number, CdpPendingCommand>();
@@ -202,7 +202,7 @@ async function waitFor<T>(
   throw new Error(`Timed out waiting for ${description}.`);
 }
 
-async function waitForDevToolsPort(
+export async function waitForDevToolsPort(
   browser: ReturnType<typeof spawn>,
   profileDirectory: string,
 ): Promise<number> {
@@ -220,7 +220,7 @@ async function waitForDevToolsPort(
   return Number(readFileSync(portFile, "utf8").split(/\r?\n/)[0]);
 }
 
-async function getPageTarget(port: number): Promise<CdpTarget> {
+export async function getPageTarget(port: number): Promise<CdpTarget> {
   const deadline = Date.now() + 8_000;
   while (Date.now() < deadline) {
     try {
@@ -240,7 +240,7 @@ async function getPageTarget(port: number): Promise<CdpTarget> {
   throw new Error("Timed out waiting for Chromium's page target.");
 }
 
-function chromiumExecutable(): string {
+export function chromiumExecutable(): string {
   if (process.env.CHROMIUM_PATH) {
     if (!existsSync(process.env.CHROMIUM_PATH)) {
       throw new Error(
@@ -254,7 +254,7 @@ function chromiumExecutable(): string {
     : "chromium";
 }
 
-function artifactServicePaths(): string[] {
+export function artifactServicePaths(): string[] {
   const toml = readFileSync(artifactConfigPath, "utf8");
   const paths: string[] = [];
   for (const match of toml.matchAll(/^\s*paths\s*=\s*\[([^\]]*)\]/gm)) {
@@ -265,7 +265,10 @@ function artifactServicePaths(): string[] {
   return paths;
 }
 
-function servicePathCovers(servicePath: string, requestPath: string): boolean {
+export function servicePathCovers(
+  servicePath: string,
+  requestPath: string,
+): boolean {
   const normalizedServicePath = servicePath.endsWith("/")
     ? servicePath
     : `${servicePath}/`;
@@ -275,7 +278,7 @@ function servicePathCovers(servicePath: string, requestPath: string): boolean {
   );
 }
 
-async function stopBrowser(
+export async function stopBrowser(
   browser: ReturnType<typeof spawn>,
 ): Promise<void> {
   if (browser.exitCode !== null || browser.signalCode !== null) return;

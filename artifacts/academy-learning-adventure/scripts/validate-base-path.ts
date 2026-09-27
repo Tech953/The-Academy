@@ -9,6 +9,7 @@ import { createServer } from "vite";
 import * as ts from "typescript";
 
 import { validateRuntimeErrorHmr } from "./runtime-error-hmr-smoke";
+import { validateWorkerUrlRequests } from "./worker-url-smoke";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -888,9 +889,10 @@ async function validate(): Promise<void> {
     );
   }
   await validateRuntimeErrorHmr(previewPath);
+  await validateWorkerUrlRequests(previewPath);
   if (readFileSync(builtIndexPath, "utf8") !== document) {
     throw new Error(
-      "The development runtime-error HMR smoke changed the production index.html.",
+      "A nested-preview browser smoke changed the production index.html.",
     );
   }
   console.log(

@@ -14,3 +14,9 @@ For the runtime error overlay, transformed HTML alone cannot prove error reporti
 **Why:** A preview can render normally while the HMR socket or runtime error event is broken; the server receiving the browser's error is the behavior that matters.
 
 **How to apply:** For nested-preview regressions, verify both the base-prefixed client URL and a real browser-to-server HMR error report. Keep this fixture development-only and separate from production output.
+
+Vite's Connect middleware removes the configured base from `IncomingMessage.url`. A request listener registered after Vite's listener can therefore observe `/worker.js` even when Chromium requested `/academy-learning-adventure/worker.js`.
+
+**Why:** A late observer can misreport the browser's actual request path, creating false root-path failures and hiding whether the proxy route is covered.
+
+**How to apply:** Use `httpServer.prependListener("request", ...)` to capture the original URL before Vite middleware runs, then correlate it with the URL reported inside each loaded worker and check service-path coverage.
