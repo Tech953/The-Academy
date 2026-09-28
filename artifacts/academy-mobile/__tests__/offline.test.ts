@@ -1933,6 +1933,87 @@ describe('matchEventsToHeadlines() — offline RSS enrichment', () => {
     }
   });
 
+  it('recovers with complete deterministic output after rejection on every public path', () => {
+    const sourceTemplate = EVENT_TEMPLATES.academic[0];
+    const originalTemplate = { ...sourceTemplate };
+    const headlines = ['Exam assessment study academic pressure'];
+    const assertEventList = (
+      result: unknown,
+      instanceKind: 'rss' | 'daily' | 'either',
+    ) => {
+      expect(Array.isArray(result)).toBe(true);
+      const events = result as OfflineWorldEvent[];
+      expect(events.length).toBeGreaterThan(0);
+      events.forEach(event => expectValidEvent(event, instanceKind));
+    };
+    const publicPaths = [
+      {
+        name: 'daily event generation',
+        generate: () => generateDailyEvents(day, 3),
+        assertComplete: (result: unknown) => assertEventList(result, 'daily'),
+      },
+      {
+        name: 'headline matching',
+        generate: () => matchEventsToHeadlines(headlines),
+        assertComplete: (result: unknown) => assertEventList(result, 'rss'),
+      },
+      {
+        name: 'bulletin assembly',
+        generate: () => generateBulletinEvents(day, headlines, 3),
+        assertComplete: (result: unknown) => assertEventList(result, 'either'),
+      },
+      {
+        name: 'legacy content-pack generation',
+        generate: () => generateContentPack(day),
+        assertComplete: (result: unknown) => {
+          const pack = result as ReturnType<typeof generateContentPack>;
+          expect(pack.version).toBe(`pack-day${day}`);
+          expect(pack.worldSeed).toBe(12345);
+          expect(pack.activeEvents.length).toBeGreaterThan(0);
+          expect(pack.featuredQuizSets).toHaveLength(2);
+          pack.activeEvents.forEach(event => expectValidEvent(event, 'daily'));
+        },
+      },
+      {
+        name: 'offline content-pack generation',
+        generate: () => generateOfflineContentPack(day, headlines),
+        assertComplete: (result: unknown) => {
+          const pack = result as ContentPack;
+          expect(isUsableContentPack(pack)).toBe(true);
+          expect(pack.activeEvents.length).toBeGreaterThan(0);
+          pack.activeEvents.forEach(event => {
+            expect(isDisplayableContentPackEvent(event)).toBe(true);
+          });
+        },
+      },
+    ];
+
+    try {
+      for (const publicPath of publicPaths) {
+        Object.assign(sourceTemplate, originalTemplate);
+        const baseline = structuredClone(publicPath.generate());
+        publicPath.assertComplete(baseline);
+
+        sourceTemplate.title = '';
+        try {
+          expect(publicPath.generate, publicPath.name).toThrow(
+            /template "exam-week".*category "academic".*field "title".*blank/,
+          );
+        } finally {
+          Object.assign(sourceTemplate, originalTemplate);
+        }
+
+        expect(sourceTemplate).toEqual(originalTemplate);
+        const recovered = publicPath.generate();
+        publicPath.assertComplete(recovered);
+        expect(recovered).toEqual(baseline);
+        expect(publicPath.generate()).toEqual(recovered);
+      }
+    } finally {
+      Object.assign(sourceTemplate, originalTemplate);
+    }
+  });
+
   it.each(['', '   ', '!!!', 'the', 'and', 'xylophonicallyunmatchable'])(
     'returns no matches for no-signal headline %j without throwing',
     (headline) => {
