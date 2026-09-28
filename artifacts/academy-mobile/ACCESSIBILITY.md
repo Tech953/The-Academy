@@ -11,8 +11,8 @@ The bulletin repair cue is intentionally platform-specific:
 ## Manual release check
 
 Run this on a preview build with one Android device and one iPhone. Record the
-device model, OS version, app build, date, and result in the release handoff
-notes.
+device model, OS version, app build, date, and result in the sign-off record
+below and copy the completed record into the release handoff notes.
 
 ### Android TalkBack
 
@@ -39,6 +39,19 @@ notes.
    repaired state. Confirm the cue is not announced again.
 6. Focus the bulletin manually. Confirm the repair text is understandable and
    is not spoken twice.
+
+### iOS VoiceOver sign-off record
+
+Status: **Pending physical iPhone run**
+
+- Device model: —
+- iOS version: —
+- Preview build: —
+- Test date: —
+- Fully remote bulletin: Not run
+- Repaired bulletin cue: Not run
+- Harmless rerender or revisit: Not run
+- Manual bulletin focus: Not run
 
 ## Workspace verification status
 
