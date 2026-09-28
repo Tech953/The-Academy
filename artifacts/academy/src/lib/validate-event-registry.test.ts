@@ -11,7 +11,11 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
-import { validateWebEventRegistry } from '../../scripts/validate-event-registry';
+import {
+  createRegistryPreflightReport,
+  runRegistryValidation,
+  validateWebEventRegistry,
+} from '../../scripts/validate-event-registry';
 
 const template = (title: string) => [{ title }];
 const packageJson = JSON.parse(
@@ -27,6 +31,130 @@ describe('validateWebEventRegistry', () => {
       'pnpm run validate-event-registry',
     );
     expect(packageJson.scripts.build).toContain('vite build');
+  });
+
+  it('emits a versioned JSON summary from the standalone validator', () => {
+    const academyDirectory = fileURLToPath(new URL('../../', import.meta.url));
+    const result = spawnSync(
+      'pnpm',
+      ['exec', 'tsx', 'scripts/validate-event-registry.ts', '--json'],
+      {
+        cwd: academyDirectory,
+        encoding: 'utf8',
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+
+    const report = JSON.parse(result.stdout.trim());
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      status: 'ok',
+      compatibilityPath: 'artifacts/academy/src/lib/radiantAI.ts',
+      failure: null,
+    });
+    expect(Number.isInteger(report.sharedCategoryCount)).toBe(true);
+    expect(Number.isInteger(report.exceptionCount)).toBe(true);
+  }, 30_000);
+
+  it('emits structured category and path details for registry failures', () => {
+    const cases = [
+      {
+        options: {
+          eventTemplates: {
+            academic: template('Academic event'),
+            discovery: template('Discovery event'),
+          },
+          categoryMappings: { exam: 'academic' },
+          exceptions: {},
+          generateEvent: () => ({ name: 'Academic event' }),
+        },
+        expectedFailure: {
+          code: 'missing_category_mapping',
+          category: 'discovery',
+        },
+      },
+      {
+        options: {
+          eventTemplates: { academic: template('Academic event') },
+          categoryMappings: { exam: 'missing' },
+          exceptions: {},
+        },
+        expectedFailure: {
+          code: 'legacy_mapping_target_missing',
+          category: 'missing',
+          legacyEventType: 'exam',
+        },
+      },
+    ];
+
+    for (const { options, expectedFailure } of cases) {
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+      const exitCode = runRegistryValidation({
+        json: true,
+        validateTemplates: () => {},
+        validateWeb: (validationOptions) =>
+          validateWebEventRegistry({
+            ...validationOptions,
+            ...options,
+          }),
+        writeStdout: (line) => stdout.push(line),
+        writeStderr: (line) => stderr.push(line),
+      });
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toEqual([]);
+
+      const report = JSON.parse(stdout[0]);
+      expect(report).toMatchObject({
+        schemaVersion: 1,
+        status: 'error',
+        compatibilityPath: 'artifacts/academy/src/lib/radiantAI.ts',
+        failure: {
+          ...expectedFailure,
+          compatibilityPath: 'artifacts/academy/src/lib/radiantAI.ts',
+        },
+      });
+    }
+  });
+
+  it('includes validated category and exception counts in the JSON report', () => {
+    const summary = validateWebEventRegistry({
+      eventTemplates: {
+        academic: template('Academic event'),
+        social: template('Social event'),
+      },
+      categoryMappings: { exam: 'academic' },
+      exceptions: {
+        social: {
+          reason: 'The web build intentionally omits social events.',
+          reviewOwner: 'Academy web team',
+          migrationStatus: 'not-planned',
+        },
+      },
+      generateEvent: () => ({ name: 'Academic event' }),
+      emitHumanOutput: false,
+    });
+
+    expect(summary).toEqual({ sharedCategoryCount: 2, exceptionCount: 1 });
+    expect(
+      createRegistryPreflightReport({
+        summary,
+        sharedCategoryCount: 2,
+        exceptionCount: 1,
+      }),
+    ).toMatchObject({
+      schemaVersion: 1,
+      status: 'ok',
+      compatibilityPath: 'artifacts/academy/src/lib/radiantAI.ts',
+      sharedCategoryCount: 2,
+      exceptionCount: 1,
+      failure: null,
+    });
   });
 
   it('stops the package build before Vite when the registry prebuild fails', () => {
