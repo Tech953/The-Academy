@@ -1,0 +1,114 @@
+name: Android bulletin relaunch lane
+
+on:
+  push:
+    branches:
+      - "agent/android-bulletin-lane-*"
+    paths:
+      - "artifacts/academy-mobile/scripts/android-bulletin-lane.js"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-bulletin-lane-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bulletin-lane:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      EXPO_PUBLIC_DOMAIN: http://127.0.0.1:8765
+      EXPO_PUBLIC_ANDROID_LANE: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Android lane harness
+        run: pnpm --filter @workspace/academy-mobile exec vitest run __tests__/android-lane.test.ts
+
+      - name: Generate Android project
+        run: pnpm --filter @workspace/academy-mobile exec expo prebuild --platform android --no-install
+
+      - name: Build preview-lane APK
+        run: |
+          cd artifacts/academy-mobile/android
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Run on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -eu
+            APK="$GITHUB_WORKSPACE/artifacts/academy-mobile/android/app/build/outputs/apk/release/app-release.apk"
+            LOG="$RUNNER_TEMP/android-bulletin-lane.log"
+            APP_VERSION="$(node -p "require('./artifacts/academy-mobile/app.json').expo.version")"
+            DEVICE_MODEL="$(adb shell getprop ro.product.model | tr -d '\r')"
+            ANDROID_VERSION="$(adb shell getprop ro.build.version.release | tr -d '\r')"
+            APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+
+            {
+              echo "## Android bulletin relaunch lane"
+              echo "- Device model: $DEVICE_MODEL"
+              echo "- Android version: $ANDROID_VERSION"
+              echo "- APK build: $APP_VERSION release APK, source ${GITHUB_SHA:0:7}"
+              echo "- APK SHA-256: $APK_SHA256"
+              echo "- Result: running"
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            set +e
+            pnpm --filter @workspace/academy-mobile run android:bulletin-lane -- --apk "$APK" > "$LOG" 2>&1
+            STATUS=$?
+            set -e
+            cat "$LOG"
+
+            if [ "$STATUS" -eq 0 ]; then
+              echo "- Result: PASS (cached-first relaunch, expired storage, corrupt storage)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Result: FAIL (exit $STATUS)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit "$STATUS"
+
+      - name: Upload Android lane outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-bulletin-lane
+          path: |
+            artifacts/academy-mobile/android/app/build/outputs/apk/release/app-release.apk
+            ${{ runner.temp }}/android-bulletin-lane.log
+          if-no-files-found: ignore
