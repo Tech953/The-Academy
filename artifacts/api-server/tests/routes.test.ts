@@ -22,6 +22,7 @@ import {
   createContentPackContractFixture,
   isUsableContentPack,
 } from "@workspace/game-engine";
+import { parseCachedContentPack } from "../../academy-mobile/lib/contentPackFallback";
 
 vi.mock("child_process", async importOriginal => {
   const childProcess = await importOriginal<typeof import("child_process")>();
@@ -249,6 +250,20 @@ describe("main API routes", () => {
     )).toBe(true);
     expect(result.body.activeEvents.map((event: { id: string }) => event.id))
       .not.toContain("malformed-event");
+    expect(result.body.npcMoodShifts).toHaveLength(4);
+    expect(result.body.gedFocusAreas).toHaveLength(2);
+    expect(result.body.generatedAt).toBeGreaterThan(0);
+    expect(result.body.expiresAt).toBeGreaterThan(result.body.generatedAt);
+    expect(result.body.eventsRepaired).toBe(false);
+
+    // Exercise the JSON boundary used by mobile storage, not just the server object.
+    const serializedFallback = JSON.stringify(result.body);
+    const mobileCachePack = parseCachedContentPack(
+      serializedFallback,
+      result.body.generatedAt + 1,
+    );
+    expect(mobileCachePack).not.toBeNull();
+    expect(mobileCachePack).toEqual(JSON.parse(serializedFallback));
     expect(create).toHaveBeenCalledTimes(1);
     expect(warningSpy).toHaveBeenCalledWith(
       "[ContentPack] GPT response rejected (activeEvents); using deterministic fallback",
