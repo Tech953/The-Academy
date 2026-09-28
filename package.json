@@ -8,7 +8,8 @@
     "typecheck:libs": "tsc --build",
     "test:offline": "pnpm --filter @workspace/academy-mobile run test",
     "validate:content-pack": "node scripts/validate-content-pack-boundary.mjs",
-    "typecheck": "pnpm run typecheck:libs && pnpm run validate:content-pack && pnpm run test:offline && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "test:content-pack-boundary": "node --test scripts/validate-content-pack-boundary.test.mjs",
+    "typecheck": "pnpm run typecheck:libs && pnpm run validate:content-pack && pnpm run test:content-pack-boundary && pnpm run test:offline && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
   "devDependencies": {
