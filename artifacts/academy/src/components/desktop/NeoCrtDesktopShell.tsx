@@ -44,8 +44,6 @@ import {
   Monitor, Terminal, Network, BarChart3, BarChart2, Notebook, Award, Lock, GraduationCap, FilePen, Landmark, FlaskConical, Rss
 } from 'lucide-react';
 import bearMascot from '@assets/ChatGPT Image Nov 29, 2025, 01_44_34 AM_1764398698829.png';
-import citationIconImg from '@assets/image_1773123805034.png';
-import notebookIconImg from '@assets/image_1773123912858.png';
 import { PostItWidget } from './widgets/PostItWidget';
 import { CalendarEventsWidget } from './widgets/CalendarEventsWidget';
 import {
@@ -105,7 +103,7 @@ const {
 } = DESKTOP_GRID;
 // Bump this when the layout contract changes so a broken saved arrangement
 // cannot survive a reset of the desktop icon grid.
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v12';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v13';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -245,10 +243,10 @@ const DESKTOP_ICONS: DesktopIconEntry[] = [
   // Row 2 — Files, Notebook, Game & Orientation
   { id: 'schoolfiles',   iconType: 'schoolfiles',   labelKey: 'desktop.schoolfiles',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 2 },
   { id: 'personalfiles', iconType: 'personalfiles', labelKey: 'desktop.personalfiles', colorKey: 'pink',   defaultCol: 1, defaultRow: 2 },
-  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 2, imageIcon: notebookIconImg },
+  { id: 'notebook',      iconType: 'notebook',      labelKey: 'desktop.notebook',      colorKey: 'cyan',   defaultCol: 2, defaultRow: 2 },
   { id: 'academy',       iconType: 'academy',       labelKey: 'desktop.academy',       colorKey: 'green',  defaultCol: 3, defaultRow: 2 },
   { id: 'tutorial',      iconType: 'tutorial',      labelKey: 'desktop.tutorial',      colorKey: 'cyan',   defaultCol: 4, defaultRow: 2 },
-  { id: 'citation',      iconType: 'citation',      labelKey: 'desktop.citation',      colorKey: 'purple', defaultCol: 5, defaultRow: 2, imageIcon: citationIconImg },
+  { id: 'citation',      iconType: 'citation',      labelKey: 'desktop.citation',      colorKey: 'purple', defaultCol: 5, defaultRow: 2 },
   { id: 'worldevents',   iconType: 'worldevents',   labelKey: 'desktop.worldevents',   colorKey: 'cyan',   defaultCol: 0, defaultRow: 3 },
 ];
 
