@@ -140,11 +140,12 @@ RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-rel
 
 ## Release connectivity
 
-The `preview` and `production` EAS profiles bake the public deployment hostname
-into `EXPO_PUBLIC_DOMAIN` for both Android and iOS, so live AI descriptions,
-NPC dialogue, and content-pack enrichment are enabled in distributed builds:
+The production EAS profile's `build.production.env.EXPO_PUBLIC_DOMAIN` is the
+authoritative published hostname. The release guard requires preview to match
+it. Both profiles bake the hostname into Android and iOS builds, so live AI
+descriptions, NPC dialogue, and content-pack enrichment are enabled:
 
-- Online base: `https://TheeAcademy.replit.app/api`
+- Online base: derived from the authoritative production hostname in `eas.json`
 - Preview: online-enabled Android APK or iOS build with deterministic offline fallback
 - Production: online-enabled Android App Bundle or iOS build with deterministic offline fallback
 - Development: the local workflow supplies its development hostname

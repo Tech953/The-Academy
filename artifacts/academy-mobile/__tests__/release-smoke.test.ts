@@ -2037,35 +2037,56 @@ describe("release smoke check", () => {
     }
   });
 
-  it("reads the preview hostname from eas.json", () => {
+  it("uses the production profile as the published hostname source", () => {
     const config = readReleaseConfig();
-    expect(getReleaseDomain(config, "preview")).toBe("theeacademy.replit.app");
+    const publishedDomain = getReleaseDomain(config, "production");
+
+    expect(validateReleaseProfileHost(config, "preview")).toBe(publishedDomain);
+    expect(validateReleaseProfileHost(config, "production")).toBe(
+      publishedDomain,
+    );
   });
 
-  it("requires the published Academy hostname for preview and production", () => {
+  it("requires preview and production to use the published Academy hostname", () => {
     const config = readReleaseConfig();
+    const publishedDomain = getReleaseDomain(config, "production");
 
     expect(() => validateRequiredReleaseProfileHosts(config)).not.toThrow();
     expect(validateReleaseProfileHost(config, "preview")).toBe(
-      "theeacademy.replit.app",
+      publishedDomain,
     );
     expect(validateReleaseProfileHost(config, "production")).toBe(
-      "theeacademy.replit.app",
+      publishedDomain,
     );
 
-    for (const profile of ["preview", "production"]) {
-      const driftedConfig = JSON.parse(JSON.stringify(config)) as {
-        build: Record<string, { env: Record<string, string> }>;
-      };
-      driftedConfig.build[profile].env.EXPO_PUBLIC_DOMAIN =
-        "https://wrong.example.com";
+    const driftedConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    driftedConfig.build.preview.env.EXPO_PUBLIC_DOMAIN =
+      "https://wrong.example.com";
+    expect(() => validateRequiredReleaseProfileHosts(driftedConfig)).toThrow(
+      new Error(
+        `[release-smoke] Profile "preview" must match the published Academy hostname "${publishedDomain}" from build.production.env.EXPO_PUBLIC_DOMAIN in eas.json; found "wrong.example.com". Update build.preview.env.EXPO_PUBLIC_DOMAIN to match the production profile.`,
+      ),
+    );
 
-      expect(() => validateRequiredReleaseProfileHosts(driftedConfig)).toThrow(
-        new RegExp(
-          `Profile "${profile}" must target the published Academy hostname "theeacademy\\.replit\\.app" over HTTPS; found "wrong\\.example\\.com"`,
-        ),
-      );
-    }
+    const changedProductionConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    changedProductionConfig.build.production.env.EXPO_PUBLIC_DOMAIN =
+      "academy-new.example.com";
+    expect(() =>
+      validateRequiredReleaseProfileHosts(changedProductionConfig),
+    ).toThrow(
+      new Error(
+        `[release-smoke] Profile "preview" must match the published Academy hostname "academy-new.example.com" from build.production.env.EXPO_PUBLIC_DOMAIN in eas.json; found "${publishedDomain}". Update build.preview.env.EXPO_PUBLIC_DOMAIN to match the production profile.`,
+      ),
+    );
+    changedProductionConfig.build.preview.env.EXPO_PUBLIC_DOMAIN =
+      "academy-new.example.com";
+    expect(() =>
+      validateRequiredReleaseProfileHosts(changedProductionConfig),
+    ).not.toThrow();
 
     const missingHostConfig = JSON.parse(JSON.stringify(config)) as {
       build: Record<string, { env: Record<string, string> }>;
@@ -2084,26 +2105,22 @@ describe("release smoke check", () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
 
     try {
+      const driftedConfig = JSON.parse(
+        JSON.stringify(readReleaseConfig()),
+      ) as {
+        build: Record<string, { env: Record<string, string> }>;
+      };
+      driftedConfig.build.preview.env.EXPO_PUBLIC_DOMAIN = "wrong.example.com";
       writeFileSync(
         configPath,
-        JSON.stringify({
-          build: {
-            preview: {
-              distribution: "internal",
-              env: { EXPO_PUBLIC_DOMAIN: "wrong.example.com" },
-            },
-            production: {
-              env: { EXPO_PUBLIC_DOMAIN: "TheeAcademy.replit.app" },
-            },
-          },
-        }),
+        JSON.stringify(driftedConfig),
         "utf8",
       );
 
       await expect(
         runReleaseSmokeChecks({ configPath, fetchImpl }),
       ).rejects.toThrow(
-        /Profile "preview" must target the published Academy hostname/,
+        /Profile "preview" must match the published Academy hostname.*build\.production\.env\.EXPO_PUBLIC_DOMAIN.*found "wrong\.example\.com"/,
       );
       expect(fetchImpl).not.toHaveBeenCalled();
     } finally {
@@ -2220,6 +2237,10 @@ describe("release smoke check", () => {
   });
 
   it("checks health and AI enrichment using the release hostname", async () => {
+    const publishedDomain = getReleaseDomain(
+      readReleaseConfig(),
+      "production",
+    );
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       requests.push({ url, init });
@@ -2233,12 +2254,12 @@ describe("release smoke check", () => {
       runReleaseSmokeCheck({ profile: "production", fetchImpl }),
     ).resolves.toMatchObject({
       profile: "production",
-      domain: "theeacademy.replit.app",
+      domain: publishedDomain,
     });
 
     expect(requests.map((request) => request.url)).toEqual([
-      "https://theeacademy.replit.app/api/healthz",
-      "https://theeacademy.replit.app/api/ai/describe",
+      `https://${publishedDomain}/api/healthz`,
+      `https://${publishedDomain}/api/ai/describe`,
     ]);
     expect(requests[1].init?.method).toBe("POST");
     expect(JSON.parse(String(requests[1].init?.body))).toMatchObject({
@@ -2247,13 +2268,78 @@ describe("release smoke check", () => {
     });
   });
 
+  it("uses the production hostname after every release profile is updated", async () => {
+    const configDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-host-update-"),
+    );
+    const configPath = path.join(configDirectory, "eas.json");
+    const config = JSON.parse(
+      JSON.stringify(readReleaseConfig()),
+    ) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    const stalePreviewDomain = getReleaseDomain(config, "preview");
+    const updatedDomain = "academy-new.example.com";
+    const requests: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      requests.push(url);
+      if (url.endsWith("/api/healthz")) {
+        return okJson({ status: "ok" });
+      }
+      return okJson({ description: "A hush settles over the library." });
+    }) as unknown as typeof fetch;
+
+    try {
+      config.build.production.env.EXPO_PUBLIC_DOMAIN = updatedDomain;
+      writeFileSync(configPath, JSON.stringify(config), "utf8");
+
+      await expect(
+        runReleaseSmokeCheck({
+          profile: "production",
+          configPath,
+          fetchImpl,
+        }),
+      ).rejects.toThrow(
+        new Error(
+          `[release-smoke] Profile "preview" must match the published Academy hostname "${updatedDomain}" from build.production.env.EXPO_PUBLIC_DOMAIN in eas.json; found "${stalePreviewDomain}". Update build.preview.env.EXPO_PUBLIC_DOMAIN to match the production profile.`,
+        ),
+      );
+      await expect(
+        runReleaseSmokeChecks({ configPath, fetchImpl }),
+      ).rejects.toThrow(
+        new Error(
+          `[release-smoke] Profile "preview" must match the published Academy hostname "${updatedDomain}" from build.production.env.EXPO_PUBLIC_DOMAIN in eas.json; found "${stalePreviewDomain}". Update build.preview.env.EXPO_PUBLIC_DOMAIN to match the production profile.`,
+        ),
+      );
+      expect(fetchImpl).not.toHaveBeenCalled();
+
+      config.build.preview.env.EXPO_PUBLIC_DOMAIN = updatedDomain;
+      writeFileSync(configPath, JSON.stringify(config), "utf8");
+
+      const result = await runReleaseSmokeChecks({ configPath, fetchImpl });
+      expect(result.passed.map(({ domain }) => domain)).toEqual([
+        updatedDomain,
+        updatedDomain,
+      ]);
+      expect(requests).toEqual([
+        `https://${updatedDomain}/api/healthz`,
+        `https://${updatedDomain}/api/ai/describe`,
+        `https://${updatedDomain}/api/healthz`,
+        `https://${updatedDomain}/api/ai/describe`,
+      ]);
+    } finally {
+      rmSync(configDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("reports an actionable health failure before calling AI", async () => {
+    const previewDomain = getReleaseDomain(readReleaseConfig(), "preview");
     const fetchImpl = vi.fn(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
 
     await expect(
       runReleaseSmokeCheck({ fetchImpl }),
     ).rejects.toThrow(
-      /Health check failed for profile "preview".*https:\/\/theeacademy\.replit\.app\/api\/healthz.*HTTP 404/i,
+      `[release-smoke] Health check failed for profile "preview" at https://${previewDomain}/api/healthz: HTTP 404.`,
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -2407,6 +2493,7 @@ describe("release smoke check", () => {
       if (!address || typeof address === "string") {
         throw new Error("Local timeout fixture did not expose a port.");
       }
+      const previewDomain = getReleaseDomain(readReleaseConfig(), "preview");
       const fetchImpl = ((url: string, init?: RequestInit) =>
         fetch(
           `http://127.0.0.1:${address.port}${new URL(url).pathname}`,
@@ -2422,7 +2509,9 @@ describe("release smoke check", () => {
         }),
       ).rejects.toMatchObject({
         message: expect.stringMatching(
-          /Health check could not reach https:\/\/theeacademy\.replit\.app\/api\/healthz/,
+          new RegExp(
+            `Health check could not reach https://${previewDomain.replaceAll(".", "\\.")}/api/healthz`,
+          ),
         ),
         healthAttempts: 3,
         aiAttempts: 0,
@@ -2436,6 +2525,10 @@ describe("release smoke check", () => {
   });
 
   it("checks every configured domain profile and reports each profile", async () => {
+    const publishedDomain = getReleaseDomain(
+      readReleaseConfig(),
+      "production",
+    );
     const fetchImpl = vi.fn(async (url: string) => {
       if (url.endsWith("/api/healthz")) {
         return okJson({ status: "ok" });
@@ -2446,8 +2539,8 @@ describe("release smoke check", () => {
     await expect(runReleaseSmokeChecks({ fetchImpl })).resolves.toMatchObject({
       profiles: ["preview", "production"],
       passed: [
-        { profile: "preview", domain: "theeacademy.replit.app" },
-        { profile: "production", domain: "theeacademy.replit.app" },
+        { profile: "preview", domain: publishedDomain },
+        { profile: "production", domain: publishedDomain },
       ],
       failed: [],
     });
@@ -2455,6 +2548,11 @@ describe("release smoke check", () => {
   });
 
   it("continues after a failed profile and returns a non-empty failure report", async () => {
+    const previewDomain = getReleaseDomain(readReleaseConfig(), "preview");
+    const productionDomain = getReleaseDomain(
+      readReleaseConfig(),
+      "production",
+    );
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(new Response("preview unavailable", { status: 503 }))
@@ -2473,7 +2571,7 @@ describe("release smoke check", () => {
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0]).toMatchObject({ profile: "preview" });
     expect(result.failed[0].error.message).toMatch(/HTTP 503/);
-    expect(result.failed[0].domain).toBe("theeacademy.replit.app");
+    expect(result.failed[0].domain).toBe(previewDomain);
     expect(result.failed[0]).toMatchObject({
       healthAttempts: 3,
       aiAttempts: 0,
@@ -2481,7 +2579,7 @@ describe("release smoke check", () => {
     expect(result.passed).toMatchObject([
       {
         profile: "production",
-        domain: "theeacademy.replit.app",
+        domain: productionDomain,
         healthAttempts: 1,
         aiAttempts: 1,
       },
