@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Linking } from "react-native";
+import { AppState, Linking } from "react-native";
 
 import type {
   ContentPack,
@@ -312,6 +312,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     bulletinRepairAnnouncementTrackerRef.current;
   const [bulletinLocalePreference, setBulletinLocalePreferenceState] =
     useState<SupportedLocale | null>(null);
+  const [deviceLocale, setDeviceLocale] = useState<SupportedLocale>(() =>
+    getDeviceLocale(),
+  );
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
   const contentPackRequestRef = useRef(0);
   const writeContentPack = useRef(
@@ -328,7 +331,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     () => selectWeeklyTheme(contentPack, state.day),
     [contentPack, state.day],
   );
-  const bulletinLocale = bulletinLocalePreference ?? getDeviceLocale();
+  const bulletinLocale = bulletinLocalePreference ?? deviceLocale;
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && bulletinLocalePreference === null) {
+        setDeviceLocale(getDeviceLocale());
+      }
+    });
+
+    return () => subscription.remove();
+  }, [bulletinLocalePreference]);
 
   useEffect(() => {
     setEnrichmentStatus(
@@ -437,6 +450,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const setBulletinLocalePreference = useCallback(
     (locale: SupportedLocale | null) => {
+      if (locale === null) {
+        setDeviceLocale(getDeviceLocale());
+      }
       setBulletinLocalePreferenceState(locale);
       const write = locale
         ? AsyncStorage.setItem(BULLETIN_LOCALE_STORAGE_KEY, locale)
