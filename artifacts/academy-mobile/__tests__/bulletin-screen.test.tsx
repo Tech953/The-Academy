@@ -6,18 +6,38 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { gameState, announceForAccessibility } = vi.hoisted(() => ({
-  gameState: {
-    bulletinEventsRepaired: false,
-    contentPackLoading: false,
-    contentPack: null as null | {
-      weeklyTheme: string;
-      activeEvents: Array<{ title: string; description: string }>;
-    },
-    day: 1,
-  },
-  announceForAccessibility: vi.fn(),
-}));
+const { gameState, announceForAccessibility, claimBulletinRepairAnnouncement } =
+  vi.hoisted(() => {
+    const state = {
+      bulletinEventsRepaired: false,
+      contentPackLoading: false,
+      contentPack: null as null | {
+        weeklyTheme: string;
+        activeEvents: Array<{ title: string; description: string }>;
+        version?: string;
+        generatedAt?: number;
+      },
+      day: 1,
+      platform: "android" as "android" | "ios",
+      claimedAnnouncementKeys: new Set<string>(),
+    };
+
+    return {
+      gameState: state,
+      announceForAccessibility: vi.fn(),
+      claimBulletinRepairAnnouncement: vi.fn((announcementKey: string) => {
+        if (
+          !announcementKey ||
+          state.claimedAnnouncementKeys.has(announcementKey)
+        ) {
+          return false;
+        }
+
+        state.claimedAnnouncementKeys.add(announcementKey);
+        return true;
+      }),
+    };
+  });
 
 vi.mock("react-native", async () => {
   const React = await import("react");
@@ -37,7 +57,9 @@ vi.mock("react-native", async () => {
     ActivityIndicator: host("ActivityIndicator"),
     KeyboardAvoidingView: host("KeyboardAvoidingView"),
     Platform: {
-      OS: "android",
+      get OS() {
+        return gameState.platform;
+      },
       select: (options: Record<string, unknown>) =>
         options.android ?? options.default,
     },
@@ -78,6 +100,7 @@ vi.mock("@/context/GameContext", () => ({
   useGame: () => ({
     advanceDay: vi.fn(),
     bulletinEventsRepaired: gameState.bulletinEventsRepaired,
+    claimBulletinRepairAnnouncement,
     contentPack: gameState.contentPack,
     contentPackLoading: gameState.contentPackLoading,
     currentLocationId: "courtyard",
@@ -218,6 +241,10 @@ describe("rendered bulletin accessibility", () => {
     gameState.contentPackLoading = false;
     gameState.contentPack = null;
     gameState.day = 1;
+    gameState.platform = "android";
+    gameState.claimedAnnouncementKeys.clear();
+    announceForAccessibility.mockClear();
+    claimBulletinRepairAnnouncement.mockClear();
   });
 
   it("keeps a long synced theme distinct and wrappable in the bulletin", () => {
@@ -286,6 +313,51 @@ describe("rendered bulletin accessibility", () => {
       accessibilityRole: "text",
       accessible: true,
     });
+  });
+
+  it("does not repeat the iOS repair cue after returning to the bulletin tab", () => {
+    const firstRepairedPack = {
+      activeEvents: [
+        { description: "A local event was added.", title: "Study session" },
+      ],
+      generatedAt: 1000,
+      version: "pack-v1",
+      weeklyTheme: "Careful Preparation",
+    };
+    gameState.platform = "ios";
+    gameState.bulletinEventsRepaired = true;
+    gameState.contentPack = firstRepairedPack;
+
+    const firstVisit = renderScreen();
+    expect(announceForAccessibility).toHaveBeenCalledTimes(1);
+
+    act(() => firstVisit.unmount());
+
+    const returnVisit = renderScreen();
+    expect(announceForAccessibility).toHaveBeenCalledTimes(1);
+    expect(claimBulletinRepairAnnouncement).toHaveBeenNthCalledWith(
+      2,
+      "pack-v1:1000",
+    );
+
+    act(() => {
+      gameState.bulletinEventsRepaired = false;
+      gameState.contentPack = {
+        ...firstRepairedPack,
+        generatedAt: 2000,
+        version: "pack-v2",
+      };
+      returnVisit.update(React.createElement(AdventureScreen));
+    });
+    act(() => {
+      gameState.bulletinEventsRepaired = true;
+      returnVisit.update(React.createElement(AdventureScreen));
+    });
+
+    expect(announceForAccessibility).toHaveBeenCalledTimes(2);
+    expect(claimBulletinRepairAnnouncement).toHaveBeenLastCalledWith(
+      "pack-v2:2000",
+    );
   });
 
   it("does not render an accessible repair cue for a fully remote bulletin", () => {
