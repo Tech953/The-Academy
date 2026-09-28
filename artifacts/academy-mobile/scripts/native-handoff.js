@@ -450,11 +450,69 @@ function summarizeConnectivity(result) {
   };
 }
 
+function summarizeProfileHostFailure(error) {
+  const hostValidation = error?.hostValidation;
+  if (
+    error?.code !== "RELEASE_PROFILE_HOST_VALIDATION" ||
+    !hostValidation ||
+    typeof hostValidation.profile !== "string" ||
+    typeof hostValidation.expectedPublishedHost !== "string" ||
+    typeof hostValidation.configuredHost !== "string" ||
+    typeof hostValidation.validationStage !== "string"
+  ) {
+    return null;
+  }
+
+  const {
+    profile,
+    expectedPublishedHost,
+    configuredHost,
+    validationStage,
+  } = hostValidation;
+  const message =
+    `[native-handoff] Profile "${profile}" host validation failed at stage ` +
+    `"${validationStage}": expected published host "${expectedPublishedHost}", ` +
+    `configured host "${configuredHost}". ` +
+    (error instanceof Error ? error.message : String(error));
+  const summaryResult = {
+    profiles: [profile],
+    passed: [],
+    failed: [
+      {
+        profile,
+        domain: configuredHost === "missing" ? null : configuredHost,
+        healthAttempts: 0,
+        aiAttempts: 0,
+        error: new Error(message),
+      },
+    ],
+  };
+
+  return {
+    hostValidation,
+    summary: summarizeReleaseSmokeResult(summaryResult),
+    legacySummary: summarizeConnectivity(summaryResult),
+  };
+}
+
 async function verifyAllProfileConnectivity({
   profile,
   runAllProfiles = runReleaseSmokeChecks,
 } = {}) {
-  const result = await runAllProfiles();
+  let result;
+  try {
+    result = await runAllProfiles();
+  } catch (error) {
+    const hostFailure = summarizeProfileHostFailure(error);
+    if (hostFailure) {
+      const failure = error instanceof Error ? error : new Error(String(error));
+      failure.connectivitySummary = hostFailure.summary;
+      failure.legacyConnectivitySummary = hostFailure.legacySummary;
+      failure.hostValidation = hostFailure.hostValidation;
+      throw failure;
+    }
+    throw error;
+  }
   const summary = summarizeReleaseSmokeResult(result);
   const legacySummary = summarizeConnectivity(result);
 
@@ -537,9 +595,16 @@ async function main() {
     connectivityCheck = await verifyAllProfileConnectivity({ profile });
   } catch (error) {
     if (error?.connectivitySummary) {
+      const hostValidation = error.hostValidation;
       writeReleaseReport(reportPath, {
         ...reportBase,
         status: "failed",
+        ...(hostValidation
+          ? {
+              failureStage: hostValidation.validationStage,
+              hostValidation,
+            }
+          : {}),
         summary: error.connectivitySummary,
         allProfileConnectivity: error.legacyConnectivitySummary,
         error: error instanceof Error ? error.message : String(error),

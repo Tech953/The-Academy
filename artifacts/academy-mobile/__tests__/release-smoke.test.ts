@@ -502,6 +502,10 @@ if (process.env.RELEASE_IDENTITY_DRIFT === "production-autoIncrement") {
   };
 }
 const failed = process.env.RELEASE_PREFLIGHT_RESULT === "failed";
+const hostFailure = process.env.RELEASE_PREFLIGHT_RESULT === "host-failure";
+const hostValidation = hostFailure
+  ? JSON.parse(process.env.RELEASE_HOST_VALIDATION_JSON || "null")
+  : null;
 const result = failed
   ? {
       profiles: ["preview", "production"],
@@ -539,7 +543,15 @@ const result = failed
     };
 require.cache[require.resolve(checkReleasePath)].exports = {
   ...checkRelease,
-  runReleaseSmokeChecks: async () => result
+  runReleaseSmokeChecks: async () => {
+    if (hostFailure) {
+      const error = new Error("EAS profile host contract failed.");
+      error.code = "RELEASE_PROFILE_HOST_VALIDATION";
+      error.hostValidation = hostValidation;
+      throw error;
+    }
+    return result;
+  }
 };
 `,
     "utf8",
@@ -556,13 +568,19 @@ require.cache[require.resolve(checkReleasePath)].exports = {
 
 function runNativeHandoffSubprocess(
   fixture: ReturnType<typeof createNativeHandoffSubprocessFixture>,
-  preflightResult: "failed" | "passed",
+  preflightResult: "failed" | "passed" | "host-failure",
   easExitCode = "0",
   platform: "android" | "ios" = "android",
   profile = "preview",
   identityDrift = "",
   artifactExtension = "",
   easArtifactSha256 = "",
+  hostValidation?: {
+    profile: string;
+    expectedPublishedHost: string;
+    configuredHost: string;
+    validationStage: string;
+  },
 ) {
   return spawnSync(
     process.execPath,
@@ -590,6 +608,9 @@ function runNativeHandoffSubprocess(
         RELEASE_IDENTITY_DRIFT: identityDrift,
         EAS_ARTIFACT_EXTENSION: artifactExtension,
         EAS_ARTIFACT_SHA256: easArtifactSha256,
+        RELEASE_HOST_VALIDATION_JSON: hostValidation
+          ? JSON.stringify(hostValidation)
+          : "",
       },
     },
   );
@@ -2317,6 +2338,96 @@ describe("release smoke check", () => {
     );
   });
 
+  it("attaches structured details to missing and mismatched host failures", () => {
+    const config = readReleaseConfig();
+    const publishedDomain = getReleaseDomain(config, "production");
+    const missingPreviewConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    delete missingPreviewConfig.build.preview.env.EXPO_PUBLIC_DOMAIN;
+
+    let missingPreviewError: unknown;
+    try {
+      validateReleaseProfileHost(missingPreviewConfig, "preview");
+    } catch (error) {
+      missingPreviewError = error;
+    }
+    expect(missingPreviewError).toMatchObject({
+      code: "RELEASE_PROFILE_HOST_VALIDATION",
+      hostValidation: {
+        profile: "preview",
+        expectedPublishedHost: publishedDomain,
+        configuredHost: "missing",
+        validationStage: "profile-host-validation",
+      },
+    });
+
+    const mismatchedPreviewConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    mismatchedPreviewConfig.build.preview.env.EXPO_PUBLIC_DOMAIN =
+      "https://wrong.example.com";
+
+    let mismatchedPreviewError: unknown;
+    try {
+      validateReleaseProfileHost(mismatchedPreviewConfig, "preview");
+    } catch (error) {
+      mismatchedPreviewError = error;
+    }
+    expect(mismatchedPreviewError).toMatchObject({
+      code: "RELEASE_PROFILE_HOST_VALIDATION",
+      hostValidation: {
+        profile: "preview",
+        expectedPublishedHost: publishedDomain,
+        configuredHost: "wrong.example.com",
+        validationStage: "profile-host-validation",
+      },
+    });
+
+    const missingProductionConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    delete missingProductionConfig.build.production.env.EXPO_PUBLIC_DOMAIN;
+
+    let missingProductionError: unknown;
+    try {
+      validateRequiredReleaseProfileHosts(missingProductionConfig);
+    } catch (error) {
+      missingProductionError = error;
+    }
+    expect(missingProductionError).toMatchObject({
+      code: "RELEASE_PROFILE_HOST_VALIDATION",
+      hostValidation: {
+        profile: "production",
+        expectedPublishedHost: "unavailable",
+        configuredHost: "missing",
+        validationStage: "profile-host-validation",
+      },
+    });
+
+    const invalidProductionConfig = JSON.parse(JSON.stringify(config)) as {
+      build: Record<string, { env: Record<string, string> }>;
+    };
+    invalidProductionConfig.build.production.env.EXPO_PUBLIC_DOMAIN =
+      "http://invalid.example.com";
+
+    let invalidProductionError: unknown;
+    try {
+      validateRequiredReleaseProfileHosts(invalidProductionConfig);
+    } catch (error) {
+      invalidProductionError = error;
+    }
+    expect(invalidProductionError).toMatchObject({
+      code: "RELEASE_PROFILE_HOST_VALIDATION",
+      hostValidation: {
+        profile: "production",
+        expectedPublishedHost: "unavailable",
+        configuredHost: "http://invalid.example.com",
+        validationStage: "profile-host-validation",
+      },
+    });
+  });
+
   it("requires preview and production to use the published Academy hostname", () => {
     const config = readReleaseConfig();
     const publishedDomain = getReleaseDomain(config, "production");
@@ -2944,7 +3055,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(5);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(6);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
@@ -3155,6 +3266,126 @@ describe("release smoke check", () => {
       });
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("archives host-contract failures for the affected profile and blocks EAS", () => {
+    const scenarios = [
+      {
+        platform: "android",
+        selectedProfile: "production",
+        hostValidation: {
+          profile: "preview",
+          expectedPublishedHost: "academy.example.com",
+          configuredHost: "missing",
+          validationStage: "profile-host-validation",
+        },
+      },
+      {
+        platform: "android",
+        selectedProfile: "production",
+        hostValidation: {
+          profile: "preview",
+          expectedPublishedHost: "academy.example.com",
+          configuredHost: "wrong.example.com",
+          validationStage: "profile-host-validation",
+        },
+      },
+      {
+        platform: "ios",
+        selectedProfile: "preview",
+        hostValidation: {
+          profile: "production",
+          expectedPublishedHost: "unavailable",
+          configuredHost: "missing",
+          validationStage: "profile-host-validation",
+        },
+      },
+    ] as const;
+
+    for (const scenario of scenarios) {
+      const fixture = createNativeHandoffSubprocessFixture();
+      try {
+        const result = runNativeHandoffSubprocess(
+          fixture,
+          "host-failure",
+          "0",
+          scenario.platform,
+          scenario.selectedProfile,
+          "",
+          "",
+          "",
+          scenario.hostValidation,
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("EAS profile host contract failed.");
+        expect(existsSync(fixture.easRecordPath)).toBe(false);
+
+        const report = JSON.parse(
+          readFileSync(fixture.reportPath, "utf8"),
+        ) as {
+          schemaVersion: number;
+          platform: string;
+          profile: string;
+          status: string;
+          failureStage: string;
+          hostValidation: typeof scenario.hostValidation;
+          summary: {
+            status: string;
+            profiles: Array<{
+              profile: string;
+              domain: string | null;
+              status: string;
+              healthUrl: string | null;
+              aiUrl: string | null;
+              healthAttempts: number;
+              aiAttempts: number;
+              recovered: boolean;
+              error: string;
+            }>;
+          };
+        };
+        expect(report).toMatchObject({
+          schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+          platform: scenario.platform,
+          profile: scenario.selectedProfile,
+          status: "failed",
+          failureStage: "profile-host-validation",
+          hostValidation: scenario.hostValidation,
+          summary: {
+            status: "failed",
+            profiles: [
+              {
+                profile: scenario.hostValidation.profile,
+                domain:
+                  scenario.hostValidation.configuredHost === "missing"
+                    ? null
+                    : scenario.hostValidation.configuredHost,
+                status: "failed",
+                healthUrl: null,
+                aiUrl: null,
+                healthAttempts: 0,
+                aiAttempts: 0,
+                recovered: false,
+              },
+            ],
+          },
+        });
+
+        const summaryError = report.summary.profiles[0].error;
+        expect(summaryError).toContain(
+          `expected published host "${scenario.hostValidation.expectedPublishedHost}"`,
+        );
+        expect(summaryError).toContain(
+          `configured host "${scenario.hostValidation.configuredHost}"`,
+        );
+        expect(summaryError).toContain(
+          `stage "${scenario.hostValidation.validationStage}"`,
+        );
+      } finally {
+        rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+      }
     }
   });
 

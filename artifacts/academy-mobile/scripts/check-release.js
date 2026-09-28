@@ -4,7 +4,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const DEFAULT_PROFILE = "preview";
-const RELEASE_REPORT_SCHEMA_VERSION = 5;
+const RELEASE_REPORT_SCHEMA_VERSION = 6;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;
@@ -360,12 +360,83 @@ function getPublishedReleaseDomain(config) {
   return getReleaseDomain(config, "production");
 }
 
+function getConfiguredReleaseHost(config, profile) {
+  const rawDomain = config?.build?.[profile]?.env?.EXPO_PUBLIC_DOMAIN;
+  if (typeof rawDomain !== "string" || !rawDomain.trim()) {
+    return "missing";
+  }
+
+  try {
+    return getReleaseDomain(config, profile);
+  } catch {
+    return rawDomain.trim();
+  }
+}
+
+function getExpectedPublishedHost(config) {
+  try {
+    return getPublishedReleaseDomain(config);
+  } catch {
+    return "unavailable";
+  }
+}
+
+function attachReleaseHostValidationContext(
+  error,
+  { profile, expectedPublishedHost, configuredHost },
+) {
+  const hostError = error instanceof Error ? error : new Error(String(error));
+  Object.defineProperties(hostError, {
+    code: {
+      value: "RELEASE_PROFILE_HOST_VALIDATION",
+      configurable: true,
+    },
+    hostValidation: {
+      value: {
+        profile,
+        expectedPublishedHost,
+        configuredHost,
+        validationStage: "profile-host-validation",
+      },
+      configurable: true,
+    },
+  });
+  return hostError;
+}
+
 function validateReleaseProfileHost(config, profile) {
-  const domain = getReleaseDomain(config, profile);
-  const publishedDomain = getPublishedReleaseDomain(config);
+  let domain;
+  try {
+    domain = getReleaseDomain(config, profile);
+  } catch (error) {
+    throw attachReleaseHostValidationContext(error, {
+      profile,
+      expectedPublishedHost: getExpectedPublishedHost(config),
+      configuredHost: getConfiguredReleaseHost(config, profile),
+    });
+  }
+
+  let publishedDomain;
+  try {
+    publishedDomain = getPublishedReleaseDomain(config);
+  } catch (error) {
+    throw attachReleaseHostValidationContext(error, {
+      profile: "production",
+      expectedPublishedHost: "unavailable",
+      configuredHost: getConfiguredReleaseHost(config, "production"),
+    });
+  }
+
   if (domain !== publishedDomain) {
-    throw new Error(
-      `[release-smoke] Profile "${profile}" must match the published Academy hostname "${publishedDomain}" from build.production.env.EXPO_PUBLIC_DOMAIN in eas.json; found "${domain}". Update build.${profile}.env.EXPO_PUBLIC_DOMAIN to match the production profile.`,
+    throw attachReleaseHostValidationContext(
+      new Error(
+        `[release-smoke] Profile "${profile}" must match the published Academy hostname "${publishedDomain}" from build.production.env.EXPO_PUBLIC_DOMAIN in eas.json; found "${domain}". Update build.${profile}.env.EXPO_PUBLIC_DOMAIN to match the production profile.`,
+      ),
+      {
+        profile,
+        expectedPublishedHost: publishedDomain,
+        configuredHost: domain,
+      },
     );
   }
   return domain;

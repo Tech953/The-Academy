@@ -131,17 +131,19 @@ is missing or stale, refresh it with the local static build before retrying the
 release check.
 
 Every archived report written by the release tooling includes
-`schemaVersion: 5`. Android identity and native-handoff reports include the
+`schemaVersion: 6`. Android identity and native-handoff reports include the
 selected EAS profile as `androidProfile`; existing identity fields remain
 unchanged. Production Android handoff records also retain EAS's optional
 `build.androidVersionCode` separately from the human-facing `build.version`.
 The code is omitted when EAS does not supply it, so preview and iOS reports
-without it retain their prior field shape. Consumers should require the current
-version before reading report fields; a missing or unknown version should be
-treated as an unsupported report rather than silently interpreted as the
-current contract. Future field additions, renames, removals, or incompatible
-shape changes require an intentional version increment and corresponding
-contract updates.
+without it retain their prior field shape. A native handoff stopped by release
+profile host validation also includes `hostValidation` with the affected
+profile, expected published host, configured host, and validation stage, plus
+a failed profile summary. Consumers should require the current version before
+reading report fields; a missing or unknown version should be treated as an
+unsupported report rather than silently interpreted as the current contract.
+Future field additions, renames, removals, or incompatible shape changes
+require an intentional version increment and corresponding contract updates.
 
 To run only this credential-free identity check without contacting the API:
 
