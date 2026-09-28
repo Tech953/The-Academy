@@ -131,7 +131,7 @@ is missing or stale, refresh it with the local static build before retrying the
 release check.
 
 Every archived report written by the release tooling includes
-`schemaVersion: 7`. Android identity and native-handoff reports include the
+`schemaVersion: 8`. Android identity and native-handoff reports include the
 selected EAS profile as `androidProfile`; existing identity fields remain
 unchanged. Production Android handoff records also retain EAS's optional
 `build.androidVersionCode` separately from the human-facing `build.version`.
@@ -144,9 +144,11 @@ failure-related lines and `easDiagnostics.stderr` with the final output excerpt.
 Each excerpt is sanitized and capped at 4,000 characters; common credential
 assignments, authorization headers, private-key blocks, and credential-bearing
 URL parameters are redacted. The top-level error, EAS exit code, and successful
-preflight summary remain separate. Consumers should require the current version
-before reading report fields; a missing or unknown version should be treated as
-an unsupported report rather than silently interpreted as the current contract.
+preflight summary remain separate. Signal-terminated EAS processes record
+`easExitCode: null` and the signal in `easSignal`, with a termination-specific
+error message. Consumers should require the current version before reading
+report fields; a missing or unknown version should be treated as an unsupported
+report rather than silently interpreted as the current contract.
 Future field additions, renames, removals, or incompatible shape changes
 require an intentional version increment and corresponding contract updates.
 

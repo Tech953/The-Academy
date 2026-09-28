@@ -15,4 +15,10 @@ Archive only bounded, sanitized EAS diagnostics: use failure-related stdout line
 
 **How to apply:** Keep report sanitization separate from existing live console forwarding so saved handoff reports include useful failure context without preserving raw command output.
 
+Treat signal termination separately from a nonzero EAS exit code: preserve the signal, keep the EAS exit code null, fail the handoff, and retain the passed preflight summary.
+
+**Why:** Node's synchronous process result reports a null status when the child is terminated by a signal, so an exit-code-only error hides the actual failure cause.
+
+**How to apply:** Check the EAS result's signal field, record it explicitly in the failed handoff report, and set the outer handoff process to a nonzero exit code.
+
 Platform handoff tests should pass the real `--platform` and selected profile through the recorder and emit the matching artifact extension, so iOS identity and IPA validation are exercised rather than inferred from Android fixtures.

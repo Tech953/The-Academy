@@ -779,6 +779,9 @@ async function main() {
       throw error;
     }
   }
+  const easFailureMessage = result.signal
+    ? `[native-handoff] EAS build was terminated by signal ${result.signal}.`
+    : `[native-handoff] EAS build failed with exit code ${result.status ?? "unknown"}.`;
   writeReleaseReport(reportPath, {
     ...reportWithConnectivity,
     status: result.status === 0 ? "completed" : "failed",
@@ -786,16 +789,15 @@ async function main() {
     ...(result.status !== 0
       ? {
           failureStage: "eas-build",
-          error: `[native-handoff] EAS build failed with exit code ${result.status ?? "unknown"}.`,
+          ...(result.signal ? { easSignal: result.signal } : {}),
+          error: easFailureMessage,
           easDiagnostics: captureEasDiagnostics(output),
         }
       : {}),
     ...(buildMetadata ? { build: buildMetadata } : {}),
   });
   if (result.status !== 0) {
-    console.error(
-      `[native-handoff] EAS build failed with exit code ${result.status ?? "unknown"}.`,
-    );
+    console.error(easFailureMessage);
   }
   console.log(`[native-handoff] Report written to ${reportPath}`);
   if (result.status !== 0) {

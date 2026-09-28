@@ -433,7 +433,9 @@ describe("mobile interface localization", () => {
   });
 });
 
-function createNativeHandoffSubprocessFixture() {
+function createNativeHandoffSubprocessFixture({
+  terminationSignal = "",
+}: { terminationSignal?: string } = {}) {
   const fixtureDirectory = mkdtempSync(
     path.join(tmpdir(), "academy-native-handoff-"),
   );
@@ -471,6 +473,9 @@ process.stdout.write(JSON.stringify([{
   buildDetailsPageUrl: "https://expo.dev/builds/stub-build",
   artifactUrl: "https://expo.dev/builds/stub-build." + artifactExtension
 }]));
+if (process.env.EAS_TERMINATION_SIGNAL) {
+  process.kill(process.pid, process.env.EAS_TERMINATION_SIGNAL);
+}
 const exitCode = Number(process.env.EAS_EXIT_CODE || "0");
 if (exitCode !== 0) {
   process.stdout.write(
@@ -698,6 +703,7 @@ require.cache[require.resolve(checkReleasePath)].exports = {
     easCommandPath,
     reportPath,
     preloadPath,
+    terminationSignal,
   };
 }
 
@@ -743,6 +749,7 @@ function runNativeHandoffSubprocess(
         ...process.env,
         EAS_CLI_COMMAND: fixture.easCommandPath,
         EAS_RECORD_PATH: fixture.easRecordPath,
+        EAS_TERMINATION_SIGNAL: fixture.terminationSignal,
         RELEASE_PREFLIGHT_RESULT: preflightResult,
         EAS_EXIT_CODE: easExitCode,
         RELEASE_PLATFORM: platform,
@@ -3661,7 +3668,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(7);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(8);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
@@ -4612,6 +4619,7 @@ describe("release smoke check", () => {
           ],
         },
       });
+      expect(report).not.toHaveProperty("easSignal");
       expect(report.easDiagnostics.stdout).toContain("[REDACTED]");
       expect(report.easDiagnostics.stdout).not.toContain("stdout-private-token");
       expect(report.easDiagnostics.stdout).not.toContain(
@@ -4630,6 +4638,58 @@ describe("release smoke check", () => {
       expect(report.easDiagnostics.stderr).toContain(
         "[earlier diagnostics truncated]",
       );
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("reports EAS signal termination separately from an exit-code failure", () => {
+    const fixture = createNativeHandoffSubprocessFixture({
+      terminationSignal: "SIGTERM",
+    });
+    try {
+      const result = runNativeHandoffSubprocess(fixture, "passed");
+
+      expect(result.status).toBe(1);
+      expect(result.signal).toBeNull();
+      expect(result.stdout).toMatch(
+        /Release connectivity passed for profile "preview"/,
+      );
+      expect(result.stderr).toContain(
+        "EAS build was terminated by signal SIGTERM.",
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(true);
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        schemaVersion: number;
+        status: string;
+        easExitCode: number | null;
+        easSignal: string;
+        failureStage: string;
+        error: string;
+        summary: {
+          status: string;
+          profiles: Array<{ profile: string; status: string }>;
+        };
+      };
+      expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+        status: "failed",
+        easExitCode: null,
+        easSignal: "SIGTERM",
+        failureStage: "eas-build",
+        error: "[native-handoff] EAS build was terminated by signal SIGTERM.",
+        summary: {
+          status: "passed",
+          profiles: [
+            { profile: "preview", status: "passed" },
+            { profile: "production", status: "passed" },
+          ],
+        },
+      });
+      expect(report).not.toHaveProperty("build");
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
