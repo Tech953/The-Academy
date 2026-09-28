@@ -157,7 +157,7 @@ describe('validateWebEventRegistry', () => {
     });
   });
 
-  it('stops the package build before Vite when the registry prebuild fails', () => {
+  it('reports every malformed template field and stops the package build before Vite', () => {
     const academyDirectory = fileURLToPath(new URL('../../', import.meta.url));
     const validatorPath = fileURLToPath(
       new URL('../../scripts/validate-event-registry.ts', import.meta.url),
@@ -192,20 +192,50 @@ describe('validateWebEventRegistry', () => {
     writeFileSync(
       join(fixtureScriptsDirectory, 'validate-event-registry.ts'),
       `
-import { validateWebEventRegistry } from ${JSON.stringify(pathToFileURL(validatorPath).href)};
+import {
+  runRegistryValidation,
+  validateEventTemplateRegistry,
+} from ${JSON.stringify(pathToFileURL(validatorPath).href)};
 
-try {
-  validateWebEventRegistry({
-    eventTemplates: {
-      fixture_missing_category: [{ title: 'Fixture event' }],
-    },
-    categoryMappings: {},
-    exceptions: {},
-  });
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-}
+const malformedTemplates = {
+  academic: [{
+    id: 'fixture_academic_text',
+    category: 'academic',
+    title: '',
+    description: '   ',
+    effects: [],
+    npcReactions: [''],
+    playerHooks: ['Respond to the event.'],
+    duration: 'days',
+    tags: ['valid'],
+  }],
+  discovery: [{
+    id: 'fixture_discovery_story',
+    category: 'discovery',
+    title: 'Discovery event',
+    description: 'A fixture discovery event.',
+    effects: ['Reveal a clue.'],
+    npcReactions: ['An NPC notices.'],
+    playerHooks: [],
+    duration: 'months',
+    tags: ['BadTag'],
+  }],
+  miscellaneous: [{
+    id: 'fixture_invalid_category',
+    category: 'unknown-area',
+    title: 'Unmapped event',
+    description: 'An event with an invalid category.',
+    effects: ['Show the problem.'],
+    npcReactions: ['An NPC notices.'],
+    playerHooks: ['Review the event.'],
+    duration: 'days',
+    tags: ['valid'],
+  }],
+} as any;
+
+process.exitCode = runRegistryValidation({
+  validateTemplates: () => validateEventTemplateRegistry(malformedTemplates),
+});
 `,
     );
     writeFileSync(
@@ -252,8 +282,22 @@ export default {
 
       expect(result.error).toBeUndefined();
       expect(result.status).not.toBe(0);
-      expect(output).toContain('fixture_missing_category');
-      expect(output).toContain('artifacts/academy/src/lib/radiantAI.ts');
+      expect(output).toContain(
+        'Shared event-template authoring validation found 8 issue(s):',
+      );
+      for (const diagnostic of [
+        'template "fixture_academic_text" in category "academic" field "title" is blank',
+        'template "fixture_academic_text" in category "academic" field "description" is whitespace-only',
+        'template "fixture_academic_text" in category "academic" field "effects" is empty-array',
+        'template "fixture_academic_text" in category "academic" field "npcReactions" at index 0 is blank',
+        'template "fixture_discovery_story" in category "discovery" field "playerHooks" is empty-array',
+        'template "fixture_discovery_story" in category "discovery" field "duration" is invalid',
+        'template "fixture_discovery_story" in category "discovery" tag "BadTag" is not-lowercase (field "tags", index 0)',
+        'template "fixture_invalid_category" in category "unknown-area" field "category" is invalid',
+      ]) {
+        expect(output).toContain(diagnostic);
+      }
+      expect(output).toContain('Event registry validation failed:');
       expect(existsSync(viteMarkerPath)).toBe(false);
       expect(existsSync(join(fixtureDirectory, 'dist'))).toBe(false);
     } finally {
