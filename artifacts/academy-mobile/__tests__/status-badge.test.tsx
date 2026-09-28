@@ -2,6 +2,15 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  getMobileCopy,
+  MOBILE_COPY_CATALOG,
+  SUPPORTED_LOCALES,
+  type MobileCopyKey,
+  type SupportedLocale,
+} from "@/constants/locales";
+import type { EnrichmentStatus } from "@/lib/enrichmentStatus";
+
 vi.mock("react-native", async () => {
   const React = await import("react");
   const primitive = (tag: string) =>
@@ -30,6 +39,17 @@ vi.mock("@/hooks/useColors", () => ({
 
 import { StatusBadge } from "@/components/StatusBadge";
 
+const STATUS_CASES = [
+  { status: "live", copyKey: "statusLiveAi" },
+  { status: "offline", copyKey: "statusLocalMode" },
+  { status: "fallback", copyKey: "statusLocalFallback" },
+  { status: "checking", copyKey: "statusCheckingApi" },
+  { status: "rate_limited", copyKey: "statusRetryLater" },
+] as const satisfies ReadonlyArray<{
+  status: EnrichmentStatus;
+  copyKey: MobileCopyKey;
+}>;
+
 function flattenStyle(style: unknown): Record<string, unknown> {
   if (Array.isArray(style)) {
     return style.reduce<Record<string, unknown>>(
@@ -40,6 +60,20 @@ function flattenStyle(style: unknown): Record<string, unknown> {
   return style && typeof style === "object"
     ? (style as Record<string, unknown>)
     : {};
+}
+
+function renderBadge(status: EnrichmentStatus, locale: SupportedLocale) {
+  let renderer!: TestRenderer.ReactTestRenderer;
+  act(() => {
+    renderer = TestRenderer.create(
+      <StatusBadge
+        isOnline={status !== "offline"}
+        enrichmentStatus={status}
+        locale={locale}
+      />,
+    );
+  });
+  return renderer;
 }
 
 describe("StatusBadge large-text layout", () => {
@@ -66,5 +100,66 @@ describe("StatusBadge large-text layout", () => {
       minWidth: 0,
     });
     expect(label.children.join("")).not.toBe("");
+  });
+});
+
+describe("StatusBadge localization", () => {
+  for (const locale of SUPPORTED_LOCALES) {
+    describe(locale, () => {
+      it.each(STATUS_CASES)(
+        "renders the selected locale's $status label and accessibility text",
+        ({ status, copyKey }) => {
+          const expectedStatus = MOBILE_COPY_CATALOG[locale]?.[copyKey];
+          const expectedMode = MOBILE_COPY_CATALOG[locale]?.contentMode;
+
+          expect(expectedStatus).toBeTruthy();
+          expect(expectedMode).toBeTruthy();
+          expect(getMobileCopy(copyKey, locale)).toBe(expectedStatus);
+
+          const renderer = renderBadge(status, locale);
+          const accessibilityNode = renderer.root.findByProps({
+            accessibilityRole: "text",
+          });
+          const visibleLabel = renderer.root.findByType("span");
+
+          expect(visibleLabel.children.join("")).toBe(expectedStatus);
+          expect(accessibilityNode.props.accessibilityLabel).toBe(
+            `${expectedMode}: ${expectedStatus}`,
+          );
+          act(() => renderer.unmount());
+        },
+      );
+    });
+  }
+
+  it("falls back to English when translated badge and mode keys are missing", () => {
+    const spanishCopy = MOBILE_COPY_CATALOG.es;
+    expect(spanishCopy).toBeDefined();
+
+    const previousStatus = spanishCopy!.statusLiveAi;
+    const previousMode = spanishCopy!.contentMode;
+    delete spanishCopy!.statusLiveAi;
+    delete spanishCopy!.contentMode;
+
+    try {
+      const renderer = renderBadge("live", "es");
+      const accessibilityNode = renderer.root.findByProps({
+        accessibilityRole: "text",
+      });
+      const visibleLabel = renderer.root.findByType("span");
+      const englishStatus = getMobileCopy("statusLiveAi", "en");
+      const englishMode = getMobileCopy("contentMode", "en");
+
+      expect(getMobileCopy("statusLiveAi", "es")).toBe(englishStatus);
+      expect(getMobileCopy("contentMode", "es")).toBe(englishMode);
+      expect(visibleLabel.children.join("")).toBe(englishStatus);
+      expect(accessibilityNode.props.accessibilityLabel).toBe(
+        `${englishMode}: ${englishStatus}`,
+      );
+      act(() => renderer.unmount());
+    } finally {
+      spanishCopy!.statusLiveAi = previousStatus;
+      spanishCopy!.contentMode = previousMode;
+    }
   });
 });
