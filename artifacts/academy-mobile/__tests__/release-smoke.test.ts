@@ -862,8 +862,10 @@ function runReleaseSmokeCliSubprocess(
 
 function runStaticBuildIdentitySubprocess({
   androidPackage = "com.theacademy.drifted",
+  omitAndroidPackage = false,
 }: {
   androidPackage?: string;
+  omitAndroidPackage?: boolean;
 } = {}) {
   const fixtureDirectory = mkdtempSync(
     path.join(tmpdir(), "academy-static-build-identity-"),
@@ -890,6 +892,12 @@ function runStaticBuildIdentitySubprocess({
     }),
     "utf8",
   );
+  const generatedAndroidManifest = omitAndroidPackage
+    ? { generatedFor: "android", extra: { expoClient: { android: {} } } }
+    : {
+        generatedFor: "android",
+        extra: { expoClient: { android: { package: androidPackage } } },
+      };
 
   writeFileSync(
     fixtureScriptPath,
@@ -903,6 +911,7 @@ const staticBuildDirectory = ${JSON.stringify(staticBuildDirectory)};
 const androidManifestPath = ${JSON.stringify(androidManifestPath)};
 const iosManifestPath = ${JSON.stringify(iosManifestPath)};
 const resultPath = ${JSON.stringify(resultPath)};
+const generatedAndroidManifest = ${JSON.stringify(generatedAndroidManifest)};
 const events = [];
 let buildResult = null;
 let staleAndroidManifestBeforePrepare = null;
@@ -985,14 +994,7 @@ main({
     events.push("write-manifests");
     fs.writeFileSync(
       androidManifestPath,
-      JSON.stringify({
-        generatedFor: "android",
-        extra: {
-          expoClient: {
-            android: { package: ${JSON.stringify(androidPackage)} }
-          }
-        }
-      }),
+      JSON.stringify(generatedAndroidManifest),
       "utf8",
     );
     fs.writeFileSync(
@@ -3041,6 +3043,64 @@ describe("release smoke check", () => {
         generatedFor: "ios",
         extra: { expoClient: { ios: { bundleIdentifier: "com.theacademy.mobile" } } },
       });
+    } finally {
+      rmSync(fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks build completion when the regenerated Android manifest omits its package", () => {
+    const {
+      fixtureDirectory,
+      androidManifestPath,
+      result,
+      resultPath,
+    } = runStaticBuildIdentitySubprocess({ omitAndroidPackage: true });
+    try {
+      expect(result.status).toBe(1);
+      expect(result.stdout + result.stderr).not.toContain("Build complete!");
+      expect(result.stderr).toMatch(
+        /Build failed: \[release-identity\] Generated Android manifest is missing extra\.expoClient\.android\.package/,
+      );
+      expect(existsSync(resultPath)).toBe(false);
+
+      const marker = result.stdout.match(/__RESULT__(\{.*\})\s*$/s);
+      expect(marker).not.toBeNull();
+      const details = JSON.parse(marker?.[1] ?? "") as {
+        events: string[];
+        staleAndroidManifestBeforePrepare: {
+          generatedFor: string;
+          extra: { expoClient: { android: { package: string } } };
+        };
+        staleAndroidManifestRemovedByPrepare: boolean;
+        manifest: {
+          generatedFor: string;
+          extra: { expoClient: { android: Record<string, never> } };
+        };
+        buildResult: null;
+      };
+      expect(details.events).toEqual([
+        "prepare",
+        "clear-cache",
+        "start-metro",
+        "download",
+        "extract-assets",
+        "download-assets",
+        "write-manifests",
+        "validate-identity",
+      ]);
+      expect(details.staleAndroidManifestBeforePrepare).toMatchObject({
+        generatedFor: "previous-build",
+        extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+      });
+      expect(details.staleAndroidManifestRemovedByPrepare).toBe(true);
+      expect(details.manifest).toEqual({
+        generatedFor: "android",
+        extra: { expoClient: { android: {} } },
+      });
+      expect(
+        JSON.parse(readFileSync(androidManifestPath, "utf8")),
+      ).toEqual(details.manifest);
+      expect(details.buildResult).toBeNull();
     } finally {
       rmSync(fixtureDirectory, { recursive: true, force: true });
     }
