@@ -21,3 +21,4 @@
 - [Web event registry validation](web-event-registry-validation.md) — Test compatibility exceptions through injected registries so blank reasons cannot bypass shared-category mappings.
 - [Radiant save migration](radiant-save-migration.md) — Persist only changed migrated payloads during load, and keep the in-memory upgrade usable when persistence fails.
 - [Rate-limit test isolation](rate-limit-test-isolation.md) — Shared HTTP limiter tests must reset the local client key between cases, not assume middleware-wide reset support.
+- [Drizzle-Zod and Zod inference](drizzle-zod-zod4.md) — Generated schemas use Zod 4 types; infer through `zod/v4` even when the root package is Zod 3.
