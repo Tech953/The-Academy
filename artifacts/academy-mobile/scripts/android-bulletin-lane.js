@@ -43,6 +43,7 @@ function parseArgs(argv) {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--") continue;
     if (arg === "--help") return { help: true, ...options };
     if (arg === "--apk" || arg === "--device" || arg === "--package" || arg === "--port" || arg === "--timeout-ms") {
       const value = argv[index + 1];
