@@ -1156,16 +1156,73 @@ function runOfflineGedFocusBoundaryCheck({
   };
 }
 
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== "ESRCH";
+  }
+}
+
+function cleanupStaleReportTemporaryFiles(reportPath, isProcessAliveImpl) {
+  const directory = path.dirname(reportPath);
+  const temporaryPrefix = `${path.basename(reportPath)}.tmp-`;
+  let entries;
+
+  try {
+    entries = fs.readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.startsWith(temporaryPrefix)) {
+      continue;
+    }
+    const match = /^(\d+)-(\d+)$/.exec(
+      entry.name.slice(temporaryPrefix.length),
+    );
+    if (!match) {
+      continue;
+    }
+    const writerPid = Number(match[1]);
+    if (!Number.isSafeInteger(writerPid) || writerPid < 1) {
+      continue;
+    }
+
+    let writerIsAlive = true;
+    try {
+      writerIsAlive = isProcessAliveImpl(writerPid);
+    } catch {
+      // Unknown process state is treated as active so cleanup cannot race a writer.
+    }
+    if (writerIsAlive) {
+      continue;
+    }
+
+    try {
+      fs.unlinkSync(path.join(directory, entry.name));
+    } catch {
+      // Stale-file cleanup is best effort; report archival remains authoritative.
+    }
+  }
+}
+
 function writeReleaseReport(
   reportPath,
   report,
-  { writeFileSyncImpl = fs.writeFileSync } = {},
+  {
+    writeFileSyncImpl = fs.writeFileSync,
+    isProcessAliveImpl = isProcessAlive,
+  } = {},
 ) {
   const resolvedPath = path.resolve(reportPath);
   const temporaryPath = `${resolvedPath}.tmp-${process.pid}-${reportWriteSequence++}`;
 
   try {
     fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    cleanupStaleReportTemporaryFiles(resolvedPath, isProcessAliveImpl);
     const serialized = `${JSON.stringify(
       {
         ...report,

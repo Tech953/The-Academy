@@ -225,6 +225,7 @@ const {
         data: string,
         encoding: "utf8",
       ) => void;
+      isProcessAliveImpl?: (pid: number) => boolean;
     },
   ) => string;
 };
@@ -1001,13 +1002,26 @@ function archiveReleaseSummary(summary: {
 }
 
 describe("release report archival", () => {
-  it("preserves the existing report when a write is interrupted", () => {
+  it("cleans stale temps while preserving the archive and active writers", () => {
     const reportDirectory = mkdtempSync(
       path.join(tmpdir(), "academy-release-report-interrupted-"),
     );
     const reportPath = path.join(reportDirectory, "release.json");
-    const existingReport = '{"schemaVersion":1,"status":"passed"}\n';
+    const existingReportPayload = {
+      schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+      status: "passed",
+    };
+    const existingReport = `${JSON.stringify(existingReportPayload)}\n`;
+    const staleTemporaryPath = `${reportPath}.tmp-999999999-1`;
+    const activeTemporaryPath = `${reportPath}.tmp-424242-2`;
+    const unrelatedTemporaryPath = path.join(
+      reportDirectory,
+      "other-release.json.tmp-999999999-3",
+    );
     writeFileSync(reportPath, existingReport, "utf8");
+    writeFileSync(staleTemporaryPath, '{"partial":', "utf8");
+    writeFileSync(activeTemporaryPath, '{"active":true}', "utf8");
+    writeFileSync(unrelatedTemporaryPath, '{"other":true}', "utf8");
     const interruptedWrite = (filePath: string, data: string) => {
       const descriptor = fs.openSync(filePath, "w");
       fs.writeSync(descriptor, data.slice(0, 20));
@@ -1020,10 +1034,19 @@ describe("release report archival", () => {
         writeReleaseReport(reportPath, {
           command: "check-release --all",
           status: "failed",
-        }, { writeFileSyncImpl: interruptedWrite }),
+        }, {
+          writeFileSyncImpl: interruptedWrite,
+          isProcessAliveImpl: (pid) => pid === 424242,
+        }),
       ).toThrow(/Could not archive report/);
       expect(readFileSync(reportPath, "utf8")).toBe(existingReport);
-      expect(readdirSync(reportDirectory)).toEqual(["release.json"]);
+      expect(JSON.parse(readFileSync(reportPath, "utf8"))).toEqual(
+        existingReportPayload,
+      );
+      expect(existsSync(staleTemporaryPath)).toBe(false);
+      expect(readFileSync(activeTemporaryPath, "utf8")).toBe('{"active":true}');
+      expect(readFileSync(unrelatedTemporaryPath, "utf8")).toBe('{"other":true}');
+      expect(readdirSync(reportDirectory)).toHaveLength(3);
     } finally {
       rmSync(reportDirectory, { recursive: true, force: true });
     }
