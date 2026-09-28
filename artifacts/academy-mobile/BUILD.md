@@ -34,6 +34,30 @@ platforms before the build reports completion. An offline-only EAS profile with
 no `EXPO_PUBLIC_DOMAIN` keeps the host unset; the app continues to use its
 deterministic offline fallback.
 
+### Machine-readable build failures
+
+Metro startup, bundle/manifest download, asset download, and Android identity
+validation failures exit nonzero and print a single `BUILD_FAILURE ` record to
+stderr, followed by JSON with `schemaVersion: 1`, `stage`, `category`, and a
+concise `message`. The `stage` and `category` values are stable; CI should
+classify these failures by those fields rather than by matching the message:
+
+| Stage | Category |
+| --- | --- |
+| `metro_start` | `METRO_START_FAILED` |
+| `bundle_manifest_download` | `BUNDLE_MANIFEST_DOWNLOAD_FAILED` |
+| `asset_download` | `ASSET_DOWNLOAD_FAILED` |
+| `android_identity_validation` | `ANDROID_IDENTITY_VALIDATION_FAILED` |
+
+For example:
+
+```text
+BUILD_FAILURE {"schemaVersion":1,"stage":"metro_start","category":"METRO_START_FAILED","message":"Metro timeout on port 8081"}
+```
+
+The diagnostic does not include a stack trace, and its message is capped at
+500 characters. A failed build never prints the `Build complete!` signal.
+
 ## Native installers
 
 An installable APK still requires an Expo account and EAS cloud access:

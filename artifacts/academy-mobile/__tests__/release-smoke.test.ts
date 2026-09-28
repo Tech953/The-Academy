@@ -863,9 +863,15 @@ function runReleaseSmokeCliSubprocess(
 function runStaticBuildIdentitySubprocess({
   androidPackage = "com.theacademy.drifted",
   omitAndroidPackage = false,
+  failureStage = null,
 }: {
   androidPackage?: string;
   omitAndroidPackage?: boolean;
+  failureStage?:
+    | "metro_start"
+    | "bundle_manifest_download"
+    | "asset_download"
+    | null;
 } = {}) {
   const fixtureDirectory = mkdtempSync(
     path.join(tmpdir(), "academy-static-build-identity-"),
@@ -904,6 +910,7 @@ function runStaticBuildIdentitySubprocess({
     `const fs = require("node:fs");
 const {
   main,
+  formatBuildFailure,
   prepareDirectories,
   validateGeneratedAndroidIdentity,
 } = require(${JSON.stringify(buildScriptPath)});
@@ -912,18 +919,23 @@ const androidManifestPath = ${JSON.stringify(androidManifestPath)};
 const iosManifestPath = ${JSON.stringify(iosManifestPath)};
 const resultPath = ${JSON.stringify(resultPath)};
 const generatedAndroidManifest = ${JSON.stringify(generatedAndroidManifest)};
+const failureStage = ${JSON.stringify(failureStage)};
 const events = [];
 let buildResult = null;
 let staleAndroidManifestBeforePrepare = null;
 let staleAndroidManifestRemovedByPrepare = false;
 const originalConsoleLog = console.log.bind(console);
 const originalProcessExit = process.exit.bind(process);
+const readManifest = (manifestPath) =>
+  fs.existsSync(manifestPath)
+    ? JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    : null;
 const readBuildDetails = () => ({
   events,
   staleAndroidManifestBeforePrepare,
   staleAndroidManifestRemovedByPrepare,
-  manifest: JSON.parse(fs.readFileSync(androidManifestPath, "utf8")),
-  iosManifest: JSON.parse(fs.readFileSync(iosManifestPath, "utf8")),
+  manifest: readManifest(androidManifestPath),
+  iosManifest: readManifest(iosManifestPath),
   buildResult,
 });
 console.log = (...args) => {
@@ -976,9 +988,17 @@ main({
     staleAndroidManifestRemovedByPrepare = !fs.existsSync(androidManifestPath);
   },
   clearMetroCacheImpl: () => events.push("clear-cache"),
-  startMetroImpl: async () => events.push("start-metro"),
+  startMetroImpl: async () => {
+    events.push("start-metro");
+    if (failureStage === "metro_start") {
+      throw new Error("Fixture Metro startup failed.");
+    }
+  },
   downloadBundlesAndManifestsImpl: async () => {
     events.push("download");
+    if (failureStage === "bundle_manifest_download") {
+      throw new Error("Fixture bundle and manifest download failed.");
+    }
     return { ios: {}, android: {} };
   },
   extractAssetsImpl: () => {
@@ -987,6 +1007,9 @@ main({
   },
   downloadAssetsImpl: async () => {
     events.push("download-assets");
+    if (failureStage === "asset_download") {
+      throw new Error("Fixture asset download failed.");
+    }
     return 0;
   },
   updateBundleUrlsImpl: () => events.push("update-bundles"),
@@ -1022,7 +1045,7 @@ main({
   },
 }).catch((error) => {
   console.log("__RESULT__" + JSON.stringify(readBuildDetails()));
-  console.error("Build failed:", error instanceof Error ? error.message : String(error));
+  console.error(formatBuildFailure(error));
   process.exitCode = 1;
 });
 `,
@@ -1040,6 +1063,23 @@ main({
     iosManifestPath,
     resultPath,
     result,
+  };
+}
+
+function parseStaticBuildFailure(stderr: string) {
+  const prefix = "BUILD_FAILURE ";
+  const diagnosticLine = stderr
+    .split(/\r?\n/)
+    .find((line) => line.startsWith(prefix));
+  if (!diagnosticLine) {
+    throw new Error("Static build subprocess did not print BUILD_FAILURE.");
+  }
+
+  return JSON.parse(diagnosticLine.slice(prefix.length)) as {
+    schemaVersion: number;
+    stage: string;
+    category: string;
+    message: string;
   };
 }
 
@@ -2998,8 +3038,14 @@ describe("release smoke check", () => {
     try {
       expect(result.status).toBe(1);
       expect(result.stdout).not.toContain("Build complete!");
-      expect(result.stderr).toMatch(
-        /Build failed: \[release-identity\] Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.drifted/,
+      const diagnostic = parseStaticBuildFailure(result.stderr);
+      expect(diagnostic).toMatchObject({
+        schemaVersion: 1,
+        stage: "android_identity_validation",
+        category: "ANDROID_IDENTITY_VALIDATION_FAILED",
+      });
+      expect(diagnostic.message).toMatch(
+        /\[release-identity\] Generated Android package drift: app\.json declares com\.theacademy\.mobile, but generated Android metadata declares com\.theacademy\.drifted/,
       );
 
       const marker = result.stdout.match(/__RESULT__(\{.*\})\s*$/s);
@@ -3058,8 +3104,14 @@ describe("release smoke check", () => {
     try {
       expect(result.status).toBe(1);
       expect(result.stdout + result.stderr).not.toContain("Build complete!");
-      expect(result.stderr).toMatch(
-        /Build failed: \[release-identity\] Generated Android manifest is missing extra\.expoClient\.android\.package/,
+      const diagnostic = parseStaticBuildFailure(result.stderr);
+      expect(diagnostic).toMatchObject({
+        schemaVersion: 1,
+        stage: "android_identity_validation",
+        category: "ANDROID_IDENTITY_VALIDATION_FAILED",
+      });
+      expect(diagnostic.message).toMatch(
+        /\[release-identity\] Generated Android manifest is missing extra\.expoClient\.android\.package/,
       );
       expect(existsSync(resultPath)).toBe(false);
 
@@ -3105,6 +3157,73 @@ describe("release smoke check", () => {
       rmSync(fixtureDirectory, { recursive: true, force: true });
     }
   });
+
+  it.each([
+    {
+      failureStage: "metro_start" as const,
+      stage: "metro_start",
+      category: "METRO_START_FAILED",
+      message: "Fixture Metro startup failed.",
+      events: ["prepare", "clear-cache", "start-metro"],
+    },
+    {
+      failureStage: "bundle_manifest_download" as const,
+      stage: "bundle_manifest_download",
+      category: "BUNDLE_MANIFEST_DOWNLOAD_FAILED",
+      message: "Fixture bundle and manifest download failed.",
+      events: ["prepare", "clear-cache", "start-metro", "download"],
+    },
+    {
+      failureStage: "asset_download" as const,
+      stage: "asset_download",
+      category: "ASSET_DOWNLOAD_FAILED",
+      message: "Fixture asset download failed.",
+      events: [
+        "prepare",
+        "clear-cache",
+        "start-metro",
+        "download",
+        "extract-assets",
+        "download-assets",
+      ],
+    },
+  ])(
+    "reports $stage failures as concise machine-readable build errors",
+    ({ failureStage, stage, category, message, events }) => {
+      const {
+        fixtureDirectory,
+        result,
+        resultPath,
+      } = runStaticBuildIdentitySubprocess({ failureStage });
+      try {
+        expect(result.status).toBe(1);
+        expect(result.stdout + result.stderr).not.toContain("Build complete!");
+        expect(result.stderr.trim().split(/\r?\n/)).toHaveLength(1);
+        expect(parseStaticBuildFailure(result.stderr)).toEqual({
+          schemaVersion: 1,
+          stage,
+          category,
+          message,
+        });
+        expect(existsSync(resultPath)).toBe(false);
+
+        const marker = result.stdout.match(/__RESULT__(\{.*\})\s*$/s);
+        expect(marker).not.toBeNull();
+        const details = JSON.parse(marker?.[1] ?? "") as {
+          events: string[];
+          manifest: unknown;
+          iosManifest: unknown;
+          buildResult: unknown;
+        };
+        expect(details.events).toEqual(events);
+        expect(details.manifest).toBeNull();
+        expect(details.iosManifest).toBeNull();
+        expect(details.buildResult).toBeNull();
+      } finally {
+        rmSync(fixtureDirectory, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("completes the subprocess build after matching Android identity validation", () => {
     const {

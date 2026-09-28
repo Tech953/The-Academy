@@ -42,6 +42,38 @@ function exitWithError(message) {
   process.exit(1);
 }
 
+function createBuildStageError(stage, category, cause) {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  const error = new Error(message);
+  error.name = "BuildStageError";
+  error.stage = stage;
+  error.category = category;
+  return error;
+}
+
+function formatBuildFailure(error) {
+  if (
+    error?.name === "BuildStageError" &&
+    typeof error.stage === "string" &&
+    typeof error.category === "string"
+  ) {
+    const message = String(error.message || "Unknown build failure")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 500);
+    return `BUILD_FAILURE ${JSON.stringify({
+      schemaVersion: 1,
+      stage: error.stage,
+      category: error.category,
+      message,
+    })}`;
+  }
+
+  const message =
+    error instanceof Error ? error.message : String(error ?? "Unknown error");
+  return `Build failed: ${message}`;
+}
+
 function setupSignalHandlers() {
   const cleanup = () => {
     if (metroProcess) {
@@ -213,7 +245,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     }
   }
 
-  exitWithError(`Metro timeout on port ${metroPort}`);
+  throw new Error(`Metro timeout on port ${metroPort}`);
 }
 
 async function downloadFile(url, outputPath) {
@@ -314,22 +346,18 @@ async function downloadBundlesAndManifests(timestamp) {
   console.log("Downloading bundles and manifests...");
   console.log("This may take several minutes for production builds...");
 
-  try {
-    // Bundles are sequential — Metro can't handle both platforms simultaneously
-    // without stalling. Manifests are cheap and run in parallel after.
-    await downloadBundle("ios", timestamp);
-    await downloadBundle("android", timestamp);
+  // Bundles are sequential — Metro can't handle both platforms simultaneously
+  // without stalling. Manifests are cheap and run in parallel after.
+  await downloadBundle("ios", timestamp);
+  await downloadBundle("android", timestamp);
 
-    const [iosManifest, androidManifest] = await Promise.all([
-      downloadManifest("ios"),
-      downloadManifest("android"),
-    ]);
+  const [iosManifest, androidManifest] = await Promise.all([
+    downloadManifest("ios"),
+    downloadManifest("android"),
+  ]);
 
-    console.log("All downloads completed successfully");
-    return { ios: iosManifest, android: androidManifest };
-  } catch (error) {
-    exitWithError(`Download failed: ${error.message}`);
-  }
+  console.log("All downloads completed successfully");
+  return { ios: iosManifest, android: androidManifest };
 }
 
 function extractAssets(timestamp) {
@@ -447,7 +475,7 @@ async function downloadAssets(assets, timestamp) {
       failures
         .map((f) => `  - ${f.filename}: ${f.error} (${f.url})`)
         .join("\n");
-    exitWithError(errorMsg);
+    throw new Error(errorMsg);
   }
 
   console.log(`Copied ${successCount} assets`);
@@ -568,11 +596,19 @@ function updateManifests(
 
 function validateGeneratedAndroidIdentity(options = {}) {
   const profile = options.profile || "preview";
-  const identity = validateAndroidReleaseIdentity(profile, options);
-  console.log(
-    `[release-identity] Android package ${identity.androidPackage} matches app.json, EAS ${profile} settings, and generated metadata.`,
-  );
-  return identity;
+  try {
+    const identity = validateAndroidReleaseIdentity(profile, options);
+    console.log(
+      `[release-identity] Android package ${identity.androidPackage} matches app.json, EAS ${profile} settings, and generated metadata.`,
+    );
+    return identity;
+  } catch (error) {
+    throw createBuildStageError(
+      "android_identity_validation",
+      "ANDROID_IDENTITY_VALIDATION_FAILED",
+      error,
+    );
+  }
 }
 
 async function runBuild({
@@ -606,25 +642,36 @@ async function runBuild({
   prepareDirectoriesImpl(timestamp);
   clearMetroCacheImpl();
 
-  await startMetroImpl(apiDomain || "", expoPublicReplId);
+  try {
+    await startMetroImpl(apiDomain || "", expoPublicReplId);
+  } catch (error) {
+    throw createBuildStageError("metro_start", "METRO_START_FAILED", error);
+  }
 
   const downloadTimeout = 600000;
-  const downloadPromise = downloadBundlesAndManifestsImpl(timestamp);
   let timeoutId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(
-        new Error(
-          `Overall download timeout after ${downloadTimeout / 1000} seconds. ` +
-            "Metro may be struggling to generate bundles. Check Metro logs above.",
-        ),
-      );
-    }, downloadTimeout);
-  });
-
   let manifests;
   try {
+    const downloadPromise = Promise.resolve().then(() =>
+      downloadBundlesAndManifestsImpl(timestamp),
+    );
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(
+          new Error(
+            `Overall download timeout after ${downloadTimeout / 1000} seconds. ` +
+              "Metro may be struggling to generate bundles. Check Metro logs above.",
+          ),
+        );
+      }, downloadTimeout);
+    });
     manifests = await Promise.race([downloadPromise, timeoutPromise]);
+  } catch (error) {
+    throw createBuildStageError(
+      "bundle_manifest_download",
+      "BUNDLE_MANIFEST_DOWNLOAD_FAILED",
+      error,
+    );
   } finally {
     clearTimeout(timeoutId);
   }
@@ -641,7 +688,12 @@ async function runBuild({
     });
   }
 
-  const assetCount = await downloadAssetsImpl(assets, timestamp);
+  let assetCount;
+  try {
+    assetCount = await downloadAssetsImpl(assets, timestamp);
+  } catch (error) {
+    throw createBuildStageError("asset_download", "ASSET_DOWNLOAD_FAILED", error);
+  }
 
   if (assetCount > 0) {
     updateBundleUrlsImpl(timestamp, baseUrl);
@@ -699,7 +751,7 @@ if (require.main === module) {
   main()
     .then(() => process.exit(0))
     .catch((error) => {
-      console.error("Build failed:", error.message);
+      console.error(formatBuildFailure(error));
       if (metroProcess) {
         metroProcess.kill();
       }
@@ -711,6 +763,7 @@ module.exports = {
   main,
   runBuild,
   prepareDirectories,
+  formatBuildFailure,
   attachRuntimeApiDomain,
   validateGeneratedAndroidIdentity,
 };
