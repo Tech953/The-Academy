@@ -4,7 +4,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const DEFAULT_PROFILE = "preview";
-const RELEASE_REPORT_SCHEMA_VERSION = 6;
+const RELEASE_REPORT_SCHEMA_VERSION = 7;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_REQUEST_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 250;

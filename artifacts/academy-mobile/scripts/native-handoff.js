@@ -440,6 +440,78 @@ function easCommand() {
   };
 }
 
+const MAX_EAS_DIAGNOSTIC_CHARS = 4000;
+const EAS_DIAGNOSTIC_LINE_PATTERN =
+  /\b(?:error(?:ed)?|failed|failure|warn(?:ing)?|fatal|exception|cause|reason|denied|timed?\s*out|unavailable|invalid|unable|cannot|could not)\b/i;
+const SENSITIVE_DIAGNOSTIC_ASSIGNMENT_PATTERN =
+  /(["']?[A-Z0-9_.-]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API[_-]?KEY|PRIVATE[_-]?KEY|CREDENTIAL|COOKIE)[A-Z0-9_.-]*["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;]+)/gi;
+
+function sanitizeEasDiagnosticText(value) {
+  return String(value ?? "")
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(
+      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/gi,
+      "[REDACTED PRIVATE KEY]",
+    )
+    .replace(
+      /\b(set-cookie|cookie)\s*[:=][^\r\n]*/gi,
+      "$1: [REDACTED]",
+    )
+    .replace(
+      /(["']?(?:proxy-)?authorization["']?\s*[:=]\s*)(?:(?:bearer|basic)\s+)?("[^"]*"|'[^']*'|[^\s,;]+)/gi,
+      "$1[REDACTED]",
+    )
+    .replace(SENSITIVE_DIAGNOSTIC_ASSIGNMENT_PATTERN, (_match, key, value) => {
+      const quote = value[0] === '"' || value[0] === "'" ? value[0] : "";
+      return `${key}${quote}[REDACTED]${quote}`;
+    })
+    .replace(
+      /([?&][^=&#\s]*(?:token|secret|password|key|credential|signature|sig|auth|cookie)[^=&#\s]*=)[^&#\s]*/gi,
+      "$1[REDACTED]",
+    )
+    .replace(
+      /([a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gi,
+      "$1[REDACTED]@",
+    )
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, "$1 [REDACTED]")
+    .replace(
+      /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|npm_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[A-Za-z0-9_-]{30,}|glpat-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{16,})\b/g,
+      "[REDACTED]",
+    )
+    .replace(
+      /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\b/g,
+      "[REDACTED]",
+    );
+}
+
+function captureEasDiagnosticStream(value, relevantLinesOnly = false) {
+  const lines = sanitizeEasDiagnosticText(value)
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(Boolean);
+  const selectedLines = relevantLinesOnly
+    ? lines.filter((line) => EAS_DIAGNOSTIC_LINE_PATTERN.test(line))
+    : lines;
+  const diagnosticText = selectedLines.join("\n");
+  if (diagnosticText.length <= MAX_EAS_DIAGNOSTIC_CHARS) {
+    return diagnosticText;
+  }
+
+  const truncationMarker = "[earlier diagnostics truncated]\n";
+  return (
+    truncationMarker +
+    diagnosticText.slice(-(MAX_EAS_DIAGNOSTIC_CHARS - truncationMarker.length))
+  );
+}
+
+function captureEasDiagnostics(output) {
+  return {
+    stdout: captureEasDiagnosticStream(output.stdout, true),
+    stderr: captureEasDiagnosticStream(output.stderr),
+  };
+}
+
 function summarizeConnectivity(result) {
   return {
     profiles: result.profiles,
@@ -715,6 +787,7 @@ async function main() {
       ? {
           failureStage: "eas-build",
           error: `[native-handoff] EAS build failed with exit code ${result.status ?? "unknown"}.`,
+          easDiagnostics: captureEasDiagnostics(output),
         }
       : {}),
     ...(buildMetadata ? { build: buildMetadata } : {}),

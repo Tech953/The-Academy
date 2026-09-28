@@ -9,4 +9,10 @@ Native handoff reports should preserve a successful connectivity summary when EA
 
 **How to apply:** Keep preflight summary status separate from top-level handoff status, retain the EAS exit code, and emit an explicit build-stage error when the EAS process exits nonzero.
 
+Archive only bounded, sanitized EAS diagnostics: use failure-related stdout lines, cap each stream, and redact common credentials, authorization headers, private-key blocks, and credential-bearing URLs.
+
+**Why:** Build output can echo environment credentials or signed artifact links, and unbounded logs can make reports unsafe and unwieldy.
+
+**How to apply:** Keep report sanitization separate from existing live console forwarding so saved handoff reports include useful failure context without preserving raw command output.
+
 Platform handoff tests should pass the real `--platform` and selected profile through the recorder and emit the matching artifact extension, so iOS identity and IPA validation are exercised rather than inferred from Android fixtures.

@@ -473,7 +473,21 @@ process.stdout.write(JSON.stringify([{
 }]));
 const exitCode = Number(process.env.EAS_EXIT_CODE || "0");
 if (exitCode !== 0) {
-  process.exit(exitCode);
+  process.stdout.write(
+    "\\n" +
+    "Error: Gradle stdout diagnostic for bounded report output.\\n".repeat(250) +
+    "Error: Gradle task :app:bundleRelease failed; see https://example.invalid/build?token=stdout-private-token EXPO_TOKEN=stdout-private-token https://build-user:build-password@example.invalid\\n",
+  );
+  process.stdout.write("EXPO_TOKEN=irrelevant-stdout-private-token\\n");
+  process.stderr.write(
+    "ERROR: initial EAS worker diagnostics.\\n" +
+    "ERROR: additional Gradle diagnostics.\\n".repeat(250) +
+    "ERROR: EAS worker exited after Gradle failure.\\n" +
+    "Authorization: Bearer stderr-private-token\\n" +
+    "NPM_TOKEN=stderr-private-token\\n" +
+    "-----BEGIN PRIVATE KEY-----\\nfixture-private-key\\n-----END PRIVATE KEY-----\\n",
+  );
+  process.exitCode = exitCode;
 }
 `,
     "utf8",
@@ -3647,7 +3661,7 @@ describe("release smoke check", () => {
       profiles: [],
     });
 
-    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(6);
+    expect(RELEASE_REPORT_SCHEMA_VERSION).toBe(7);
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
   });
 
@@ -4566,20 +4580,30 @@ describe("release smoke check", () => {
       const report = JSON.parse(
         readFileSync(fixture.reportPath, "utf8"),
       ) as {
+        schemaVersion: number;
         status: string;
         easExitCode: number;
         failureStage: string;
         error: string;
+        easDiagnostics: {
+          stdout: string;
+          stderr: string;
+        };
         summary: {
           status: string;
           profiles: Array<{ profile: string; status: string }>;
         };
       };
       expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
         status: "failed",
         easExitCode: 23,
         failureStage: "eas-build",
         error: "[native-handoff] EAS build failed with exit code 23.",
+        easDiagnostics: {
+          stdout: expect.stringContaining("Gradle task :app:bundleRelease failed"),
+          stderr: expect.stringContaining("ERROR: EAS worker exited after Gradle failure."),
+        },
         summary: {
           status: "passed",
           profiles: [
@@ -4588,6 +4612,24 @@ describe("release smoke check", () => {
           ],
         },
       });
+      expect(report.easDiagnostics.stdout).toContain("[REDACTED]");
+      expect(report.easDiagnostics.stdout).not.toContain("stdout-private-token");
+      expect(report.easDiagnostics.stdout).not.toContain(
+        "irrelevant-stdout-private-token",
+      );
+      expect(report.easDiagnostics.stdout).not.toContain("build-password");
+      expect(report.easDiagnostics.stderr).toContain("[REDACTED]");
+      expect(report.easDiagnostics.stderr).not.toContain("stderr-private-token");
+      expect(report.easDiagnostics.stderr).not.toContain("fixture-private-key");
+      expect(report.easDiagnostics.stderr).toContain("[REDACTED PRIVATE KEY]");
+      expect(report.easDiagnostics.stdout.length).toBeLessThanOrEqual(4000);
+      expect(report.easDiagnostics.stderr.length).toBeLessThanOrEqual(4000);
+      expect(report.easDiagnostics.stdout).toContain(
+        "[earlier diagnostics truncated]",
+      );
+      expect(report.easDiagnostics.stderr).toContain(
+        "[earlier diagnostics truncated]",
+      );
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
