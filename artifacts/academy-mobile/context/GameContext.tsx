@@ -32,6 +32,7 @@ import {
   type ContentPackCacheDiagnostic,
   type EnrichmentStatus,
 } from "@/lib/enrichmentStatus";
+import { createBulletinRepairAnnouncementTracker } from "@/lib/bulletinAccessibility";
 import {
   fallbackAfterRefreshFailure,
   createContentPackWriteQueueWithResult,
@@ -256,6 +257,7 @@ interface GameContextValue {
   contentPackLoading: boolean;
   refreshContentPack: () => Promise<void>;
   bulletinEventsRepaired: boolean;
+  claimBulletinRepairAnnouncement: (announcementKey: string) => boolean;
   contentPackStorageStatus: ContentPackStorageStatus;
   contentPackCacheDiagnostic: ContentPackCacheDiagnostic | null;
   bulletinLocale: SupportedLocale;
@@ -299,6 +301,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     useState<ContentPackStorageStatus>("unknown");
   const [contentPackCacheDiagnostic, setContentPackCacheDiagnostic] =
     useState<ContentPackCacheDiagnostic | null>(null);
+  const bulletinRepairAnnouncementTrackerRef = useRef<
+    ((announcementKey: string) => boolean) | null
+  >(null);
+  if (bulletinRepairAnnouncementTrackerRef.current === null) {
+    bulletinRepairAnnouncementTrackerRef.current =
+      createBulletinRepairAnnouncementTracker();
+  }
+  const claimBulletinRepairAnnouncement =
+    bulletinRepairAnnouncementTrackerRef.current;
   const [bulletinLocalePreference, setBulletinLocalePreferenceState] =
     useState<SupportedLocale | null>(null);
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
@@ -887,6 +898,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       contentPackLoading,
       refreshContentPack,
       bulletinEventsRepaired,
+      claimBulletinRepairAnnouncement,
       contentPackStorageStatus,
       contentPackCacheDiagnostic,
       bulletinLocale,
@@ -917,6 +929,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       contentPackLoading,
       refreshContentPack,
       bulletinEventsRepaired,
+      claimBulletinRepairAnnouncement,
       contentPackStorageStatus,
       contentPackCacheDiagnostic,
       bulletinLocale,

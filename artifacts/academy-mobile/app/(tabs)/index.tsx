@@ -83,6 +83,7 @@ export default function AdventureScreen() {
     examineLoading,
     contentPack,
     bulletinEventsRepaired,
+    claimBulletinRepairAnnouncement,
     bulletinLocale,
     travelTo,
     refreshLocationDescription,
@@ -91,6 +92,9 @@ export default function AdventureScreen() {
   } = useGame();
   const scrollRef = useRef<ScrollView>(null);
   const wasBulletinRepaired = useRef(false);
+  const bulletinRepairAnnouncementKey = contentPack
+    ? `${contentPack.version}:${contentPack.generatedAt}`
+    : null;
 
   useEffect(() => {
     if (
@@ -98,14 +102,21 @@ export default function AdventureScreen() {
         Platform.OS,
         wasBulletinRepaired.current,
         bulletinEventsRepaired,
-      )
+      ) &&
+      bulletinRepairAnnouncementKey &&
+      claimBulletinRepairAnnouncement(bulletinRepairAnnouncementKey)
     ) {
       AccessibilityInfo.announceForAccessibility(
         getBulletinSourceMessage(true, bulletinLocale),
       );
     }
     wasBulletinRepaired.current = bulletinEventsRepaired;
-  }, [bulletinEventsRepaired, bulletinLocale]);
+  }, [
+    bulletinEventsRepaired,
+    bulletinLocale,
+    bulletinRepairAnnouncementKey,
+    claimBulletinRepairAnnouncement,
+  ]);
 
   if (!ready) return null;
   if (!hasStarted) return <EnrollmentScreen locale={bulletinLocale} />;

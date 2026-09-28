@@ -26,6 +26,7 @@ import {
 } from "../constants/locales";
 import {
   BULLETIN_REPAIR_ACCESSIBILITY_LABEL,
+  createBulletinRepairAnnouncementTracker,
   getBulletinRepairAccessibility,
   shouldAnnounceBulletinRepair,
 } from "../lib/bulletinAccessibility";
@@ -381,6 +382,15 @@ describe("bulletin repair accessibility", () => {
     expect(shouldAnnounceBulletinRepair("ios", true, true)).toBe(false);
     expect(shouldAnnounceBulletinRepair("ios", false, false)).toBe(false);
     expect(shouldAnnounceBulletinRepair("android", false, true)).toBe(false);
+  });
+
+  it("keeps repaired-pack announcement claims across tab remounts", () => {
+    const claimAnnouncement = createBulletinRepairAnnouncementTracker();
+
+    expect(claimAnnouncement("pack-v1:1000")).toBe(true);
+    expect(claimAnnouncement("pack-v1:1000")).toBe(false);
+    expect(claimAnnouncement("pack-v1:2000")).toBe(true);
+    expect(claimAnnouncement("")).toBe(false);
   });
 });
 

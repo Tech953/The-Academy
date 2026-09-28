@@ -39,3 +39,18 @@ export function shouldAnnounceBulletinRepair(
 ): boolean {
   return platform === "ios" && !wasRepaired && isRepaired;
 }
+
+export function createBulletinRepairAnnouncementTracker(): (
+  announcementKey: string,
+) => boolean {
+  const announcedKeys = new Set<string>();
+
+  return (announcementKey) => {
+    if (!announcementKey || announcedKeys.has(announcementKey)) {
+      return false;
+    }
+
+    announcedKeys.add(announcementKey);
+    return true;
+  };
+}
