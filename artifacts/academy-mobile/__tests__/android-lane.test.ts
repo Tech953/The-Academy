@@ -6,6 +6,16 @@ import {
 } from "../lib/androidLane";
 import { CONTENT_PACK_STORAGE_KEY, parseCachedContentPack } from "../lib/contentPackFallback";
 
+const { parseArgs } = require("../scripts/android-bulletin-lane.js") as {
+  parseArgs: (argv: string[]) => {
+    apk: string | null;
+    device: string | null;
+    packageName: string;
+    port: number;
+    timeoutMs: number;
+  };
+};
+
 function createStorage() {
   const values = new Map<string, string>();
   return {
@@ -18,6 +28,16 @@ function createStorage() {
 }
 
 describe("Android bulletin lane harness", () => {
+  it("accepts the separator used by the documented pnpm command", () => {
+    expect(parseArgs(["--", "--apk", "preview-lane.apk"])).toEqual({
+      apk: "preview-lane.apk",
+      device: null,
+      packageName: "com.theacademy.mobile",
+      port: 8765,
+      timeoutMs: 30_000,
+    });
+  });
+
   it("extracts only the lane command from the deep link", () => {
     expect(getAndroidLaneCommand("academy-mobile://?androidLane=expired")).toBe("expired");
     expect(getAndroidLaneCommand("academy-mobile://?other=expired")).toBeNull();
