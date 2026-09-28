@@ -19,6 +19,7 @@ import {
 } from "../src/replit_integrations/audio/client";
 import { apiLimiter } from "../src/middleware/security";
 import {
+  CONTENT_PACK_SCHEMA_VERSION,
   createContentPackContractFixture,
   isUsableContentPack,
 } from "@workspace/game-engine";
@@ -237,6 +238,7 @@ describe("main API routes", () => {
 
     expect(result.response.status).toBe(200);
     expect(result.body.generatedBy).toBe("deterministic");
+    expect(result.body.schemaVersion).toBe(CONTENT_PACK_SCHEMA_VERSION);
     expect(result.body.activeEvents).toHaveLength(3);
     expect(result.body.activeEvents.every((event: Record<string, unknown>) =>
       typeof event.id === "string" &&
@@ -270,7 +272,7 @@ describe("main API routes", () => {
     );
   });
 
-  it("returns a pack accepted by the mobile cache contract", async () => {
+  it("returns an API-generated pack stamped with the current schema version and accepted by the mobile cache contract", async () => {
     const fixture = createContentPackContractFixture(Date.now());
     let rssIndex = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
@@ -311,6 +313,7 @@ describe("main API routes", () => {
     expect(result.response.status).toBe(200);
     expect(responsePack.response.status).toBe(200);
     expect(isUsableContentPack(responsePack.body)).toBe(true);
+    expect(responsePack.body.schemaVersion).toBe(CONTENT_PACK_SCHEMA_VERSION);
     expect(responsePack.body).toMatchObject({
       activeEvents: fixture.activeEvents,
       npcMoodShifts: fixture.npcMoodShifts,

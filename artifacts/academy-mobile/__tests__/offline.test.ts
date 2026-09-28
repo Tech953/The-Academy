@@ -78,6 +78,7 @@ import {
   analyzeDialogueTone,
   matchEventsToHeadlines,
   EVENT_TEMPLATES,
+  CONTENT_PACK_SCHEMA_VERSION,
   createContentPackContractFixture,
   validateEventTemplateTags,
   validateEventTemplates,
@@ -810,6 +811,18 @@ describe('generateOfflineContentPack() — valid pack with no network', () => {
     expect(apiPayload.expiresAt).toBeGreaterThan(generatedAt + 1);
     expect(apiPayload.rssHeadlines).toHaveLength(3);
     expect(apiPayload.eventsRepaired).toBe(false);
+  });
+
+  it('keeps the shared contract fixture aligned with the current schema version', () => {
+    const fixture = createContentPackContractFixture(1_700_000_000_000);
+
+    expect(fixture.schemaVersion).toBe(CONTENT_PACK_SCHEMA_VERSION);
+  });
+
+  it('stamps the current schema version on offline-generated packs', () => {
+    const pack = generateOfflineContentPack(5);
+
+    expect(pack.schemaVersion).toBe(CONTENT_PACK_SCHEMA_VERSION);
   });
 
   it('returns a pack with all required ContentPack fields', () => {
