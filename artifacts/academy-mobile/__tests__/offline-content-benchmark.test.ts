@@ -5,14 +5,25 @@ import {
   EVENT_TEMPLATES,
   generateOfflineContentPack,
   type EventCategory,
+  type EventTemplateValidationScope,
   type WorldEventTemplate,
 } from '@workspace/game-engine';
 import * as eventTemplateModule from '../../../lib/game-engine/src/eventTemplates';
 
 const BASE_EVENTS = [...ALL_EVENTS];
 const CATEGORIES = Object.keys(EVENT_TEMPLATES) as EventCategory[];
-const REGISTRY_SIZES = [BASE_EVENTS.length, BASE_EVENTS.length * 2, BASE_EVENTS.length * 4];
+const REGISTRY_SIZE_MULTIPLIERS = [1, 2, 4] as const;
+const REGISTRY_SIZES = REGISTRY_SIZE_MULTIPLIERS.map(
+  multiplier => BASE_EVENTS.length * multiplier,
+);
 const ITERATIONS = 12;
+
+// CI budgets are milliseconds per build at each configured registry size.
+// Revisit these with REGISTRY_SIZE_MULTIPLIERS when the target registry/device changes.
+const PERFORMANCE_BUDGETS_MS_PER_BUILD = {
+  validation: 10,
+  contentPackGeneration: 20,
+} as const;
 
 interface BenchmarkResult {
   registrySize: number;
@@ -61,7 +72,48 @@ function installRegistrySize(size: number): () => void {
   };
 }
 
+function collectBudgetViolations(results: readonly BenchmarkResult[]): string[] {
+  return results.flatMap(result => {
+    const violations: string[] = [];
+    if (result.validationMsPerBuild > PERFORMANCE_BUDGETS_MS_PER_BUILD.validation) {
+      violations.push(
+        `registry size ${result.registrySize}: validation measured ${result.validationMsPerBuild.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.validation} ms/build)`,
+      );
+    }
+    if (
+      result.contentPackMsPerBuild >
+      PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration
+    ) {
+      violations.push(
+        `registry size ${result.registrySize}: content-pack generation measured ${result.contentPackMsPerBuild.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
+      );
+    }
+    return violations;
+  });
+}
+
 describe('offline content-pack benchmark', () => {
+  it('reports registry size and measured timings for budget violations', () => {
+    const validationOverBudget =
+      PERFORMANCE_BUDGETS_MS_PER_BUILD.validation + 0.001;
+    const contentPackOverBudget =
+      PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration + 0.001;
+
+    expect(
+      collectBudgetViolations([
+        {
+          registrySize: 999,
+          validationMsPerBuild: validationOverBudget,
+          contentPackMsPerBuild: contentPackOverBudget,
+          validationPassesPerBuild: 1,
+        },
+      ]),
+    ).toEqual([
+      `registry size 999: validation measured ${validationOverBudget.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.validation} ms/build)`,
+      `registry size 999: content-pack generation measured ${contentPackOverBudget.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
+    ]);
+  });
+
   it('records validation and generation scaling without weakening scoped validation', () => {
     const assertSpy = vi.spyOn(eventTemplateModule, 'assertValidEventTemplates');
     const results: BenchmarkResult[] = [];
@@ -86,7 +138,7 @@ describe('offline content-pack benchmark', () => {
               .slice(callsBefore)
               .map(([, scope]) => scope)
               .filter(
-                (scope): scope is { validationPasses?: number } =>
+                (scope): scope is EventTemplateValidationScope =>
                   typeof scope === 'object' && scope !== null,
               );
 
@@ -118,6 +170,7 @@ describe('offline content-pack benchmark', () => {
         {
           benchmark: 'offline-content-pack',
           iterations: ITERATIONS,
+          budgetsMsPerBuild: PERFORMANCE_BUDGETS_MS_PER_BUILD,
           results: results.map(result => ({
             ...result,
             validationMsPerBuild: Number(result.validationMsPerBuild.toFixed(3)),
@@ -131,5 +184,12 @@ describe('offline content-pack benchmark', () => {
 
     expect(results).toHaveLength(REGISTRY_SIZES.length);
     expect(results.every(result => result.validationPassesPerBuild === 1)).toBe(true);
+
+    const budgetViolations = collectBudgetViolations(results);
+
+    expect(
+      budgetViolations,
+      `Offline content-pack performance budget exceeded:\n${budgetViolations.join('\n')}`,
+    ).toEqual([]);
   });
 });
