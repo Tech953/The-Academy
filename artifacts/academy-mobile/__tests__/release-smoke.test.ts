@@ -435,7 +435,8 @@ describe("mobile interface localization", () => {
 
 function createNativeHandoffSubprocessFixture({
   terminationSignal = "",
-}: { terminationSignal?: string } = {}) {
+  easOutputProfile = "",
+}: { terminationSignal?: string; easOutputProfile?: string } = {}) {
   const fixtureDirectory = mkdtempSync(
     path.join(tmpdir(), "academy-native-handoff-"),
   );
@@ -449,7 +450,10 @@ function createNativeHandoffSubprocessFixture({
     `#!/usr/bin/env node
 const fs = require("node:fs");
 const platform = process.env.RELEASE_PLATFORM || "android";
-const profile = process.env.RELEASE_PROFILE || "preview";
+const profile =
+  process.env.EAS_OUTPUT_PROFILE ||
+  process.env.RELEASE_PROFILE ||
+  "preview";
 const artifactExtension =
   process.env.EAS_ARTIFACT_EXTENSION ||
   (platform === "ios" ? "ipa" : profile === "production" ? "aab" : "apk");
@@ -704,6 +708,7 @@ require.cache[require.resolve(checkReleasePath)].exports = {
     reportPath,
     preloadPath,
     terminationSignal,
+    easOutputProfile,
   };
 }
 
@@ -750,6 +755,7 @@ function runNativeHandoffSubprocess(
         EAS_CLI_COMMAND: fixture.easCommandPath,
         EAS_RECORD_PATH: fixture.easRecordPath,
         EAS_TERMINATION_SIGNAL: fixture.terminationSignal,
+        EAS_OUTPUT_PROFILE: fixture.easOutputProfile,
         RELEASE_PREFLIGHT_RESULT: preflightResult,
         EAS_EXIT_CODE: easExitCode,
         RELEASE_PLATFORM: platform,
@@ -4565,6 +4571,119 @@ describe("release smoke check", () => {
       });
       expect(report.build.installerUrl).toMatch(/\.ipa$/);
       expect(report.build).not.toHaveProperty("androidVersionCode");
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("invokes the iOS production profile and archives IPA metadata", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "ios",
+        "production",
+      );
+
+      expect(result.status).toBe(0);
+      expect(JSON.parse(readFileSync(fixture.easRecordPath, "utf8"))).toEqual({
+        args: [
+          "build",
+          "--platform",
+          "ios",
+          "--profile",
+          "production",
+          "--json",
+        ],
+      });
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        platform: string;
+        profile: string;
+        appId: string;
+        identity: { appId: string };
+        build: {
+          package: string;
+          profile: string;
+          installerUrl: string | null;
+          installerPath: string | null;
+          androidVersionCode?: number;
+        };
+      };
+      expect(report).toMatchObject({
+        status: "completed",
+        platform: "ios",
+        profile: "production",
+        appId: "com.theacademy.mobile",
+        identity: { appId: "com.theacademy.mobile" },
+        build: {
+          package: "com.theacademy.mobile",
+          profile: "production",
+          installerPath: null,
+        },
+      });
+      expect(report.build.installerUrl).toMatch(/\.ipa$/);
+      expect(report.build).not.toHaveProperty("androidVersionCode");
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects preview EAS metadata for a production iOS handoff", () => {
+    const fixture = createNativeHandoffSubprocessFixture({
+      easOutputProfile: "preview",
+    });
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "ios",
+        "production",
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        'EAS profile "preview" does not match requested profile "production".',
+      );
+      expect(JSON.parse(readFileSync(fixture.easRecordPath, "utf8"))).toEqual({
+        args: [
+          "build",
+          "--platform",
+          "ios",
+          "--profile",
+          "production",
+          "--json",
+        ],
+      });
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        platform: string;
+        profile: string;
+        failureStage: string;
+        easExitCode: number;
+        error: string;
+        summary: { status: string };
+      };
+      expect(report).toMatchObject({
+        status: "failed",
+        platform: "ios",
+        profile: "production",
+        failureStage: "build-metadata",
+        easExitCode: 0,
+        error:
+          '[native-handoff] EAS profile "preview" does not match requested profile "production".',
+        summary: { status: "passed" },
+      });
+      expect(report).not.toHaveProperty("build");
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
