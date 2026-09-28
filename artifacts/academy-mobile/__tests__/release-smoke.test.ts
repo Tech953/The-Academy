@@ -3567,6 +3567,29 @@ describe("release smoke check", () => {
     }
   });
 
+  it("validates shared event templates before mobile builds and releases", () => {
+    const scripts = JSON.parse(
+      readFileSync(path.resolve(__dirname, "../package.json"), "utf8"),
+    ).scripts as Record<string, string>;
+
+    expect(scripts["validate-event-registry"]).toBe(
+      "pnpm --filter @workspace/academy run validate-event-registry",
+    );
+    expect(scripts.prebuild).toBe("pnpm run validate-event-registry");
+    expect(scripts["check-release"]).toBe(
+      "pnpm run validate-event-registry && node scripts/check-release.js",
+    );
+    expect(scripts["check-release:identity"]).toBe(
+      "pnpm run validate-event-registry && node scripts/check-release.js --identity-only",
+    );
+    expect(scripts["check-release:handoff"]).toBe(
+      "pnpm run validate-event-registry && node scripts/check-release.js --handoff",
+    );
+    expect(scripts["native-handoff"]).toBe(
+      "pnpm run validate-event-registry && node scripts/native-handoff.js",
+    );
+  });
+
   it("keeps iOS and Android release commands on the shared handoff preflight", () => {
     const scripts = JSON.parse(
       readFileSync(path.resolve(__dirname, "../package.json"), "utf8"),
