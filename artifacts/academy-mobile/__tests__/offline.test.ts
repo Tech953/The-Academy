@@ -1279,7 +1279,7 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     await expect(writeCachedContentPack(rejectedStorage, pack)).resolves.toBe(false);
   });
 
-  it('persists a remote bulletin and weekly theme through AsyncStorage across a relaunch fixture', async () => {
+  it('persists remote and repaired bulletins through AsyncStorage across a relaunch fixture', async () => {
     const values = new Map<string, string>();
     const localStorage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -1320,9 +1320,35 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       expect(restoredPack).toEqual(remotePack);
       expect(selectWeeklyTheme(restoredPack, day)).toBe(remotePack.weeklyTheme);
 
+      const repairedPack = ensureUsableContentPack({
+        ...remotePack,
+        version: 'pack-repaired-relaunch',
+        activeEvents: [
+          remotePack.activeEvents[0],
+          remotePack.activeEvents[0],
+          remotePack.activeEvents[2],
+        ],
+      }, day);
+      expect(repairedPack.generatedBy).toBe('deterministic');
+      expect(repairedPack.eventsRepaired).toBe(true);
+      expectDisplayableUniqueBulletin(repairedPack.activeEvents);
+      expect(repairedPack.npcMoodShifts).toEqual(remotePack.npcMoodShifts);
+      expect(repairedPack.gedFocusAreas).toEqual(remotePack.gedFocusAreas);
+      expect(repairedPack.generatedAt).toBe(remotePack.generatedAt);
+      expect(repairedPack.expiresAt).toBe(remotePack.expiresAt);
+      expect(repairedPack.expiresAt).toBeGreaterThan(now);
+      expect(isUsableContentPack(repairedPack, now)).toBe(true);
+
+      await expect(
+        writeCachedContentPack(AsyncStorage, repairedPack, now),
+      ).resolves.toBe(true);
+      const restoredRepairedPack = await readCachedContentPack(AsyncStorage, now);
+      expect(restoredRepairedPack).toEqual(repairedPack);
+      expect(restoredRepairedPack?.eventsRepaired).toBe(true);
+
       localStorage.setItem(
         'academy-content-pack-v1',
-        JSON.stringify({ ...remotePack, expiresAt: now }),
+        JSON.stringify({ ...repairedPack, expiresAt: now }),
       );
       await expect(readCachedContentPack(AsyncStorage, now)).resolves.toBeNull();
       expect(selectWeeklyTheme(null, day)).toBe(
