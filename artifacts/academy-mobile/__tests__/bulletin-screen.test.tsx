@@ -18,6 +18,7 @@ const { gameState, announceForAccessibility, claimBulletinRepairAnnouncement } =
         generatedAt?: number;
       },
       day: 1,
+      bulletinLocale: "en" as string,
       platform: "android" as "android" | "ios",
       claimedAnnouncementKeys: new Set<string>(),
     };
@@ -100,6 +101,7 @@ vi.mock("@/context/GameContext", () => ({
   useGame: () => ({
     advanceDay: vi.fn(),
     bulletinEventsRepaired: gameState.bulletinEventsRepaired,
+    bulletinLocale: gameState.bulletinLocale,
     claimBulletinRepairAnnouncement,
     contentPack: gameState.contentPack,
     contentPackLoading: gameState.contentPackLoading,
@@ -241,6 +243,7 @@ describe("rendered bulletin accessibility", () => {
     gameState.contentPackLoading = false;
     gameState.contentPack = null;
     gameState.day = 1;
+    gameState.bulletinLocale = "en";
     gameState.platform = "android";
     gameState.claimedAnnouncementKeys.clear();
     announceForAccessibility.mockClear();
@@ -315,6 +318,35 @@ describe("rendered bulletin accessibility", () => {
     });
   });
 
+  it("announces an iOS bulletin repair transition exactly once", () => {
+    gameState.platform = "ios";
+    gameState.contentPack = {
+      activeEvents: [
+        { description: "A local event was added.", title: "Study session" },
+      ],
+      generatedAt: 1000,
+      version: "pack-v1",
+      weeklyTheme: "Careful Preparation",
+    };
+
+    const renderer = renderScreen();
+    expect(announceForAccessibility).not.toHaveBeenCalled();
+
+    act(() => {
+      gameState.bulletinEventsRepaired = true;
+      renderer.update(React.createElement(AdventureScreen));
+    });
+
+    expect(announceForAccessibility).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      gameState.bulletinLocale = "es";
+      renderer.update(React.createElement(AdventureScreen));
+    });
+
+    expect(announceForAccessibility).toHaveBeenCalledTimes(1);
+  });
+
   it("does not repeat the iOS repair cue after returning to the bulletin tab", () => {
     const firstRepairedPack = {
       activeEvents: [
@@ -360,7 +392,8 @@ describe("rendered bulletin accessibility", () => {
     );
   });
 
-  it("does not render an accessible repair cue for a fully remote bulletin", () => {
+  it("does not announce or render a repair cue for a fully remote iOS bulletin", () => {
+    gameState.platform = "ios";
     gameState.bulletinEventsRepaired = false;
     gameState.contentPack = {
       activeEvents: [
@@ -372,6 +405,7 @@ describe("rendered bulletin accessibility", () => {
     const renderer = renderScreen();
 
     expect(findRepairCue(renderer)).toHaveLength(0);
+    expect(announceForAccessibility).not.toHaveBeenCalled();
     expect(
       renderer.root.findAll(
         (instance: ReactTestInstance) =>
