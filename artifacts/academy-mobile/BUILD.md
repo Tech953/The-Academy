@@ -21,6 +21,19 @@ the search range:
 EXPO_METRO_PORT=8090 pnpm --filter @workspace/academy-mobile run build
 ```
 
+For a profile-specific build, pass the EAS profile so the generated iOS and
+Android runtime metadata is checked against the host that Metro embeds:
+
+```bash
+RELEASE_PROFILE=preview pnpm --filter @workspace/academy-mobile run build
+RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run build
+```
+
+The selected profile host must match the validated EAS configuration on both
+platforms before the build reports completion. An offline-only EAS profile with
+no `EXPO_PUBLIC_DOMAIN` keeps the host unset; the app continues to use its
+deterministic offline fallback.
+
 ## Native installers
 
 An installable APK still requires an Expo account and EAS cloud access:
@@ -133,8 +146,9 @@ contract updates.
 To run only this credential-free identity check without contacting the API:
 
 ```bash
-pnpm --filter @workspace/academy-mobile run build
-pnpm --filter @workspace/academy-mobile run check-release:identity
+RELEASE_PROFILE=preview pnpm --filter @workspace/academy-mobile run build
+RELEASE_PROFILE=preview pnpm --filter @workspace/academy-mobile run check-release:identity
+RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run build
 RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-release:identity
 ```
 

@@ -18,6 +18,13 @@ const GENERATED_ANDROID_MANIFEST_PATH = path.resolve(
   "android",
   "manifest.json",
 );
+const GENERATED_IOS_MANIFEST_PATH = path.resolve(
+  __dirname,
+  "..",
+  "static-build",
+  "ios",
+  "manifest.json",
+);
 const DEFAULT_REPORT_PATH = path.resolve(
   __dirname,
   "..",
@@ -68,6 +75,7 @@ function validateAndroidProfileIdentity({
   appConfig,
   easConfig,
   generatedManifest,
+  validateApiHost = false,
   appConfigPath = APP_CONFIG_PATH,
   easConfigPath = EAS_CONFIG_PATH,
   generatedManifestPath = GENERATED_ANDROID_MANIFEST_PATH,
@@ -130,6 +138,16 @@ function validateAndroidProfileIdentity({
     throw new Error(
       `[release-identity] Generated Android package drift: app.json declares ${configuredPackage}, but generated Android metadata declares ${generatedPackage}. Rebuild the mobile static metadata before handoff.`,
     );
+  }
+
+  if (validateApiHost) {
+    validateGeneratedRuntimeApiHost({
+      profile: profileName,
+      platform: "android",
+      easConfig: resolvedEasConfig,
+      generatedManifest: resolvedGeneratedManifest,
+      generatedManifestPath,
+    });
   }
 
   return {
@@ -236,6 +254,105 @@ function getReleaseDomain(config, profile) {
   }
 
   return parsed.hostname;
+}
+
+function getReleaseProfileApiDomain(config, profile) {
+  const releaseProfile = config?.build?.[profile];
+  if (!releaseProfile || typeof releaseProfile !== "object") {
+    throw new Error(
+      `[release-identity] EAS profile "${profile}" is missing from eas.json.`,
+    );
+  }
+
+  if (profile === "preview" || profile === "production") {
+    return validateReleaseProfileHost(config, profile);
+  }
+
+  const rawDomain = releaseProfile.env?.EXPO_PUBLIC_DOMAIN;
+  if (typeof rawDomain !== "string" || !rawDomain.trim()) {
+    return null;
+  }
+
+  return rawDomain.trim();
+}
+
+function normalizeGeneratedApiDomain(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const rawDomain = value.trim();
+  try {
+    const parsed = new URL(
+      /^https?:\/\//i.test(rawDomain) ? rawDomain : `https://${rawDomain}`,
+    );
+    if (
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash
+    ) {
+      return rawDomain;
+    }
+    return parsed.host;
+  } catch {
+    return rawDomain;
+  }
+}
+
+function validateGeneratedRuntimeApiHost({
+  profile,
+  platform,
+  easConfig,
+  generatedManifest,
+  easConfigPath = EAS_CONFIG_PATH,
+  generatedManifestPath,
+} = {}) {
+  if (platform !== "android" && platform !== "ios") {
+    throw new Error(
+      `[release-identity] Unsupported generated runtime platform "${platform}". Expected "android" or "ios".`,
+    );
+  }
+
+  const resolvedEasConfig = easConfig ?? readJsonFile(easConfigPath, "eas.json");
+  const defaultManifestPath =
+    platform === "ios"
+      ? GENERATED_IOS_MANIFEST_PATH
+      : GENERATED_ANDROID_MANIFEST_PATH;
+  const resolvedManifestPath = generatedManifestPath ?? defaultManifestPath;
+  const resolvedGeneratedManifest =
+    generatedManifest ??
+    readJsonFile(resolvedManifestPath, `generated ${platform} manifest`);
+  const expectedDomain = normalizeGeneratedApiDomain(
+    getReleaseProfileApiDomain(resolvedEasConfig, profile),
+  );
+  const rawEmbeddedDomain =
+    resolvedGeneratedManifest?.extra?.expoClient?.extra?.academyApiDomain;
+  const embeddedDomain = normalizeGeneratedApiDomain(rawEmbeddedDomain);
+
+  if (expectedDomain !== embeddedDomain) {
+    const expectedLabel = expectedDomain ?? "unset (offline-only)";
+    const embeddedLabel =
+      embeddedDomain ??
+      (rawEmbeddedDomain === undefined ? "missing" : "unset (offline-only)");
+    throw new Error(
+      `[release-identity] API host drift for profile "${profile}" on ${platform}: expected "${expectedLabel}", embedded "${embeddedLabel}" in generated runtime metadata. Rebuild with RELEASE_PROFILE=${profile} pnpm run build.`,
+    );
+  }
+
+  const verifiedDomain = expectedDomain ?? "unset (offline-only)";
+  console.log(
+    `[release-identity] API host verified for profile "${profile}" on ${platform}: expected "${verifiedDomain}", embedded "${embeddedDomain ?? "unset (offline-only)"}".`,
+  );
+
+  return {
+    status: "passed",
+    profile,
+    platform,
+    expectedDomain,
+    embeddedDomain,
+  };
 }
 
 function getPublishedReleaseDomain(config) {
@@ -1198,9 +1315,11 @@ module.exports = {
   RELEASE_REPORT_SCHEMA_VERSION,
   EXPECTED_ANDROID_PACKAGE,
   getReleaseDomain,
+  getReleaseProfileApiDomain,
   getReleaseProfiles,
   validateReleaseProfileHost,
   validateRequiredReleaseProfileHosts,
+  validateGeneratedRuntimeApiHost,
   readReleaseConfig,
   validateNativeHandoff,
   computeFileSha256,

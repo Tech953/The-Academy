@@ -31,10 +31,12 @@ import {
 
 const {
   getReleaseDomain,
+  getReleaseProfileApiDomain,
   getReleaseProfiles,
   readReleaseConfig,
   validateReleaseProfileHost,
   validateRequiredReleaseProfileHosts,
+  validateGeneratedRuntimeApiHost,
   validateNativeHandoff,
   computeFileSha256: computeReleaseFileSha256,
   verifyInstallerChecksum,
@@ -49,10 +51,26 @@ const {
 } = require("../scripts/check-release.js") as {
   RELEASE_REPORT_SCHEMA_VERSION: number;
   getReleaseDomain: (config: unknown, profile: string) => string;
+  getReleaseProfileApiDomain: (
+    config: unknown,
+    profile: string,
+  ) => string | null;
   getReleaseProfiles: (config: unknown) => string[];
   readReleaseConfig: (configPath?: string) => Record<string, unknown>;
   validateReleaseProfileHost: (config: unknown, profile: string) => string;
   validateRequiredReleaseProfileHosts: (config: unknown) => void;
+  validateGeneratedRuntimeApiHost: (options: {
+    profile: string;
+    platform: "android" | "ios";
+    easConfig?: unknown;
+    generatedManifest?: unknown;
+  }) => {
+    status: string;
+    profile: string;
+    platform: string;
+    expectedDomain: string | null;
+    embeddedDomain: string | null;
+  };
   validateNativeHandoff: (options: {
     handoffReport?: unknown;
     appConfig?: unknown;
@@ -207,11 +225,26 @@ const {
   ) => string;
 };
 
-const { validateGeneratedAndroidIdentity } = require("../scripts/build.js") as {
+const {
+  runBuild,
+  attachRuntimeApiDomain,
+  validateGeneratedAndroidIdentity,
+} = require("../scripts/build.js") as {
+  runBuild: (options?: object) => Promise<unknown>;
+  attachRuntimeApiDomain: (
+    manifest: {
+      extra: { expoClient: { extra?: Record<string, unknown> } };
+    },
+    apiDomain?: string | null,
+  ) => {
+    extra: { expoClient: { extra: Record<string, unknown> } };
+  };
   validateGeneratedAndroidIdentity: (options?: {
     appConfig?: unknown;
     easConfig?: unknown;
     generatedManifest?: unknown;
+    profile?: string;
+    validateApiHost?: boolean;
   }) => {
     androidPackage: string;
     generatedAndroidPackage: string;
@@ -1767,16 +1800,112 @@ describe("release smoke check", () => {
         preview: {
           distribution: "internal",
           android: { buildType: "apk" },
+          env: { EXPO_PUBLIC_DOMAIN: "academy.example.com" },
         },
         production: {
           autoIncrement: true,
           android: { buildType: "app-bundle" },
+          env: { EXPO_PUBLIC_DOMAIN: "academy.example.com" },
         },
       },
     },
     generatedManifest: {
-      extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+      extra: {
+        expoClient: {
+          android: { package: "com.theacademy.mobile" },
+          extra: { academyApiDomain: "academy.example.com" },
+        },
+      },
     },
+  });
+
+  for (const profile of ["preview", "production"] as const) {
+    for (const platform of ["android", "ios"] as const) {
+      it(`matches the ${profile} EAS API host in the generated ${platform} runtime metadata`, () => {
+        const easConfig = readReleaseConfig();
+        const expectedDomain = getReleaseProfileApiDomain(
+          easConfig,
+          profile,
+        );
+
+        expect(
+          validateGeneratedRuntimeApiHost({
+            profile,
+            platform,
+            easConfig,
+            generatedManifest: {
+              extra: {
+                expoClient: {
+                  extra: { academyApiDomain: expectedDomain },
+                },
+              },
+            },
+          }),
+        ).toEqual({
+          status: "passed",
+          profile,
+          platform,
+          expectedDomain,
+          embeddedDomain: expectedDomain,
+        });
+      });
+    }
+  }
+
+  it("names the selected profile, expected host, and embedded host on runtime drift", () => {
+    const easConfig = readReleaseConfig();
+    const expectedDomain = getReleaseProfileApiDomain(
+      easConfig,
+      "production",
+    );
+
+    expect(() =>
+      validateGeneratedRuntimeApiHost({
+        profile: "production",
+        platform: "ios",
+        easConfig,
+        generatedManifest: {
+          extra: {
+            expoClient: {
+              extra: { academyApiDomain: "stale.example.com" },
+            },
+          },
+        },
+      }),
+    ).toThrow(
+      `[release-identity] API host drift for profile "production" on ios: expected "${expectedDomain}", embedded "stale.example.com" in generated runtime metadata.`,
+    );
+  });
+
+  it("allows offline-only profiles when generated runtime metadata has no API host", () => {
+    const easConfig = {
+      build: { development: { developmentClient: true } },
+    };
+
+    expect(
+      validateGeneratedRuntimeApiHost({
+        profile: "development",
+        platform: "android",
+        easConfig,
+        generatedManifest: {
+          extra: {
+            expoClient: {
+              extra: { academyApiDomain: null },
+            },
+          },
+        },
+      }),
+    ).toMatchObject({
+      status: "passed",
+      expectedDomain: null,
+      embeddedDomain: null,
+    });
+    expect(() =>
+      getReleaseProfileApiDomain(
+        { build: { preview: {} } },
+        "preview",
+      ),
+    ).toThrow(/must define build\.preview\.env\.EXPO_PUBLIC_DOMAIN/);
   });
 
   it("matches Android identity across app, EAS preview, and generated metadata", () => {
@@ -1831,10 +1960,28 @@ describe("release smoke check", () => {
   });
 
   it("matches Android identity across app, EAS production, and generated metadata", () => {
+    const easConfig = readReleaseConfig();
+    const generatedManifest = {
+      ...validIdentity().generatedManifest,
+      extra: {
+        ...validIdentity().generatedManifest.extra,
+        expoClient: {
+          ...validIdentity().generatedManifest.extra.expoClient,
+          extra: {
+            academyApiDomain: getReleaseProfileApiDomain(
+              easConfig,
+              "production",
+            ),
+          },
+        },
+      },
+    };
+
     expect(
       validateAndroidProductionIdentity({
         ...validIdentity(),
-        easConfig: readReleaseConfig(),
+        easConfig,
+        generatedManifest,
       }),
     ).toEqual({
       androidPackage: "com.theacademy.mobile",
@@ -1905,6 +2052,129 @@ describe("release smoke check", () => {
       previewDistribution: "internal",
       previewBuildType: "apk",
     });
+  });
+
+  it("records a configured or absent API host in generated runtime metadata", () => {
+    const manifest = {
+      extra: {
+        expoClient: {
+          extra: { router: { origin: "https://replit.com/" } },
+        },
+      },
+    };
+
+    expect(attachRuntimeApiDomain(manifest, "academy.example.com")).toEqual({
+      extra: {
+        expoClient: {
+          extra: {
+            router: { origin: "https://replit.com/" },
+            academyApiDomain: "academy.example.com",
+          },
+        },
+      },
+    });
+    expect(
+      attachRuntimeApiDomain(manifest, null).extra.expoClient.extra,
+    ).toMatchObject({
+      academyApiDomain: null,
+    });
+  });
+
+  it("builds with the selected EAS host and validates both generated platforms", async () => {
+    const startMetro = vi.fn(async (_apiDomain: string) => {});
+    const updateManifest = vi.fn(
+      (
+        _manifests: unknown,
+        _timestamp: string,
+        _baseUrl: string,
+        _assetsByHash: unknown,
+        _apiDomain: string | null,
+      ) => {},
+    );
+    const validateAndroid = vi.fn((_options: unknown) => {});
+    const validateIos = vi.fn((_options: unknown) => {});
+
+    await runBuild({
+      profile: "production",
+      getDeploymentDomainImpl: () => "static.example.com",
+      getReleaseProfileApiDomainImpl: () => "academy.example.com",
+      getExpoPublicReplIdImpl: () => undefined,
+      prepareDirectoriesImpl: () => {},
+      clearMetroCacheImpl: () => {},
+      startMetroImpl: startMetro,
+      downloadBundlesAndManifestsImpl: async () => ({
+        ios: {},
+        android: {},
+      }),
+      extractAssetsImpl: () => [],
+      downloadAssetsImpl: async () => 0,
+      updateBundleUrlsImpl: () => {},
+      updateManifestsImpl: updateManifest,
+      validateGeneratedAndroidIdentityImpl: validateAndroid,
+      validateGeneratedRuntimeApiHostImpl: validateIos,
+      timestamp: "host-validation-fixture",
+    });
+
+    expect(startMetro).toHaveBeenCalledWith(
+      "academy.example.com",
+      undefined,
+    );
+    expect(updateManifest).toHaveBeenCalledWith(
+      { ios: {}, android: {} },
+      "host-validation-fixture",
+      "https://static.example.com",
+      new Map(),
+      "academy.example.com",
+    );
+    expect(validateAndroid).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: "production",
+        validateApiHost: true,
+      }),
+    );
+    expect(validateIos).toHaveBeenCalledWith({
+      profile: "production",
+      platform: "ios",
+    });
+  });
+
+  it("keeps an explicitly offline build's API host unset", async () => {
+    const startMetro = vi.fn(async (_apiDomain: string) => {});
+    const updateManifest = vi.fn(
+      (
+        _manifests: unknown,
+        _timestamp: string,
+        _baseUrl: string,
+        _assetsByHash: unknown,
+        _apiDomain: string | null,
+      ) => {},
+    );
+    const validateRuntimeApiHost = vi.fn((_options: unknown) => {});
+
+    await runBuild({
+      profile: "development",
+      getDeploymentDomainImpl: () => "static.example.com",
+      getReleaseProfileApiDomainImpl: () => null,
+      getExpoPublicReplIdImpl: () => undefined,
+      prepareDirectoriesImpl: () => {},
+      clearMetroCacheImpl: () => {},
+      startMetroImpl: startMetro,
+      downloadBundlesAndManifestsImpl: async () => ({
+        ios: {},
+        android: {},
+      }),
+      extractAssetsImpl: () => [],
+      downloadAssetsImpl: async () => 0,
+      updateBundleUrlsImpl: () => {},
+      updateManifestsImpl: updateManifest,
+      validateGeneratedAndroidIdentityImpl: () => {},
+      validateGeneratedRuntimeApiHostImpl: validateRuntimeApiHost,
+      timestamp: "offline-build-fixture",
+    });
+
+    expect(startMetro).toHaveBeenCalledWith("", undefined);
+    expect(updateManifest.mock.calls[0]?.[4]).toBeNull();
+    expect(validateRuntimeApiHost).not.toHaveBeenCalled();
   });
 
   it("fails the static build identity step when regenerated metadata drifts", () => {

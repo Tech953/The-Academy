@@ -8,7 +8,12 @@ const {
   findAvailableMetroPort,
   getConfiguredMetroPort,
 } = require("./metro-port");
-const { validateAndroidPreviewIdentity } = require("./check-release");
+const {
+  getReleaseProfileApiDomain,
+  readReleaseConfig,
+  validateAndroidReleaseIdentity,
+  validateGeneratedRuntimeApiHost,
+} = require("./check-release");
 
 let metroProcess = null;
 let metroPort = null;
@@ -155,7 +160,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
   const env = {
     ...process.env,
-    EXPO_PUBLIC_DOMAIN: expoPublicDomain,
+    EXPO_PUBLIC_DOMAIN: expoPublicDomain || "",
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
   };
 
@@ -488,12 +493,41 @@ function updateBundleUrls(timestamp, baseUrl) {
   console.log("Updated bundle URLs");
 }
 
-function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
+function attachRuntimeApiDomain(manifest, apiDomain) {
+  if (!manifest?.extra?.expoClient) {
+    throw new Error("Generated Expo manifest is missing extra.expoClient.");
+  }
+
+  const expoClientExtra = manifest.extra.expoClient.extra;
+  manifest.extra.expoClient.extra = {
+    ...(expoClientExtra && typeof expoClientExtra === "object"
+      ? expoClientExtra
+      : {}),
+    academyApiDomain:
+      typeof apiDomain === "string" && apiDomain.trim()
+        ? apiDomain.trim()
+        : null,
+  };
+  return manifest;
+}
+
+function updateManifests(
+  manifests,
+  timestamp,
+  baseUrl,
+  assetsByHash,
+  apiDomain,
+) {
   const updateForPlatform = (platform, manifest) => {
-    if (!manifest.launchAsset || !manifest.extra) {
+    if (
+      !manifest.launchAsset ||
+      !manifest.extra ||
+      !manifest.extra.expoClient
+    ) {
       exitWithError(`Malformed manifest for ${platform}`);
     }
 
+    attachRuntimeApiDomain(manifest, apiDomain);
     manifest.launchAsset.url = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${platform}/bundle.js`;
     manifest.launchAsset.key = `bundle-${timestamp}`;
     manifest.createdAt = new Date(
@@ -530,16 +564,20 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
-function validateGeneratedAndroidIdentity(options) {
-  const identity = validateAndroidPreviewIdentity(options);
+function validateGeneratedAndroidIdentity(options = {}) {
+  const profile = options.profile || "preview";
+  const identity = validateAndroidReleaseIdentity(profile, options);
   console.log(
-    `[release-identity] Android package ${identity.androidPackage} matches app.json, EAS preview APK settings, and generated metadata.`,
+    `[release-identity] Android package ${identity.androidPackage} matches app.json, EAS ${profile} settings, and generated metadata.`,
   );
   return identity;
 }
 
 async function runBuild({
+  profile = process.env.RELEASE_PROFILE,
   getDeploymentDomainImpl = getDeploymentDomain,
+  getReleaseProfileApiDomainImpl = (selectedProfile) =>
+    getReleaseProfileApiDomain(readReleaseConfig(), selectedProfile),
   getExpoPublicReplIdImpl = getExpoPublicReplId,
   prepareDirectoriesImpl = prepareDirectories,
   clearMetroCacheImpl = clearMetroCache,
@@ -550,17 +588,23 @@ async function runBuild({
   updateBundleUrlsImpl = updateBundleUrls,
   updateManifestsImpl = updateManifests,
   validateGeneratedAndroidIdentityImpl = validateGeneratedAndroidIdentity,
+  validateGeneratedRuntimeApiHostImpl = validateGeneratedRuntimeApiHost,
   identityOptions,
   timestamp = `${Date.now()}-${process.pid}`,
 } = {}) {
   const domain = getDeploymentDomainImpl();
+  const apiDomain = profile
+    ? getReleaseProfileApiDomainImpl(profile)
+    : domain;
+  const selectedReleaseProfile =
+    profile === "preview" || profile === "production" ? profile : null;
   const expoPublicReplId = getExpoPublicReplIdImpl();
   const baseUrl = `https://${domain}`;
 
   prepareDirectoriesImpl(timestamp);
   clearMetroCacheImpl();
 
-  await startMetroImpl(domain, expoPublicReplId);
+  await startMetroImpl(apiDomain || "", expoPublicReplId);
 
   const downloadTimeout = 600000;
   const downloadPromise = downloadBundlesAndManifestsImpl(timestamp);
@@ -602,10 +646,33 @@ async function runBuild({
   }
 
   console.log("Updating manifests and creating landing page...");
-  updateManifestsImpl(manifests, timestamp, baseUrl, assetsByHash);
-  validateGeneratedAndroidIdentityImpl(identityOptions);
+  updateManifestsImpl(
+    manifests,
+    timestamp,
+    baseUrl,
+    assetsByHash,
+    apiDomain,
+  );
+  validateGeneratedAndroidIdentityImpl({
+    ...identityOptions,
+    ...(selectedReleaseProfile ? { profile: selectedReleaseProfile } : {}),
+    validateApiHost: Boolean(selectedReleaseProfile),
+  });
+  if (selectedReleaseProfile) {
+    validateGeneratedRuntimeApiHostImpl({
+      profile: selectedReleaseProfile,
+      platform: "ios",
+    });
+  }
 
-  return { domain, timestamp, manifests, assetCount };
+  return {
+    domain,
+    apiDomain,
+    profile: selectedReleaseProfile,
+    timestamp,
+    manifests,
+    assetCount,
+  };
 }
 
 async function main({
@@ -641,5 +708,6 @@ if (require.main === module) {
 module.exports = {
   main,
   runBuild,
+  attachRuntimeApiDomain,
   validateGeneratedAndroidIdentity,
 };
