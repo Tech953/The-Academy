@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import * as fs from "node:fs";
 import {
@@ -1001,6 +1001,174 @@ function archiveReleaseSummary(summary: {
   }
 }
 
+const concurrentReportWriterScript = String.raw`
+const fs = require("node:fs");
+const { writeReleaseReport } = require(process.env.ACADEMY_RELEASE_CHECK_SCRIPT);
+const readyPath = process.env.ACADEMY_REPORT_READY_PATH;
+const releasePath = process.env.ACADEMY_REPORT_RELEASE_PATH;
+const report = JSON.parse(process.env.ACADEMY_REPORT_PAYLOAD);
+const invalidJson = process.env.ACADEMY_REPORT_WRITER_INVALID === "1";
+const waitCell = new Int32Array(new SharedArrayBuffer(4));
+
+function waitForRelease() {
+  const deadline = Date.now() + 15000;
+  while (!fs.existsSync(releasePath)) {
+    if (Date.now() >= deadline) {
+      throw new Error("Timed out waiting for the parent test to release this writer.");
+    }
+    Atomics.wait(waitCell, 0, 0, 10);
+  }
+}
+
+try {
+  writeReleaseReport(process.env.ACADEMY_REPORT_PATH, report, {
+    writeFileSyncImpl(filePath, data, encoding) {
+      fs.writeFileSync(filePath, invalidJson ? '{"partial":' : data, encoding);
+      fs.writeFileSync(readyPath, "ready", "utf8");
+      waitForRelease();
+    },
+  });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}
+`;
+
+function startConcurrentReportWriter({
+  reportPath,
+  barrierDirectory,
+  writerId,
+  payload,
+  invalidJson = false,
+}: {
+  reportPath: string;
+  barrierDirectory: string;
+  writerId: string;
+  payload: Record<string, unknown>;
+  invalidJson?: boolean;
+}) {
+  const readyPath = path.join(barrierDirectory, `${writerId}.ready`);
+  const releasePath = path.join(barrierDirectory, `${writerId}.release`);
+  const child = spawn(process.execPath, ["-e", concurrentReportWriterScript], {
+    cwd: path.resolve(__dirname, ".."),
+    env: {
+      ...process.env,
+      ACADEMY_RELEASE_CHECK_SCRIPT: checkReleasePath,
+      ACADEMY_REPORT_PATH: reportPath,
+      ACADEMY_REPORT_PAYLOAD: JSON.stringify(payload),
+      ACADEMY_REPORT_READY_PATH: readyPath,
+      ACADEMY_REPORT_RELEASE_PATH: releasePath,
+      ACADEMY_REPORT_WRITER_INVALID: invalidJson ? "1" : "0",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  let closed = false;
+  child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+    stdout += chunk;
+  });
+  child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+  const completion = new Promise<{
+    exitCode: number | null;
+    stdout: string;
+    stderr: string;
+  }>((resolve) => {
+    child.once("error", (error) => {
+      closed = true;
+      stderr += error.message;
+      resolve({ exitCode: null, stdout, stderr });
+    });
+    child.once("close", (exitCode) => {
+      closed = true;
+      resolve({ exitCode, stdout, stderr });
+    });
+  });
+
+  return {
+    child,
+    readyPath,
+    releasePath,
+    completion,
+    get closed() {
+      return closed;
+    },
+  };
+}
+
+type ConcurrentReportWriter = ReturnType<typeof startConcurrentReportWriter>;
+
+async function waitForConcurrentReportWritersReady(
+  writers: ConcurrentReportWriter[],
+) {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    const exitedWriter = writers.find((writer) => writer.closed);
+    if (exitedWriter) {
+      const result = await exitedWriter.completion;
+      throw new Error(
+        `Concurrent report writer exited before staging its temp file: ${result.stderr}`,
+      );
+    }
+    if (writers.every((writer) => existsSync(writer.readyPath))) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for concurrent report writers to stage.");
+}
+
+function reportTemporaryFiles(reportDirectory: string) {
+  return readdirSync(reportDirectory).filter((name) =>
+    name.startsWith("release.json.tmp-"),
+  );
+}
+
+function expectArchiveMatchesOneOf(
+  reportPath: string,
+  payloads: Record<string, unknown>[],
+) {
+  const archived = JSON.parse(readFileSync(reportPath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  const matchesPayload = payloads.some((payload) =>
+    Object.entries(payload).every(([key, value]) => archived[key] === value),
+  );
+  expect(matchesPayload).toBe(true);
+  expect(archived.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
+  expect(typeof archived.generatedAt).toBe("string");
+  return archived;
+}
+
+async function releaseConcurrentWriterAndObserveArchive(
+  writer: ConcurrentReportWriter,
+  reportPath: string,
+  possiblePayloads: Record<string, unknown>[],
+) {
+  writeFileSync(writer.releasePath, "release", "utf8");
+  const deadline = Date.now() + 12_000;
+  do {
+    expectArchiveMatchesOneOf(reportPath, possiblePayloads);
+    if (writer.closed) {
+      return await writer.completion;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2));
+  } while (Date.now() < deadline);
+  throw new Error("Timed out waiting for a concurrent report writer to finish.");
+}
+
+async function stopConcurrentReportWriters(writers: ConcurrentReportWriter[]) {
+  for (const writer of writers) {
+    if (!writer.closed) {
+      writer.child.kill("SIGKILL");
+    }
+  }
+  await Promise.allSettled(writers.map((writer) => writer.completion));
+}
+
 describe("release report archival", () => {
   it("cleans stale temps while preserving the archive and active writers", () => {
     const reportDirectory = mkdtempSync(
@@ -1048,6 +1216,154 @@ describe("release report archival", () => {
       expect(readFileSync(unrelatedTemporaryPath, "utf8")).toBe('{"other":true}');
       expect(readdirSync(reportDirectory)).toHaveLength(3);
     } finally {
+      rmSync(reportDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("publishes two concurrent complete reports without leaving temp files", async () => {
+    const reportDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-report-concurrent-success-"),
+    );
+    const barrierDirectory = path.join(reportDirectory, "barriers");
+    const reportPath = path.join(reportDirectory, "release.json");
+    const initialPayload = {
+      command: "check-release concurrent baseline",
+      status: "passed",
+      writer: "initial",
+    };
+    const firstPayload = {
+      command: "check-release concurrent writer",
+      status: "passed",
+      writer: "first",
+      payloadMarker: "first-payload-is-complete",
+    };
+    const secondPayload = {
+      command: "check-release concurrent writer",
+      status: "failed",
+      writer: "second",
+      payloadMarker: "second-payload-is-complete",
+    };
+    const writers: ConcurrentReportWriter[] = [];
+    fs.mkdirSync(barrierDirectory, { recursive: true });
+    writeReleaseReport(reportPath, initialPayload);
+
+    try {
+      const firstWriter = startConcurrentReportWriter({
+        reportPath,
+        barrierDirectory,
+        writerId: "first",
+        payload: firstPayload,
+      });
+      writers.push(firstWriter);
+      await waitForConcurrentReportWritersReady([firstWriter]);
+
+      const secondWriter = startConcurrentReportWriter({
+        reportPath,
+        barrierDirectory,
+        writerId: "second",
+        payload: secondPayload,
+      });
+      writers.push(secondWriter);
+      await waitForConcurrentReportWritersReady(writers);
+
+      expect(firstWriter.closed).toBe(false);
+      expect(secondWriter.closed).toBe(false);
+      expect(reportTemporaryFiles(reportDirectory)).toHaveLength(2);
+      expectArchiveMatchesOneOf(reportPath, [initialPayload]);
+
+      const firstResult = await releaseConcurrentWriterAndObserveArchive(
+        firstWriter,
+        reportPath,
+        [initialPayload, firstPayload],
+      );
+      expect(firstResult.exitCode).toBe(0);
+      expectArchiveMatchesOneOf(reportPath, [firstPayload]);
+      expect(secondWriter.closed).toBe(false);
+      expect(reportTemporaryFiles(reportDirectory)).toHaveLength(1);
+
+      const secondResult = await releaseConcurrentWriterAndObserveArchive(
+        secondWriter,
+        reportPath,
+        [firstPayload, secondPayload],
+      );
+      expect(secondResult.exitCode).toBe(0);
+      expectArchiveMatchesOneOf(reportPath, [secondPayload]);
+      expect(reportTemporaryFiles(reportDirectory)).toEqual([]);
+    } finally {
+      await stopConcurrentReportWriters(writers);
+      rmSync(reportDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps a valid archive when a concurrent writer fails and cleans both temps", async () => {
+    const reportDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-report-concurrent-failure-"),
+    );
+    const barrierDirectory = path.join(reportDirectory, "barriers");
+    const reportPath = path.join(reportDirectory, "release.json");
+    const initialPayload = {
+      command: "check-release concurrent baseline",
+      status: "passed",
+      writer: "initial",
+    };
+    const successfulPayload = {
+      command: "check-release concurrent writer",
+      status: "passed",
+      writer: "successful",
+      payloadMarker: "valid-writer-payload-is-complete",
+    };
+    const failedPayload = {
+      command: "check-release concurrent writer",
+      status: "failed",
+      writer: "failed",
+      payloadMarker: "this-writer-will-stage-invalid-json",
+    };
+    const writers: ConcurrentReportWriter[] = [];
+    fs.mkdirSync(barrierDirectory, { recursive: true });
+    writeReleaseReport(reportPath, initialPayload);
+
+    try {
+      const successfulWriter = startConcurrentReportWriter({
+        reportPath,
+        barrierDirectory,
+        writerId: "successful",
+        payload: successfulPayload,
+      });
+      writers.push(successfulWriter);
+      await waitForConcurrentReportWritersReady([successfulWriter]);
+
+      const failedWriter = startConcurrentReportWriter({
+        reportPath,
+        barrierDirectory,
+        writerId: "failed",
+        payload: failedPayload,
+        invalidJson: true,
+      });
+      writers.push(failedWriter);
+      await waitForConcurrentReportWritersReady(writers);
+
+      expect(reportTemporaryFiles(reportDirectory)).toHaveLength(2);
+      const successResult = await releaseConcurrentWriterAndObserveArchive(
+        successfulWriter,
+        reportPath,
+        [initialPayload, successfulPayload],
+      );
+      expect(successResult.exitCode).toBe(0);
+      expectArchiveMatchesOneOf(reportPath, [successfulPayload]);
+      expect(failedWriter.closed).toBe(false);
+      expect(reportTemporaryFiles(reportDirectory)).toHaveLength(1);
+
+      const failureResult = await releaseConcurrentWriterAndObserveArchive(
+        failedWriter,
+        reportPath,
+        [successfulPayload],
+      );
+      expect(failureResult.exitCode).toBe(1);
+      expect(failureResult.stderr).toMatch(/Could not archive report/);
+      expectArchiveMatchesOneOf(reportPath, [successfulPayload]);
+      expect(reportTemporaryFiles(reportDirectory)).toEqual([]);
+    } finally {
+      await stopConcurrentReportWriters(writers);
       rmSync(reportDirectory, { recursive: true, force: true });
     }
   });
