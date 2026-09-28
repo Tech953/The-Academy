@@ -85,19 +85,21 @@ function getDeploymentDomain() {
   process.exit(1);
 }
 
-function prepareDirectories(timestamp) {
+function prepareDirectories(
+  timestamp,
+  staticBuildDirectory = path.join(projectRoot, "static-build"),
+) {
   console.log("Preparing build directories...");
 
-  const staticBuild = path.join(projectRoot, "static-build");
-  if (fs.existsSync(staticBuild)) {
-    fs.rmSync(staticBuild, { recursive: true });
+  if (fs.existsSync(staticBuildDirectory)) {
+    fs.rmSync(staticBuildDirectory, { recursive: true });
   }
 
   const dirs = [
-    path.join(staticBuild, timestamp, "_expo", "static", "js", "ios"),
-    path.join(staticBuild, timestamp, "_expo", "static", "js", "android"),
-    path.join(staticBuild, "ios"),
-    path.join(staticBuild, "android"),
+    path.join(staticBuildDirectory, timestamp, "_expo", "static", "js", "ios"),
+    path.join(staticBuildDirectory, timestamp, "_expo", "static", "js", "android"),
+    path.join(staticBuildDirectory, "ios"),
+    path.join(staticBuildDirectory, "android"),
   ];
 
   for (const dir of dirs) {
@@ -708,6 +710,7 @@ if (require.main === module) {
 module.exports = {
   main,
   runBuild,
+  prepareDirectories,
   attachRuntimeApiDomain,
   validateGeneratedAndroidIdentity,
 };

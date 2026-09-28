@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -868,29 +869,50 @@ function runStaticBuildIdentitySubprocess({
     path.join(tmpdir(), "academy-static-build-identity-"),
   );
   const fixtureScriptPath = path.join(fixtureDirectory, "run-build-fixture.cjs");
+  const staticBuildDirectory = path.join(fixtureDirectory, "static-build");
   const androidManifestPath = path.join(
-    fixtureDirectory,
-    "android-manifest.json",
+    staticBuildDirectory,
+    "android",
+    "manifest.json",
   );
-  const iosManifestPath = path.join(fixtureDirectory, "ios-manifest.json");
+  const iosManifestPath = path.join(
+    staticBuildDirectory,
+    "ios",
+    "manifest.json",
+  );
   const resultPath = path.join(fixtureDirectory, "build-result.json");
+  mkdirSync(path.dirname(androidManifestPath), { recursive: true });
+  writeFileSync(
+    androidManifestPath,
+    JSON.stringify({
+      generatedFor: "previous-build",
+      extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+    }),
+    "utf8",
+  );
 
   writeFileSync(
     fixtureScriptPath,
     `const fs = require("node:fs");
 const {
   main,
+  prepareDirectories,
   validateGeneratedAndroidIdentity,
 } = require(${JSON.stringify(buildScriptPath)});
+const staticBuildDirectory = ${JSON.stringify(staticBuildDirectory)};
 const androidManifestPath = ${JSON.stringify(androidManifestPath)};
 const iosManifestPath = ${JSON.stringify(iosManifestPath)};
 const resultPath = ${JSON.stringify(resultPath)};
 const events = [];
 let buildResult = null;
+let staleAndroidManifestBeforePrepare = null;
+let staleAndroidManifestRemovedByPrepare = false;
 const originalConsoleLog = console.log.bind(console);
 const originalProcessExit = process.exit.bind(process);
 const readBuildDetails = () => ({
   events,
+  staleAndroidManifestBeforePrepare,
+  staleAndroidManifestRemovedByPrepare,
   manifest: JSON.parse(fs.readFileSync(androidManifestPath, "utf8")),
   iosManifest: JSON.parse(fs.readFileSync(iosManifestPath, "utf8")),
   buildResult,
@@ -936,7 +958,14 @@ main({
   getDeploymentDomainImpl: () => "fixture.example.com",
   getReleaseProfileApiDomainImpl: () => null,
   getExpoPublicReplIdImpl: () => undefined,
-  prepareDirectoriesImpl: () => events.push("prepare"),
+  prepareDirectoriesImpl: (timestamp) => {
+    staleAndroidManifestBeforePrepare = JSON.parse(
+      fs.readFileSync(androidManifestPath, "utf8"),
+    );
+    events.push("prepare");
+    prepareDirectories(timestamp, staticBuildDirectory);
+    staleAndroidManifestRemovedByPrepare = !fs.existsSync(androidManifestPath);
+  },
   clearMetroCacheImpl: () => events.push("clear-cache"),
   startMetroImpl: async () => events.push("start-metro"),
   downloadBundlesAndManifestsImpl: async () => {
@@ -2975,6 +3004,11 @@ describe("release smoke check", () => {
       expect(marker).not.toBeNull();
       const details = JSON.parse(marker?.[1] ?? "") as {
         events: string[];
+        staleAndroidManifestBeforePrepare: {
+          generatedFor: string;
+          extra: { expoClient: { android: { package: string } } };
+        };
+        staleAndroidManifestRemovedByPrepare: boolean;
         manifest: {
           generatedFor: string;
           extra: { expoClient: { android: { package: string } } };
@@ -2994,6 +3028,11 @@ describe("release smoke check", () => {
         "write-manifests",
         "validate-identity",
       ]);
+      expect(details.staleAndroidManifestBeforePrepare).toMatchObject({
+        generatedFor: "previous-build",
+        extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+      });
+      expect(details.staleAndroidManifestRemovedByPrepare).toBe(true);
       expect(details.manifest.generatedFor).toBe("android");
       expect(details.manifest.extra.expoClient.android.package).toBe(
         "com.theacademy.drifted",
@@ -3026,6 +3065,11 @@ describe("release smoke check", () => {
 
       const details = JSON.parse(readFileSync(resultPath, "utf8")) as {
         events: string[];
+        staleAndroidManifestBeforePrepare: {
+          generatedFor: string;
+          extra: { expoClient: { android: { package: string } } };
+        };
+        staleAndroidManifestRemovedByPrepare: boolean;
         manifest: {
           generatedFor: string;
           extra: { expoClient: { android: { package: string } } };
@@ -3052,6 +3096,11 @@ describe("release smoke check", () => {
         "build-complete",
         "exit-0",
       ]);
+      expect(details.staleAndroidManifestBeforePrepare).toMatchObject({
+        generatedFor: "previous-build",
+        extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+      });
+      expect(details.staleAndroidManifestRemovedByPrepare).toBe(true);
       expect(details.manifest).toMatchObject({
         generatedFor: "android",
         extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
