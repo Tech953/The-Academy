@@ -48,6 +48,12 @@ import citationIconImg from '@assets/image_1773123805034.png';
 import notebookIconImg from '@assets/image_1773123912858.png';
 import { PostItWidget } from './widgets/PostItWidget';
 import { CalendarEventsWidget } from './widgets/CalendarEventsWidget';
+import {
+  DESKTOP_GRID,
+  getDefaultIconPositions,
+  gridToPixel,
+  pixelToGrid,
+} from './desktopGrid';
 import { RssFeedWidget } from './widgets/RssFeedWidget';
 
 interface WindowState {
@@ -87,16 +93,19 @@ interface DesktopIconConfig {
   imageIcon?: string;
 }
 
-const GRID_CELL_W = 104;
-const GRID_CELL_H = 88;
-const GRID_MARGIN_X = 16;
-const GRID_MARGIN_Y = 12;
-const TASKBAR_RESERVE = 60;
-const ICON_W = 92;
-const ICON_H = 82;
+const {
+  cellWidth: GRID_CELL_W,
+  cellHeight: GRID_CELL_H,
+  marginX: GRID_MARGIN_X,
+  marginY: GRID_MARGIN_Y,
+  taskbarReserve: TASKBAR_RESERVE,
+  iconWidth: ICON_W,
+  iconHeight: ICON_H,
+  collisionGap: COLLISION_GAP,
+} = DESKTOP_GRID;
 // Bump this when the layout contract changes so a broken saved arrangement
 // cannot survive a reset of the desktop icon grid.
-const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v11';
+const DESKTOP_POSITIONS_KEY = 'academy-desktop-positions-v12';
 const WALLPAPER_KEY = 'academy-desktop-wallpaper';
 
 export const WALLPAPER_PRESETS = [
@@ -121,20 +130,6 @@ export function setWallpaperStore(val: string | null) {
   } catch {/* ignore */}
 }
 
-function gridToPixel(col: number, row: number): { x: number; y: number } {
-  return {
-    x: GRID_MARGIN_X + col * GRID_CELL_W,
-    y: GRID_MARGIN_Y + row * GRID_CELL_H,
-  };
-}
-
-function pixelToGrid(x: number, y: number): { col: number; row: number } {
-  return {
-    col: Math.max(0, Math.round((x - GRID_MARGIN_X) / GRID_CELL_W)),
-    row: Math.max(0, Math.round((y - GRID_MARGIN_Y) / GRID_CELL_H)),
-  };
-}
-
 // Align to 8px soft grid, clamp to viewport — no column constraint
 function snapPixelToGrid(x: number, y: number, vw: number, vh: number): { x: number; y: number } {
   const SNAP = 8;
@@ -143,8 +138,6 @@ function snapPixelToGrid(x: number, y: number, vw: number, vh: number): { x: num
     y: Math.max(4, Math.min(vh - ICON_H - TASKBAR_RESERVE, Math.round(y / SNAP) * SNAP)),
   };
 }
-
-const COLLISION_GAP = 8;
 
 function getItemBounds(id: string): { w: number; h: number } {
   const WIDGET_SIZES: Record<string, { w: number; h: number }> = {
@@ -186,8 +179,8 @@ function findNearestFreePosition(
     });
 
   if (isIcon) {
-    // Free-form search: try the target first, then spiral outward in pixel steps
-    const STEP = ICON_W + COLLISION_GAP; // ~100px per search ring
+    // Preserve free-form placement, but search outward in the same safe cells
+    // used by the default layout so collision recovery cannot drift off-grid.
     const clampX = (px: number) => Math.max(4, Math.min(vw - w - 4, px));
     const clampY = (py: number) => Math.max(4, Math.min(vh - h - TASKBAR_RESERVE, py));
     const cx = clampX(targetX);
@@ -197,11 +190,11 @@ function findNearestFreePosition(
     for (let ring = 1; ring <= 10; ring++) {
       const offsets: [number, number][] = [];
       for (let i = -ring; i <= ring; i++) {
-        offsets.push([i * STEP, -ring * STEP]);
-        offsets.push([i * STEP,  ring * STEP]);
+        offsets.push([i * GRID_CELL_W, -ring * GRID_CELL_H]);
+        offsets.push([i * GRID_CELL_W,  ring * GRID_CELL_H]);
         if (Math.abs(i) < ring) {
-          offsets.push([-ring * STEP, i * STEP]);
-          offsets.push([ ring * STEP, i * STEP]);
+          offsets.push([-ring * GRID_CELL_W, i * GRID_CELL_H]);
+          offsets.push([ ring * GRID_CELL_W, i * GRID_CELL_H]);
         }
       }
       for (const [dx, dy] of offsets) {
@@ -282,34 +275,18 @@ const AMBIENT_WIDGETS: AmbientWidgetDef[] = [
   { id: 'w-note',     widgetType: 'post-it',      defaultCol: 6,  defaultRow: 0, widgetWidth: 130, widgetHeight: 110 },
   // Events: further right, off-screen in narrow viewports (intentional ambient)
   { id: 'w-events',   widgetType: 'event-cal',    defaultCol: 8,  defaultRow: 0, widgetWidth: 170, widgetHeight: 180 },
-  // RSS: below the note, starts at row 2 so top is ~y=188, fully visible in 720px+ tall viewports
+  // RSS: below the note, starts at row 2 so top is ~y=204, fully visible in 720px+ tall viewports
   { id: 'w-rss',      widgetType: 'rss-feed',     defaultCol: 6,  defaultRow: 2, widgetWidth: 210, widgetHeight: 200 },
 ];
 
-function getResponsiveIconColumns(vw: number): number {
-  const gap = 8;
-  return Math.max(
-    1,
-    Math.min(6, Math.floor((vw - GRID_MARGIN_X * 2 + gap) / (ICON_W + gap))),
+function getDefaultPositions(vw = window.innerWidth): Record<string, { x: number; y: number }> {
+  const positions = getDefaultIconPositions(
+    DESKTOP_ICONS.map((icon) => icon.id),
+    vw,
   );
-}
-
-function getDefaultPositions(
-  vw = window.innerWidth,
-  vh = window.innerHeight,
-): Record<string, { x: number; y: number }> {
-  const positions: Record<string, { x: number; y: number }> = {};
-  const columns = getResponsiveIconColumns(vw);
-  DESKTOP_ICONS.forEach((icon, index) => {
-    positions[icon.id] = gridToPixel(
-      index % columns,
-      Math.floor(index / columns),
-    );
-  });
   AMBIENT_WIDGETS.forEach(w => {
     positions[w.id] = gridToPixel(w.defaultCol, w.defaultRow);
   });
-  void vh;
   return positions;
 }
 
@@ -325,7 +302,7 @@ function normalizeDesktopPositions(
   vw: number,
   vh: number,
 ): Record<string, { x: number; y: number }> {
-  const defaults = getDefaultPositions(vw, vh);
+  const defaults = getDefaultPositions(vw);
   const candidates = { ...defaults, ...rawPositions };
   const normalized: Record<string, { x: number; y: number }> = {};
 
@@ -1460,7 +1437,18 @@ export default function NeoCrtDesktopShell() {
 
   useEffect(() => {
     const handleResize = () => {
-      setViewport({ width: window.innerWidth, height: window.innerHeight });
+      const nextViewport = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+      setViewport(nextViewport);
+      setIconPositions((positions) =>
+        normalizeDesktopPositions(
+          positions,
+          nextViewport.width,
+          nextViewport.height,
+        ),
+      );
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
