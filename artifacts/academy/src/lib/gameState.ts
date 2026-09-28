@@ -109,6 +109,7 @@ export interface GameState {
 export class GameStateManager {
   private gameState: GameState | null = null;
   private saveTimeout: NodeJS.Timeout | null = null;
+  private saveQueue: Promise<void> = Promise.resolve();
 
   constructor() {}
 
@@ -386,35 +387,44 @@ export class GameStateManager {
 
   // Save game state to server
   async saveGame(endCurrentSession: boolean = false): Promise<boolean> {
-    if (!this.gameState) return false;
+    const gameState = this.gameState;
+    if (!gameState) return false;
 
     // End session before final save if requested
-    if (endCurrentSession && this.gameState.engagementAnalytics.sessionStats.currentSessionStart) {
+    if (endCurrentSession && gameState.engagementAnalytics.sessionStats.currentSessionStart) {
       this.endSession();
     }
 
-    try {
-      const response = await fetch('/api/game/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          characterId: this.gameState.character.id,
-          gameState: this.gameState
-        })
-      });
+    const savePromise = this.saveQueue.then(async () => {
+      try {
+        const response = await fetch('/api/game/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            characterId: gameState.character.id,
+            gameState
+          })
+        });
 
-      if (response.ok) {
-        this.gameState.lastSaveTime = new Date();
-        return true;
+        if (response.ok) {
+          gameState.lastSaveTime = new Date();
+          return true;
+        }
+
+        return false;
+      } catch (error) {
+        console.error('Failed to save game:', error);
+        return false;
       }
+    });
+    this.saveQueue = savePromise.then(
+      () => undefined,
+      () => undefined,
+    );
 
-      return false;
-    } catch (error) {
-      console.error('Failed to save game:', error);
-      return false;
-    }
+    return await savePromise;
   }
 
   // Manual save

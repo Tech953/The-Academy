@@ -190,6 +190,93 @@ describe('GameStateManager Radiant save migration', () => {
     expect(manager.getRadiantAIState()).toBe(state.radiantAIState);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('serializes a later manual save behind a pending migration save', async () => {
+    const legacyRadiantState = JSON.stringify({
+      schemaVersion: 1,
+      npcs: [],
+      events: [{ type: 'exam', name: 'Legacy exam' }],
+      factions: [],
+      tickCounter: 2,
+    });
+    let signalFirstSaveStarted!: () => void;
+    let releaseFirstSave!: (response: { ok: boolean }) => void;
+    const firstSaveStarted = new Promise<void>((resolve) => {
+      signalFirstSaveStarted = resolve;
+    });
+    const saveBodies: Array<{
+      characterId: string;
+      gameState: Record<string, unknown>;
+    }> = [];
+    let persistedGameState: Record<string, unknown> | null = null;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === `/api/game/load/${character.id}`) {
+        return {
+          ok: true,
+          json: async () => cloneJson({ character, radiantAIState: legacyRadiantState }),
+        };
+      }
+      if (url === '/api/game/save') {
+        const requestBody = JSON.parse(String(init?.body)) as {
+          characterId: string;
+          gameState: Record<string, unknown>;
+        };
+        saveBodies.push(cloneJson(requestBody));
+        if (saveBodies.length === 1) {
+          signalFirstSaveStarted();
+          await new Promise<{ ok: boolean }>((resolve) => {
+            releaseFirstSave = resolve;
+          });
+        }
+        persistedGameState = cloneJson(requestBody.gameState);
+        return { ok: true };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const manager = new GameStateManager();
+    const initializationPromise = manager.initializeGame(character);
+    await firstSaveStarted;
+
+    const laterRadiantAIState = JSON.stringify({
+      schemaVersion: 2,
+      npcs: [],
+      events: [{ type: 'academic', name: 'Later update' }],
+      factions: [],
+      tickCounter: 3,
+    });
+    manager.setRadiantAIState(laterRadiantAIState);
+    const laterSavePromise = manager.manualSave();
+
+    await Promise.resolve();
+    expect(saveBodies).toHaveLength(1);
+
+    releaseFirstSave({ ok: true });
+    const [, laterSaveSucceeded] = await Promise.all([
+      initializationPromise,
+      laterSavePromise,
+    ]);
+
+    expect(saveBodies).toHaveLength(2);
+    expect(laterSaveSucceeded).toBe(true);
+    expect(JSON.parse(String(saveBodies[0].gameState.radiantAIState))).toMatchObject({
+      schemaVersion: 2,
+      events: [{ type: 'academic', name: 'Legacy exam' }],
+    });
+    expect(JSON.parse(String(saveBodies[1].gameState.radiantAIState))).toMatchObject({
+      schemaVersion: 2,
+      events: [{ type: 'academic', name: 'Later update' }],
+    });
+    expect(persistedGameState).not.toBeNull();
+    expect(
+      JSON.parse(String(persistedGameState?.radiantAIState)),
+    ).toMatchObject({
+      schemaVersion: 2,
+      events: [{ type: 'academic', name: 'Later update' }],
+    });
+  });
 });
 
 describe('GameStateManager GED subject labels', () => {
