@@ -3113,6 +3113,184 @@ describe("release smoke check", () => {
     }
   });
 
+  it("retries a timed-out local AI request and archives recovered attempt counts", async () => {
+    let healthRequests = 0;
+    let aiRequests = 0;
+    const server = createServer((request, response) => {
+      const respond = (payload: object) => {
+        if (response.destroyed) return;
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify(payload));
+      };
+
+      if (request.url === "/api/healthz") {
+        healthRequests += 1;
+        respond({ status: "ok" });
+        return;
+      }
+
+      aiRequests += 1;
+      if (aiRequests === 1) {
+        setTimeout(() => respond({ description: "Recovered locally." }), 250);
+        return;
+      }
+      respond({ description: "Recovered locally." });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Local AI timeout fixture did not expose a port.");
+      }
+      const fetchImpl = ((url: string, init?: RequestInit) =>
+        fetch(
+          `http://127.0.0.1:${address.port}${new URL(url).pathname}`,
+          init,
+        )) as typeof fetch;
+
+      const result = await runReleaseSmokeChecks({
+        fetchImpl,
+        requestTimeoutMs: 50,
+        retryDelayMs: 0,
+        sleepImpl: async () => {},
+      });
+      const report = archiveReleaseSummary(
+        summarizeReleaseSmokeResult(result),
+      );
+      const summary = report.summary as {
+        status: string;
+        profiles: Array<{
+          profile: string;
+          healthAttempts: number;
+          aiAttempts: number;
+          recovered: boolean;
+          error: string | null;
+        }>;
+      };
+
+      expect(report.status).toBe("passed");
+      expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
+      expect(healthRequests).toBe(2);
+      expect(aiRequests).toBe(3);
+      expect(summary.status).toBe("passed");
+      expect(summary.profiles.find(({ profile }) => profile === "preview"))
+        .toMatchObject({
+          healthAttempts: 1,
+          aiAttempts: 2,
+          recovered: true,
+          error: null,
+        });
+      expect(summary.profiles.find(({ profile }) => profile === "production"))
+        .toMatchObject({
+          healthAttempts: 1,
+          aiAttempts: 1,
+          recovered: false,
+          error: null,
+        });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+        server.closeAllConnections?.();
+      });
+    }
+  });
+
+  it("bounds persistent local AI timeouts and archives the final AI error", async () => {
+    let healthRequests = 0;
+    let aiRequests = 0;
+    const server = createServer((request, response) => {
+      const respond = (payload: object) => {
+        if (response.destroyed) return;
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify(payload));
+      };
+
+      if (request.url === "/api/healthz") {
+        healthRequests += 1;
+        respond({ status: "ok" });
+        return;
+      }
+
+      aiRequests += 1;
+      setTimeout(
+        () => respond({ description: "Must not arrive before timeout." }),
+        250,
+      );
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Persistent AI timeout fixture did not expose a port.");
+      }
+      const fetchImpl = ((url: string, init?: RequestInit) =>
+        fetch(
+          `http://127.0.0.1:${address.port}${new URL(url).pathname}`,
+          init,
+        )) as typeof fetch;
+
+      const result = await runReleaseSmokeChecks({
+        fetchImpl,
+        requestTimeoutMs: 50,
+        retryDelayMs: 0,
+        sleepImpl: async () => {},
+      });
+      const report = archiveReleaseSummary(
+        summarizeReleaseSmokeResult(result),
+      );
+      const summary = report.summary as {
+        status: string;
+        profiles: Array<{
+          profile: string;
+          healthAttempts: number;
+          aiAttempts: number;
+          recovered: boolean;
+          error: string | null;
+        }>;
+      };
+      const preview = summary.profiles.find(
+        ({ profile }) => profile === "preview",
+      );
+      const production = summary.profiles.find(
+        ({ profile }) => profile === "production",
+      );
+
+      expect(report.status).toBe("failed");
+      expect(summary.status).toBe("failed");
+      expect(healthRequests).toBe(2);
+      expect(aiRequests).toBe(6);
+      expect(preview).toMatchObject({
+        healthAttempts: 1,
+        aiAttempts: 3,
+        recovered: false,
+        error: expect.stringMatching(
+          /^\[release-smoke\] AI enrichment check could not reach https:\/\/[^/]+\/api\/ai\/describe: This operation was aborted$/,
+        ),
+      });
+      expect(production).toMatchObject({
+        healthAttempts: 1,
+        aiAttempts: 3,
+        recovered: false,
+        error: expect.stringMatching(
+          /^\[release-smoke\] AI enrichment check could not reach https:\/\/[^/]+\/api\/ai\/describe: This operation was aborted$/,
+        ),
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+        server.closeAllConnections?.();
+      });
+    }
+  });
+
   it("checks every configured domain profile and reports each profile", async () => {
     const publishedDomain = getReleaseDomain(
       readReleaseConfig(),
