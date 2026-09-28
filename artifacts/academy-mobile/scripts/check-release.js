@@ -767,6 +767,32 @@ function didRetry(result) {
   );
 }
 
+function assertCurrentReleaseReportSchemaVersion(report, errorPrefix) {
+  const reportSchemaVersion = report.schemaVersion;
+  if (reportSchemaVersion === RELEASE_REPORT_SCHEMA_VERSION) {
+    return;
+  }
+
+  const isOlderSchemaVersion =
+    typeof reportSchemaVersion === "number" &&
+    reportSchemaVersion < RELEASE_REPORT_SCHEMA_VERSION;
+  const schemaVersionReason =
+    reportSchemaVersion === undefined || reportSchemaVersion === null
+      ? "schemaVersion is missing"
+      : isOlderSchemaVersion
+        ? `schemaVersion ${reportSchemaVersion} is older than the supported version`
+        : `schemaVersion ${JSON.stringify(reportSchemaVersion)} is unsupported`;
+  const compatibilityAction =
+    reportSchemaVersion === undefined || reportSchemaVersion === null
+      ? "Restore a versioned report or create one with current release tooling."
+      : isOlderSchemaVersion
+        ? `Use a checker that supports schemaVersion ${reportSchemaVersion}, or migrate a copy with the documented version-by-version process; the archived original is unchanged.`
+        : "Use a checker that supports this schema version or upgrade the release checker.";
+  throw new Error(
+    `${errorPrefix}: ${schemaVersionReason}; expected schemaVersion ${RELEASE_REPORT_SCHEMA_VERSION}. ${compatibilityAction}`,
+  );
+}
+
 function validateNativeHandoff({
   handoffReport,
   appConfig,
@@ -783,19 +809,10 @@ function validateNativeHandoff({
       "[release-handoff] Invalid handoff report: expected a JSON object.",
     );
   }
-  const reportSchemaVersion = report.schemaVersion;
-  if (reportSchemaVersion !== RELEASE_REPORT_SCHEMA_VERSION) {
-    const schemaVersionReason =
-      reportSchemaVersion === undefined || reportSchemaVersion === null
-        ? "schemaVersion is missing"
-        : typeof reportSchemaVersion === "number" &&
-            reportSchemaVersion < RELEASE_REPORT_SCHEMA_VERSION
-          ? `schemaVersion ${reportSchemaVersion} is older than the supported version`
-          : `schemaVersion ${JSON.stringify(reportSchemaVersion)} is unsupported`;
-    throw new Error(
-      `[release-handoff] Invalid handoff report: ${schemaVersionReason}; expected schemaVersion ${RELEASE_REPORT_SCHEMA_VERSION}.`,
-    );
-  }
+  assertCurrentReleaseReportSchemaVersion(
+    report,
+    "[release-handoff] Invalid handoff report",
+  );
   const resolvedAppConfig =
     appConfig ?? readJsonFile(APP_CONFIG_PATH, "app.json");
   const resolvedEasConfig =
@@ -1032,6 +1049,15 @@ function verifyInstallerChecksum({
   const report =
     handoffReport ??
     readJsonFile(handoffReportPath, "native handoff report");
+  if (!report || typeof report !== "object" || Array.isArray(report)) {
+    throw new Error(
+      "[release-checksum] Invalid handoff report: expected a JSON object.",
+    );
+  }
+  assertCurrentReleaseReportSchemaVersion(
+    report,
+    "[release-checksum] Invalid handoff report",
+  );
   const build = report?.build;
   const expectedChecksum = build?.installerSha256;
   const checksumSource = build?.installerSha256Source;

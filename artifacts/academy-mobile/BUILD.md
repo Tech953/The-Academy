@@ -148,10 +148,22 @@ preflight summary remain separate. Signal-terminated EAS processes record
 `easExitCode: null` and the signal in `easSignal`, with a termination-specific
 error message. The handoff validator requires the current schema version before
 reading handoff fields. Missing, older, and unsupported versions are reported as
-invalid handoff reports, not as build or connectivity failures; regenerate the
-report with the current release tooling before validating it.
+invalid handoff reports, not as build or connectivity failures.
 Future field additions, renames, removals, or incompatible shape changes
 require an intentional version increment and corresponding contract updates.
+
+### Archived report compatibility
+
+Archived smoke and handoff reports are immutable inputs: readers must check
+`schemaVersion` before reading fields and must never silently reinterpret or
+rewrite an older report. The current handoff and checksum validators support
+only the current schema version. They reject missing, older, and unsupported
+versions with an actionable error. Use a checker that supports the archived
+version, or migrate a copy through explicit one-version-at-a-time steps (`vN`
+to `vN+1`) before validation. Add a fixture and contract test for each version
+before enabling a migration; keep the original archive unchanged. Smoke reports
+are not currently read by the mobile release commands, but any consumer should
+follow the same version-check and explicit-migration policy.
 
 To run only this credential-free identity check without contacting the API:
 

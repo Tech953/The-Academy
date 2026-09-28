@@ -1599,6 +1599,23 @@ describe("release smoke check", () => {
     },
   });
 
+  const preBumpHandoffReportV7 = (): ReturnType<typeof validHandoffReport> => ({
+    schemaVersion: 7,
+    status: "completed",
+    platform: "android",
+    profile: "preview",
+    build: {
+      installerUrl: "https://example.invalid/academy-preview.apk?sig=redacted",
+      installerPath: null,
+      version: "1.0.0",
+      package: "com.theacademy.mobile",
+      profile: "preview",
+      timestamp: "2026-09-15T15:00:00.000Z",
+      buildId: "build-123",
+      buildDetailsPageUrl: "https://expo.dev/builds/build-123",
+    },
+  });
+
   it("accepts a complete preview APK handoff without contacting a device", () => {
     const report = validHandoffReport();
     expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
@@ -1625,37 +1642,52 @@ describe("release smoke check", () => {
   it.each([
     {
       label: "missing",
-      schemaVersion: undefined,
+      createReport: () => {
+        const report = validHandoffReport();
+        delete report.schemaVersion;
+        return report;
+      },
       error: /schemaVersion is missing; expected schemaVersion \d+/,
     },
     {
-      label: "older",
-      schemaVersion: RELEASE_REPORT_SCHEMA_VERSION - 1,
-      error: /schemaVersion \d+ is older than the supported version; expected schemaVersion \d+/,
+      label: "pre-bump v7",
+      createReport: preBumpHandoffReportV7,
+      error: /schemaVersion 7 is older than the supported version; expected schemaVersion \d+.*checker that supports schemaVersion 7.*migrate a copy/s,
     },
     {
       label: "unsupported",
-      schemaVersion: RELEASE_REPORT_SCHEMA_VERSION + 1,
+      createReport: () => {
+        const report = validHandoffReport();
+        report.schemaVersion = RELEASE_REPORT_SCHEMA_VERSION + 1;
+        return report;
+      },
       error: /schemaVersion \d+ is unsupported; expected schemaVersion \d+/,
     },
   ])(
     "rejects a handoff report with a $label schema version",
-    ({ schemaVersion, error }) => {
-      const report = validHandoffReport();
-      if (schemaVersion === undefined) {
-        delete report.schemaVersion;
-      } else {
-        report.schemaVersion = schemaVersion;
-      }
-
+    ({ createReport, error }) => {
       expect(() =>
         validateNativeHandoff({
           ...validHandoffConfig(),
-          handoffReport: report,
+          handoffReport: createReport(),
         }),
       ).toThrow(error);
     },
   );
+
+  it("rejects a pre-bump v7 report before checksum metadata is read", () => {
+    const archivedReport = preBumpHandoffReportV7();
+
+    expect(() =>
+      verifyInstallerChecksum({
+        artifactPath: "/tmp/not-used-academy-preview.apk",
+        handoffReport: archivedReport,
+      }),
+    ).toThrow(
+      /release-checksum\] Invalid handoff report: schemaVersion 7 is older than the supported version; expected schemaVersion \d+.*checker that supports schemaVersion 7.*migrate a copy.*archived original is unchanged/s,
+    );
+    expect(archivedReport.schemaVersion).toBe(7);
+  });
 
   it("archives an unsupported handoff schema as an invalid report", () => {
     const report = validHandoffReport();
