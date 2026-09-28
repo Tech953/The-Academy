@@ -436,7 +436,12 @@ describe("mobile interface localization", () => {
 function createNativeHandoffSubprocessFixture({
   terminationSignal = "",
   easOutputProfile = "",
-}: { terminationSignal?: string; easOutputProfile?: string } = {}) {
+  checkOnly = false,
+}: {
+  terminationSignal?: string;
+  easOutputProfile?: string;
+  checkOnly?: boolean;
+} = {}) {
   const fixtureDirectory = mkdtempSync(
     path.join(tmpdir(), "academy-native-handoff-"),
   );
@@ -709,6 +714,7 @@ require.cache[require.resolve(checkReleasePath)].exports = {
     preloadPath,
     terminationSignal,
     easOutputProfile,
+    checkOnly,
   };
 }
 
@@ -746,6 +752,7 @@ function runNativeHandoffSubprocess(
        platform,
       "--profile",
        profile,
+       ...(fixture.checkOnly ? ["--check-only"] : []),
     ],
     {
       cwd: path.resolve(__dirname, ".."),
@@ -4629,6 +4636,65 @@ describe("release smoke check", () => {
       });
       expect(report.build.installerUrl).toMatch(/\.ipa$/);
       expect(report.build).not.toHaveProperty("androidVersionCode");
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("archives iOS check-only results without invoking EAS", () => {
+    const fixture = createNativeHandoffSubprocessFixture({ checkOnly: true });
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "passed",
+        "0",
+        "ios",
+        "production",
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        'Release connectivity passed for profile "production".',
+      );
+      expect(result.stdout).toContain(
+        "Check-only mode; EAS build was not started.",
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(false);
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        platform: string;
+        profile: string;
+        appId: string;
+        identity: { appId: string };
+        connectivity: { profile: string; domain: string };
+        summary: {
+          status: string;
+          profiles: Array<{ profile: string; status: string }>;
+        };
+      };
+      expect(report).toMatchObject({
+        status: "check-only",
+        platform: "ios",
+        profile: "production",
+        appId: "com.theacademy.mobile",
+        identity: { appId: "com.theacademy.mobile" },
+        connectivity: {
+          profile: "production",
+          domain: "production.example.com",
+        },
+        summary: {
+          status: "passed",
+          profiles: [
+            { profile: "preview", status: "passed" },
+            { profile: "production", status: "passed" },
+          ],
+        },
+      });
+      expect(report).not.toHaveProperty("build");
+      expect(report).not.toHaveProperty("easExitCode");
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
