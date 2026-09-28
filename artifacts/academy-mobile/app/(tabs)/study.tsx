@@ -9,7 +9,10 @@ import {
 } from "@/constants/locales";
 import { useGame } from "@/context/GameContext";
 import {
+  getContentPackCacheIssueCategory,
   getStudyAvailabilityNoticeStatus,
+  type ContentPackCacheDiagnostic,
+  type ContentPackCacheIssueCategory,
   type EnrichmentStatus,
 } from "@/lib/enrichmentStatus";
 import { useColors } from "@/hooks/useColors";
@@ -28,6 +31,16 @@ const SUBJECTS: { key: GEDSubjectKey; labelKey: MobileCopyKey }[] = [
   { key: "science", labelKey: "science" },
   { key: "social_studies", labelKey: "socialStudies" },
 ];
+
+const CACHE_ISSUE_CATEGORY_COPY_KEY: Record<
+  ContentPackCacheIssueCategory,
+  MobileCopyKey
+> = {
+  expiry: "bulletinCacheExpiry",
+  events: "bulletinCacheEvents",
+  unreadable: "bulletinCacheUnreadable",
+  metadata: "bulletinCacheMetadata",
+};
 
 function QuestionCard({
   question,
@@ -121,6 +134,7 @@ function QuestionCard({
 
 function StudyAvailabilityNotice({
   status,
+  cacheDiagnostic,
   isOnline,
   onRetry,
   retryLoading,
@@ -128,6 +142,7 @@ function StudyAvailabilityNotice({
   locale,
 }: {
   status: EnrichmentStatus;
+  cacheDiagnostic: ContentPackCacheDiagnostic | null;
   isOnline: boolean;
   onRetry?: () => void;
   retryLoading: boolean;
@@ -135,25 +150,45 @@ function StudyAvailabilityNotice({
   locale: string;
 }) {
   const noticeStatus = getStudyAvailabilityNoticeStatus(status, retrying);
-  if (noticeStatus === null) return null;
+  const cacheIssueCategory = cacheDiagnostic
+    ? getContentPackCacheIssueCategory(cacheDiagnostic.issueCodes)
+    : null;
+  const hasCacheDiagnostic = cacheIssueCategory !== null;
+  if (noticeStatus === null && !hasCacheDiagnostic) return null;
 
   return (
     <View style={styles.availabilityNotice}>
-      <Text style={styles.availabilityTitle}>
-        {noticeStatus === "retrying"
-          ? getMobileCopy("retryingLiveRefresh", locale)
-          : noticeStatus === "rate_limited"
-          ? getMobileCopy("liveRequestPaused", locale)
-          : noticeStatus === "fallback"
-          ? getMobileCopy("liveEnrichmentUnavailable", locale)
-          : getMobileCopy("offlineStudyMode", locale)}
-      </Text>
-      <Text style={styles.availabilityCopy}>
-        {noticeStatus === "rate_limited"
-          ? getMobileCopy("liveRequestsPausedCopy", locale)
-          : getMobileCopy("bundledStudyContentCopy", locale)}
-      </Text>
-      {noticeStatus === "fallback" && isOnline ? (
+      {noticeStatus !== null ? (
+        <>
+          <Text style={styles.availabilityTitle}>
+            {noticeStatus === "retrying"
+              ? getMobileCopy("retryingLiveRefresh", locale)
+              : noticeStatus === "rate_limited"
+                ? getMobileCopy("liveRequestPaused", locale)
+                : noticeStatus === "fallback"
+                  ? getMobileCopy("liveEnrichmentUnavailable", locale)
+                  : getMobileCopy("offlineStudyMode", locale)}
+          </Text>
+          <Text style={styles.availabilityCopy}>
+            {noticeStatus === "rate_limited"
+              ? getMobileCopy("liveRequestsPausedCopy", locale)
+              : getMobileCopy("bundledStudyContentCopy", locale)}
+          </Text>
+        </>
+      ) : null}
+      {hasCacheDiagnostic && cacheDiagnostic && cacheIssueCategory ? (
+        <Text style={styles.availabilityCopy}>
+          {getMobileCopy("bulletinCacheIssue", locale)}:{" "}
+          {getMobileCopy(
+            CACHE_ISSUE_CATEGORY_COPY_KEY[cacheIssueCategory],
+            locale,
+          )}{" "}
+          — {cacheDiagnostic.source}: {cacheDiagnostic.issueCodes.join(", ")}
+        </Text>
+      ) : null}
+      {isOnline &&
+      noticeStatus !== "rate_limited" &&
+      (noticeStatus === "fallback" || hasCacheDiagnostic) ? (
         <Pressable
           accessibilityLabel={getMobileCopy("retryLiveEnrichment", locale)}
           accessibilityRole="button"
@@ -181,6 +216,7 @@ export default function StudyScreen() {
     isOnline,
     enrichmentStatus,
     contentPackLoading,
+    contentPackCacheDiagnostic,
     day,
     week,
     studyProgress,
@@ -275,6 +311,7 @@ export default function StudyScreen() {
         <ScrollView contentContainerStyle={styles.listContent}>
           <StudyAvailabilityNotice
             status={enrichmentStatus}
+            cacheDiagnostic={contentPackCacheDiagnostic}
             isOnline={isOnline}
             onRetry={retryLiveRefresh}
             retryLoading={contentPackLoading}
@@ -369,6 +406,7 @@ export default function StudyScreen() {
       <ScrollView contentContainerStyle={styles.listContent}>
         <StudyAvailabilityNotice
           status={enrichmentStatus}
+          cacheDiagnostic={contentPackCacheDiagnostic}
           isOnline={isOnline}
           onRetry={retryLiveRefresh}
           retryLoading={contentPackLoading}

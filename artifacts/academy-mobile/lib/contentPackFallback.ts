@@ -14,7 +14,17 @@ import type {
   ContentPackValidationIssueCode,
 } from "@workspace/game-engine";
 import { isRateLimitError } from "@workspace/api-client-react";
-import type { ContentSource } from "./enrichmentStatus";
+import type {
+  ContentPackCacheDiagnostic,
+  ContentPackCacheDiagnosticIssueCode,
+  ContentPackCacheIssueCode,
+  ContentSource,
+} from "./enrichmentStatus";
+export type {
+  ContentPackCacheDiagnostic,
+  ContentPackCacheDiagnosticIssueCode,
+  ContentPackCacheIssueCode,
+} from "./enrichmentStatus";
 
 export const BULLETIN_EVENT_LIMIT = PACK_ACTIVE_EVENT_LIMIT;
 export { CONTENT_PACK_STORAGE_KEY };
@@ -98,23 +108,30 @@ export function isUsableContentPack(
   return isSharedUsableContentPack(value, now);
 }
 
-export type ContentPackCacheIssueCode =
-  | ContentPackValidationIssueCode
-  | "empty-cache"
-  | "invalid-json";
-
 /**
  * Safe diagnostics for persisted or remote JSON. Only stable categories leave
  * this boundary; malformed values and generated text are never returned.
  */
+export function getContentPackIssueCodes(
+  value: unknown,
+  now = Date.now(),
+): ContentPackValidationIssueCode[] {
+  try {
+    return getSharedContentPackValidationIssues(value, now);
+  } catch {
+    return ["pack"];
+  }
+}
+
 export function getCachedContentPackIssueCodes(
   raw: string | null,
   now = Date.now(),
 ): ContentPackCacheIssueCode[] {
-  if (!raw) return ["empty-cache"];
+  if (raw === null) return ["empty-cache"];
+  if (raw.length === 0) return ["invalid-json"];
 
   try {
-    return getSharedContentPackValidationIssues(JSON.parse(raw), now);
+    return getContentPackIssueCodes(JSON.parse(raw), now);
   } catch {
     return ["invalid-json"];
   }
@@ -134,26 +151,50 @@ export function parseCachedContentPack(
   }
 }
 
-export async function readCachedContentPack(
+export interface CachedContentPackReadResult {
+  pack: ContentPack | null;
+  diagnostic: ContentPackCacheDiagnostic | null;
+}
+
+export async function readCachedContentPackWithDiagnostics(
   storage: ContentPackStorage,
   now = Date.now(),
-): Promise<ContentPack | null> {
+): Promise<CachedContentPackReadResult> {
   let raw: string | null;
   try {
     raw = await storage.getItem(CONTENT_PACK_STORAGE_KEY);
   } catch {
-    return null;
+    return { pack: null, diagnostic: null };
   }
 
+  if (raw === null) return { pack: null, diagnostic: null };
+
   const pack = parseCachedContentPack(raw, now);
-  if (raw !== null && pack === null && storage.removeItem) {
+  const issueCodes: ContentPackCacheDiagnosticIssueCode[] = pack
+    ? []
+    : getCachedContentPackIssueCodes(raw, now).filter(
+        (code): code is ContentPackCacheDiagnosticIssueCode =>
+          code !== "empty-cache",
+      );
+  const diagnostic = issueCodes.length > 0
+    ? { source: "persisted" as const, issueCodes }
+    : null;
+
+  if (pack === null && storage.removeItem) {
     try {
       await storage.removeItem(CONTENT_PACK_STORAGE_KEY);
     } catch {
       // Invalid data must not block the deterministic theme or content fallback.
     }
   }
-  return pack;
+  return { pack, diagnostic };
+}
+
+export async function readCachedContentPack(
+  storage: ContentPackStorage,
+  now = Date.now(),
+): Promise<ContentPack | null> {
+  return (await readCachedContentPackWithDiagnostics(storage, now)).pack;
 }
 
 export async function writeCachedContentPack(
@@ -344,6 +385,7 @@ export function retainVisibleContentPack(
 export interface ContentPackRefreshResult {
   pack: ContentPack;
   source: ContentSource;
+  diagnostic?: ContentPackCacheDiagnostic;
 }
 
 /**
@@ -356,16 +398,28 @@ export async function resolveContentPackRefresh(
   cachedPack: ContentPack | null,
   day: number,
 ): Promise<ContentPackRefreshResult> {
+  let diagnostic: ContentPackCacheDiagnostic | undefined;
   try {
-    const pack = ensureUsableContentPack(await fetcher(), day);
+    const remotePack = await fetcher();
+    const issueCodes = getContentPackIssueCodes(remotePack);
+    if (issueCodes.length > 0) {
+      diagnostic = { source: "remote", issueCodes };
+    }
+
+    const pack = ensureUsableContentPack(remotePack, day);
     if (!isUsableContentPack(pack)) {
       throw new Error("Content pack was not usable after normalization");
     }
-    return { pack, source: "online" };
+    return {
+      pack,
+      source: "online",
+      ...(diagnostic ? { diagnostic } : {}),
+    };
   } catch (error) {
     return {
       pack: fallbackAfterRefreshFailure(cachedPack, day),
       source: isRateLimitError(error) ? "rate_limited" : "offline",
+      ...(diagnostic ? { diagnostic } : {}),
     };
   }
 }

@@ -43,16 +43,19 @@ import {
   ensureUsableContentPack,
   fallbackAfterRefreshFailure,
   getCachedContentPackIssueCodes,
+  getContentPackIssueCodes,
   getContentPackStorageStatus,
   isDisplayableContentPackEvent,
   isUsableContentPack,
   parseCachedContentPack,
   readCachedContentPack,
+  readCachedContentPackWithDiagnostics,
   retainVisibleContentPack,
   resolveContentPackRefresh,
   writeCachedContentPack,
   writeCachedContentPackResult,
 } from '../lib/contentPackFallback';
+import { getContentPackCacheIssueCategory } from '../lib/enrichmentStatus';
 
 import {
   generateNPCLine,
@@ -1376,6 +1379,111 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       .toEqual(['invalid-json']);
     expect(getCachedContentPackIssueCodes(null, generatedAt + 1))
       .toEqual(['empty-cache']);
+    expect(getCachedContentPackIssueCodes('', generatedAt + 1))
+      .toEqual(['invalid-json']);
+  });
+
+  it.each([
+    { issueCodes: ['expiresAt'], expected: 'expiry' },
+    { issueCodes: ['activeEvents', 'themeContext'], expected: 'events' },
+    { issueCodes: ['invalid-json'], expected: 'unreadable' },
+    { issueCodes: ['npcMoodShifts'], expected: 'metadata' },
+    { issueCodes: [], expected: null },
+  ] as const)(
+    'maps safe cache issue codes to the $expected health category',
+    ({ issueCodes, expected }) => {
+      expect(getContentPackCacheIssueCategory(issueCodes)).toBe(expected);
+    },
+  );
+
+  it('reports safe rejection categories for a persisted pack and removes it', async () => {
+    const generatedAt = Date.now();
+    const privateValue = 'private-cache-metadata';
+    const invalidPack = {
+      ...createContentPackContractFixture(generatedAt),
+      themeContext: { privateValue },
+    };
+    const values = new Map([
+      [CONTENT_PACK_STORAGE_KEY, JSON.stringify(invalidPack)],
+    ]);
+    const storage = {
+      getItem: async (key: string) => values.get(key) ?? null,
+      setItem: async () => {},
+      removeItem: async (key: string) => {
+        values.delete(key);
+      },
+    };
+
+    const result = await readCachedContentPackWithDiagnostics(
+      storage,
+      generatedAt + 1,
+    );
+
+    expect(result).toEqual({
+      pack: null,
+      diagnostic: {
+        source: 'persisted',
+        issueCodes: ['themeContext'],
+      },
+    });
+    expect(JSON.stringify(result.diagnostic)).not.toContain(privateValue);
+    expect(values.has(CONTENT_PACK_STORAGE_KEY)).toBe(false);
+  });
+
+  it('reports remote event rejection codes after replacing invalid events', async () => {
+    const remotePack = {
+      ...generateOfflineContentPack(12),
+      activeEvents: [],
+    };
+
+    const result = await resolveContentPackRefresh(
+      async () => remotePack,
+      null,
+      12,
+    );
+
+    expect(result).toMatchObject({
+      source: 'online',
+      diagnostic: {
+        source: 'remote',
+        issueCodes: ['activeEvents'],
+      },
+      pack: { eventsRepaired: true },
+    });
+    expect(getContentPackIssueCodes(remotePack)).toEqual(['activeEvents']);
+  });
+
+  it('does not expose malformed remote metadata in rejection diagnostics', async () => {
+    const privateValue = 'private-remote-metadata';
+    const remotePack = {
+      ...generateOfflineContentPack(12),
+      themeContext: { privateValue },
+    } as unknown as ContentPack;
+
+    const result = await resolveContentPackRefresh(
+      async () => remotePack,
+      null,
+      12,
+    );
+
+    expect(result).toMatchObject({
+      source: 'offline',
+      diagnostic: {
+        source: 'remote',
+        issueCodes: ['themeContext'],
+      },
+    });
+    expect(JSON.stringify(result.diagnostic)).not.toContain(privateValue);
+  });
+
+  it('keeps unavailable cache diagnostics silent', async () => {
+    const result = await readCachedContentPackWithDiagnostics({
+      getItem: async () => null,
+      setItem: async () => {},
+    });
+
+    expect(result).toEqual({ pack: null, diagnostic: null });
+    expect(getContentPackCacheIssueCategory([])).toBeNull();
   });
 
   it('reports rejected and unavailable storage writes without exposing raw errors', async () => {

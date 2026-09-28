@@ -1,3 +1,5 @@
+import type { ContentPackValidationIssueCode } from "@workspace/game-engine";
+
 export type ContentSource = "online" | "offline" | "rate_limited";
 
 export type EnrichmentStatus =
@@ -6,6 +8,40 @@ export type EnrichmentStatus =
   | "offline"
   | "fallback"
   | "rate_limited";
+
+export type ContentPackCacheDiagnosticIssueCode =
+  | ContentPackValidationIssueCode
+  | "invalid-json";
+
+export type ContentPackCacheIssueCode =
+  | ContentPackCacheDiagnosticIssueCode
+  | "empty-cache";
+
+export interface ContentPackCacheDiagnostic {
+  source: "remote" | "persisted";
+  issueCodes: ContentPackCacheDiagnosticIssueCode[];
+}
+
+export type ContentPackCacheIssueCategory =
+  | "expiry"
+  | "events"
+  | "unreadable"
+  | "metadata";
+
+export function getContentPackCacheIssueCategory(
+  issueCodes: readonly ContentPackCacheDiagnosticIssueCode[],
+): ContentPackCacheIssueCategory | null {
+  if (issueCodes.length === 0) return null;
+  if (issueCodes.includes("expiresAt")) return "expiry";
+  if (
+    issueCodes.includes("activeEvents") ||
+    issueCodes.includes("activeEventIds")
+  ) {
+    return "events";
+  }
+  if (issueCodes.includes("invalid-json")) return "unreadable";
+  return "metadata";
+}
 
 export type StudyAvailabilityNoticeStatus =
   | "retrying"

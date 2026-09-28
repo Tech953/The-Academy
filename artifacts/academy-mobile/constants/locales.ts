@@ -52,6 +52,11 @@ export type MobileCopyKey =
   | "offlineStudyMode"
   | "liveRequestsPausedCopy"
   | "bundledStudyContentCopy"
+  | "bulletinCacheIssue"
+  | "bulletinCacheExpiry"
+  | "bulletinCacheEvents"
+  | "bulletinCacheUnreadable"
+  | "bulletinCacheMetadata"
   | "retryLiveEnrichment"
   | "retryingLiveRefresh"
   | "retryLiveRefresh"
@@ -104,6 +109,11 @@ const ENGLISH_MOBILE_COPY: MobileCopy = {
     "Live requests are temporarily paused. Bundled study content is active.",
   bundledStudyContentCopy:
     "Bundled study content is active. You can keep answering questions.",
+  bulletinCacheIssue: "BULLETIN CACHE ISSUE",
+  bulletinCacheExpiry: "EXPIRED CONTENT",
+  bulletinCacheEvents: "EVENT DATA",
+  bulletinCacheUnreadable: "UNREADABLE CACHE",
+  bulletinCacheMetadata: "INVALID METADATA",
   retryLiveEnrichment: "Retry live enrichment",
   retryingLiveRefresh: "RETRYING LIVE REFRESH...",
   retryLiveRefresh: "RETRY LIVE REFRESH",
@@ -158,6 +168,11 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
       "Las solicitudes en vivo están pausadas. El contenido de estudio incluido está activo.",
     bundledStudyContentCopy:
       "El contenido de estudio incluido está activo. Puedes seguir respondiendo preguntas.",
+    bulletinCacheIssue: "PROBLEMA DE CACHÉ DEL BOLETÍN",
+    bulletinCacheExpiry: "CONTENIDO CADUCADO",
+    bulletinCacheEvents: "DATOS DE EVENTOS",
+    bulletinCacheUnreadable: "CACHÉ ILEGIBLE",
+    bulletinCacheMetadata: "METADATOS NO VÁLIDOS",
     retryLiveEnrichment: "Reintentar enriquecimiento en vivo",
     retryingLiveRefresh: "REINTENTANDO ACTUALIZACIÓN EN VIVO...",
     retryLiveRefresh: "REINTENTAR ACTUALIZACIÓN EN VIVO",
@@ -205,6 +220,11 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
       "Les requêtes en direct sont temporairement en pause. Le contenu d'étude intégré est actif.",
     bundledStudyContentCopy:
       "Le contenu d'étude intégré est actif. Vous pouvez continuer à répondre aux questions.",
+    bulletinCacheIssue: "PROBLÈME DE CACHE DU BULLETIN",
+    bulletinCacheExpiry: "CONTENU EXPIRÉ",
+    bulletinCacheEvents: "DONNÉES D'ÉVÉNEMENTS",
+    bulletinCacheUnreadable: "CACHE ILLISIBLE",
+    bulletinCacheMetadata: "MÉTADONNÉES INVALIDES",
     retryLiveEnrichment: "Réessayer l'enrichissement en direct",
     retryingLiveRefresh: "NOUVELLE ACTUALISATION EN DIRECT...",
     retryLiveRefresh: "RÉESSAYER L'ACTUALISATION EN DIRECT",
@@ -252,6 +272,11 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
       "Live-Anfragen sind vorübergehend pausiert. Gebündelte Lerninhalte sind aktiv.",
     bundledStudyContentCopy:
       "Gebündelte Lerninhalte sind aktiv. Du kannst weiter Fragen beantworten.",
+    bulletinCacheIssue: "BULLETIN-CACHE-PROBLEM",
+    bulletinCacheExpiry: "INHALT ABGELAUFEN",
+    bulletinCacheEvents: "EREIGNISDATEN",
+    bulletinCacheUnreadable: "CACHE NICHT LESBAR",
+    bulletinCacheMetadata: "UNGÜLTIGE METADATEN",
     retryLiveEnrichment: "Live-Erweiterung erneut versuchen",
     retryingLiveRefresh: "LIVE-AKTUALISIERUNG WIRD ERNEUT VERSUCHT...",
     retryLiveRefresh: "LIVE-AKTUALISIERUNG ERNEUT VERSUCHEN",
@@ -299,6 +324,11 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
       "ライブリクエストは一時停止中です。内蔵の学習コンテンツが有効です。",
     bundledStudyContentCopy:
       "内蔵の学習コンテンツが有効です。引き続き問題に回答できます。",
+    bulletinCacheIssue: "掲示板キャッシュの問題",
+    bulletinCacheExpiry: "期限切れのコンテンツ",
+    bulletinCacheEvents: "イベントデータ",
+    bulletinCacheUnreadable: "読み取れないキャッシュ",
+    bulletinCacheMetadata: "無効なメタデータ",
     retryLiveEnrichment: "ライブ拡張を再試行",
     retryingLiveRefresh: "ライブ更新を再試行中...",
     retryLiveRefresh: "ライブ更新を再試行",

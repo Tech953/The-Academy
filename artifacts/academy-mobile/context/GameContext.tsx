@@ -29,13 +29,14 @@ import {
 import {
   getEnrichmentStatusForSource,
   getInitialEnrichmentStatus,
+  type ContentPackCacheDiagnostic,
   type EnrichmentStatus,
 } from "@/lib/enrichmentStatus";
 import {
   fallbackAfterRefreshFailure,
   createContentPackWriteQueueWithResult,
   getContentPackStorageStatus,
-  readCachedContentPack,
+  readCachedContentPackWithDiagnostics,
   retainVisibleContentPack,
   resolveContentPackRefresh,
   type ContentPackStorageStatus,
@@ -269,6 +270,7 @@ interface GameContextValue {
   refreshContentPack: () => Promise<void>;
   bulletinEventsRepaired: boolean;
   contentPackStorageStatus: ContentPackStorageStatus;
+  contentPackCacheDiagnostic: ContentPackCacheDiagnostic | null;
   bulletinLocale: SupportedLocale;
   bulletinLocalePreference: SupportedLocale | null;
   setBulletinLocalePreference: (locale: SupportedLocale | null) => void;
@@ -308,6 +310,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [contentPackLoading, setContentPackLoading] = useState(false);
   const [contentPackStorageStatus, setContentPackStorageStatus] =
     useState<ContentPackStorageStatus>("unknown");
+  const [contentPackCacheDiagnostic, setContentPackCacheDiagnostic] =
+    useState<ContentPackCacheDiagnostic | null>(null);
   const [bulletinLocalePreference, setBulletinLocalePreferenceState] =
     useState<SupportedLocale | null>(null);
   const bulletinEventsRepaired = contentPack?.eventsRepaired === true;
@@ -559,8 +563,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     let cachedPack: ContentPack | null = null;
     try {
-      cachedPack = await readCachedContentPack(AsyncStorage);
+      const cachedRead = await readCachedContentPackWithDiagnostics(AsyncStorage);
+      cachedPack = cachedRead.pack;
       if (!isCurrentRequest()) return;
+      setContentPackCacheDiagnostic(cachedRead.diagnostic);
       setContentPack((visiblePack) =>
         resolveStudyContentPack(
           retainVisibleContentPack(visiblePack, cachedPack),
@@ -573,8 +579,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         : {
             pack: fallbackAfterRefreshFailure(cachedPack, state.day),
             source: "offline" as const,
+            diagnostic: undefined,
           };
       if (!isCurrentRequest()) return;
+      if (refreshResult.diagnostic) {
+        setContentPackCacheDiagnostic(refreshResult.diagnostic);
+      }
       const studyPack = resolveStudyContentPack(refreshResult.pack, state.day);
       if (studyPack !== refreshResult.pack || refreshResult.source === "offline") {
         recordOfflineContent();
@@ -891,6 +901,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       refreshContentPack,
       bulletinEventsRepaired,
       contentPackStorageStatus,
+      contentPackCacheDiagnostic,
       bulletinLocale,
       bulletinLocalePreference,
       setBulletinLocalePreference,
@@ -920,6 +931,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       refreshContentPack,
       bulletinEventsRepaired,
       contentPackStorageStatus,
+      contentPackCacheDiagnostic,
       bulletinLocale,
       bulletinLocalePreference,
       setBulletinLocalePreference,
