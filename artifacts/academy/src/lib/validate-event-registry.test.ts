@@ -1,5 +1,15 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { validateWebEventRegistry } from '../../scripts/validate-event-registry';
 
@@ -18,6 +28,110 @@ describe('validateWebEventRegistry', () => {
     );
     expect(packageJson.scripts.build).toContain('vite build');
   });
+
+  it('stops the package build before Vite when the registry prebuild fails', () => {
+    const academyDirectory = fileURLToPath(new URL('../../', import.meta.url));
+    const validatorPath = fileURLToPath(
+      new URL('../../scripts/validate-event-registry.ts', import.meta.url),
+    );
+    const fixtureDirectory = mkdtempSync(
+      join(tmpdir(), 'academy-registry-prebuild-'),
+    );
+    const fixtureScriptsDirectory = join(fixtureDirectory, 'scripts');
+    const viteMarkerPath = join(fixtureDirectory, 'vite-started.marker');
+
+    mkdirSync(fixtureScriptsDirectory);
+
+    writeFileSync(
+      join(fixtureDirectory, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'academy-registry-prebuild-fixture',
+          version: '1.0.0',
+          private: true,
+          type: 'module',
+          scripts: {
+            prebuild: packageJson.scripts.prebuild,
+            build: packageJson.scripts.build,
+            'validate-event-registry':
+              packageJson.scripts['validate-event-registry'],
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    writeFileSync(
+      join(fixtureScriptsDirectory, 'validate-event-registry.ts'),
+      `
+import { validateWebEventRegistry } from ${JSON.stringify(pathToFileURL(validatorPath).href)};
+
+try {
+  validateWebEventRegistry({
+    eventTemplates: {
+      fixture_missing_category: [{ title: 'Fixture event' }],
+    },
+    categoryMappings: {},
+    exceptions: {},
+  });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}
+`,
+    );
+    writeFileSync(
+      join(fixtureDirectory, 'vite.config.ts'),
+      `
+import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const markerPath = fileURLToPath(new URL('./vite-started.marker', import.meta.url));
+
+export default {
+  plugins: [{
+    name: 'vite-start-marker',
+    configResolved() {
+      writeFileSync(markerPath, 'Vite started');
+    },
+  }],
+};
+`,
+    );
+    writeFileSync(
+      join(fixtureDirectory, 'index.html'),
+      '<!doctype html><html><body><script type="module" src="/main.ts"></script></body></html>',
+    );
+    writeFileSync(
+      join(fixtureDirectory, 'main.ts'),
+      "document.body.textContent = 'fixture bundle';",
+    );
+
+    try {
+      const result = spawnSync('pnpm', ['run', 'build'], {
+        cwd: fixtureDirectory,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: [
+            join(academyDirectory, 'node_modules', '.bin'),
+            process.env.PATH ?? '',
+          ].join(delimiter),
+        },
+        timeout: 30_000,
+      });
+      const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+
+      expect(result.error).toBeUndefined();
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('fixture_missing_category');
+      expect(output).toContain('artifacts/academy/src/lib/radiantAI.ts');
+      expect(existsSync(viteMarkerPath)).toBe(false);
+      expect(existsSync(join(fixtureDirectory, 'dist'))).toBe(false);
+    } finally {
+      rmSync(fixtureDirectory, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it('allows an intentionally unsupported category with a typed exception record', () => {
     expect(() =>

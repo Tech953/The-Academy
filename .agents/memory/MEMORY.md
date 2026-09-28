@@ -6,6 +6,7 @@
 - [Slide export freshness](slide-export-freshness.md) — Directory-discovered pairs use source and file mtimes; explicit export paths deliberately bypass freshness gating.
 - [Release gate timing output](release-gate-timing-output.md) — Use monotonic per-gate durations and retain failure timing in captured handoff diagnostics.
 - [Release smoke CLI test cost](release-smoke-cli-tests.md) — Each CLI subprocess runs offline boundary checks, so keep subprocess coverage focused on distinct paths.
+- [PNPM temporary package fixtures](pnpm-temporary-fixtures.md) — Run lifecycle fixtures outside the workspace without symlinking `.bin`; pnpm shims resolve relative to their real path.
 - [Native handoff timeout fixtures](native-handoff-timeout-fixtures.md) — With `spawnSync`, host delayed local endpoints inside the child process so its event loop can serve requests.
 - [Slides browser visual QA](slides-browser-visual-qa.md) — Headless Chromium outer window size differs from the presentation viewport; verify actual dimensions and avoid oversubscribing browser sweeps.
 - [IPv6 rate-limit identity](ipv6-rate-limit.md) — IPv6 quotas are subnet-grouped; isolation tests need distinct prefixes.
