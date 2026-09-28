@@ -775,13 +775,31 @@ function validateNativeHandoff({
   platform = "android",
   handoffReportPath = DEFAULT_HANDOFF_REPORT_PATH,
 } = {}) {
+  const report =
+    handoffReport ??
+    readJsonFile(handoffReportPath, "native handoff report");
+  if (!report || typeof report !== "object" || Array.isArray(report)) {
+    throw new Error(
+      "[release-handoff] Invalid handoff report: expected a JSON object.",
+    );
+  }
+  const reportSchemaVersion = report.schemaVersion;
+  if (reportSchemaVersion !== RELEASE_REPORT_SCHEMA_VERSION) {
+    const schemaVersionReason =
+      reportSchemaVersion === undefined || reportSchemaVersion === null
+        ? "schemaVersion is missing"
+        : typeof reportSchemaVersion === "number" &&
+            reportSchemaVersion < RELEASE_REPORT_SCHEMA_VERSION
+          ? `schemaVersion ${reportSchemaVersion} is older than the supported version`
+          : `schemaVersion ${JSON.stringify(reportSchemaVersion)} is unsupported`;
+    throw new Error(
+      `[release-handoff] Invalid handoff report: ${schemaVersionReason}; expected schemaVersion ${RELEASE_REPORT_SCHEMA_VERSION}.`,
+    );
+  }
   const resolvedAppConfig =
     appConfig ?? readJsonFile(APP_CONFIG_PATH, "app.json");
   const resolvedEasConfig =
     easConfig ?? readJsonFile(EAS_CONFIG_PATH, "eas.json");
-  const report =
-    handoffReport ??
-    readJsonFile(handoffReportPath, "native handoff report");
   if (platform !== "android" && platform !== "ios") {
     throw new Error(
       `[release-handoff] Unsupported handoff platform "${platform}". Expected "android" or "ios".`,

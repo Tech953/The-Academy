@@ -146,9 +146,10 @@ assignments, authorization headers, private-key blocks, and credential-bearing
 URL parameters are redacted. The top-level error, EAS exit code, and successful
 preflight summary remain separate. Signal-terminated EAS processes record
 `easExitCode: null` and the signal in `easSignal`, with a termination-specific
-error message. Consumers should require the current version before reading
-report fields; a missing or unknown version should be treated as an unsupported
-report rather than silently interpreted as the current contract.
+error message. The handoff validator requires the current schema version before
+reading handoff fields. Missing, older, and unsupported versions are reported as
+invalid handoff reports, not as build or connectivity failures; regenerate the
+report with the current release tooling before validating it.
 Future field additions, renames, removals, or incompatible shape changes
 require an intentional version increment and corresponding contract updates.
 

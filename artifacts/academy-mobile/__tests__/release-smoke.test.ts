@@ -1492,6 +1492,7 @@ describe("release smoke check", () => {
   });
 
   const validHandoffReport = (): {
+    schemaVersion?: number;
     status: string;
     platform: string;
     profile: string;
@@ -1509,6 +1510,7 @@ describe("release smoke check", () => {
       installerSha256Source?: "local" | "eas";
     };
   } => ({
+      schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
       status: "completed",
       platform: "android",
       profile: "preview",
@@ -1581,6 +1583,7 @@ describe("release smoke check", () => {
   });
 
   const validIosHandoffReport = (): ReturnType<typeof validHandoffReport> => ({
+    schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
     status: "completed",
     platform: "ios",
     profile: "preview",
@@ -1597,10 +1600,12 @@ describe("release smoke check", () => {
   });
 
   it("accepts a complete preview APK handoff without contacting a device", () => {
+    const report = validHandoffReport();
+    expect(report.schemaVersion).toBe(RELEASE_REPORT_SCHEMA_VERSION);
     expect(
       validateNativeHandoff({
         ...validHandoffConfig(),
-        handoffReport: validHandoffReport(),
+        handoffReport: report,
       }),
     ).toEqual({
       status: "passed",
@@ -1615,6 +1620,75 @@ describe("release smoke check", () => {
       timestamp: "2026-09-15T15:00:00.000Z",
       buildId: "build-123",
     });
+  });
+
+  it.each([
+    {
+      label: "missing",
+      schemaVersion: undefined,
+      error: /schemaVersion is missing; expected schemaVersion \d+/,
+    },
+    {
+      label: "older",
+      schemaVersion: RELEASE_REPORT_SCHEMA_VERSION - 1,
+      error: /schemaVersion \d+ is older than the supported version; expected schemaVersion \d+/,
+    },
+    {
+      label: "unsupported",
+      schemaVersion: RELEASE_REPORT_SCHEMA_VERSION + 1,
+      error: /schemaVersion \d+ is unsupported; expected schemaVersion \d+/,
+    },
+  ])(
+    "rejects a handoff report with a $label schema version",
+    ({ schemaVersion, error }) => {
+      const report = validHandoffReport();
+      if (schemaVersion === undefined) {
+        delete report.schemaVersion;
+      } else {
+        report.schemaVersion = schemaVersion;
+      }
+
+      expect(() =>
+        validateNativeHandoff({
+          ...validHandoffConfig(),
+          handoffReport: report,
+        }),
+      ).toThrow(error);
+    },
+  );
+
+  it("archives an unsupported handoff schema as an invalid report", () => {
+    const report = validHandoffReport();
+    report.schemaVersion = RELEASE_REPORT_SCHEMA_VERSION + 1;
+    const gate = runHandoffGateSubprocess(
+      report,
+      "/tmp/not-used-academy-preview.apk",
+    );
+
+    try {
+      expect(gate.result.status).toBe(1);
+      expect(gate.result.stderr).toMatch(
+        /Invalid handoff report: schemaVersion \d+ is unsupported/,
+      );
+      expect(gate.result.stderr).not.toMatch(/build failed|connectivity failed/i);
+
+      const archivedReport = JSON.parse(
+        readFileSync(gate.releaseReportPath, "utf8"),
+      ) as Record<string, unknown>;
+      expect(archivedReport).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+        command: "check-release --handoff",
+        status: "failed",
+        error: expect.stringContaining(
+          "[release-handoff] Invalid handoff report:",
+        ),
+      });
+      expect(archivedReport).not.toHaveProperty("failureStage");
+      expect(archivedReport).not.toHaveProperty("summary");
+      expect(archivedReport).not.toHaveProperty("build");
+    } finally {
+      rmSync(gate.fixtureDirectory, { recursive: true, force: true });
+    }
   });
 
   it("accepts a complete iOS preview IPA handoff without contacting a device", () => {
