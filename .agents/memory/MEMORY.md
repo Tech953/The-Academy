@@ -24,3 +24,4 @@
 - [Drizzle-Zod and Zod inference](drizzle-zod-zod4.md) — Generated schemas use Zod 4 types; infer through `zod/v4` even when the root package is Zod 3.
 - [React 19 useRef initialization](react19-useref.md) — Initialize empty refs with `null` and guard cleanup; React 19 types require an initial value.
 - [pnpm CLI argument separator](pnpm-cli-separator.md) — A bare `--` is forwarded to package scripts here; parsers must skip it before reading flags.
+- [GitHub Actions write scope](github-workflow-scope.md) — Editing `.github/workflows` through GitHub's REST API requires the separate `workflow` OAuth scope, beyond `repo`.
