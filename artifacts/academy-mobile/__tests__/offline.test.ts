@@ -1229,20 +1229,149 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
       .toBe('deterministic');
   });
 
-  it('reports only safe issue categories for rejected cache metadata', () => {
+  it.each([
+    {
+      field: 'schemaVersion',
+      mutate: (pack: ContentPack) => ({ ...pack, schemaVersion: 99 }),
+      expectedCodes: ['schemaVersion'],
+    },
+    {
+      field: 'version',
+      mutate: (pack: ContentPack) => ({ ...pack, version: '' }),
+      expectedCodes: ['version'],
+    },
+    {
+      field: 'generatedAt',
+      mutate: (pack: ContentPack) => ({ ...pack, generatedAt: null }),
+      expectedCodes: ['generatedAt', 'expiresAt'],
+    },
+    {
+      field: 'expiresAt',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        expiresAt: pack.generatedAt + 1,
+      }),
+      expectedCodes: ['expiresAt'],
+    },
+    {
+      field: 'worldSeed',
+      mutate: (pack: ContentPack) => ({ ...pack, worldSeed: 'not-a-seed' }),
+      expectedCodes: ['worldSeed'],
+    },
+    {
+      field: 'weeklyTheme',
+      mutate: (pack: ContentPack) => ({ ...pack, weeklyTheme: '' }),
+      expectedCodes: ['weeklyTheme'],
+    },
+    {
+      field: 'themeContext',
+      mutate: (pack: ContentPack) => ({ ...pack, themeContext: '' }),
+      expectedCodes: ['themeContext'],
+    },
+    {
+      field: 'activeEvents',
+      mutate: (pack: ContentPack) => ({ ...pack, activeEvents: [] }),
+      expectedCodes: ['activeEvents'],
+    },
+    {
+      field: 'npcMoodShifts',
+      mutate: (pack: ContentPack) => ({ ...pack, npcMoodShifts: [] }),
+      expectedCodes: ['npcMoodShifts'],
+    },
+    {
+      field: 'gedFocusAreas',
+      mutate: (pack: ContentPack) => ({ ...pack, gedFocusAreas: [] }),
+      expectedCodes: ['gedFocusAreas'],
+    },
+    {
+      field: 'generatedBy',
+      mutate: (pack: ContentPack) => ({ ...pack, generatedBy: 'local' }),
+      expectedCodes: ['generatedBy'],
+    },
+    {
+      field: 'rssHeadlines',
+      sensitiveValue: 'private-headline-value',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        rssHeadlines: ['private-headline-value', null],
+      }),
+      expectedCodes: ['rssHeadlines'],
+    },
+    {
+      field: 'eventsRepaired',
+      sensitiveValue: 'private-repair-value',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        eventsRepaired: 'private-repair-value',
+      }),
+      expectedCodes: ['eventsRepaired'],
+    },
+  ])('reports only safe issue codes for invalid $field metadata', ({
+    mutate,
+    expectedCodes,
+    sensitiveValue,
+  }) => {
+    const generatedAt = 1_700_000_000_000;
+    const pack = createContentPackContractFixture(generatedAt);
+    const serializedPack = JSON.stringify(mutate(pack));
+    const issueCodes = getCachedContentPackIssueCodes(
+      serializedPack,
+      generatedAt + 1,
+    );
+
+    expect(issueCodes).toEqual(expectedCodes);
+    if (sensitiveValue) {
+      expect(issueCodes.join(' ')).not.toContain(sensitiveValue);
+    }
+  });
+
+  it.each([
+    {
+      identity: 'event',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        activeEvents: [
+          pack.activeEvents[0],
+          pack.activeEvents[1],
+          { ...pack.activeEvents[2], id: pack.activeEvents[0].id },
+        ],
+      }),
+      expectedCode: 'activeEventIds',
+    },
+    {
+      identity: 'NPC',
+      mutate: (pack: ContentPack) => ({
+        ...pack,
+        npcMoodShifts: [
+          pack.npcMoodShifts[0],
+          pack.npcMoodShifts[1],
+          pack.npcMoodShifts[2],
+          { ...pack.npcMoodShifts[3], npcId: pack.npcMoodShifts[0].npcId },
+        ],
+      }),
+      expectedCode: 'npcMoodIds',
+    },
+  ])('reports duplicate $identity identities with a safe issue code', ({
+    mutate,
+    expectedCode,
+  }) => {
+    const generatedAt = 1_700_000_000_000;
+    const pack = createContentPackContractFixture(generatedAt);
+
+    expect(
+      getCachedContentPackIssueCodes(
+        JSON.stringify(mutate(pack)),
+        generatedAt + 1,
+      ),
+    ).toEqual([expectedCode]);
+  });
+
+  it('keeps valid, empty, and malformed cache diagnostics categorized', () => {
     const generatedAt = 1_700_000_000_000;
     const pack = createContentPackContractFixture(generatedAt);
 
     expect(getCachedContentPackIssueCodes(JSON.stringify(pack), generatedAt + 1))
       .toEqual([]);
-    expect(getCachedContentPackIssueCodes(
-      JSON.stringify({ ...pack, activeEvents: [] }),
-      generatedAt + 1,
-    )).toEqual(['activeEvents']);
-    expect(getCachedContentPackIssueCodes(
-      JSON.stringify({ ...pack, expiresAt: generatedAt + 1 }),
-      generatedAt + 1,
-    )).toEqual(['expiresAt']);
     expect(getCachedContentPackIssueCodes('{not-json', generatedAt + 1))
       .toEqual(['invalid-json']);
     expect(getCachedContentPackIssueCodes(null, generatedAt + 1))
