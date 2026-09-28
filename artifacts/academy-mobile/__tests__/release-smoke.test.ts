@@ -2124,6 +2124,80 @@ describe("release smoke check", () => {
     expect(scripts["release:production:ios"]).toContain("native-handoff");
   });
 
+  it("exposes offline iOS handoff validation shortcuts for both profiles", () => {
+    const scripts = JSON.parse(
+      readFileSync(path.resolve(__dirname, "../package.json"), "utf8"),
+    ).scripts as Record<string, string>;
+    const previewCommand = scripts["check-release:handoff:ios"];
+    const productionCommand = scripts["check-release:handoff:ios:production"];
+
+    expect(previewCommand).toContain("check-release");
+    expect(previewCommand).toContain("--handoff --platform ios --profile preview");
+    expect(previewCommand).not.toContain("native-handoff");
+    expect(previewCommand).not.toMatch(/\beas(?:-cli)?\b/i);
+
+    expect(productionCommand).toContain("check-release");
+    expect(productionCommand).toContain(
+      "--handoff --platform ios --profile production",
+    );
+    expect(productionCommand).not.toContain("native-handoff");
+    expect(productionCommand).not.toMatch(/\beas(?:-cli)?\b/i);
+  });
+
+  it("runs both iOS validation shortcuts against local handoff reports", () => {
+    const fixtureDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-ios-handoff-shortcuts-"),
+    );
+
+    try {
+      for (const { script, profile } of [
+        { script: "check-release:handoff:ios", profile: "preview" },
+        {
+          script: "check-release:handoff:ios:production",
+          profile: "production",
+        },
+      ]) {
+        const handoffReportPath = path.join(
+          fixtureDirectory,
+          `${profile}-handoff.json`,
+        );
+        const releaseReportPath = path.join(
+          fixtureDirectory,
+          `${profile}-release.json`,
+        );
+        const handoffReport = validIosHandoffReport();
+        handoffReport.profile = profile;
+        handoffReport.build.profile = profile;
+        handoffReport.build.installerUrl =
+          `https://example.invalid/academy-${profile}.ipa`;
+        writeFileSync(handoffReportPath, JSON.stringify(handoffReport), "utf8");
+
+        const result = spawnSync("pnpm", ["run", script], {
+          cwd: path.resolve(__dirname, ".."),
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            RELEASE_HANDOFF_PATH: handoffReportPath,
+            RELEASE_REPORT_PATH: releaseReportPath,
+          },
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain(
+          "[release-handoff] Installer handoff passed.",
+        );
+        expect(
+          JSON.parse(readFileSync(releaseReportPath, "utf8")),
+        ).toMatchObject({
+          status: "passed",
+          handoff: { platform: "ios", profile },
+        });
+      }
+    } finally {
+      rmSync(fixtureDirectory, { recursive: true, force: true });
+    }
+  }, 20_000);
+
   it("discovers only build profiles that define a public domain", () => {
     expect(
       getReleaseProfiles({

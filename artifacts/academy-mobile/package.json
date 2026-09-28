@@ -10,6 +10,8 @@
     "check-release:identity": "node scripts/check-release.js --identity-only",
     "check-release:handoff": "node scripts/check-release.js --handoff",
     "check-release:handoff:production": "RELEASE_PROFILE=production pnpm run check-release -- --handoff",
+    "check-release:handoff:ios": "pnpm run check-release -- --handoff --platform ios --profile preview",
+    "check-release:handoff:ios:production": "pnpm run check-release -- --handoff --platform ios --profile production",
     "benchmark:offline": "vitest run __tests__/offline-content-benchmark.test.ts --disableConsoleIntercept",
     "test:cache-upgrade": "vitest run __tests__/cache-upgrade.test.tsx",
     "native-handoff": "node scripts/native-handoff.js",

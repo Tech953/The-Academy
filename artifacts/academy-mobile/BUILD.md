@@ -209,28 +209,18 @@ writes a failed metadata report instead of creating a partial installer
 handoff. The report contains normalized metadata only; it does not persist EAS
 CLI output, credentials, or command arguments.
 
-Before distributing the installer, validate that handoff without a device or
-network request:
+Before distributing the installer, validate the handoff report. These commands
+run the local checker only; they do not contact a device or start EAS:
 
 ```bash
+# Android preview
 pnpm --filter @workspace/academy-mobile run check-release:handoff
-RELEASE_PROFILE=production pnpm --filter @workspace/academy-mobile run check-release:handoff
-RELEASE_PLATFORM=ios pnpm --filter @workspace/academy-mobile run check-release:handoff
-RELEASE_PLATFORM=ios RELEASE_PROFILE=production \
-  pnpm --filter @workspace/academy-mobile run check-release -- --handoff
-```
-
-You can also pass the platform directly:
-
-```bash
-pnpm --filter @workspace/academy-mobile run check-release -- \
-  --handoff --platform ios --profile preview
-```
-
-For the Android production shortcut, use:
-
-```bash
+# Android production
 pnpm --filter @workspace/academy-mobile run check-release:handoff:production
+# iOS preview
+pnpm --filter @workspace/academy-mobile run check-release:handoff:ios
+# iOS production
+pnpm --filter @workspace/academy-mobile run check-release:handoff:ios:production
 ```
 
 The selected profile reads the native handoff report (override it with
