@@ -28,8 +28,10 @@ const PERFORMANCE_BUDGETS_MS_PER_BUILD = {
 interface BenchmarkResult {
   registrySize: number;
   validationMsPerBuild: number;
-  contentPackMsPerBuild: number;
-  validationPassesPerBuild: number;
+  headlineRichContentPackMsPerBuild: number;
+  noHeadlineContentPackMsPerBuild: number;
+  headlineRichValidationPassesPerBuild: number;
+  noHeadlineValidationPassesPerBuild: number;
 }
 
 function installRegistrySize(size: number): () => void {
@@ -81,11 +83,19 @@ function collectBudgetViolations(results: readonly BenchmarkResult[]): string[] 
       );
     }
     if (
-      result.contentPackMsPerBuild >
+      result.headlineRichContentPackMsPerBuild >
       PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration
     ) {
       violations.push(
-        `registry size ${result.registrySize}: content-pack generation measured ${result.contentPackMsPerBuild.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
+        `registry size ${result.registrySize}: headline-rich content-pack generation measured ${result.headlineRichContentPackMsPerBuild.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
+      );
+    }
+    if (
+      result.noHeadlineContentPackMsPerBuild >
+      PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration
+    ) {
+      violations.push(
+        `registry size ${result.registrySize}: no-headline content-pack generation measured ${result.noHeadlineContentPackMsPerBuild.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
       );
     }
     return violations;
@@ -104,13 +114,16 @@ describe('offline content-pack benchmark', () => {
         {
           registrySize: 999,
           validationMsPerBuild: validationOverBudget,
-          contentPackMsPerBuild: contentPackOverBudget,
-          validationPassesPerBuild: 1,
+          headlineRichContentPackMsPerBuild: contentPackOverBudget,
+          noHeadlineContentPackMsPerBuild: contentPackOverBudget,
+          headlineRichValidationPassesPerBuild: 1,
+          noHeadlineValidationPassesPerBuild: 1,
         },
       ]),
     ).toEqual([
       `registry size 999: validation measured ${validationOverBudget.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.validation} ms/build)`,
-      `registry size 999: content-pack generation measured ${contentPackOverBudget.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
+      `registry size 999: headline-rich content-pack generation measured ${contentPackOverBudget.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
+      `registry size 999: no-headline content-pack generation measured ${contentPackOverBudget.toFixed(3)} ms/build (budget ${PERFORMANCE_BUDGETS_MS_PER_BUILD.contentPackGeneration} ms/build)`,
     ]);
   });
 
@@ -129,33 +142,50 @@ describe('offline content-pack benchmark', () => {
           const validationMsPerBuild =
             (performance.now() - validationStart) / ITERATIONS;
 
-          const generationStart = performance.now();
-          const validationPasses: number[] = [];
-          for (let iteration = 0; iteration < ITERATIONS; iteration++) {
-            const callsBefore = assertSpy.mock.calls.length;
-            const pack = generateOfflineContentPack(37, ['exam assessment study']);
-            const pathScopes = assertSpy.mock.calls
-              .slice(callsBefore)
-              .map(([, scope]) => scope)
-              .filter(
-                (scope): scope is EventTemplateValidationScope =>
-                  typeof scope === 'object' && scope !== null,
-              );
+          const measureContentPackGeneration = (headlines: string[]) => {
+            const generationStart = performance.now();
+            const validationPasses: number[] = [];
+            for (let iteration = 0; iteration < ITERATIONS; iteration++) {
+              const callsBefore = assertSpy.mock.calls.length;
+              const pack = generateOfflineContentPack(37, headlines);
+              const pathScopes = assertSpy.mock.calls
+                .slice(callsBefore)
+                .map(([, scope]) => scope)
+                .filter(
+                  (scope): scope is EventTemplateValidationScope =>
+                    typeof scope === 'object' && scope !== null,
+                );
 
-            expect(pack.activeEvents.length).toBeGreaterThan(0);
-            expect(new Set(pathScopes).size).toBe(1);
-            validationPasses.push(pathScopes[0]?.validationPasses ?? 0);
-          }
-          const contentPackMsPerBuild =
-            (performance.now() - generationStart) / ITERATIONS;
+              expect(pack.activeEvents.length).toBeGreaterThan(0);
+              expect(new Set(pathScopes).size).toBe(1);
+              validationPasses.push(pathScopes[0]?.validationPasses ?? 0);
+            }
+            const contentPackMsPerBuild =
+              (performance.now() - generationStart) / ITERATIONS;
 
-          expect(validationPasses).toHaveLength(ITERATIONS);
-          expect(new Set(validationPasses)).toEqual(new Set([1]));
+            expect(validationPasses).toHaveLength(ITERATIONS);
+            expect(new Set(validationPasses)).toEqual(new Set([1]));
+            return {
+              contentPackMsPerBuild,
+              validationPassesPerBuild: validationPasses[0],
+            };
+          };
+          const headlineRich = measureContentPackGeneration([
+            'exam assessment study',
+          ]);
+          const noHeadline = measureContentPackGeneration([]);
+
           results.push({
             registrySize,
             validationMsPerBuild,
-            contentPackMsPerBuild,
-            validationPassesPerBuild: validationPasses[0],
+            headlineRichContentPackMsPerBuild:
+              headlineRich.contentPackMsPerBuild,
+            noHeadlineContentPackMsPerBuild:
+              noHeadline.contentPackMsPerBuild,
+            headlineRichValidationPassesPerBuild:
+              headlineRich.validationPassesPerBuild,
+            noHeadlineValidationPassesPerBuild:
+              noHeadline.validationPassesPerBuild,
           });
         } finally {
           restoreRegistry();
@@ -174,7 +204,12 @@ describe('offline content-pack benchmark', () => {
           results: results.map(result => ({
             ...result,
             validationMsPerBuild: Number(result.validationMsPerBuild.toFixed(3)),
-            contentPackMsPerBuild: Number(result.contentPackMsPerBuild.toFixed(3)),
+            headlineRichContentPackMsPerBuild: Number(
+              result.headlineRichContentPackMsPerBuild.toFixed(3),
+            ),
+            noHeadlineContentPackMsPerBuild: Number(
+              result.noHeadlineContentPackMsPerBuild.toFixed(3),
+            ),
           })),
         },
         null,
@@ -183,7 +218,13 @@ describe('offline content-pack benchmark', () => {
     );
 
     expect(results).toHaveLength(REGISTRY_SIZES.length);
-    expect(results.every(result => result.validationPassesPerBuild === 1)).toBe(true);
+    expect(
+      results.every(
+        result =>
+          result.headlineRichValidationPassesPerBuild === 1 &&
+          result.noHeadlineValidationPassesPerBuild === 1,
+      ),
+    ).toBe(true);
 
     const budgetViolations = collectBudgetViolations(results);
 
