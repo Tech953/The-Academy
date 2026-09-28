@@ -207,6 +207,16 @@ describe("device-default bulletin language on app resume", () => {
     expect(lifecycleMocks.getDeviceLocale).not.toHaveBeenCalled();
 
     await act(async () => {
+      getGame()!.setBulletinLocalePreference(null);
+    });
+    await waitFor(
+      () =>
+        getGame()?.bulletinLocalePreference === null &&
+        getGame()?.bulletinLocale === "ja",
+      renderer,
+    );
+
+    await act(async () => {
       renderer.unmount();
     });
   });

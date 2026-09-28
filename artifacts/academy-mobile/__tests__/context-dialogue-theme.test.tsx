@@ -23,6 +23,17 @@ const mocks = vi.hoisted(() => ({
   ),
 }));
 
+vi.mock("react-native", async () => {
+  const nativeModule =
+    await vi.importActual<typeof import("react-native")>("react-native");
+  return {
+    ...nativeModule,
+    AppState: {
+      addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+    },
+  };
+});
+
 vi.mock("@/hooks/useNetworkStatus", () => ({
   useNetworkStatus: () => true,
 }));
