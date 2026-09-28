@@ -63,7 +63,53 @@ export type MobileCopyKey =
   | "mathReasoning"
   | "languageArts"
   | "science"
-  | "socialStudies";
+  | "socialStudies"
+  | "studentFileTitle"
+  | "studentFileProgress"
+  | "studentFileExploration"
+  | "studentCoreStats"
+  | "studentInventory"
+  | "studentInventoryEmpty"
+  | "bulletinLanguage"
+  | "currentBulletinLanguage"
+  | "deviceDefault"
+  | "followDeviceLanguage"
+  | "withdrawRestart"
+  | "withdrawConfirmTitle"
+  | "withdrawConfirmMessage"
+  | "cancel"
+  | "withdraw"
+  | "englishLanguageName"
+  | "campusDirectoryTitle"
+  | "weeklyCampusTheme"
+  | "weeklyTheme"
+  | "relationshipProgressTo"
+  | "relationshipMaxTier"
+  | "relationshipStatus"
+  | "relationshipNextTier"
+  | "relationshipTierStranger"
+  | "relationshipTierAcquaintance"
+  | "relationshipTierFriendly"
+  | "relationshipTierFriend"
+  | "relationshipTierClose"
+  | "relationshipTierTrusted"
+  | "weeklyThemeUpdated"
+  | "conversationThemeUpdated"
+  | "dismissThemeUpdateNotice"
+  | "updatedThemeRemainsVisible"
+  | "relationshipWarmer"
+  | "relationshipCooler"
+  | "relationshipNowTier"
+  | "awaitingResponse"
+  | "saySomething"
+  | "sendMessage"
+  | "backToDirectory"
+  | "statQuickness"
+  | "statStrength"
+  | "statMathLogic"
+  | "statPresence"
+  | "statLuck"
+  | "statResonance";
 
 export type MobileCopy = Record<MobileCopyKey, string>;
 export type MobileCopyCatalog = Partial<
@@ -121,6 +167,52 @@ const ENGLISH_MOBILE_COPY: MobileCopy = {
   languageArts: "Language Arts",
   science: "Science",
   socialStudies: "Social Studies",
+  studentFileTitle: "STUDENT FILE",
+  studentFileProgress: "WEEK {week} · DAY {day} · {xp} XP",
+  studentFileExploration: "{sectors} SECTORS EXPLORED · {objects} OBJECTS EXAMINED",
+  studentCoreStats: "CORE STATS",
+  studentInventory: "INVENTORY",
+  studentInventoryEmpty: "No items collected yet.",
+  bulletinLanguage: "BULLETIN LANGUAGE",
+  currentBulletinLanguage: "CURRENT: {language}",
+  deviceDefault: "DEVICE DEFAULT",
+  followDeviceLanguage: "Follow the device language",
+  withdrawRestart: "WITHDRAW & RESTART",
+  withdrawConfirmTitle: "Withdraw from the Academy?",
+  withdrawConfirmMessage: "This clears your progress, inventory, and relationships.",
+  cancel: "Cancel",
+  withdraw: "Withdraw",
+  englishLanguageName: "English",
+  campusDirectoryTitle: "CAMPUS DIRECTORY",
+  weeklyCampusTheme: "WEEKLY CAMPUS THEME",
+  weeklyTheme: "WEEKLY THEME",
+  relationshipProgressTo: "{progress}% TO {tier}",
+  relationshipMaxTier: "MAX TIER",
+  relationshipStatus: "RELATIONSHIP {score} / {endScore}",
+  relationshipNextTier: "NEXT {tier}",
+  relationshipTierStranger: "STRANGER",
+  relationshipTierAcquaintance: "ACQUAINTANCE",
+  relationshipTierFriendly: "FRIENDLY",
+  relationshipTierFriend: "FRIEND",
+  relationshipTierClose: "CLOSE",
+  relationshipTierTrusted: "TRUSTED",
+  weeklyThemeUpdated: "WEEKLY THEME UPDATED",
+  conversationThemeUpdated: "This conversation now follows the updated campus theme.",
+  dismissThemeUpdateNotice: "Dismiss weekly theme update notice",
+  updatedThemeRemainsVisible: "The updated weekly theme remains visible above.",
+  relationshipWarmer: "+ warmer",
+  relationshipCooler: "- cooler",
+  relationshipNowTier: "now {tier}",
+  awaitingResponse: ":: awaiting response...",
+  saySomething: "Say something...",
+  sendMessage: "Send message",
+  backToDirectory: "Back to directory",
+  statQuickness: "Quickness",
+  statStrength: "Strength",
+  statMathLogic: "Math/Logic",
+  statPresence: "Presence",
+  statLuck: "Luck",
+  statResonance: "Resonance",
 };
 
 export const MOBILE_COPY_KEYS = Object.keys(
@@ -180,6 +272,52 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     languageArts: "Artes del lenguaje",
     science: "Ciencias",
     socialStudies: "Estudios sociales",
+    studentFileTitle: "ARCHIVO DEL ESTUDIANTE",
+    studentFileProgress: "SEMANA {week} · DÍA {day} · {xp} XP",
+    studentFileExploration: "{sectors} SECTORES EXPLORADOS · {objects} OBJETOS EXAMINADOS",
+    studentCoreStats: "ATRIBUTOS PRINCIPALES",
+    studentInventory: "INVENTARIO",
+    studentInventoryEmpty: "Aún no has recogido objetos.",
+    bulletinLanguage: "IDIOMA DEL BOLETÍN",
+    currentBulletinLanguage: "ACTUAL: {language}",
+    deviceDefault: "IDIOMA DEL DISPOSITIVO",
+    followDeviceLanguage: "Seguir el idioma del dispositivo",
+    withdrawRestart: "RETIRARSE Y REINICIAR",
+    withdrawConfirmTitle: "¿Retirarse de la Academia?",
+    withdrawConfirmMessage: "Se borrarán tu progreso, inventario y relaciones.",
+    cancel: "Cancelar",
+    withdraw: "Retirarse",
+    englishLanguageName: "Inglés",
+    campusDirectoryTitle: "DIRECTORIO DEL CAMPUS",
+    weeklyCampusTheme: "TEMA SEMANAL DEL CAMPUS",
+    weeklyTheme: "TEMA SEMANAL",
+    relationshipProgressTo: "{progress}% PARA {tier}",
+    relationshipMaxTier: "NIVEL MÁXIMO",
+    relationshipStatus: "RELACIÓN {score} / {endScore}",
+    relationshipNextTier: "SIGUIENTE: {tier}",
+    relationshipTierStranger: "DESCONOCIDO",
+    relationshipTierAcquaintance: "CONOCIDO",
+    relationshipTierFriendly: "AMISTOSO",
+    relationshipTierFriend: "AMIGO",
+    relationshipTierClose: "CERCANO",
+    relationshipTierTrusted: "DE CONFIANZA",
+    weeklyThemeUpdated: "TEMA SEMANAL ACTUALIZADO",
+    conversationThemeUpdated: "Esta conversación ahora sigue el tema actualizado del campus.",
+    dismissThemeUpdateNotice: "Descartar aviso de actualización del tema semanal",
+    updatedThemeRemainsVisible: "El tema actualizado sigue visible arriba.",
+    relationshipWarmer: "+ más cercano",
+    relationshipCooler: "- más distante",
+    relationshipNowTier: "ahora {tier}",
+    awaitingResponse: ":: esperando respuesta...",
+    saySomething: "Di algo...",
+    sendMessage: "Enviar mensaje",
+    backToDirectory: "Volver al directorio",
+    statQuickness: "Agilidad",
+    statStrength: "Fuerza",
+    statMathLogic: "Matemática/Lógica",
+    statPresence: "Presencia",
+    statLuck: "Suerte",
+    statResonance: "Resonancia",
   },
   fr: {
     academyTitle: "L'ACADÉMIE",
@@ -232,6 +370,52 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     languageArts: "Arts du langage",
     science: "Sciences",
     socialStudies: "Sciences sociales",
+    studentFileTitle: "DOSSIER ÉTUDIANT",
+    studentFileProgress: "SEMAINE {week} · JOUR {day} · {xp} XP",
+    studentFileExploration: "{sectors} SECTEURS EXPLORÉS · {objects} OBJETS EXAMINÉS",
+    studentCoreStats: "CARACTÉRISTIQUES PRINCIPALES",
+    studentInventory: "INVENTAIRE",
+    studentInventoryEmpty: "Aucun objet récupéré pour le moment.",
+    bulletinLanguage: "LANGUE DU BULLETIN",
+    currentBulletinLanguage: "ACTUELLE : {language}",
+    deviceDefault: "LANGUE DE L’APPAREIL",
+    followDeviceLanguage: "Suivre la langue de l’appareil",
+    withdrawRestart: "SE RETIRER ET RECOMMENCER",
+    withdrawConfirmTitle: "Quitter l’Académie ?",
+    withdrawConfirmMessage: "Votre progression, votre inventaire et vos relations seront effacés.",
+    cancel: "Annuler",
+    withdraw: "Se retirer",
+    englishLanguageName: "Anglais",
+    campusDirectoryTitle: "ANNUAIRE DU CAMPUS",
+    weeklyCampusTheme: "THÈME HEBDOMADAIRE DU CAMPUS",
+    weeklyTheme: "THÈME HEBDOMADAIRE",
+    relationshipProgressTo: "{progress}% VERS {tier}",
+    relationshipMaxTier: "NIVEAU MAXIMAL",
+    relationshipStatus: "RELATION {score} / {endScore}",
+    relationshipNextTier: "SUIVANT : {tier}",
+    relationshipTierStranger: "INCONNU",
+    relationshipTierAcquaintance: "CONNAISSANCE",
+    relationshipTierFriendly: "AMICAL",
+    relationshipTierFriend: "AMI",
+    relationshipTierClose: "PROCHE",
+    relationshipTierTrusted: "DE CONFIANCE",
+    weeklyThemeUpdated: "THÈME HEBDOMADAIRE MIS À JOUR",
+    conversationThemeUpdated: "Cette conversation suit maintenant le thème du campus mis à jour.",
+    dismissThemeUpdateNotice: "Fermer l’avis de mise à jour du thème",
+    updatedThemeRemainsVisible: "Le thème mis à jour reste visible ci-dessus.",
+    relationshipWarmer: "+ plus chaleureux",
+    relationshipCooler: "- plus distant",
+    relationshipNowTier: "maintenant {tier}",
+    awaitingResponse: ":: en attente d’une réponse...",
+    saySomething: "Dites quelque chose...",
+    sendMessage: "Envoyer un message",
+    backToDirectory: "Retour à l’annuaire",
+    statQuickness: "Rapidité",
+    statStrength: "Force",
+    statMathLogic: "Mathématiques/Logique",
+    statPresence: "Présence",
+    statLuck: "Chance",
+    statResonance: "Résonance",
   },
   de: {
     academyTitle: "DIE AKADEMIE",
@@ -284,6 +468,52 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     languageArts: "Sprachkunst",
     science: "Naturwissenschaften",
     socialStudies: "Sozialkunde",
+    studentFileTitle: "STUDENTENAKTE",
+    studentFileProgress: "WOCHE {week} · TAG {day} · {xp} XP",
+    studentFileExploration: "{sectors} BEREICHE ERKUNDET · {objects} OBJEKTE UNTERSUCHT",
+    studentCoreStats: "KERNWERTE",
+    studentInventory: "INVENTAR",
+    studentInventoryEmpty: "Noch keine Gegenstände gesammelt.",
+    bulletinLanguage: "SPRACHE DES CAMPUS-NEWSLETTERS",
+    currentBulletinLanguage: "AKTUELL: {language}",
+    deviceDefault: "GERÄTESPRACHE",
+    followDeviceLanguage: "Gerätesprache verwenden",
+    withdrawRestart: "AKADEMIE VERLASSEN & NEUSTART",
+    withdrawConfirmTitle: "Akademie wirklich verlassen?",
+    withdrawConfirmMessage: "Dein Fortschritt, Inventar und Beziehungen werden gelöscht.",
+    cancel: "Abbrechen",
+    withdraw: "Verlassen",
+    englishLanguageName: "Englisch",
+    campusDirectoryTitle: "CAMPUS-VERZEICHNIS",
+    weeklyCampusTheme: "WÖCHENTLICHES CAMPUS-THEMA",
+    weeklyTheme: "WÖCHENTLICHES THEMA",
+    relationshipProgressTo: "{progress}% BIS {tier}",
+    relationshipMaxTier: "HÖCHSTE STUFE",
+    relationshipStatus: "BEZIEHUNG {score} / {endScore}",
+    relationshipNextTier: "ALS NÄCHSTES: {tier}",
+    relationshipTierStranger: "FREMD",
+    relationshipTierAcquaintance: "BEKANNT",
+    relationshipTierFriendly: "FREUNDLICH",
+    relationshipTierFriend: "FREUND",
+    relationshipTierClose: "ENG VERTRAUT",
+    relationshipTierTrusted: "VERTRAUENSVOLL",
+    weeklyThemeUpdated: "WÖCHENTLICHES THEMA AKTUALISIERT",
+    conversationThemeUpdated: "Dieses Gespräch folgt jetzt dem aktualisierten Campus-Thema.",
+    dismissThemeUpdateNotice: "Hinweis zur Themenaktualisierung schließen",
+    updatedThemeRemainsVisible: "Das aktualisierte Thema bleibt oben sichtbar.",
+    relationshipWarmer: "+ wärmer",
+    relationshipCooler: "- kühler",
+    relationshipNowTier: "jetzt {tier}",
+    awaitingResponse: ":: Antwort wird erwartet...",
+    saySomething: "Sag etwas...",
+    sendMessage: "Nachricht senden",
+    backToDirectory: "Zurück zum Verzeichnis",
+    statQuickness: "Schnelligkeit",
+    statStrength: "Stärke",
+    statMathLogic: "Mathe/Logik",
+    statPresence: "Präsenz",
+    statLuck: "Glück",
+    statResonance: "Resonanz",
   },
   ja: {
     academyTitle: "アカデミー",
@@ -336,6 +566,52 @@ export const MOBILE_COPY_CATALOG: MobileCopyCatalog = {
     languageArts: "言語芸術",
     science: "科学",
     socialStudies: "社会科",
+    studentFileTitle: "学生ファイル",
+    studentFileProgress: "週 {week} · 日 {day} · {xp} XP",
+    studentFileExploration: "{sectors} セクター探索 · {objects} オブジェクト調査",
+    studentCoreStats: "主要ステータス",
+    studentInventory: "所持品",
+    studentInventoryEmpty: "まだアイテムを入手していません。",
+    bulletinLanguage: "掲示板の言語",
+    currentBulletinLanguage: "現在: {language}",
+    deviceDefault: "端末の言語設定",
+    followDeviceLanguage: "端末の言語に合わせる",
+    withdrawRestart: "退学して再スタート",
+    withdrawConfirmTitle: "アカデミーを退学しますか？",
+    withdrawConfirmMessage: "進行状況、所持品、関係性がすべて消去されます。",
+    cancel: "キャンセル",
+    withdraw: "退学する",
+    englishLanguageName: "英語",
+    campusDirectoryTitle: "キャンパス名簿",
+    weeklyCampusTheme: "今週のキャンパステーマ",
+    weeklyTheme: "今週のテーマ",
+    relationshipProgressTo: "{progress}% 次のランク: {tier}",
+    relationshipMaxTier: "最高ランク",
+    relationshipStatus: "関係度 {score} / {endScore}",
+    relationshipNextTier: "次のランク: {tier}",
+    relationshipTierStranger: "初対面",
+    relationshipTierAcquaintance: "知人",
+    relationshipTierFriendly: "友好的",
+    relationshipTierFriend: "友人",
+    relationshipTierClose: "親しい",
+    relationshipTierTrusted: "信頼",
+    weeklyThemeUpdated: "テーマが更新されました",
+    conversationThemeUpdated: "この会話は更新後のキャンパステーマに沿って進みます。",
+    dismissThemeUpdateNotice: "テーマ更新のお知らせを閉じる",
+    updatedThemeRemainsVisible: "更新されたテーマは上に表示されています。",
+    relationshipWarmer: "+ 親密になった",
+    relationshipCooler: "- 距離ができた",
+    relationshipNowTier: "現在: {tier}",
+    awaitingResponse: ":: 返答を待っています...",
+    saySomething: "何か話してください...",
+    sendMessage: "メッセージを送信",
+    backToDirectory: "名簿に戻る",
+    statQuickness: "敏捷性",
+    statStrength: "強さ",
+    statMathLogic: "数学・論理",
+    statPresence: "存在感",
+    statLuck: "運",
+    statResonance: "共鳴",
   },
 };
 
@@ -421,6 +697,18 @@ export function getMobileCopy(
     ENGLISH_MOBILE_COPY[key] ??
     key
   );
+}
+
+export function formatMobileCopy(
+  key: MobileCopyKey,
+  locale: string | null | undefined,
+  values: Record<string, string | number>,
+): string {
+  let copy = getMobileCopy(key, locale);
+  for (const [name, value] of Object.entries(values)) {
+    copy = copy.split(`{${name}}`).join(String(value));
+  }
+  return copy;
 }
 
 export function getBulletinSourceMessage(

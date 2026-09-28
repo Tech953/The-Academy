@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { gameState, scrollCalls, windowDimensions } = vi.hoisted(() => ({
   gameState: {
     weeklyTheme: "",
+    bulletinLocale: "en" as string,
     dialogueHistory: {} as Record<string, Array<{ role: "player" | "npc"; text: string; timestamp: number }>>,
+    relationships: {} as Record<string, { score: number }>,
   },
   scrollCalls: [] as Array<
     | { type: "scrollTo"; y: number; animated: boolean }
@@ -145,17 +147,52 @@ vi.mock("@/context/GameContext", () => ({
     dialogueLoading: false,
     enrichmentStatus: "offline",
     isOnline: false,
-    relationships: {},
+    relationships: gameState.relationships,
     relationshipShifts: {},
     resetNpcConversation: vi.fn(),
     sendDialogue: vi.fn(),
     weeklyTheme: gameState.weeklyTheme,
+    bulletinLocale: gameState.bulletinLocale,
   }),
 }));
 
 import NpcScreen from "../app/(tabs)/npcs";
 import { selectWeeklyTheme } from "../lib/themeSelection";
-import { NPCS } from "@workspace/game-engine";
+import { getRelationshipProgress, NPCS } from "@workspace/game-engine";
+import {
+  formatMobileCopy,
+  getMobileCopy,
+  MOBILE_COPY_CATALOG,
+  SUPPORTED_LOCALES,
+  type MobileCopyKey,
+} from "../constants/locales";
+
+const CAMPUS_DIRECTORY_COPY_KEYS = [
+  "campusDirectoryTitle",
+  "weeklyCampusTheme",
+  "weeklyTheme",
+  "relationshipProgressTo",
+  "relationshipMaxTier",
+  "relationshipStatus",
+  "relationshipNextTier",
+  "relationshipTierStranger",
+  "relationshipTierAcquaintance",
+  "relationshipTierFriendly",
+  "relationshipTierFriend",
+  "relationshipTierClose",
+  "relationshipTierTrusted",
+  "weeklyThemeUpdated",
+  "conversationThemeUpdated",
+  "dismissThemeUpdateNotice",
+  "updatedThemeRemainsVisible",
+  "relationshipWarmer",
+  "relationshipCooler",
+  "relationshipNowTier",
+  "awaitingResponse",
+  "saySomething",
+  "sendMessage",
+  "backToDirectory",
+] as const satisfies readonly MobileCopyKey[];
 
 const NpcScreenWithInitialNpc = NpcScreen as React.ComponentType<{
   initialNpcId?: string | null;
@@ -176,7 +213,9 @@ function flattenStyle(style: unknown): Record<string, unknown> {
 describe("NPC directory weekly theme cue", () => {
   beforeEach(() => {
     gameState.weeklyTheme = "";
+    gameState.bulletinLocale = "en";
     gameState.dialogueHistory = {};
+    gameState.relationships = {};
     scrollCalls.length = 0;
     windowDimensions.fontScale = 1;
   });
@@ -533,5 +572,120 @@ describe("NPC directory weekly theme cue", () => {
     expect(flattenStyle(largeTextHeader!.props.style)).toMatchObject({
       alignItems: "stretch",
     });
+  });
+});
+
+describe("Campus Directory localized labels", () => {
+  beforeEach(() => {
+    gameState.weeklyTheme = "Campus Research Week";
+    gameState.bulletinLocale = "en";
+    gameState.dialogueHistory = {};
+    gameState.relationships = {};
+    windowDimensions.fontScale = 1;
+  });
+
+  it.each(SUPPORTED_LOCALES)(
+    "renders the directory and all relationship tiers in %s",
+    (locale) => {
+      gameState.bulletinLocale = locale;
+      const npc = Object.values(NPCS)[0];
+      if (!npc) throw new Error("Campus Directory must contain at least one NPC.");
+
+      for (const key of CAMPUS_DIRECTORY_COPY_KEYS) {
+        expect(MOBILE_COPY_CATALOG[locale]?.[key], `${locale} is missing ${key}`).toBeTruthy();
+      }
+
+      const directoryMarkup = renderToStaticMarkup(React.createElement(NpcScreen));
+      expect(directoryMarkup).toContain(getMobileCopy("campusDirectoryTitle", locale));
+      expect(directoryMarkup).toContain(getMobileCopy("weeklyCampusTheme", locale));
+
+      const tierCases = [
+        ["stranger", "relationshipTierStranger"],
+        ["acquaintance", "relationshipTierAcquaintance"],
+        ["friendly", "relationshipTierFriendly"],
+        ["friend", "relationshipTierFriend"],
+        ["close", "relationshipTierClose"],
+        ["trusted", "relationshipTierTrusted"],
+      ] as const;
+
+      for (const [tier, copyKey] of tierCases) {
+        const score = Array.from({ length: 101 }, (_, value) => value).find(
+          (value) => getRelationshipProgress(value).tier === tier,
+        );
+        if (score === undefined) {
+          throw new Error(`No score maps to relationship tier ${tier}.`);
+        }
+        gameState.relationships = { [npc.id]: { score } };
+        const markup = renderToStaticMarkup(React.createElement(NpcScreen));
+        expect(markup).toContain(getMobileCopy(copyKey, locale));
+
+        const relationship = getRelationshipProgress(score);
+        if (relationship.nextTier) {
+          const nextTierCopyKey = tierCases.find(
+            ([candidateTier]) => candidateTier === relationship.nextTier,
+          )?.[1];
+          if (!nextTierCopyKey) {
+            throw new Error(`Missing copy key for relationship tier ${relationship.nextTier}.`);
+          }
+          expect(markup).toContain(
+            formatMobileCopy("relationshipProgressTo", locale, {
+              progress: Math.round(relationship.progress * 100),
+              tier: getMobileCopy(nextTierCopyKey, locale),
+            }),
+          );
+        } else {
+          expect(markup).toContain(getMobileCopy("relationshipMaxTier", locale));
+        }
+      }
+    },
+  );
+
+  it("renders translated relationship details and composer labels in an open profile", () => {
+    const locale = "fr";
+    gameState.bulletinLocale = locale;
+    gameState.relationships = { receptionist_emily: { score: 40 } };
+
+    const markup = renderToStaticMarkup(
+      React.createElement(NpcScreenWithInitialNpc, {
+        initialNpcId: "receptionist_emily",
+      }),
+    );
+
+    expect(markup).toContain(getMobileCopy("weeklyTheme", locale));
+    expect(markup).toContain(getMobileCopy("relationshipTierFriendly", locale));
+    expect(markup).toContain(
+      formatMobileCopy("relationshipStatus", locale, {
+        score: 40,
+        endScore: 50,
+      }),
+    );
+    expect(markup).toContain(
+      formatMobileCopy("relationshipNextTier", locale, {
+        tier: getMobileCopy("relationshipTierFriend", locale),
+      }),
+    );
+    expect(markup).toContain(`placeholder="${getMobileCopy("saySomething", locale)}"`);
+    expect(markup).toContain(`aria-label="${getMobileCopy("sendMessage", locale)}"`);
+    expect(markup).toContain(`aria-label="${getMobileCopy("backToDirectory", locale)}"`);
+  });
+
+  it("uses English fallback for missing translated directory and tier labels", () => {
+    gameState.bulletinLocale = "es";
+    const spanishCopy = MOBILE_COPY_CATALOG.es;
+    expect(spanishCopy).toBeDefined();
+
+    const previousDirectoryTitle = spanishCopy!.campusDirectoryTitle;
+    const previousStrangerTier = spanishCopy!.relationshipTierStranger;
+    delete spanishCopy!.campusDirectoryTitle;
+    delete spanishCopy!.relationshipTierStranger;
+
+    try {
+      const markup = renderToStaticMarkup(React.createElement(NpcScreen));
+      expect(markup).toContain(getMobileCopy("campusDirectoryTitle", "en"));
+      expect(markup).toContain(getMobileCopy("relationshipTierStranger", "en"));
+    } finally {
+      spanishCopy!.campusDirectoryTitle = previousDirectoryTitle;
+      spanishCopy!.relationshipTierStranger = previousStrangerTier;
+    }
   });
 });

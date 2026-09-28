@@ -15,6 +15,14 @@ Offline-first GED academic RPG companion to the web app, retro CRT terminal look
 **Offline-first design (explicit user requirement):** app must be fully usable with no network. `lib/api.ts` does online→offline fallback for describe/npcReply and tags each result with `source: "online" | "offline"`. Study is fully local (`generateQuizSet`). Sync (content packs) is additive-only enrichment cached in AsyncStorage. Never make a core flow require the network.
 - **Enrichment status should be shared and non-blocking:** show checking, live AI, local-only, or local-fallback based on connectivity/configuration and the latest enrichment result; never gate study, travel, dialogue, or saved progress on the API.
 
+## Localization boundary
+
+Route mobile interface copy—headings, prompts, accessibility labels, and formatted status text—through the shared locale catalog. Keep game-content values such as character names and titles, item names/descriptions, and theme text separate unless content localization is explicitly in scope.
+
+**Why:** Screen copy and authored game content have different owners; translating only the UI should not silently rewrite shared scenario data.
+
+**How to apply:** For interface localization, use `getMobileCopy`/`formatMobileCopy`. For translated game content, add a locale-aware content layer rather than embedding translations into screen components.
+
 - Backend already exists (web api-server); mobile calls it via direct fetch — DO NOT add DB/OpenAPI codegen for the mobile artifact.
 
 ## Verifying / testing gotchas

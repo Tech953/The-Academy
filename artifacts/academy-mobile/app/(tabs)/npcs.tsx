@@ -13,26 +13,56 @@ import {
 } from "react-native";
 
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  formatMobileCopy,
+  getMobileCopy,
+  type MobileCopyKey,
+} from "@/constants/locales";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
 import { getRelationshipProgress, NPCS, type NpcDef } from "@workspace/game-engine";
 import { shouldShowShift } from "@/lib/relationshipShift";
 
+const RELATIONSHIP_TIER_COPY_KEYS: Record<string, MobileCopyKey> = {
+  stranger: "relationshipTierStranger",
+  acquaintance: "relationshipTierAcquaintance",
+  friendly: "relationshipTierFriendly",
+  friend: "relationshipTierFriend",
+  close: "relationshipTierClose",
+  trusted: "relationshipTierTrusted",
+};
+
+function relationshipTierLabel(
+  tier: string,
+  locale: string | null | undefined,
+): string {
+  const copyKey = RELATIONSHIP_TIER_COPY_KEYS[tier];
+  if (!copyKey) {
+    throw new Error(`Missing locale catalog entry for relationship tier: ${tier}`);
+  }
+  return getMobileCopy(copyKey, locale);
+}
+
 function NpcListItem({
   npc,
   onPress,
   score,
+  locale,
 }: {
   npc: NpcDef;
   onPress: () => void;
   score: number;
+  locale: string | null | undefined;
 }) {
   const colors = useColors();
   const relationship = getRelationshipProgress(score);
   const progressLabel = relationship.nextTier
-    ? `${Math.round(relationship.progress * 100)}% TO ${relationship.nextTier.toUpperCase()}`
-    : "MAX TIER";
+    ? formatMobileCopy("relationshipProgressTo", locale, {
+        progress: Math.round(relationship.progress * 100),
+        tier: relationshipTierLabel(relationship.nextTier, locale),
+      })
+    : getMobileCopy("relationshipMaxTier", locale);
   return (
     <Pressable
       onPress={onPress}
@@ -60,7 +90,9 @@ function NpcListItem({
         </View>
       </View>
       <View style={styles.npcRight}>
-        <Text style={[styles.tierText, { color: colors.accent }]}>{relationship.tier.toUpperCase()}</Text>
+        <Text style={[styles.tierText, { color: colors.accent }]}>
+          {relationshipTierLabel(relationship.tier, locale)}
+        </Text>
         <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
       </View>
     </Pressable>
@@ -150,6 +182,7 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
   const activeRelationship = activeNpc
     ? getRelationshipProgress(relationships[activeNpc.id]?.score ?? 0)
     : null;
+  const copy = (key: MobileCopyKey) => getMobileCopy(key, bulletinLocale);
 
   const openNpc = (id: string) => {
     // Discard any shift from a previous visit so it can never replay.
@@ -187,7 +220,7 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
               { color: colors.primary, textShadowColor: colors.primary },
             ]}
           >
-            CAMPUS DIRECTORY
+            {copy("campusDirectoryTitle")}
           </Text>
           <StatusBadge
             isOnline={isOnline}
@@ -196,7 +229,9 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
           />
         </View>
         <View style={[styles.themeCue, { borderColor: colors.accent }]}>
-          <Text style={[styles.themeCueLabel, { color: colors.accent }]}>WEEKLY CAMPUS THEME</Text>
+          <Text style={[styles.themeCueLabel, { color: colors.accent }]}>
+            {copy("weeklyCampusTheme")}
+          </Text>
           <Text style={[styles.themeCueValue, { color: colors.foreground }]}>{weeklyTheme}</Text>
         </View>
         <ScrollView contentContainerStyle={styles.listContent}>
@@ -205,6 +240,7 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
               key={npc.id}
               npc={npc}
               score={relationships[npc.id]?.score ?? 0}
+              locale={bulletinLocale}
               onPress={() => openNpc(npc.id)}
             />
           ))}
@@ -227,6 +263,8 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
         ]}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={copy("backToDirectory")}
           onPress={() => {
             dismissThemeNotice(undefined, false);
             setActiveNpcId(null);
@@ -251,7 +289,7 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
         />
       </View>
       <Text style={[styles.npcTitleSub, { color: colors.mutedForeground }]}>
-        {activeNpc.title} · {activeRelationship?.tier ?? "stranger"}
+        {activeNpc.title} · {relationshipTierLabel(activeRelationship?.tier ?? "stranger", bulletinLocale)}
       </Text>
       <View
         style={[
@@ -267,7 +305,7 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
             { color: colors.accent },
           ]}
         >
-          WEEKLY THEME
+          {copy("weeklyTheme")}
         </Text>
         <Text
           style={[
@@ -288,16 +326,16 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
           <Feather name="info" size={13} color={colors.accent} />
           <View style={styles.themeUpdateCopy}>
             <Text style={[styles.themeUpdateTitle, { color: colors.accent }]}>
-              WEEKLY THEME UPDATED
+              {copy("weeklyThemeUpdated")}
             </Text>
             <Text style={[styles.themeUpdateMessage, { color: colors.foreground }]}>
-              This conversation now follows the updated campus theme.
+              {copy("conversationThemeUpdated")}
             </Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dismiss weekly theme update notice"
-            accessibilityHint="The updated weekly theme remains visible above."
+            accessibilityLabel={copy("dismissThemeUpdateNotice")}
+            accessibilityHint={copy("updatedThemeRemainsVisible")}
             hitSlop={8}
             onPress={() => dismissThemeNotice(themeUpdateNotice.id)}
             style={styles.themeUpdateDismiss}
@@ -310,12 +348,17 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
         <View style={styles.chatProgress}>
           <View style={styles.chatProgressMeta}>
             <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>
-              RELATIONSHIP {activeRelationship.score} / {activeRelationship.endScore}
+              {formatMobileCopy("relationshipStatus", bulletinLocale, {
+                score: activeRelationship.score,
+                endScore: activeRelationship.endScore,
+              })}
             </Text>
             <Text style={[styles.progressLabel, { color: colors.accent }]}>
               {activeRelationship.nextTier
-                ? `NEXT ${activeRelationship.nextTier.toUpperCase()}`
-                : "MAX TIER"}
+                ? formatMobileCopy("relationshipNextTier", bulletinLocale, {
+                    tier: relationshipTierLabel(activeRelationship.nextTier, bulletinLocale),
+                  })
+                : copy("relationshipMaxTier")}
             </Text>
           </View>
           <View style={[styles.progressTrack, { borderColor: colors.border }]}>
@@ -349,9 +392,11 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
               { color: activeShift.delta > 0 ? colors.primary : colors.destructive },
             ]}
           >
-            {activeShift.delta > 0 ? "+ warmer" : "- cooler"}
+            {copy(activeShift.delta > 0 ? "relationshipWarmer" : "relationshipCooler")}
             {activeShift.fromTier !== activeShift.toTier
-              ? ` · now ${activeShift.toTier.toUpperCase()}`
+              ? ` · ${formatMobileCopy("relationshipNowTier", bulletinLocale, {
+                  tier: relationshipTierLabel(activeShift.toTier, bulletinLocale),
+                })}`
               : ""}
           </Text>
         </View>
@@ -394,7 +439,9 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
           </View>
         ))}
         {dialogueLoading ? (
-          <Text style={[styles.pending, { color: colors.mutedForeground }]}>:: awaiting response...</Text>
+          <Text style={[styles.pending, { color: colors.mutedForeground }]}>
+            {copy("awaitingResponse")}
+          </Text>
         ) : null}
       </ScrollView>
 
@@ -402,12 +449,14 @@ export default function NpcScreen({ initialNpcId = null }: { initialNpcId?: stri
         <TextInput
           value={draft}
           onChangeText={setDraft}
-          placeholder="Say something..."
+          placeholder={copy("saySomething")}
           placeholderTextColor={colors.mutedForeground}
           style={[styles.input, { color: colors.foreground, borderColor: colors.mutedForeground }]}
           multiline
         />
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={copy("sendMessage")}
           onPress={handleSend}
           disabled={!draft.trim() || dialogueLoading}
           style={({ pressed }) => [

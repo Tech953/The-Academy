@@ -7,11 +7,23 @@ import { StatBar } from "@/components/StatBar";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   BULLETIN_LOCALE_OPTIONS,
+  formatMobileCopy,
+  getMobileCopy,
+  type MobileCopyKey,
   type SupportedLocale,
 } from "@/constants/locales";
 import { monoFont, monoFontBold } from "@/constants/fonts";
 import { STAT_DEFS, useGame } from "@/context/GameContext";
 import { useColors } from "@/hooks/useColors";
+
+const STAT_COPY_KEYS: Record<(typeof STAT_DEFS)[number]["key"], MobileCopyKey> = {
+  quickness: "statQuickness",
+  strength: "statStrength",
+  mathLogic: "statMathLogic",
+  presence: "statPresence",
+  luck: "statLuck",
+  resonance: "statResonance",
+};
 
 export default function StatsScreen() {
   const colors = useColors();
@@ -33,13 +45,15 @@ export default function StatsScreen() {
   } =
     useGame();
 
+  const copy = (key: MobileCopyKey) => getMobileCopy(key, bulletinLocale);
+
   const confirmReset = () => {
     Alert.alert(
-      "Withdraw from the Academy?",
-      "This clears your progress, inventory, and relationships.",
+      copy("withdrawConfirmTitle"),
+      copy("withdrawConfirmMessage"),
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Withdraw", style: "destructive", onPress: resetGame },
+        { text: copy("cancel"), style: "cancel" },
+        { text: copy("withdraw"), style: "destructive", onPress: resetGame },
       ],
     );
   };
@@ -48,7 +62,7 @@ export default function StatsScreen() {
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { borderColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.primary, textShadowColor: colors.primary }]}>
-          STUDENT FILE
+          {copy("studentFileTitle")}
         </Text>
         <StatusBadge
           isOnline={isOnline}
@@ -59,30 +73,42 @@ export default function StatsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.card, { borderColor: colors.border }]}>
           <Text style={[styles.name, { color: colors.primary, textShadowColor: colors.primary }]}>
-            {playerName || "Recruit"}
+            {playerName || copy("recruitPlaceholder")}
           </Text>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            WEEK {week} · DAY {day} · {xp} XP
+            {formatMobileCopy("studentFileProgress", bulletinLocale, { week, day, xp })}
           </Text>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            {visitedLocationIds.length} SECTORS EXPLORED · {examinedIds.length} OBJECTS EXAMINED
+            {formatMobileCopy("studentFileExploration", bulletinLocale, {
+              sectors: visitedLocationIds.length,
+              objects: examinedIds.length,
+            })}
           </Text>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.accent }]}>CORE STATS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.accent }]}>
+          {copy("studentCoreStats")}
+        </Text>
         <View style={[styles.card, { borderColor: colors.border }]}>
           {STAT_DEFS.map((def) => (
-            <StatBar key={def.key} label={def.label} abbr={def.abbr} value={stats[def.key]} />
+            <StatBar
+              key={def.key}
+              label={copy(STAT_COPY_KEYS[def.key])}
+              abbr={def.abbr}
+              value={stats[def.key]}
+            />
           ))}
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.accent }]}>INVENTORY</Text>
+        <Text style={[styles.sectionTitle, { color: colors.accent }]}>
+          {copy("studentInventory")}
+        </Text>
         <View style={[styles.card, { borderColor: colors.border }]}>
           {inventory.length === 0 ? (
             <View style={styles.emptyState}>
               <Feather name="package" size={20} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No items collected yet.
+                {copy("studentInventoryEmpty")}
               </Text>
             </View>
           ) : (
@@ -101,10 +127,16 @@ export default function StatsScreen() {
           )}
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.accent }]}>BULLETIN LANGUAGE</Text>
+        <Text style={[styles.sectionTitle, { color: colors.accent }]}>
+          {copy("bulletinLanguage")}
+        </Text>
         <View style={[styles.card, { borderColor: colors.border }]}>
           <Text style={[styles.languageHint, { color: colors.mutedForeground }]}>
-            CURRENT: {BULLETIN_LOCALE_OPTIONS.find((option) => option.value === bulletinLocale)?.label ?? "English"}
+            {formatMobileCopy("currentBulletinLanguage", bulletinLocale, {
+              language:
+                BULLETIN_LOCALE_OPTIONS.find((option) => option.value === bulletinLocale)?.label ??
+                copy("englishLanguageName"),
+            })}
           </Text>
           <Pressable
             accessibilityRole="radio"
@@ -119,10 +151,10 @@ export default function StatsScreen() {
             ]}
           >
             <Text style={[styles.languageOptionText, { color: colors.foreground }]}>
-              DEVICE DEFAULT
+              {copy("deviceDefault")}
             </Text>
             <Text style={[styles.languageOptionDetail, { color: colors.mutedForeground }]}>
-              Follow the device language
+              {copy("followDeviceLanguage")}
             </Text>
           </Pressable>
           {BULLETIN_LOCALE_OPTIONS.map((option) => (
@@ -149,7 +181,12 @@ export default function StatsScreen() {
           ))}
         </View>
 
-        <CrtButton label="WITHDRAW & RESTART" icon="log-out" variant="accent" onPress={confirmReset} />
+        <CrtButton
+          label={copy("withdrawRestart")}
+          icon="log-out"
+          variant="accent"
+          onPress={confirmReset}
+        />
       </ScrollView>
     </View>
   );
