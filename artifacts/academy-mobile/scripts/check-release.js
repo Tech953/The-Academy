@@ -663,6 +663,7 @@ async function runReleaseSmokeChecks({
   fetchImpl = fetch,
   retryDelayMs = RETRY_DELAY_MS,
   sleepImpl = sleep,
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
 } = {}) {
   const config = readReleaseConfig(configPath);
   validateRequiredReleaseProfileHosts(config);
@@ -692,6 +693,7 @@ async function runReleaseSmokeChecks({
           fetchImpl,
           retryDelayMs,
           sleepImpl,
+          requestTimeoutMs,
         }),
       );
     } catch (error) {

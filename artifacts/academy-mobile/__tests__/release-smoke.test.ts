@@ -515,6 +515,10 @@ if (process.env.RELEASE_IDENTITY_DRIFT === "production-autoIncrement") {
 const failed = process.env.RELEASE_PREFLIGHT_RESULT === "failed";
 const hostFailure = process.env.RELEASE_PREFLIGHT_RESULT === "host-failure";
 const recoveredProfiles = process.env.RELEASE_PREFLIGHT_RESULT === "recovered";
+const timeoutRecovered =
+  process.env.RELEASE_PREFLIGHT_RESULT === "timeout-recovered";
+const timeoutPersistent =
+  process.env.RELEASE_PREFLIGHT_RESULT === "timeout-persistent";
 const configuredProfiles =
   process.env.RELEASE_PREFLIGHT_RESULT === "configured-profiles";
 const hostValidation = hostFailure
@@ -589,6 +593,58 @@ require.cache[require.resolve(checkReleasePath)].exports = {
       error.hostValidation = hostValidation;
       throw error;
     }
+    if (timeoutRecovered || timeoutPersistent) {
+      const http = require("node:http");
+      const requestCounts = new Map();
+      const server = http.createServer((request, response) => {
+        const requestPath = request.url || "/";
+        const attempt = (requestCounts.get(requestPath) || 0) + 1;
+        requestCounts.set(requestPath, attempt);
+        const payload = requestPath.endsWith("/api/healthz")
+          ? { status: "ok" }
+          : { description: "A quiet room." };
+        const respond = () => {
+          if (request.destroyed || response.destroyed) return;
+          response.writeHead(200, { "Content-Type": "application/json" });
+          response.end(JSON.stringify(payload));
+        };
+
+        if (timeoutPersistent || attempt === 1) {
+          setTimeout(respond, 350);
+        } else {
+          respond();
+        }
+      });
+      await new Promise((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        await new Promise((resolve) => server.close(resolve));
+        throw new Error("Could not start the native handoff timeout fixture.");
+      }
+
+      try {
+        return await nativeRunReleaseSmokeChecks({
+          fetchImpl: (url, init) => {
+            const endpoint = new URL(url);
+            return fetch(
+              "http://127.0.0.1:" + address.port + endpoint.pathname,
+              init,
+            );
+          },
+          retryDelayMs: 0,
+          sleepImpl: async () => {},
+          requestTimeoutMs: 100
+        });
+      } finally {
+        await new Promise((resolve, reject) => {
+          server.close((error) => (error ? reject(error) : resolve()));
+          server.closeAllConnections?.();
+        });
+      }
+    }
     if (configuredProfiles) {
       let aiRequestCount = 0;
       const fetchImpl = async (url) => {
@@ -638,7 +694,9 @@ function runNativeHandoffSubprocess(
     | "passed"
     | "host-failure"
     | "configured-profiles"
-    | "recovered",
+    | "recovered"
+    | "timeout-recovered"
+    | "timeout-persistent",
   easExitCode = "0",
   platform: "android" | "ios" = "android",
   profile = "preview",
@@ -3761,6 +3819,110 @@ describe("release smoke check", () => {
         ],
         failed: [{ profile: "production", error: "HTTP 503" }],
       });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("archives local health and AI timeout retries before starting EAS", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "timeout-recovered",
+      );
+
+      expect(result.status).toBe(0);
+      expect(existsSync(fixture.easRecordPath)).toBe(true);
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        connectivity: {
+          healthAttempts: number;
+          aiAttempts: number;
+        };
+        summary: {
+          status: string;
+          profiles: Array<{
+            profile: string;
+            healthAttempts: number;
+            aiAttempts: number;
+            recovered: boolean;
+          }>;
+        };
+      };
+      expect(report.status).toBe("completed");
+      expect(report.connectivity).toMatchObject({
+        healthAttempts: 2,
+        aiAttempts: 2,
+      });
+      expect(report.summary.status).toBe("passed");
+      expect(report.summary.profiles).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            profile: "preview",
+            healthAttempts: 2,
+            aiAttempts: 2,
+            recovered: true,
+          }),
+          expect.objectContaining({
+            profile: "production",
+            healthAttempts: 1,
+            aiAttempts: 1,
+            recovered: false,
+          }),
+        ]),
+      );
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("archives persistent local timeouts and blocks EAS", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "timeout-persistent",
+      );
+
+      expect(result.status).toBe(1);
+      expect(existsSync(fixture.easRecordPath)).toBe(false);
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        summary: {
+          status: string;
+          profiles: Array<{
+            profile: string;
+            healthAttempts: number;
+            aiAttempts: number;
+            recovered: boolean;
+          }>;
+        };
+      };
+      expect(report.status).toBe("failed");
+      expect(report.summary.status).toBe("failed");
+      expect(report.summary.profiles).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            profile: "preview",
+            healthAttempts: 3,
+            aiAttempts: 0,
+            recovered: false,
+          }),
+          expect.objectContaining({
+            profile: "production",
+            healthAttempts: 3,
+            aiAttempts: 0,
+            recovered: false,
+          }),
+        ]),
+      );
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }
