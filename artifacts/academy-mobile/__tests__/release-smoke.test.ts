@@ -3012,6 +3012,107 @@ describe("release smoke check", () => {
     ]);
   });
 
+  it("archives attempt counts when successful responses contain unusable JSON", async () => {
+    const configDirectory = mkdtempSync(
+      path.join(tmpdir(), "academy-release-invalid-payloads-"),
+    );
+    const configPath = path.join(configDirectory, "eas.json");
+
+    try {
+      const config = JSON.parse(JSON.stringify(readReleaseConfig())) as {
+        build: Record<string, { env: Record<string, string> }>;
+      };
+      const publishedDomain = getReleaseDomain(config, "production");
+      config.build.staging = {
+        env: { EXPO_PUBLIC_DOMAIN: publishedDomain },
+      };
+      writeFileSync(configPath, JSON.stringify(config), "utf8");
+
+      const responses = [
+        new Response("Temporary health outage.", { status: 503 }),
+        new Response("{ malformed health json", { status: 200 }),
+        new Response("Temporary health outage.", { status: 503 }),
+        okJson({ status: "ok" }),
+        new Response("Temporary AI outage.", { status: 503 }),
+        new Response("{ malformed AI json", { status: 200 }),
+        okJson({ status: "ok" }),
+        new Response("Temporary AI outage.", { status: 503 }),
+        okJson({ description: "  " }),
+      ];
+      const fetchImpl = vi.fn(async () => {
+        const response = responses.shift();
+        if (!response) {
+          throw new Error("Invalid-payload fixture ran out of responses.");
+        }
+        return response;
+      }) as unknown as typeof fetch;
+
+      const result = await runReleaseSmokeChecks({
+        configPath,
+        fetchImpl,
+        retryDelayMs: 0,
+        sleepImpl: async () => {},
+      });
+      const report = archiveReleaseSummary(
+        summarizeReleaseSmokeResult(result),
+      );
+      const healthUrl = `https://${publishedDomain}/api/healthz`;
+      const aiUrl = `https://${publishedDomain}/api/ai/describe`;
+
+      assertStableReleaseReport(report, "failed", [
+        "preview",
+        "production",
+        "staging",
+      ]);
+      expect(report.summary).toMatchObject({
+        profiles: [
+          {
+            profile: "preview",
+            domain: publishedDomain,
+            status: "failed",
+            healthUrl,
+            aiUrl,
+            healthAttempts: 2,
+            aiAttempts: 0,
+            recovered: false,
+            error: expect.stringContaining(
+              "[release-smoke] Health endpoint returned invalid JSON:",
+            ),
+          },
+          {
+            profile: "production",
+            domain: publishedDomain,
+            status: "failed",
+            healthUrl,
+            aiUrl,
+            healthAttempts: 2,
+            aiAttempts: 2,
+            recovered: false,
+            error: expect.stringContaining(
+              "[release-smoke] AI enrichment endpoint returned invalid JSON:",
+            ),
+          },
+          {
+            profile: "staging",
+            domain: publishedDomain,
+            status: "failed",
+            healthUrl,
+            aiUrl,
+            healthAttempts: 1,
+            aiAttempts: 2,
+            recovered: false,
+            error: expect.stringContaining(
+              `[release-smoke] AI enrichment endpoint ${aiUrl} returned no description.`,
+            ),
+          },
+        ],
+      });
+      expect(fetchImpl).toHaveBeenCalledTimes(9);
+    } finally {
+      rmSync(configDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("summarizes every profile with stable machine-readable results", () => {
     expect(
       summarizeReleaseSmokeResult({
