@@ -160,6 +160,8 @@ const {
     failed: Array<{
       profile: string;
       domain: string | null;
+      healthUrl?: string | null;
+      aiUrl?: string | null;
       healthAttempts: number;
       aiAttempts: number;
       error: Error;
@@ -197,6 +199,8 @@ const {
     failed: Array<{
       profile: string;
       domain: string | null;
+      healthUrl?: string | null;
+      aiUrl?: string | null;
       healthAttempts?: number;
       aiAttempts?: number;
       error: Error;
@@ -311,7 +315,13 @@ const {
     runAllProfiles: () => Promise<{
       profiles: string[];
       passed: Array<{ profile: string; domain: string; healthUrl: string; aiUrl: string }>;
-      failed: Array<{ profile: string; domain?: string | null; error: Error }>;
+      failed: Array<{
+        profile: string;
+        domain?: string | null;
+        healthUrl?: string | null;
+        aiUrl?: string | null;
+        error: Error;
+      }>;
     }>;
   }) => Promise<{
     selected: { profile: string };
@@ -474,6 +484,7 @@ if (exitCode !== 0) {
     preloadPath,
     `const checkReleasePath = ${JSON.stringify(checkReleasePath)};
 const checkRelease = require(checkReleasePath);
+const nativeRunReleaseSmokeChecks = checkRelease.runReleaseSmokeChecks;
 const validateAndroidReleaseIdentity = checkRelease.validateAndroidReleaseIdentity;
 if (process.env.RELEASE_IDENTITY_DRIFT === "production-autoIncrement") {
   checkRelease.validateAndroidReleaseIdentity = (profile, options) => {
@@ -503,6 +514,8 @@ if (process.env.RELEASE_IDENTITY_DRIFT === "production-autoIncrement") {
 }
 const failed = process.env.RELEASE_PREFLIGHT_RESULT === "failed";
 const hostFailure = process.env.RELEASE_PREFLIGHT_RESULT === "host-failure";
+const configuredProfiles =
+  process.env.RELEASE_PREFLIGHT_RESULT === "configured-profiles";
 const hostValidation = hostFailure
   ? JSON.parse(process.env.RELEASE_HOST_VALIDATION_JSON || "null")
   : null;
@@ -518,6 +531,8 @@ const result = failed
       failed: [{
         profile: "production",
         domain: "production.example.com",
+        healthUrl: "https://production.example.com/api/healthz",
+        aiUrl: "https://production.example.com/api/ai/describe",
          healthAttempts: 3,
          aiAttempts: 0,
         error: new Error("HTTP 503")
@@ -550,6 +565,32 @@ require.cache[require.resolve(checkReleasePath)].exports = {
       error.hostValidation = hostValidation;
       throw error;
     }
+    if (configuredProfiles) {
+      let aiRequestCount = 0;
+      const fetchImpl = async (url) => {
+        if (url.endsWith("/api/healthz")) {
+          return new Response(JSON.stringify({ status: "ok" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+
+        aiRequestCount += 1;
+        if (aiRequestCount >= 2 && aiRequestCount <= 4) {
+          return new Response("Production AI unavailable.", { status: 503 });
+        }
+        return new Response(JSON.stringify({ description: "A quiet room." }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      };
+      return nativeRunReleaseSmokeChecks({
+        configPath: process.env.RELEASE_EAS_CONFIG_PATH,
+        fetchImpl,
+        retryDelayMs: 0,
+        sleepImpl: async () => {}
+      });
+    }
     return result;
   }
 };
@@ -568,7 +609,7 @@ require.cache[require.resolve(checkReleasePath)].exports = {
 
 function runNativeHandoffSubprocess(
   fixture: ReturnType<typeof createNativeHandoffSubprocessFixture>,
-  preflightResult: "failed" | "passed" | "host-failure",
+  preflightResult: "failed" | "passed" | "host-failure" | "configured-profiles",
   easExitCode = "0",
   platform: "android" | "ios" = "android",
   profile = "preview",
@@ -581,6 +622,7 @@ function runNativeHandoffSubprocess(
     configuredHost: string;
     validationStage: string;
   },
+  releaseEasConfigPath?: string,
 ) {
   return spawnSync(
     process.execPath,
@@ -611,6 +653,7 @@ function runNativeHandoffSubprocess(
         RELEASE_HOST_VALIDATION_JSON: hostValidation
           ? JSON.stringify(hostValidation)
           : "",
+        RELEASE_EAS_CONFIG_PATH: releaseEasConfigPath || "",
       },
     },
   );
@@ -2954,6 +2997,8 @@ describe("release smoke check", () => {
     expect(result.failed[0].error.message).toMatch(/HTTP 503/);
     expect(result.failed[0].domain).toBe(previewDomain);
     expect(result.failed[0]).toMatchObject({
+      healthUrl: `https://${previewDomain}/api/healthz`,
+      aiUrl: `https://${previewDomain}/api/ai/describe`,
       healthAttempts: 3,
       aiAttempts: 0,
     });
@@ -2985,6 +3030,8 @@ describe("release smoke check", () => {
           {
             profile: "production",
             domain: "production.example.com",
+            healthUrl: "https://production.example.com/api/healthz",
+            aiUrl: "https://production.example.com/api/ai/describe",
             healthAttempts: 3,
             aiAttempts: 0,
             error: new Error("HTTP 503"),
@@ -3009,8 +3056,8 @@ describe("release smoke check", () => {
           profile: "production",
           domain: "production.example.com",
           status: "failed",
-          healthUrl: null,
-          aiUrl: null,
+          healthUrl: "https://production.example.com/api/healthz",
+          aiUrl: "https://production.example.com/api/ai/describe",
           healthAttempts: 3,
           aiAttempts: 0,
           recovered: false,
@@ -3187,6 +3234,144 @@ describe("release smoke check", () => {
     });
   });
 
+  it("archives every configured profile in native and legacy summaries", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const config = JSON.parse(JSON.stringify(readReleaseConfig())) as {
+        build: Record<string, { env: Record<string, string> }>;
+      };
+      const publishedDomain = getReleaseDomain(config, "production");
+      config.build.staging = {
+        env: { EXPO_PUBLIC_DOMAIN: publishedDomain },
+      };
+      const configPath = path.join(
+        fixture.fixtureDirectory,
+        "eas-with-staging.json",
+      );
+      writeFileSync(configPath, JSON.stringify(config), "utf8");
+
+      const result = runNativeHandoffSubprocess(
+        fixture,
+        "configured-profiles",
+        "0",
+        "android",
+        "preview",
+        "",
+        "",
+        "",
+        undefined,
+        configPath,
+      );
+
+      const healthUrl = `https://${publishedDomain}/api/healthz`;
+      const aiUrl = `https://${publishedDomain}/api/ai/describe`;
+      const productionError =
+        `[release-smoke] AI enrichment check failed for profile "production" at ${aiUrl}: HTTP 503.`;
+      const passingSummary = (profile: string) => ({
+        profile,
+        domain: publishedDomain,
+        status: "passed",
+        healthUrl,
+        aiUrl,
+        healthAttempts: 1,
+        aiAttempts: 1,
+        recovered: false,
+        error: null,
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        `Release connectivity failed before EAS build: production: ${productionError}`,
+      );
+      expect(existsSync(fixture.easRecordPath)).toBe(false);
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        schemaVersion: number;
+        status: string;
+        summary: {
+          status: string;
+          profiles: Array<{
+            profile: string;
+            domain: string | null;
+            status: string;
+            healthUrl: string | null;
+            aiUrl: string | null;
+            healthAttempts: number;
+            aiAttempts: number;
+            recovered: boolean;
+            error: string | null;
+          }>;
+        };
+        allProfileConnectivity: {
+          profiles: string[];
+          passed: Array<{
+            profile: string;
+            domain: string;
+            healthUrl: string;
+            aiUrl: string;
+            healthAttempts: number;
+            aiAttempts: number;
+          }>;
+          failed: Array<{ profile: string; error: string }>;
+        };
+      };
+
+      expect(report).toMatchObject({
+        schemaVersion: RELEASE_REPORT_SCHEMA_VERSION,
+        status: "failed",
+        summary: {
+          status: "failed",
+          profiles: [
+            passingSummary("preview"),
+            {
+              profile: "production",
+              domain: publishedDomain,
+              status: "failed",
+              healthUrl,
+              aiUrl,
+              healthAttempts: 1,
+              aiAttempts: 3,
+              recovered: false,
+              error: productionError,
+            },
+            passingSummary("staging"),
+          ],
+        },
+        allProfileConnectivity: {
+          profiles: ["preview", "production", "staging"],
+          passed: [
+            {
+              profile: "preview",
+              domain: publishedDomain,
+              healthUrl,
+              aiUrl,
+              healthAttempts: 1,
+              aiAttempts: 1,
+            },
+            {
+              profile: "staging",
+              domain: publishedDomain,
+              healthUrl,
+              aiUrl,
+              healthAttempts: 1,
+              aiAttempts: 1,
+            },
+          ],
+          failed: [{ profile: "production", error: productionError }],
+        },
+      });
+      expect(report.summary.profiles.map(({ profile }) => profile)).toEqual([
+        "preview",
+        "production",
+        "staging",
+      ]);
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("does not invoke EAS when a subprocess preflight fails", () => {
     const fixture = createNativeHandoffSubprocessFixture();
     try {
@@ -3243,8 +3428,8 @@ describe("release smoke check", () => {
             profile: "production",
             domain: "production.example.com",
             status: "failed",
-            healthUrl: null,
-            aiUrl: null,
+            healthUrl: "https://production.example.com/api/healthz",
+            aiUrl: "https://production.example.com/api/ai/describe",
             healthAttempts: 3,
             aiAttempts: 0,
             recovered: false,

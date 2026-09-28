@@ -698,6 +698,8 @@ async function runReleaseSmokeChecks({
       failed.push({
         profile,
         domain,
+        healthUrl: domain ? `https://${domain}/api/healthz` : null,
+        aiUrl: domain ? `https://${domain}/api/ai/describe` : null,
         healthAttempts: error.healthAttempts ?? 0,
         aiAttempts: error.aiAttempts ?? 0,
         error: error instanceof Error ? error : new Error(String(error)),
@@ -729,8 +731,8 @@ function summarizeReleaseSmokeResult(result) {
         profile,
         domain: passed?.domain ?? failed?.domain ?? null,
         status: passed ? "passed" : "failed",
-        healthUrl: passed?.healthUrl ?? null,
-        aiUrl: passed?.aiUrl ?? null,
+        healthUrl: passed?.healthUrl ?? failed?.healthUrl ?? null,
+        aiUrl: passed?.aiUrl ?? failed?.aiUrl ?? null,
         healthAttempts,
         aiAttempts,
         recovered:
