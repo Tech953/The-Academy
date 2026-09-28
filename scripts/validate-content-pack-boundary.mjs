@@ -15,6 +15,11 @@ const protectedNames = [
   "PackNpcMood",
   "PackGEDFocus",
 ];
+const protectedLimitNames = [
+  "PACK_ACTIVE_EVENT_LIMIT",
+  "PACK_NPC_MOOD_LIMIT",
+  "PACK_GED_FOCUS_LIMIT",
+];
 
 const declarationPatterns = [
   new RegExp(
@@ -26,6 +31,11 @@ const declarationPatterns = [
     "gm",
   ),
 ];
+
+const limitConstantPattern = new RegExp(
+  `^\\s*(?:(?:export|declare)\\s+)*(?:const|let|var)\\s+(${protectedLimitNames.join("|")})\\b`,
+  "gm",
+);
 
 const requiredImports = [
   {
@@ -93,6 +103,9 @@ for (const file of files) {
       for (const match of source.matchAll(declarationPattern)) {
         violations.push(`${file}: local ${match[1]} declaration`);
       }
+    }
+    for (const match of source.matchAll(limitConstantPattern)) {
+      violations.push(`${file}: local ${match[1]} limit constant`);
     }
   }
 }
