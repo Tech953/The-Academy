@@ -38,6 +38,7 @@ import {
   getContentPackStorageStatus,
   readCachedContentPackWithDiagnostics,
   retainVisibleContentPack,
+  resolveStudyContentPack,
   resolveContentPackRefresh,
   type ContentPackStorageStatus,
 } from "@/lib/contentPackFallback";
@@ -49,7 +50,6 @@ import {
   generateOfflineContentPack,
   generateOfflineConversation,
   generateQuizSet,
-  hasSupportedFocusSubjects,
   scoreToRelationshipTier,
   type GEDSubjectKey,
   type StudyQuestion,
@@ -70,22 +70,9 @@ import {
 } from "@/constants/locales";
 
 export type { RelationshipShift };
-export { selectWeeklyTheme };
+export { resolveStudyContentPack, selectWeeklyTheme };
 
 const STORAGE_KEY = "academy-mobile-state-v1";
-
-/**
- * Never let an unrecognized server label disappear from Study silently. The
- * shared content-pack validator normally catches this earlier; this guard also
- * protects state restored by older clients or direct test fixtures.
- */
-export function resolveStudyContentPack(
-  pack: ContentPack | null,
-  day: number,
-): ContentPack | null {
-  if (!pack || hasSupportedFocusSubjects(pack.gedFocusAreas)) return pack;
-  return generateOfflineContentPack(day);
-}
 
 export type StatKey =
   | "quickness"

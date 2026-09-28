@@ -149,15 +149,21 @@ describe("GameProvider NPC dialogue weekly theme", () => {
     delete (globalThis as { window?: unknown }).window;
   });
 
-  it("keeps the offline theme visible while an invalid cached pack is discarded", async () => {
+  it("keeps deterministic bulletin content visible for a future cached schema", async () => {
     const localStorage = createLocalStorageFixture();
     const day = 8;
     const offlineTheme = generateOfflineContentPack(day).weeklyTheme;
+    const privateValue = "future-schema-private-payload";
+    const futurePack = {
+      ...generateOfflineContentPack(day),
+      schemaVersion: 2,
+      futureOnlyField: privateValue,
+    };
     localStorage.setItem(
       "academy-mobile-state-v1",
       JSON.stringify({ hasStarted: true, day }),
     );
-    localStorage.setItem(CONTENT_PACK_STORAGE_KEY, "{not-json");
+    localStorage.setItem(CONTENT_PACK_STORAGE_KEY, JSON.stringify(futurePack));
 
     let releaseRefresh!: (
       pack: ReturnType<typeof generateOfflineContentPack>,
@@ -184,13 +190,16 @@ describe("GameProvider NPC dialogue weekly theme", () => {
         () =>
           game?.ready === true &&
           game.contentPackLoading === true &&
-          game.contentPack === null &&
+          game.contentPack?.generatedBy === "deterministic" &&
           game.weeklyTheme === offlineTheme &&
+          game.contentPackCacheDiagnostic?.issueCodes.includes("schemaVersion") === true &&
+          !JSON.stringify(game.contentPackCacheDiagnostic ?? {}).includes(privateValue) &&
           localStorage.getItem(CONTENT_PACK_STORAGE_KEY) === null,
         renderer,
       );
 
       expect(game?.weeklyTheme).toBe(offlineTheme);
+      expect(game?.contentPack?.activeEvents).toHaveLength(3);
       expect(mocks.fetchContentPack).toHaveBeenCalledTimes(1);
 
       await act(async () => {
@@ -205,6 +214,10 @@ describe("GameProvider NPC dialogue weekly theme", () => {
           game.contentPack?.version === "offline-after-cache-repair",
         renderer,
       );
+      const savedPack = localStorage.getItem(CONTENT_PACK_STORAGE_KEY);
+      expect(savedPack).not.toBeNull();
+      expect(savedPack).not.toContain(privateValue);
+      expect(JSON.parse(savedPack!)).not.toHaveProperty("futureOnlyField");
     } finally {
       renderer.unmount();
     }

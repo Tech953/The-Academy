@@ -3,6 +3,7 @@ import {
   generateOfflineContentPack,
   migrateContentPack,
   PACK_ACTIVE_EVENT_LIMIT,
+  hasSupportedFocusSubjects,
   getContentPackValidationIssues as getSharedContentPackValidationIssues,
   isDisplayableContentPackEvent as isSharedDisplayableContentPackEvent,
   isUsableContentPack as isSharedUsableContentPack,
@@ -368,6 +369,18 @@ export function fallbackAfterRefreshFailure(
   day: number,
 ): ContentPack {
   return cachedPack ?? generateOfflineContentPack(day);
+}
+
+/**
+ * Keep a deterministic bulletin available while the cache or network is
+ * unresolved, and replace packs whose GED labels the current app cannot show.
+ */
+export function resolveStudyContentPack(
+  pack: ContentPack | null,
+  day: number,
+): ContentPack {
+  if (pack && hasSupportedFocusSubjects(pack.gedFocusAreas)) return pack;
+  return generateOfflineContentPack(day);
 }
 
 /**

@@ -51,6 +51,7 @@ import {
   readCachedContentPack,
   readCachedContentPackWithDiagnostics,
   retainVisibleContentPack,
+  resolveStudyContentPack,
   resolveContentPackRefresh,
   writeCachedContentPack,
   writeCachedContentPackResult,
@@ -1230,6 +1231,58 @@ describe('ensureUsableContentPack() — malformed remote bulletin fallback', () 
     expect(rejected).toBeNull();
     expect(fallbackAfterRefreshFailure(rejected, 5).generatedBy)
       .toBe('deterministic');
+  });
+
+  it('rejects future cached schemas and keeps deterministic study content visible', async () => {
+    const now = Date.now();
+    const privateValue = 'future-schema-private-metadata';
+    const futurePack = {
+      ...createContentPackContractFixture(now),
+      schemaVersion: 2,
+      futureOnlyField: privateValue,
+    };
+    const raw = JSON.stringify(futurePack);
+    const values = new Map([[CONTENT_PACK_STORAGE_KEY, raw]]);
+    const storage = {
+      getItem: async (key: string) => values.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        values.set(key, value);
+      },
+      removeItem: async (key: string) => {
+        values.delete(key);
+      },
+    };
+
+    expect(parseCachedContentPack(raw, now + 1)).toBeNull();
+
+    const cachedRead = await readCachedContentPackWithDiagnostics(
+      storage,
+      now + 1,
+    );
+    expect(cachedRead).toEqual({
+      pack: null,
+      diagnostic: {
+        source: 'persisted',
+        issueCodes: ['schemaVersion'],
+      },
+    });
+    expect(JSON.stringify(cachedRead.diagnostic)).not.toContain(privateValue);
+    expect(values.has(CONTENT_PACK_STORAGE_KEY)).toBe(false);
+
+    const studyPack = resolveStudyContentPack(cachedRead.pack, day);
+    expect(studyPack.generatedBy).toBe('deterministic');
+    expect(isUsableContentPack(studyPack, now + 1)).toBe(true);
+    expectDisplayableUniqueBulletin(studyPack.activeEvents);
+
+    await expect(
+      writeCachedContentPack(storage, studyPack, now + 1),
+    ).resolves.toBe(true);
+    const savedRaw = values.get(CONTENT_PACK_STORAGE_KEY);
+    expect(savedRaw).toBeDefined();
+    expect(savedRaw).not.toContain(privateValue);
+    const savedPack = JSON.parse(savedRaw!) as Record<string, unknown>;
+    expect(savedPack.schemaVersion).toBe(1);
+    expect(savedPack).not.toHaveProperty('futureOnlyField');
   });
 
   it.each([
