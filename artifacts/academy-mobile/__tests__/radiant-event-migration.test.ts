@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EVENT_CATEGORIES } from "@workspace/game-engine";
 
 import {
   chainEvent,
@@ -33,6 +34,26 @@ describe("Radiant event identifiers", () => {
       seasonal: { harmony: 0.4, growth: 0.3 },
       mystery: { instability: 0.5, curiosity: 0.5 },
     });
+  });
+
+  it("matches bridge energy mappings to the shared event registry", () => {
+    const sharedCategories = new Set<string>(EVENT_CATEGORIES);
+    const bridgeCategories = Object.keys(WORLD_EVENT_ENERGY);
+    const missingMappings = EVENT_CATEGORIES.filter(
+      (category) => !Object.prototype.hasOwnProperty.call(WORLD_EVENT_ENERGY, category),
+    );
+    const extraMappings = bridgeCategories.filter(
+      (category) => !sharedCategories.has(category),
+    );
+
+    expect(
+      missingMappings,
+      `Missing bridge energy mappings for shared categories: ${missingMappings.join(", ")}`,
+    ).toEqual([]);
+    expect(
+      extraMappings,
+      `Bridge energy mappings have no shared category: ${extraMappings.join(", ")}`,
+    ).toEqual([]);
   });
 
   it.each([
