@@ -859,19 +859,64 @@ function runReleaseSmokeCliSubprocess(
   );
 }
 
-function runStaticBuildIdentitySubprocess() {
+function runStaticBuildIdentitySubprocess({
+  androidPackage = "com.theacademy.drifted",
+}: {
+  androidPackage?: string;
+} = {}) {
   const fixtureDirectory = mkdtempSync(
     path.join(tmpdir(), "academy-static-build-identity-"),
   );
   const fixtureScriptPath = path.join(fixtureDirectory, "run-build-fixture.cjs");
-  const manifestPath = path.join(fixtureDirectory, "android-manifest.json");
+  const androidManifestPath = path.join(
+    fixtureDirectory,
+    "android-manifest.json",
+  );
+  const iosManifestPath = path.join(fixtureDirectory, "ios-manifest.json");
+  const resultPath = path.join(fixtureDirectory, "build-result.json");
 
   writeFileSync(
     fixtureScriptPath,
     `const fs = require("node:fs");
- const { main, validateGeneratedAndroidIdentity } = require(${JSON.stringify(buildScriptPath)});
-const manifestPath = ${JSON.stringify(manifestPath)};
+const {
+  main,
+  validateGeneratedAndroidIdentity,
+} = require(${JSON.stringify(buildScriptPath)});
+const androidManifestPath = ${JSON.stringify(androidManifestPath)};
+const iosManifestPath = ${JSON.stringify(iosManifestPath)};
+const resultPath = ${JSON.stringify(resultPath)};
 const events = [];
+let buildResult = null;
+const originalConsoleLog = console.log.bind(console);
+const originalProcessExit = process.exit.bind(process);
+const readBuildDetails = () => ({
+  events,
+  manifest: JSON.parse(fs.readFileSync(androidManifestPath, "utf8")),
+  iosManifest: JSON.parse(fs.readFileSync(iosManifestPath, "utf8")),
+  buildResult,
+});
+console.log = (...args) => {
+  if (args[0] === "Build complete! Deploy to:") {
+    events.push("build-complete");
+    buildResult = {
+      status: "completed",
+      deployUrl: args[1],
+    };
+  }
+  originalConsoleLog(...args);
+};
+process.exit = (code) => {
+  events.push("exit-" + code);
+  fs.writeFileSync(
+    resultPath,
+    JSON.stringify({
+      ...readBuildDetails(),
+      buildResult: { ...buildResult, exitCode: code },
+    }),
+    "utf8",
+  );
+  originalProcessExit(code);
+};
 const appConfig = {
   expo: { android: { package: "com.theacademy.mobile" } }
 };
@@ -884,10 +929,12 @@ const easConfig = {
   }
 };
 
- main({
-   setupSignalHandlersImpl: () => {},
+main({
+  setupSignalHandlersImpl: () => {},
+  profile: "development",
   timestamp: "fixture-timestamp",
   getDeploymentDomainImpl: () => "fixture.example.com",
+  getReleaseProfileApiDomainImpl: () => null,
   getExpoPublicReplIdImpl: () => undefined,
   prepareDirectoriesImpl: () => events.push("prepare"),
   clearMetroCacheImpl: () => events.push("clear-cache"),
@@ -906,34 +953,45 @@ const easConfig = {
   },
   updateBundleUrlsImpl: () => events.push("update-bundles"),
   updateManifestsImpl: () => {
-    events.push("write-manifest");
+    events.push("write-manifests");
     fs.writeFileSync(
-      manifestPath,
+      androidManifestPath,
       JSON.stringify({
-        extra: { expoClient: { android: { package: "com.theacademy.drifted" } } }
+        generatedFor: "android",
+        extra: {
+          expoClient: {
+            android: { package: ${JSON.stringify(androidPackage)} }
+          }
+        }
       }),
+      "utf8",
+    );
+    fs.writeFileSync(
+      iosManifestPath,
+      JSON.stringify({
+        generatedFor: "ios",
+        extra: {
+          expoClient: {
+            ios: { bundleIdentifier: "com.theacademy.mobile" }
+          }
+        }
+      }),
+      "utf8",
     );
   },
-  validateGeneratedAndroidIdentityImpl: () => {
-    events.push("validate-identity");
-    const generatedManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    return validateGeneratedAndroidIdentity({
-      appConfig,
-      easConfig,
-      generatedManifest,
-    });
+  identityOptions: {
+    profile: "preview",
+    appConfig,
+    easConfig,
+    generatedManifestPath: androidManifestPath
   },
- }).then(() => {
-  console.log("__RESULT__" + JSON.stringify({
-    events,
-    manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
-  }));
+  validateGeneratedAndroidIdentityImpl: (options) => {
+    events.push("validate-identity");
+    return validateGeneratedAndroidIdentity(options);
+  },
 }).catch((error) => {
-  console.log("__RESULT__" + JSON.stringify({
-    events,
-    manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
-  }));
-   console.error("Build failed:", error instanceof Error ? error.message : String(error));
+  console.log("__RESULT__" + JSON.stringify(readBuildDetails()));
+  console.error("Build failed:", error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });
 `,
@@ -945,7 +1003,13 @@ const easConfig = {
     encoding: "utf8",
   });
 
-  return { fixtureDirectory, result };
+  return {
+    fixtureDirectory,
+    androidManifestPath,
+    iosManifestPath,
+    resultPath,
+    result,
+  };
 }
 
 function assertStableReleaseReport(
@@ -2912,7 +2976,12 @@ describe("release smoke check", () => {
       const details = JSON.parse(marker?.[1] ?? "") as {
         events: string[];
         manifest: {
+          generatedFor: string;
           extra: { expoClient: { android: { package: string } } };
+        };
+        iosManifest: {
+          generatedFor: string;
+          extra: { expoClient: { ios: { bundleIdentifier: string } } };
         };
       };
       expect(details.events).toEqual([
@@ -2922,11 +2991,85 @@ describe("release smoke check", () => {
         "download",
         "extract-assets",
         "download-assets",
-        "write-manifest",
+        "write-manifests",
         "validate-identity",
       ]);
+      expect(details.manifest.generatedFor).toBe("android");
       expect(details.manifest.extra.expoClient.android.package).toBe(
         "com.theacademy.drifted",
+      );
+      expect(details.iosManifest).toMatchObject({
+        generatedFor: "ios",
+        extra: { expoClient: { ios: { bundleIdentifier: "com.theacademy.mobile" } } },
+      });
+    } finally {
+      rmSync(fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("completes the subprocess build after matching Android identity validation", () => {
+    const {
+      fixtureDirectory,
+      androidManifestPath,
+      iosManifestPath,
+      result,
+      resultPath,
+    } = runStaticBuildIdentitySubprocess({
+      androidPackage: "com.theacademy.mobile",
+    });
+    try {
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain(
+        "Build complete! Deploy to: https://fixture.example.com",
+      );
+
+      const details = JSON.parse(readFileSync(resultPath, "utf8")) as {
+        events: string[];
+        manifest: {
+          generatedFor: string;
+          extra: { expoClient: { android: { package: string } } };
+        };
+        iosManifest: {
+          generatedFor: string;
+          extra: { expoClient: { ios: { bundleIdentifier: string } } };
+        };
+        buildResult: {
+          status: string;
+          deployUrl: string;
+          exitCode: number;
+        };
+      };
+      expect(details.events).toEqual([
+        "prepare",
+        "clear-cache",
+        "start-metro",
+        "download",
+        "extract-assets",
+        "download-assets",
+        "write-manifests",
+        "validate-identity",
+        "build-complete",
+        "exit-0",
+      ]);
+      expect(details.manifest).toMatchObject({
+        generatedFor: "android",
+        extra: { expoClient: { android: { package: "com.theacademy.mobile" } } },
+      });
+      expect(details.iosManifest).toMatchObject({
+        generatedFor: "ios",
+        extra: { expoClient: { ios: { bundleIdentifier: "com.theacademy.mobile" } } },
+      });
+      expect(details.buildResult).toEqual({
+        status: "completed",
+        deployUrl: "https://fixture.example.com",
+        exitCode: 0,
+      });
+      expect(
+        JSON.parse(readFileSync(androidManifestPath, "utf8")),
+      ).toEqual(details.manifest);
+      expect(JSON.parse(readFileSync(iosManifestPath, "utf8"))).toEqual(
+        details.iosManifest,
       );
     } finally {
       rmSync(fixtureDirectory, { recursive: true, force: true });
