@@ -66,6 +66,7 @@ export default function BearMascot({
       
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [animation, loop, onAnimationEnd]);
 
   const glowStyles: Record<string, string> = {

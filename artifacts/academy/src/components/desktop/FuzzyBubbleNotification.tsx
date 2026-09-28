@@ -46,6 +46,7 @@ export function FuzzyBubbleNotification({
       }, duration);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [autoHide, duration]);
 
   const handleDismiss = () => {

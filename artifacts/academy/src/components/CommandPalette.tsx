@@ -168,10 +168,10 @@ export default function CommandPalette({
 
   // Add keyboard listener when palette is visible
   useEffect(() => {
-    if (isVisible) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
+    if (!isVisible) return undefined;
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isVisible, handleKeyDown]);
 
   // Reset focus when palette opens
@@ -492,8 +492,7 @@ export default function CommandPalette({
                           onFocus={() => setFocusedIndex(currentButtonIndex)}
                           className={`w-full flex items-center justify-between px-2 py-1 rounded text-xs font-mono hover-elevate group ${focusedIndex === currentButtonIndex ? 'ring-1 ring-offset-0' : ''}`}
                           style={{ 
-                            color: 'hsl(var(--terminal-glow))',
-                            ringColor: 'hsl(var(--terminal-glow))'
+                            color: 'hsl(var(--terminal-glow))'
                           }}
                           data-testid={`command-${cmd.command.toLowerCase()}`}
                           aria-label={`Execute ${cmd.command}: ${cmd.description}`}

@@ -66,7 +66,7 @@ interface WindowState {
   zIndex: number;
 }
 
-export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats' | 'tutorial' | 'wordproc' | 'office' | 'institution' | 'citation';
+export type IconType = 'personal' | 'email' | 'messages' | 'academy' | 'files' | 'notepad' | 'calculator' | 'recycle' | 'settings' | 'search' | 'calendar' | 'power' | 'folder' | 'file' | 'assignments' | 'perks' | 'resonance' | 'schedule' | 'cub' | 'schoolfiles' | 'personalfiles' | 'memories' | 'notifications' | 'skillgraph' | 'notebook' | 'progress' | 'charstats' | 'tutorial' | 'wordproc' | 'office' | 'institution' | 'citation' | 'worldevents';
 
 type ColorKey = 'green' | 'cyan' | 'amber' | 'purple' | 'pink' | 'red';
 

@@ -220,7 +220,7 @@ const CR = {
   text: '#ccc', dim: '#888', accent: O.calc,
 };
 
-function CBtn({ children, onClick, active = false, disabled = false, title, style: extraStyle }: { children: React.ReactNode; onClick?: () => void; active?: boolean; disabled?: boolean; title?: string; style?: React.CSSProperties }) {
+function CBtn({ children, onClick, active = false, disabled = false, title, style: extraStyle }: { children: React.ReactNode; onClick?: React.MouseEventHandler<HTMLButtonElement>; active?: boolean; disabled?: boolean; title?: string; style?: React.CSSProperties }) {
   return (
     <button onClick={onClick} disabled={disabled} title={title}
       style={{ background: active ? `${CR.accent}20` : CR.btn, border: `1px solid ${active ? CR.accent + '60' : 'transparent'}`, color: disabled ? '#555' : active ? CR.accent : CR.text, cursor: disabled ? 'not-allowed' : 'pointer', padding: '3px 7px', borderRadius: 2, fontSize: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: 28, lineHeight: 1.2, ...extraStyle }}
@@ -1743,8 +1743,8 @@ function SlideshowOverlay({ slides, startIdx, onExit }: SlideshowOverlayProps) {
   const [showUI, setShowUI]         = useState(true);
   const [showNotes, setShowNotes]   = useState(false);
   const [elapsed, setElapsed]       = useState(0);
-  const uiTimer  = useRef<ReturnType<typeof setTimeout>>();
-  const clockRef = useRef<ReturnType<typeof setInterval>>();
+  const uiTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slideRef = useRef<HTMLDivElement>(null);
 
   const slide = slides[current] ?? slides[0];
@@ -1754,7 +1754,9 @@ function SlideshowOverlay({ slides, startIdx, onExit }: SlideshowOverlayProps) {
   // Clock
   useEffect(() => {
     clockRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => clearInterval(clockRef.current);
+    return () => {
+      if (clockRef.current !== null) clearInterval(clockRef.current);
+    };
   }, []);
 
   const formatTime = (s: number) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -1793,10 +1795,15 @@ function SlideshowOverlay({ slides, startIdx, onExit }: SlideshowOverlayProps) {
   // Auto-hide UI
   const revealUI = () => {
     setShowUI(true);
-    clearTimeout(uiTimer.current);
+    if (uiTimer.current !== null) clearTimeout(uiTimer.current);
     uiTimer.current = setTimeout(() => setShowUI(false), 3000);
   };
-  useEffect(() => { revealUI(); return () => clearTimeout(uiTimer.current); }, []);
+  useEffect(() => {
+    revealUI();
+    return () => {
+      if (uiTimer.current !== null) clearTimeout(uiTimer.current);
+    };
+  }, []);
 
   // Transition style for the current slide
   const transStyle = transitioning ? {} : (() => {
