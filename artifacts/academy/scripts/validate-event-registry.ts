@@ -70,6 +70,9 @@ export function validateWebEventRegistry({
     categorySources.set(category, eventType as WorldEventType);
   }
 
+  const acceptedExceptions: Array<{ category: EventCategory; reason: string }> =
+    [];
+
   for (const category of categories) {
     const templates = eventTemplates[category];
     if (templates.length === 0) {
@@ -78,15 +81,19 @@ export function validateWebEventRegistry({
 
     const sourceType = categorySources.get(category);
     const exception = exceptions[category];
-    const hasDocumentedException =
-      typeof exception === 'string' && exception.trim().length > 0;
-    if (!sourceType && !hasDocumentedException) {
+    const exceptionReason =
+      typeof exception === 'string' ? exception.trim() : '';
+    if (!sourceType && exceptionReason.length === 0) {
       throw new Error(
         `Web Radiant AI compatibility path "${WEB_COMPATIBILITY_PATH}" has no mapping for shared "${category}" event category. Add a legacy event mapping or document an intentional exception in RADIANT_EVENT_CATEGORY_EXCEPTIONS.`,
       );
     }
 
     if (!sourceType) {
+      acceptedExceptions.push({
+        category,
+        reason: exceptionReason.replace(/\s+/g, ' '),
+      });
       continue;
     }
 
@@ -98,9 +105,20 @@ export function validateWebEventRegistry({
     }
   }
 
+  const summary = `✓ Web Radiant AI resolves all ${categories.length} shared categories through the compatibility path`;
+  if (acceptedExceptions.length === 0) {
+    console.log(summary);
+    return;
+  }
+
+  const exceptionLabel =
+    acceptedExceptions.length === 1 ? 'exception' : 'exceptions';
   console.log(
-    `✓ Web Radiant AI resolves all ${categories.length} shared categories through the compatibility path`,
+    `${summary}; accepted ${acceptedExceptions.length} documented web ${exceptionLabel}:`,
   );
+  for (const { category, reason } of acceptedExceptions) {
+    console.log(`  - ${category}: ${reason}`);
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
