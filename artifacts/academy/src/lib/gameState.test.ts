@@ -26,6 +26,37 @@ function installFetchMock(
   return fetchMock;
 }
 
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function installRoundTripFetchMock(initialSavedState: Record<string, unknown>) {
+  let persistedState = cloneJson(initialSavedState);
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === `/api/game/load/${character.id}`) {
+      return {
+        ok: true,
+        json: async () => cloneJson(persistedState),
+      };
+    }
+    if (url === '/api/game/save') {
+      const requestBody = JSON.parse(String(init?.body)) as {
+        gameState: Record<string, unknown>;
+      };
+      persistedState = cloneJson(requestBody.gameState);
+      return { ok: true };
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+
+  vi.stubGlobal('fetch', fetchMock);
+  return {
+    fetchMock,
+    getPersistedState: () => cloneJson(persistedState),
+  };
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -59,6 +90,66 @@ describe('GameStateManager Radiant save migration', () => {
       characterId: character.id,
       gameState: { radiantAIState: state.radiantAIState },
     });
+  });
+
+  it('reloads the persisted canonical Radiant payload without saving it again', async () => {
+    const legacyRadiantState = JSON.stringify({
+      schemaVersion: 1,
+      npcs: [],
+      events: [{ type: 'exam', name: 'Legacy exam' }],
+      factions: [],
+      tickCounter: 2,
+    });
+    const { fetchMock, getPersistedState } = installRoundTripFetchMock({
+      character,
+      radiantAIState: legacyRadiantState,
+    });
+
+    const migratedState = await new GameStateManager().initializeGame(
+      character,
+    );
+    const persistedGameState = getPersistedState();
+    const persistedRadiantAIState = String(persistedGameState.radiantAIState);
+    const persistedPayload = JSON.parse(persistedRadiantAIState);
+    const saveRequests = () =>
+      fetchMock.mock.calls.filter(
+        ([input]) => String(input) === '/api/game/save',
+      );
+    const [migrationSaveRequest] = saveRequests();
+    const migrationSaveBody = JSON.parse(
+      String(migrationSaveRequest?.[1]?.body),
+    );
+
+    expect(migratedState.radiantAIState).toBe(persistedRadiantAIState);
+    expect(migrationSaveBody.characterId).toBe(character.id);
+    expect(migrationSaveBody.gameState.radiantAIState).toBe(
+      persistedRadiantAIState,
+    );
+    expect(persistedPayload).toMatchObject({
+      schemaVersion: 2,
+      events: [{ type: 'academic', name: 'Legacy exam' }],
+    });
+    expect(saveRequests()).toHaveLength(1);
+
+    const reloadedState = await new GameStateManager().initializeGame(
+      character,
+    );
+    const reloadedPayload = JSON.parse(reloadedState.radiantAIState ?? '');
+
+    expect(reloadedState.radiantAIState).toBe(persistedRadiantAIState);
+    expect(reloadedPayload).toMatchObject({
+      schemaVersion: 2,
+      events: [{ type: 'academic', name: 'Legacy exam' }],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(
+      fetchMock.mock.calls.map(([input]) => String(input)),
+    ).toEqual([
+      `/api/game/load/${character.id}`,
+      '/api/game/save',
+      `/api/game/load/${character.id}`,
+    ]);
+    expect(saveRequests()).toHaveLength(1);
   });
 
   it('does not save a current Radiant payload during a normal load', async () => {
