@@ -4,6 +4,7 @@
 import { radiantAI, NPCEntity, WorldEvent } from './radiantAI';
 import { 
   resonanceEngine, 
+  ResonanceEngine,
   createNode,
   EnergyVector,
   Position3D,
@@ -129,32 +130,39 @@ export const WORLD_EVENT_ENERGY: Readonly<
   mystery: { instability: 0.5, curiosity: 0.5 },
 };
 
-export function worldEventToResonance(event: WorldEvent): void {
+export function worldEventToResonance(
+  event: WorldEvent,
+  engine: ResonanceEngine = resonanceEngine
+): void {
   const energy = { ...WORLD_EVENT_ENERGY[event.type] };
   
   // Propagate to affected NPCs
   for (const npcId of event.affectedNPCs) {
-    const node = resonanceEngine.getNode(npcId);
+    const node = engine.getNode(npcId);
     if (node) {
-      resonanceEngine.emitAction('world_event', 'observe', npcId, energy);
+      engine.emitAction('world_event', 'observe', npcId, energy);
     }
   }
   
   // Propagate to affected locations (auto-create if needed)
   for (const location of event.affectedLocations) {
     const locationId = location.toLowerCase().replace(/\s+/g, '_');
-    ensureLocationNode(locationId, location);
-    resonanceEngine.emitAction('world_event', 'observe', locationId, energy);
+    ensureLocationNode(locationId, location, engine);
+    engine.emitAction('world_event', 'observe', locationId, energy);
   }
 }
 
-function ensureLocationNode(locationId: string, locationName: string): void {
-  const existing = resonanceEngine.getNode(locationId);
+function ensureLocationNode(
+  locationId: string,
+  locationName: string,
+  engine: ResonanceEngine
+): void {
+  const existing = engine.getNode(locationId);
   if (!existing) {
     const position = getLocationPosition(locationId);
     const node = createNode(locationId, 'location', locationName, position);
     node.forceType = 'inertial';
-    resonanceEngine.addNode(node);
+    engine.addNode(node);
   }
 }
 
