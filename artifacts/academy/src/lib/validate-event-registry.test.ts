@@ -19,7 +19,27 @@ describe('validateWebEventRegistry', () => {
     expect(packageJson.scripts.build).toContain('vite build');
   });
 
-  it('allows an intentionally unsupported category with a documented exception', () => {
+  it('allows an intentionally unsupported category with a typed exception record', () => {
+    expect(() =>
+      validateWebEventRegistry({
+        eventTemplates: {
+          academic: template('Academic event'),
+          social: template('Social event'),
+        },
+        categoryMappings: { exam: 'academic' },
+        exceptions: {
+          social: {
+            reason: 'The web build intentionally omits social events.',
+            reviewOwner: 'Academy web team',
+            migrationStatus: 'not-planned',
+          },
+        },
+        generateEvent: () => ({ name: 'Academic event' }),
+      }),
+    ).not.toThrow();
+  });
+
+  it('continues accepting legacy string exceptions during migration', () => {
     expect(() =>
       validateWebEventRegistry({
         eventTemplates: {
@@ -47,7 +67,13 @@ describe('validateWebEventRegistry', () => {
           social: template('Private social event title'),
         },
         categoryMappings: { exam: 'academic' },
-        exceptions: { social: exceptionReason },
+        exceptions: {
+          social: {
+            reason: exceptionReason,
+            reviewOwner: 'Academy web team',
+            migrationStatus: 'planned',
+          },
+        },
         generateEvent: () => ({ name: 'Private academic event title' }),
       });
 
@@ -92,6 +118,42 @@ describe('validateWebEventRegistry', () => {
         },
         categoryMappings: {},
         exceptions: { mystery: '   ' },
+      }),
+    ).toThrow(
+      'Web Radiant AI compatibility path "artifacts/academy/src/lib/radiantAI.ts" has no mapping for shared "mystery" event category.',
+    );
+  });
+
+  it('rejects a typed exception record with a blank review owner', () => {
+    expect(() =>
+      validateWebEventRegistry({
+        eventTemplates: { mystery: template('Mystery event') },
+        categoryMappings: {},
+        exceptions: {
+          mystery: {
+            reason: 'This category is intentionally omitted.',
+            reviewOwner: '   ',
+            migrationStatus: 'not-planned',
+          },
+        },
+      }),
+    ).toThrow(
+      'Web Radiant AI compatibility path "artifacts/academy/src/lib/radiantAI.ts" has an incomplete exception record for shared "mystery" event category. Supply a non-empty reviewOwner and a supported migrationStatus.',
+    );
+  });
+
+  it('rejects a blank reason in a typed exception record', () => {
+    expect(() =>
+      validateWebEventRegistry({
+        eventTemplates: { mystery: template('Mystery event') },
+        categoryMappings: {},
+        exceptions: {
+          mystery: {
+            reason: '  ',
+            reviewOwner: 'Academy web team',
+            migrationStatus: 'not-planned',
+          },
+        },
       }),
     ).toThrow(
       'Web Radiant AI compatibility path "artifacts/academy/src/lib/radiantAI.ts" has no mapping for shared "mystery" event category.',

@@ -1233,10 +1233,30 @@ export function canonicalizeWorldEventType(
 
 /**
  * Shared categories that intentionally do not have a legacy Radiant event
- * type must be listed here with the reason they are not web-compatible.
+ * type must be listed here with the reason they are not web-compatible,
+ * review owner, and migration status.
  */
+export type RadiantEventCategoryExceptionMigrationStatus =
+  | 'not-planned'
+  | 'planned'
+  | 'in-progress';
+
+export interface RadiantEventCategoryExceptionRecord {
+  reason: string;
+  reviewOwner: string;
+  migrationStatus: RadiantEventCategoryExceptionMigrationStatus;
+}
+
+/**
+ * Legacy string values remain accepted by the registry validator during
+ * migration. New exceptions should use the structured record.
+ */
+export type RadiantEventCategoryExceptionInput =
+  | RadiantEventCategoryExceptionRecord
+  | string;
+
 export const RADIANT_EVENT_CATEGORY_EXCEPTIONS: Partial<
-  Record<EventCategory, string>
+  Record<EventCategory, RadiantEventCategoryExceptionInput>
 > = {};
 
 export const RADIANT_STATE_VERSION = 2;

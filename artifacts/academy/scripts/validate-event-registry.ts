@@ -10,10 +10,14 @@ import {
   RADIANT_EVENT_CATEGORIES,
   RADIANT_EVENT_CATEGORY_EXCEPTIONS,
   generateProceduralEvent,
+  type RadiantEventCategoryExceptionInput,
+  type RadiantEventCategoryExceptionMigrationStatus,
   type WorldEventType,
 } from '../src/lib/radiantAI';
 
 const WEB_COMPATIBILITY_PATH = 'artifacts/academy/src/lib/radiantAI.ts';
+const SUPPORTED_MIGRATION_STATUSES: readonly RadiantEventCategoryExceptionMigrationStatus[] =
+  ['not-planned', 'planned', 'in-progress'];
 
 type EventTemplateRegistry = Record<
   string,
@@ -24,7 +28,9 @@ type CompleteEventTemplateRegistry = Record<
   ReadonlyArray<WorldEventTemplate>
 >;
 type EventCategoryMapping = Record<string, string>;
-type EventCategoryExceptions = Partial<Record<string, string>>;
+type EventCategoryExceptions = Partial<
+  Record<string, RadiantEventCategoryExceptionInput>
+>;
 
 export interface WebEventRegistryValidationOptions {
   eventTemplates?: EventTemplateRegistry;
@@ -81,8 +87,16 @@ export function validateWebEventRegistry({
 
     const sourceType = categorySources.get(category);
     const exception = exceptions[category];
+    const exceptionRecord =
+      typeof exception === 'object' && exception !== null
+        ? exception
+        : undefined;
     const exceptionReason =
-      typeof exception === 'string' ? exception.trim() : '';
+      typeof exception === 'string'
+        ? exception.trim()
+        : typeof exceptionRecord?.reason === 'string'
+          ? exceptionRecord.reason.trim()
+          : '';
     if (!sourceType && exceptionReason.length === 0) {
       throw new Error(
         `Web Radiant AI compatibility path "${WEB_COMPATIBILITY_PATH}" has no mapping for shared "${category}" event category. Add a legacy event mapping or document an intentional exception in RADIANT_EVENT_CATEGORY_EXCEPTIONS.`,
@@ -90,6 +104,18 @@ export function validateWebEventRegistry({
     }
 
     if (!sourceType) {
+      if (
+        exceptionRecord &&
+        (typeof exceptionRecord.reviewOwner !== 'string' ||
+          exceptionRecord.reviewOwner.trim().length === 0 ||
+          !SUPPORTED_MIGRATION_STATUSES.includes(
+            exceptionRecord.migrationStatus,
+          ))
+      ) {
+        throw new Error(
+          `Web Radiant AI compatibility path "${WEB_COMPATIBILITY_PATH}" has an incomplete exception record for shared "${category}" event category. Supply a non-empty reviewOwner and a supported migrationStatus.`,
+        );
+      }
       acceptedExceptions.push({
         category,
         reason: exceptionReason.replace(/\s+/g, ' '),
