@@ -514,12 +514,36 @@ if (process.env.RELEASE_IDENTITY_DRIFT === "production-autoIncrement") {
 }
 const failed = process.env.RELEASE_PREFLIGHT_RESULT === "failed";
 const hostFailure = process.env.RELEASE_PREFLIGHT_RESULT === "host-failure";
+const recoveredProfiles = process.env.RELEASE_PREFLIGHT_RESULT === "recovered";
 const configuredProfiles =
   process.env.RELEASE_PREFLIGHT_RESULT === "configured-profiles";
 const hostValidation = hostFailure
   ? JSON.parse(process.env.RELEASE_HOST_VALIDATION_JSON || "null")
   : null;
-const result = failed
+const result = recoveredProfiles
+  ? {
+      profiles: ["preview", "production"],
+      passed: [
+        {
+          profile: "preview",
+          domain: "preview.example.com",
+          healthUrl: "https://preview.example.com/api/healthz",
+          aiUrl: "https://preview.example.com/api/ai/describe",
+          healthAttempts: 2,
+          aiAttempts: 1
+        },
+        {
+          profile: "production",
+          domain: "production.example.com",
+          healthUrl: "https://production.example.com/api/healthz",
+          aiUrl: "https://production.example.com/api/ai/describe",
+          healthAttempts: 1,
+          aiAttempts: 1
+        }
+      ],
+      failed: []
+    }
+  : failed
   ? {
       profiles: ["preview", "production"],
       passed: [{
@@ -609,7 +633,12 @@ require.cache[require.resolve(checkReleasePath)].exports = {
 
 function runNativeHandoffSubprocess(
   fixture: ReturnType<typeof createNativeHandoffSubprocessFixture>,
-  preflightResult: "failed" | "passed" | "host-failure" | "configured-profiles",
+  preflightResult:
+    | "failed"
+    | "passed"
+    | "host-failure"
+    | "configured-profiles"
+    | "recovered",
   easExitCode = "0",
   platform: "android" | "ios" = "android",
   profile = "preview",
@@ -654,6 +683,84 @@ function runNativeHandoffSubprocess(
           ? JSON.stringify(hostValidation)
           : "",
         RELEASE_EAS_CONFIG_PATH: releaseEasConfigPath || "",
+      },
+    },
+  );
+}
+
+function createReleaseSmokeCliSubprocessFixture(
+  scenario:
+    | "all-profiles"
+    | "single-profile-failure"
+    | "single-profile-recovered",
+) {
+  const fixtureDirectory = mkdtempSync(
+    path.join(tmpdir(), "academy-release-smoke-cli-"),
+  );
+  const reportPath = path.join(fixtureDirectory, "release-report.json");
+  const preloadPath = path.join(fixtureDirectory, "stub-fetch.cjs");
+
+  writeFileSync(
+    preloadPath,
+    `const scenario = process.env.RELEASE_CLI_SCENARIO;
+const jsonResponse = (payload) =>
+  new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+let requestCount = 0;
+globalThis.fetch = async (url) => {
+  if (scenario === "single-profile-failure") {
+    if (url.endsWith("/api/healthz")) {
+      return jsonResponse({ status: "ok" });
+    }
+    return new Response("AI endpoint unavailable.", { status: 503 });
+  }
+  if (scenario === "single-profile-recovered") {
+    requestCount += 1;
+    if (requestCount === 1) {
+      return new Response("Temporary health outage.", { status: 503 });
+    }
+    return url.endsWith("/api/healthz")
+      ? jsonResponse({ status: "ok" })
+      : jsonResponse({ description: "A quiet room." });
+  }
+
+  requestCount += 1;
+  if (requestCount === 1 || requestCount >= 5) {
+    return new Response("Temporary endpoint unavailable.", { status: 503 });
+  }
+  return url.endsWith("/api/healthz")
+    ? jsonResponse({ status: "ok" })
+    : jsonResponse({ description: "A quiet room." });
+};
+`,
+    "utf8",
+  );
+
+  return { fixtureDirectory, reportPath, preloadPath, scenario };
+}
+
+function runReleaseSmokeCliSubprocess(
+  fixture: ReturnType<typeof createReleaseSmokeCliSubprocessFixture>,
+  allProfiles = false,
+) {
+  return spawnSync(
+    process.execPath,
+    [
+      "--require",
+      fixture.preloadPath,
+      checkReleasePath,
+      ...(allProfiles ? ["--all"] : ["preview"]),
+      "--report",
+      fixture.reportPath,
+    ],
+    {
+      cwd: path.resolve(__dirname, ".."),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RELEASE_CLI_SCENARIO: fixture.scenario,
       },
     },
   );
@@ -3113,6 +3220,107 @@ describe("release smoke check", () => {
     }
   });
 
+  it("prints retry totals and recovery status in all-profile CLI output", () => {
+    const fixture = createReleaseSmokeCliSubprocessFixture("all-profiles");
+    try {
+      const result = runReleaseSmokeCliSubprocess(fixture, true);
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain(
+        "[release-smoke] preview passed after retries (health attempts: 2, AI attempts: 1).",
+      );
+      expect(result.stderr).toMatch(
+        /production failed: \[release-smoke\] AI enrichment check failed for profile "production" at .*: HTTP 503\. \(health attempts: 1, AI attempts: 3\)/,
+      );
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        status: string;
+        summary: {
+          profiles: Array<{
+            profile: string;
+            healthAttempts: number;
+            aiAttempts: number;
+            recovered: boolean;
+          }>;
+        };
+      };
+      expect(report.status).toBe("failed");
+      expect(report.summary.profiles).toMatchObject([
+        {
+          profile: "preview",
+          healthAttempts: 2,
+          aiAttempts: 1,
+          recovered: true,
+        },
+        {
+          profile: "production",
+          healthAttempts: 1,
+          aiAttempts: 3,
+          recovered: false,
+        },
+      ]);
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("prints single-profile attempt totals without changing the report error", () => {
+    const fixture = createReleaseSmokeCliSubprocessFixture(
+      "single-profile-failure",
+    );
+    try {
+      const result = runReleaseSmokeCliSubprocess(fixture);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(
+        /\[release-smoke\] AI enrichment check failed for profile "preview" at .*: HTTP 503\.\s+\(health attempts: 1, AI attempts: 3\)/,
+      );
+
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as { error: string };
+      expect(report.error).toMatch(
+        /^\[release-smoke\] AI enrichment check failed for profile "preview".*HTTP 503\.$/,
+      );
+      expect(report.error).not.toContain("attempts:");
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("identifies a single profile that passed after retries", () => {
+    const fixture =
+      createReleaseSmokeCliSubprocessFixture("single-profile-recovered");
+    try {
+      const result = runReleaseSmokeCliSubprocess(fixture);
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        "[release-smoke] preview passed after retries (health attempts: 2, AI attempts: 1).",
+      );
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        result: {
+          healthAttempts: number;
+          aiAttempts: number;
+        };
+      };
+      expect(report.result).toEqual({
+        profile: "preview",
+        domain: expect.any(String),
+        healthUrl: expect.any(String),
+        aiUrl: expect.any(String),
+        healthAttempts: 2,
+        aiAttempts: 1,
+      });
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("summarizes every profile with stable machine-readable results", () => {
     expect(
       summarizeReleaseSmokeResult({
@@ -3482,6 +3690,9 @@ describe("release smoke check", () => {
       expect(result.stderr).toMatch(
         /Release connectivity failed before EAS build: production: HTTP 503/,
       );
+      expect(result.stderr).toContain(
+        '[native-handoff] Retry totals for failed profile "production": health attempts: 3, AI attempts: 0.',
+      );
       expect(existsSync(fixture.easRecordPath)).toBe(false);
       const report = JSON.parse(
         readFileSync(fixture.reportPath, "utf8"),
@@ -3725,6 +3936,38 @@ describe("release smoke check", () => {
         failureStage: "identity",
       });
       expect(report.error).toMatch(/autoIncrement must be true/);
+    } finally {
+      rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("reports recovered profile connectivity in native handoff output", () => {
+    const fixture = createNativeHandoffSubprocessFixture();
+    try {
+      const result = runNativeHandoffSubprocess(fixture, "recovered");
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        '[native-handoff] Release connectivity for profile "preview" passed after retries (health attempts: 2, AI attempts: 1).',
+      );
+      const report = JSON.parse(
+        readFileSync(fixture.reportPath, "utf8"),
+      ) as {
+        summary: {
+          profiles: Array<{
+            profile: string;
+            healthAttempts: number;
+            aiAttempts: number;
+            recovered: boolean;
+          }>;
+        };
+      };
+      expect(report.summary.profiles[0]).toMatchObject({
+        profile: "preview",
+        healthAttempts: 2,
+        aiAttempts: 1,
+        recovered: true,
+      });
     } finally {
       rmSync(fixture.fixtureDirectory, { recursive: true, force: true });
     }

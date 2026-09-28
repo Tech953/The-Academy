@@ -747,6 +747,24 @@ function summarizeReleaseSmokeResult(result) {
   };
 }
 
+function formatAttemptTotals(result) {
+  const attempts = [];
+  if (Number.isFinite(result?.healthAttempts)) {
+    attempts.push(`health attempts: ${result.healthAttempts}`);
+  }
+  if (Number.isFinite(result?.aiAttempts)) {
+    attempts.push(`AI attempts: ${result.aiAttempts}`);
+  }
+  return attempts.join(", ");
+}
+
+function didRetry(result) {
+  return (
+    (Number.isFinite(result?.healthAttempts) && result.healthAttempts > 1) ||
+    (Number.isFinite(result?.aiAttempts) && result.aiAttempts > 1)
+  );
+}
+
 function validateNativeHandoff({
   handoffReport,
   appConfig,
@@ -1144,7 +1162,10 @@ function handleReleaseFailure(reportPath, report, error) {
       `[release-report] Could not archive failure report: ${archiveMessage}`,
     );
   }
-  console.error(message);
+  const attemptTotals = formatAttemptTotals(error);
+  console.error(
+    attemptTotals ? `${message} (${attemptTotals})` : message,
+  );
   process.exitCode = 1;
 }
 
@@ -1345,9 +1366,17 @@ if (require.main === module) {
             `[release-smoke] ${result.profile} passed for ${result.domain}: ${result.healthUrl} and ${result.aiUrl}`,
           );
         }
+        for (const profile of summary.profiles) {
+          if (profile.recovered) {
+            console.log(
+              `[release-smoke] ${profile.profile} passed after retries (${formatAttemptTotals(profile)}).`,
+            );
+          }
+        }
         for (const failure of failed) {
+          const attemptTotals = formatAttemptTotals(failure);
           console.error(
-            `[release-smoke] ${failure.profile} failed: ${failure.error.message}`,
+            `[release-smoke] ${failure.profile} failed: ${failure.error.message}${attemptTotals ? ` (${attemptTotals})` : ""}`,
           );
         }
         console.log(`[release-smoke] Report written to ${report}`);
@@ -1368,6 +1397,11 @@ if (require.main === module) {
         console.log(
           `[release-smoke] ${checkedProfile} passed for ${domain}: ${healthUrl} and ${aiUrl}`,
         );
+        if (didRetry(result)) {
+          console.log(
+            `[release-smoke] ${checkedProfile} passed after retries (${formatAttemptTotals(result)}).`,
+          );
+        }
         console.log(`[release-smoke] Report written to ${report}`);
       });
 
@@ -1404,6 +1438,7 @@ module.exports = {
   runReleaseSmokeCheck,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
+  formatAttemptTotals,
   runOfflineGedFocusBoundaryCheck,
   writeReleaseReport,
 };

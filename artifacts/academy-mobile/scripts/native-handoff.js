@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const {
   EXPECTED_ANDROID_PACKAGE,
+  formatAttemptTotals,
   runReleaseSmokeChecks,
   summarizeReleaseSmokeResult,
   validateAndroidReleaseIdentity,
@@ -545,6 +546,23 @@ async function verifyAllProfileConnectivity({
   };
 }
 
+function logConnectivityRetryOutput(summary, includeFailures = false) {
+  for (const profile of summary?.profiles ?? []) {
+    if (profile.status === "passed" && profile.recovered) {
+      console.log(
+        `[native-handoff] Release connectivity for profile "${profile.profile}" passed after retries (${formatAttemptTotals(profile)}).`,
+      );
+    } else if (includeFailures && profile.status === "failed") {
+      const attemptTotals = formatAttemptTotals(profile);
+      if (attemptTotals) {
+        console.error(
+          `[native-handoff] Retry totals for failed profile "${profile.profile}": ${attemptTotals}.`,
+        );
+      }
+    }
+  }
+}
+
 async function main() {
   const { easArgs, platform, profile, checkOnly } = parseArgs(
     process.argv.slice(2),
@@ -609,6 +627,7 @@ async function main() {
         allProfileConnectivity: error.legacyConnectivitySummary,
         error: error instanceof Error ? error.message : String(error),
       });
+      logConnectivityRetryOutput(error.connectivitySummary, true);
     }
     throw error;
   }
@@ -627,6 +646,7 @@ async function main() {
   console.log(
     `[native-handoff] Release connectivity passed for profile "${profile}".`,
   );
+  logConnectivityRetryOutput(connectivityCheck.allProfiles);
 
   if (checkOnly) {
     console.log("[native-handoff] Check-only mode; EAS build was not started.");
