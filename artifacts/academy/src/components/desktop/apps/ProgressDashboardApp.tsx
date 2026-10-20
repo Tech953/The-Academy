@@ -190,8 +190,8 @@ export function ProgressDashboardApp({ windowId, studentId = 'default-student' }
               </div>
               <div style={{ color: '#666', fontSize: '11px' }}>
                 {gedReady 
-                  ? 'You are ready for the GED exam!' 
-                  : 'Continue building skills to become GED ready'}
+                  ? 'All skill domains at mastery level' 
+                  : 'Continue building skills across all domains'}
               </div>
             </div>
           </div>
