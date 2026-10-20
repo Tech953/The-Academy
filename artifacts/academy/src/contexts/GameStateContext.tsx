@@ -270,11 +270,16 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
         chapterProgress: { ...prev.curriculumProgress.chapterProgress },
       };
 
-      // ── Resonance & ecology pre-read bonus ──────────────────────────────
+      // ── Honest measurement (Phase 0) ──────────────────────────────────
+      // Assessment records the RAW score: pass decisions, recorded
+      // quizScore, and readiness all derive from scorePercent alone.
+      // Resonance/commentary bonuses are game flavor — they convert to
+      // bonus XP below and never touch a recorded score.
       const existingLp = progressCopy.lessonProgress[lessonCode];
       const resonanceBonus = Math.min(20, (existingLp?.resonanceScore ?? 0) * 0.2);
       const commentaryBonus = existingLp?.preReadCommentary ? 5 : 0;
-      const boostedScore = Math.min(100, scorePercent + resonanceBonus + commentaryBonus);
+      const bonusXp = Math.round(resonanceBonus + commentaryBonus);
+      const assessmentScore = scorePercent;
 
       // ── Apply ecology update post-quiz ─────────────────────────────────
       const applyEcologyUpdate = (lp: LessonProgress, success: boolean) => {
@@ -294,31 +299,36 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
 
       if (isLangSubject) {
         const lp = { ...(progressCopy.lessonProgress[lessonCode] ?? { lessonCode, completed: false, attempts: 0 }) };
-        const passed = boostedScore >= 60;
+        const passed = assessmentScore >= 60;
         const wasComplete = lp.completed;
         let xp = 0;
         const bonuses: Array<{ stat: string; gain: number }> = [];
         lp.attempts += 1;
         lp.lastAttemptAt = new Date().toISOString();
         if (!wasComplete) { xp += 25; lp.completed = true; }
-        if (passed && (!lp.quizScore || boostedScore > lp.quizScore)) {
+        if (passed && (!lp.quizScore || assessmentScore > lp.quizScore)) {
           if (!lp.quizScore || lp.quizScore < 60) {
             xp += 50;
             const rawCode = subject === 'Language: Spanish' ? 'es' : subject === 'Language: French' ? 'fr' : subject === 'Language: German' ? 'de' : subject === 'Language: Chinese' ? 'zh' : null;
             if (rawCode) {
               const statMap = LANGUAGE_STAT_MAP[rawCode as keyof typeof LANGUAGE_STAT_MAP] ?? [];
-              statMap.forEach((b) => bonuses.push({ stat: b.stat, gain: Math.ceil(b.bonus * (boostedScore / 100)) }));
+              statMap.forEach((b) => bonuses.push({ stat: b.stat, gain: Math.ceil(b.bonus * (assessmentScore / 100)) }));
             }
           }
-          lp.quizScore = Math.max(lp.quizScore ?? 0, boostedScore);
+          lp.quizScore = Math.max(lp.quizScore ?? 0, assessmentScore);
         }
         applyEcologyUpdate(lp, passed);
+        xp += bonusXp;
         progressCopy.lessonProgress[lessonCode] = lp;
         progressCopy.totalXpEarned = (progressCopy.totalXpEarned ?? 0) + xp;
         progressCopy.lastStudiedAt = new Date().toISOString();
         result = { xpEarned: xp, passed, statBonuses: bonuses };
       } else {
-        result = recordQuizAttempt(progressCopy, lessonCode, boostedScore, subject as GEDSubjectKey);
+        result = recordQuizAttempt(progressCopy, lessonCode, assessmentScore, subject as GEDSubjectKey);
+        if (bonusXp > 0) {
+          progressCopy.totalXpEarned += bonusXp;
+          result = { ...result, xpEarned: result.xpEarned + bonusXp };
+        }
         const gedLp = progressCopy.lessonProgress[lessonCode];
         if (gedLp) applyEcologyUpdate(gedLp, result.passed);
       }

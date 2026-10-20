@@ -672,7 +672,9 @@ export interface SubjectProgress {
   subject: GEDSubjectKey;
   chaptersCompleted: number;
   totalChapters: number;
-  readinessScore: number;   // 0–100, GED readiness estimate
+  readinessScore: number;   // 0–100, internal readiness estimate
+  scaledScore?: number;     // 100–200, simulated GED scaled score (lib/gedScale)
+  readinessBand?: string;   // official band label for scaledScore
   passReady: boolean;       // readinessScore ≥ 70
 }
 

@@ -1151,8 +1151,11 @@ export default function AssignmentsPortal() {
                       <div key={sp.subject} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                         <span style={{ color: m.color, minWidth: 36, fontSize: 9 }}>{m.abbr}</span>
                         <div style={{ flex: 1 }}><ProgressBar value={sp.readinessScore} color={m.color} height={3} /></div>
-                        <span style={{ minWidth: 32, textAlign: 'right', fontSize: 9, color: sp.passReady ? G : `${G}60` }}>
-                          {sp.readinessScore}%
+                        <span style={{ minWidth: 76, textAlign: 'right', fontSize: 9, color: sp.passReady ? G : `${G}60` }}>
+                          {sp.readinessScore}% · {sp.scaledScore ?? 100}
+                        </span>
+                        <span style={{ minWidth: 64, fontSize: 9, color: (sp.scaledScore ?? 0) >= 145 ? G : `${G}60` }}>
+                          {sp.readinessBand ?? 'Below Passing'}
                         </span>
                         {sp.passReady && <span style={{ fontSize: 9, color: G }}>✓</span>}
                       </div>

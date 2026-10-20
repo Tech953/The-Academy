@@ -16,6 +16,7 @@ import type {
   GEDLesson,
 } from '@shared/schema';
 import { KAPLAN_GED_CURRICULUM, RLA_TEXTBOOK, SS_TEXTBOOK, SCIENCE_TEXTBOOK } from './gedCurriculumData';
+import { percentToScaledScore, scaledScoreBand } from './gedScale';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -186,6 +187,8 @@ export function computeSubjectProgress(
       chaptersCompleted: 0,
       totalChapters: textbook.chapters.length,
       readinessScore: 0,
+      scaledScore: percentToScaledScore(0),
+      readinessBand: scaledScoreBand(percentToScaledScore(0)),
       passReady: false,
     };
   }
@@ -204,12 +207,15 @@ export function computeSubjectProgress(
   }
 
   const readinessScore = Math.round(weightedSum / chaptersWithLessons.length);
+  const scaledScore = percentToScaledScore(readinessScore);
 
   return {
     subject: textbook.subject,
     chaptersCompleted,
     totalChapters: textbook.chapters.length,
     readinessScore,
+    scaledScore,
+    readinessBand: scaledScoreBand(scaledScore),
     passReady: readinessScore >= 70,
   };
 }
