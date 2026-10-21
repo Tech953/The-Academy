@@ -69,6 +69,7 @@ TIP: The main idea is broad enough to cover all details but specific enough to b
         'Miami has spent over $400 million on flood infrastructure since 2016.',
         'Nations must reduce greenhouse gas emissions to prevent catastrophic warming.',
         'C', 'The Miami example is a specific fact that supports a broader claim — making it a detail, not a main idea.', 'LANG.MAIN.002'),
+      { id: 'RLA.1.1-HS', question: 'Click the sentence that best states the main idea of the passage.', type: 'hot_spot', hotSpot: { backdrop: 'passage', zones: [{ id: 's1', label: 'Honeybees communicate the location of flowers through a waggle dance.', x: 3, y: 4, w: 94, h: 20 }, { id: 's2', label: 'The angle of the dance tells other bees the direction of the food source.', x: 3, y: 28, w: 94, h: 20 }, { id: 's3', label: 'The length of the dance signals how far away the flowers are.', x: 3, y: 52, w: 94, h: 20 }, { id: 's4', label: 'Some bees also follow scent trails left by returning foragers.', x: 3, y: 76, w: 94, h: 20 }] }, answer: 's1', explanation: 'The first sentence states the whole topic — bees communicating flower locations by dancing. The others are supporting details about how the dance works.', difficulty: 'standard', gedCode: 'RLA.1.1', skillNodeId: 'LANG.MAIN.002' },
     ]
   },
   {
@@ -110,6 +111,7 @@ AVOID FALSE RESTATEMENTS that change meaning:
         'Capture the main idea and major supporting points in 2–3 sentences.',
         'Quote the author\'s introduction directly.',
         'C', 'A summary condenses — it captures the key message and major evidence without every detail. Quotes and complete lists belong in paraphrase.', 'LANG.MAIN.002'),
+      { id: 'RLA.1.2-DD', question: 'Arrange the sentences to form a coherent paragraph.', type: 'drag_drop', dragItems: ['She also packed a paperback novel for the train ride.', 'Maria checked the weather before packing her bag.', 'By the time she left, she felt ready for whatever the day brought.', 'Because rain was expected, she added an umbrella and a waterproof jacket.'], answer: 'Maria checked the weather before packing her bag. | Because rain was expected, she added an umbrella and a waterproof jacket. | She also packed a paperback novel for the train ride. | By the time she left, she felt ready for whatever the day brought.', explanation: 'The paragraph opens with the topic (checking the weather), follows with the reason-driven detail ("Because rain was expected…"), adds a further detail ("also"), and closes with a concluding sentence.', difficulty: 'standard', gedCode: 'RLA.1.2', skillNodeId: 'LANG.MAIN.002' },
     ]
   },
   {
@@ -155,6 +157,7 @@ Example: Ice cream sales and drowning both increase in summer — but ice cream 
         'Correlation between factory output and crime.',
         'An unsupported claim about poverty.',
         'B', 'Each event causes the next in sequence: closure → unemployment → poverty → crime. This is a classic causal chain.', 'REAS.CRIT.001'),
+      { id: 'RLA.1.4-SA', question: 'Passage: "When the city built a dam upstream, the river\'s flow slowed. Within a few years, the mill downstream could no longer turn its waterwheel and closed." According to the passage, what caused the mill to close? Answer in one phrase.', type: 'short_answer', answer: 'the dam built upstream', answerAliases: ['the dam', 'a dam upstream', 'the city built a dam'], answerKeywords: ['dam'], explanation: 'The passage gives a cause-and-effect chain: the dam slowed the river, the waterwheel could no longer turn, and the mill closed.', difficulty: 'standard', gedCode: 'RLA.1.4', skillNodeId: 'LANG.MAIN.002' },
     ]
   },
   {
@@ -264,6 +267,7 @@ COMMON LOGICAL FALLACIES (weak arguments):
         'The argument should cite more famous CEOs.',
         'The word "all" makes this an absolute statement.',
         'B', 'Drawing a universal recommendation from three examples is a hasty generalization — far too small a sample to support a policy affecting all students.', 'LANG.ARG.009'),
+      { id: 'RLA.2.2-ER', question: 'Write an essay arguing which text presents the stronger argument. Cite specific evidence from both texts, and address the opposing view.', type: 'extended_response', stimulus: [{ label: 'Text A', text: 'School uniforms should be required in public schools. Uniforms reduce peer pressure about clothing, because students are no longer judged by brands. They also save families money: one survey of parents found clothing spending dropped by a third after uniforms were adopted. When everyone dresses alike, students focus on learning instead of fashion.' }, { label: 'Text B', text: 'School uniforms should not be required in public schools. Clothing is a form of self-expression, and forcing students into identical outfits teaches obedience instead of independence. Uniforms do not really save money either, because families must buy uniforms in addition to regular clothes. Schools should solve real problems, not police what students wear.' }], answer: 'A well-developed response takes a clear position, cites evidence from both texts, and rebuts the opposing view.', explanation: 'Strong responses state a thesis (which text argues better and why), support it with quoted or paraphrased evidence from BOTH texts, and answer the other side\'s best point. Scored here with a simulated rubric — only GED Testing Service scorers are authoritative.', difficulty: 'extended', gedCode: 'RLA.2.2', skillNodeId: 'LANG.ARG.009' },
     ]
   },
 ];
@@ -351,6 +355,7 @@ COMPOUND-COMPLEX: contains two independent clauses AND at least one dependent cl
         'It rained all day although the game was not cancelled.',
         'It rained all day; the game was not cancelled.',
         'B', 'B correctly places a comma after a dependent clause that opens the sentence ("Although it rained all day,"). D is also punctuated correctly but B creates a more logical complex sentence.', 'LANG.SENT.006'),
+      { id: 'RLA.4.2-FI', question: 'Complete the sentence with a subordinating conjunction: "___ the rain stopped, the game resumed." Type the word or phrase.', type: 'fill_in', answer: 'After', answerAliases: ['After', 'Once', 'When', 'As soon as'], explanation: 'A subordinating conjunction (After / Once / When / As soon as) turns the first clause into a dependent clause that sets the time for the main clause.', difficulty: 'standard', gedCode: 'RLA.4.2', skillNodeId: 'LANG.SENT.006' },
     ]
   },
   {
@@ -461,6 +466,7 @@ INVERTED SENTENCES (verb before subject):
         'was',
         'were',
         'B', 'With "neither...nor," the verb agrees with the closest subject — "producers" (plural). So the plural "have" is correct.', 'LANG.GRAM.005'),
+      { id: 'RLA.8.3-DR', question: 'The committee ___ its final decision tomorrow morning.', type: 'drop_down', options: ['announce', 'announces', 'announcing', 'have announced'], answer: 'announces', explanation: '"Committee" is a singular collective noun here (note "its"), so it takes the singular verb "announces."', difficulty: 'standard', gedCode: 'RLA.8.3', skillNodeId: 'LANG.GRAM.005' },
     ]
   },
 ];
@@ -548,6 +554,7 @@ SCALE: map/drawing distance ÷ actual distance
         'On a map, 1 inch represents 50 miles. Two cities are 3.5 inches apart on the map. What is the actual distance?',
         '150 miles', '175 miles', '200 miles', '53.5 miles',
         'B', '3.5 × 50 = 175 miles. Multiply the map distance by the scale factor.', 'MATH.RATIO.003'),
+      { id: 'MATH.3.1-FI', question: 'A recipe uses 3 cups of flour to make 12 muffins. How many cups of flour are needed to make 20 muffins? Answer with a number.', type: 'fill_in', answer: '5', answerAliases: ['5 cups', '5.0'], explanation: 'Set up a proportion: 3/12 = x/20 → 12x = 60 → x = 5 cups.', difficulty: 'standard', gedCode: 'MATH.3.1', skillNodeId: 'MATH.RATIO.003', calculatorAllowed: false },
     ]
   },
   {
@@ -661,6 +668,7 @@ NESTED PARENTHESES: work from innermost outward
         'Evaluate: (6 + 2)² ÷ 4 - 3',
         '13', '9', '5', '1',
         'A', 'Parentheses: 6+2=8; Exponent: 8²=64; Division: 64÷4=16; Subtraction: 16-3=13.', 'MATH.ALGE.005'),
+      { id: 'MATH.5.4-DD', question: 'Put the steps for evaluating 4 + 3 × (8 − 2) in the correct order.', type: 'drag_drop', dragItems: ['Multiply: 3 × 6 = 18', 'Add: 4 + 18 = 22', 'Subtract inside the parentheses: 8 − 2 = 6'], answer: 'Subtract inside the parentheses: 8 − 2 = 6 | Multiply: 3 × 6 = 18 | Add: 4 + 18 = 22', explanation: 'Order of operations: parentheses first (8 − 2 = 6), then multiplication (3 × 6 = 18), then addition (4 + 18 = 22).', difficulty: 'standard', gedCode: 'MATH.5.4', skillNodeId: 'MATH.ALGE.005', calculatorAllowed: false },
     ]
   },
 ];
@@ -705,6 +713,7 @@ EXAMPLE: Solve 2(x + 3) = 14
         'The equation 5 - 2x = 15 has solution:',
         'x = -5', 'x = 5', 'x = 10', 'x = -10',
         'A', '-2x = 15 - 5 = 10; x = 10 ÷ -2 = -5.', 'MATH.LINEQ.006'),
+      { id: 'MATH.6.1-DR', question: 'To solve 3x + 7 = 22, first ___ both sides to isolate the term containing x.', type: 'drop_down', options: ['subtract 7 from', 'add 7 to', 'multiply by 3 on', 'divide by 7 on'], answer: 'subtract 7 from', explanation: 'Undo the addition first: subtract 7 from both sides to get 3x = 15, then divide by 3 to find x = 5.', difficulty: 'standard', gedCode: 'MATH.6.1', skillNodeId: 'MATH.LINEQ.006' },
     ]
   },
   {
@@ -744,6 +753,7 @@ STANDARD FORM: Ax + By = C → convert to slope-intercept
         'Which equation represents a line parallel to y = 2x - 5?',
         'y = -2x + 3', 'y = 1/2x + 1', 'y = 2x + 8', 'y = -1/2x - 5',
         'C', 'Parallel lines have equal slopes. The original slope is 2; y = 2x + 8 also has slope 2 but a different y-intercept.', 'MATH.LINEQ.006'),
+      { id: 'MATH.6.7-HS', question: 'On the coordinate grid, click the point (3, −2).', type: 'hot_spot', hotSpot: { backdrop: 'grid', zones: [{ id: 'pt-a', label: '(−3, 2)', x: 15, y: 24, w: 10, h: 12 }, { id: 'pt-b', label: '(0, 4)', x: 45, y: 4, w: 10, h: 12 }, { id: 'pt-c', label: '(3, −2)', x: 75, y: 64, w: 10, h: 12 }, { id: 'pt-d', label: '(−1, −4)', x: 35, y: 84, w: 10, h: 12 }] }, answer: 'pt-c', explanation: 'The point (3, −2) is 3 units right of the origin and 2 units down, in Quadrant IV.', difficulty: 'standard', gedCode: 'MATH.6.7', skillNodeId: 'MATH.LINEQ.006' },
     ]
   },
 ];
@@ -779,6 +789,7 @@ COMMON PYTHAGOREAN TRIPLES (memorize):
         'A ladder 13 feet long leans against a wall. Its base is 5 feet from the wall. How high up the wall does it reach?',
         '8 feet', '12 feet', '10 feet', '11 feet',
         'B', '5² + b² = 13² → 25 + b² = 169 → b² = 144 → b = 12. (5-12-13 triple)', 'MATH.GEOM.008'),
+      { id: 'MATH.7.3-SA', question: 'A right triangle has legs of 6 cm and 8 cm. Find the length of the hypotenuse, and name the theorem you used.', type: 'short_answer', answer: '10 cm', answerAliases: ['10', '10 cm', 'the hypotenuse is 10 cm'], answerKeywords: ['10', 'pythagorean'], explanation: 'By the Pythagorean theorem: 6² + 8² = 36 + 64 = 100, so the hypotenuse is √100 = 10 cm.', difficulty: 'standard', gedCode: 'MATH.7.3', skillNodeId: 'MATH.GEOM.008' },
     ]
   },
   {
@@ -900,6 +911,8 @@ PROGRESSIVE ERA (1890–1920) — reformers addressing industrial abuses:
         'To advocate for American military expansion abroad.',
         'To oppose immigration from Southern and Eastern Europe.',
         'B', 'Muckrakers like Upton Sinclair and Ida Tarbell used journalism to expose unsafe conditions, corporate corruption, and social injustice to pressure lawmakers.', 'SOC.USHIST.001'),
+      { id: 'SS.2.3-DD', question: 'Place the events in chronological order.', type: 'drag_drop', dragItems: ['19th Amendment ratified (1920)', 'Civil War ends (1865)', 'Sherman Antitrust Act passed (1890)', 'Transcontinental railroad completed (1869)'], answer: 'Civil War ends (1865) | Transcontinental railroad completed (1869) | Sherman Antitrust Act passed (1890) | 19th Amendment ratified (1920)', explanation: '1865 → 1869 → 1890 → 1920: the Civil War ends, the railroads unite the continent, antitrust law follows industrial consolidation, and women win the vote.', difficulty: 'standard', gedCode: 'SS.2.3', skillNodeId: 'SOC.USHIST.001' },
+      { id: 'SS.2.3-HS', question: 'During the Great Migration, many Black families moved from the rural South to industrial cities such as Chicago and Detroit. Click the region where Chicago and Detroit are located.', type: 'hot_spot', hotSpot: { backdrop: 'panel', zones: [{ id: 'region-west', label: 'West', x: 4, y: 30, w: 22, h: 30 }, { id: 'region-midwest', label: 'Midwest', x: 36, y: 12, w: 24, h: 30 }, { id: 'region-northeast', label: 'Northeast', x: 72, y: 10, w: 24, h: 26 }, { id: 'region-south', label: 'South', x: 38, y: 58, w: 26, h: 30 }] }, answer: 'region-midwest', explanation: 'Chicago and Detroit are Midwestern industrial cities — two of the main destinations of the Great Migration.', difficulty: 'standard', gedCode: 'SS.2.3', skillNodeId: 'SOC.USHIST.001' },
     ]
   },
 ];
@@ -955,6 +968,7 @@ BILL OF RIGHTS (First 10 Amendments, 1791):
         'The federal law takes precedence; the state law is invalid.',
         'Courts must hold a referendum to determine which law applies.',
         'C', 'The Supremacy Clause (Article VI) establishes that federal law is "the supreme law of the land," overriding conflicting state laws.', 'SOC.CIV.002'),
+      { id: 'SS.3.2-DR', question: 'A bill passes both houses of Congress, but the President rejects it and sends it back unsigned. This action is called ___.', type: 'drop_down', options: ['a judicial review', 'a veto', 'an amendment', 'a filibuster'], answer: 'a veto', explanation: 'A veto is the President\'s rejection of a bill passed by Congress; Congress can override it with a two-thirds vote in both houses.', difficulty: 'standard', gedCode: 'SS.3.2', skillNodeId: 'SOC.CIV.002' },
     ]
   },
 ];
@@ -999,6 +1013,8 @@ ECONOMIC INDICATORS:
         'The student\'s expected future income after graduation.',
         'The government\'s spending on student financial aid.',
         'B', 'Opportunity cost is the value of the next-best alternative not chosen. By choosing college, the student foregoes the income and experience they would have gained from working.', 'SOC.ECON.003'),
+      { id: 'SS.4.1-FI', question: 'A bakery sells a loaf of bread for $5. The ingredients and labor cost $3 per loaf. The profit on each loaf is $___ . Answer with a number.', type: 'fill_in', answer: '2', answerAliases: ['2', '$2', '2 dollars'], explanation: 'Profit = price − cost = $5 − $3 = $2 per loaf.', difficulty: 'standard', gedCode: 'SS.4.1', skillNodeId: 'SOC.ECON.003' },
+      { id: 'SS.4.1-SA', question: 'In one sentence, explain the difference between fiscal policy and monetary policy.', type: 'short_answer', answer: 'Fiscal policy is government taxing and spending; monetary policy is the central bank managing the money supply and interest rates.', answerKeywords: ['government', 'federal reserve|central bank'], explanation: 'Fiscal policy = the government\'s taxes and spending. Monetary policy = the Federal Reserve (the central bank) managing money supply and interest rates.', difficulty: 'standard', gedCode: 'SS.4.1', skillNodeId: 'SOC.ECON.003' },
     ]
   },
 ];
@@ -1059,6 +1075,7 @@ VALIDITY and RELIABILITY:
         'The scientist should have used animals instead of humans.',
         'No placebo group was mentioned.',
         'B', 'A sample size of 5 is far too small to generalize to all patients. Scientific conclusions require sufficiently large, representative samples to be reliable and valid.', 'SCI.EXP.006'),
+      { id: 'SCI.1.2-DD', question: 'Put the steps of a scientific investigation in the correct order.', type: 'drag_drop', dragItems: ['Collect and record data', 'State a testable hypothesis', 'Analyze the results', 'Draw a conclusion', 'Design a controlled experiment'], answer: 'State a testable hypothesis | Design a controlled experiment | Collect and record data | Analyze the results | Draw a conclusion', explanation: 'Investigation order: hypothesis → experiment design → data collection → analysis → conclusion.', difficulty: 'standard', gedCode: 'SCI.1.2', skillNodeId: 'SCI.SCI.001' },
     ]
   },
   {
@@ -1143,6 +1160,7 @@ CELL MEMBRANE — SELECTIVE PERMEABILITY:
         'It controls which substances enter and exit the cell.',
         'It is a rigid structure that maintains cell shape.',
         'C', 'Selective permeability means the membrane allows some substances through while restricting others, based on size, charge, and lipid solubility.', 'SCI.LIFE.003'),
+      { id: 'SCI.2.1-HS', question: "Click the organelle that produces most of the cell's energy (ATP).", type: 'hot_spot', hotSpot: { backdrop: 'panel', zones: [{ id: 'cell-nucleus', label: 'Nucleus', x: 6, y: 10, w: 26, h: 22 }, { id: 'cell-mito', label: 'Mitochondrion', x: 58, y: 12, w: 34, h: 22 }, { id: 'cell-ribo', label: 'Ribosome', x: 8, y: 58, w: 26, h: 22 }, { id: 'cell-golgi', label: 'Golgi apparatus', x: 58, y: 58, w: 34, h: 22 }] }, answer: 'cell-mito', explanation: 'The mitochondrion is where cellular respiration produces most of the cell\'s ATP.', difficulty: 'standard', gedCode: 'SCI.2.1', skillNodeId: 'SCI.LIFE.003' },
     ]
   },
   {
@@ -1180,6 +1198,7 @@ PUNNETT SQUARE: predicts offspring ratios
         'A plant has genotype TT (tall, dominant). Its pollen fertilizes a plant with genotype tt (short, recessive). What will all offspring\'s phenotype be?',
         'All short', 'All tall', '50% tall, 50% short', '75% tall, 25% short',
         'B', 'TT × tt: all offspring receive one T allele and one t allele = Tt (heterozygous). Since T is dominant, all offspring will be phenotypically tall.', 'SCI.LIFE.003'),
+      { id: 'SCI.2.5-DR', question: 'In a Punnett square cross of Tt × tt, the probability that an offspring is homozygous recessive (tt) is ___.', type: 'drop_down', options: ['0%', '25%', '50%', '100%'], answer: '50%', explanation: 'Tt × tt produces 50% Tt and 50% tt offspring, so the probability of tt is 50%.', difficulty: 'standard', gedCode: 'SCI.2.5', skillNodeId: 'SCI.LIFE.003' },
     ]
   },
 ];
@@ -1227,6 +1246,7 @@ CLIMATE ZONES:
         'Volcanic emissions blocking incoming solar radiation.',
         'The ocean absorbing all infrared radiation from the sun.',
         'B', 'Greenhouse gases (CO₂, methane, etc.) absorb and re-emit infrared radiation, preventing heat from escaping to space — the mechanism of the greenhouse effect.', 'SCI.EARTH.005'),
+      { id: 'SCI.3.3-SA', question: 'In one sentence, explain why coastal cities usually have milder winters than inland cities at the same latitude.', type: 'short_answer', answer: 'The ocean stores heat and releases it slowly, moderating coastal temperatures.', answerKeywords: ['ocean|sea|water', 'heat|temperature'], explanation: 'Water heats and cools more slowly than land, so the ocean releases stored heat through winter and moderates coastal temperatures.', difficulty: 'standard', gedCode: 'SCI.3.3', skillNodeId: 'SCI.EARTH.005' },
     ]
   },
 ];
@@ -1315,6 +1335,7 @@ WEIGHT vs MASS:
         'Zero, with no acceleration acting on it.',
         'Positive (still moving upward).',
         'B', 'At the highest point, velocity = 0 momentarily. But gravity (9.8 m/s² downward) still acts on it — so acceleration is not zero. The ball then accelerates back downward.', 'SCI.PHYS.004'),
+      { id: 'SCI.4.5-FI', question: 'A 2 kg object accelerates at 3 m/s². Using F = ma, the net force on the object is ___ newtons. Answer with a number.', type: 'fill_in', answer: '6', answerAliases: ['6', '6 N', '6 newtons'], explanation: 'F = ma = 2 kg × 3 m/s² = 6 newtons.', difficulty: 'standard', gedCode: 'SCI.4.5', skillNodeId: 'SCI.PHYS.004', calculatorAllowed: true },
     ]
   },
 ];

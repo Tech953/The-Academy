@@ -580,18 +580,49 @@ export type GEDSubjectKey = 'Mathematical Reasoning' | 'Language Arts' | 'Scienc
 export type LangSubjectKey = 'Language: Spanish' | 'Language: French' | 'Language: German' | 'Language: Chinese';
 export type AnySubjectKey = GEDSubjectKey | LangSubjectKey;
 export type QuestionDifficulty = 'foundational' | 'standard' | 'extended';
-export type QuestionType = 'mcq' | 'short_answer' | 'extended_response';
+export type QuestionType =
+  | 'mcq' | 'fill_in' | 'drop_down' | 'drag_drop' | 'hot_spot'
+  | 'short_answer' | 'extended_response';
+
+/** A clickable region for a hot_spot item. Coordinates are percentages
+ *  (0–100) of the item's backdrop, so zones render at any panel size. */
+export interface HotSpotZone {
+  id: string;
+  label: string;
+  x: number; y: number; w: number; h: number;
+}
+
+/** A labeled source text shown with an item (ER passages, readings). */
+export interface QuestionStimulus {
+  label: string;
+  text: string;
+}
 
 export interface GEDPracticeQuestion {
   id: string;
   question: string;
   type: QuestionType;
   choices?: { A: string; B: string; C: string; D: string };
-  answer: string;          // 'A'|'B'|'C'|'D' for MCQ, free text otherwise
+  answer: string;          // 'A'|'B'|'C'|'D' for MCQ, free text otherwise;
+                           // drag_drop: correct token order joined by ' | ';
+                           // hot_spot: the correct zone id
   explanation: string;
   difficulty: QuestionDifficulty;
   gedCode?: string;        // e.g. 'Q.1.a', 'RLA.2.1'
   skillNodeId?: string;    // links to SkillGraph node
+  // ── Format payloads (Phase 2 — format completeness) ──
+  options?: string[];          // drop_down: selectable completions for the '___' blank
+  dragItems?: string[];        // drag_drop: tokens in presented (shuffled) order
+  hotSpot?: {                  // hot_spot: backdrop + clickable zones
+    backdrop: 'grid' | 'passage' | 'panel';
+    zones: HotSpotZone[];
+  };
+  stimulus?: QuestionStimulus[];   // extended_response sources / passage items
+  answerAliases?: string[];        // fill_in / short_answer: accepted alternates
+  answerKeywords?: string[];       // short_answer: every entry must match;
+                                   // 'a|b' inside an entry means alternates
+  calculatorAllowed?: boolean;     // assessed math: item-level calculator
+                                   // policy; undefined = calculator allowed
 }
 
 export interface GEDLesson {

@@ -15,6 +15,8 @@ import {
 } from '@/lib/gedCurriculum';
 import { generateAllLanguageTextbooks, LANG_META } from '@/lib/languageCourseGenerator';
 import type { GEDTextbook, GEDLesson, GEDPracticeQuestion, CognitiveState } from '@shared/schema';
+import { gradeResponse, displayAnswer, gradeExtendedResponse } from '@/lib/itemGrading';
+import Ti30xsCalculator from './Ti30xsCalculator';
 
 const LANG_COURSES = generateAllLanguageTextbooks();
 const LANG_BOOKS = Object.values(LANG_COURSES);
@@ -447,6 +449,16 @@ function LessonView({ lesson, subject, onStartQuiz, onBack }: {
   );
 }
 
+const FORMAT_LABELS: Record<string, string> = {
+  mcq: 'MULTIPLE CHOICE',
+  fill_in: 'FILL-IN',
+  drop_down: 'DROP-DOWN',
+  drag_drop: 'DRAG & DROP',
+  hot_spot: 'HOT SPOT',
+  short_answer: 'SHORT ANSWER',
+  extended_response: 'EXTENDED RESPONSE',
+};
+
 function QuizView({ lesson, subject, onFinish }: {
   lesson: GEDLesson;
   subject: string;
@@ -460,21 +472,28 @@ function QuizView({ lesson, subject, onFinish }: {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
 
   const q = questions[idx];
   const selected = answers[idx];
   const isRevealed = revealed[idx];
-  const isCorrect = selected === q.answer;
+  // All formats grade through lib/itemGrading (Phase 2); for MCQ this is
+  // the same letter equality the portal always used.
+  const isCorrect = gradeResponse(q, selected);
+  const isMath = subject === 'Mathematical Reasoning';
+  const calcAllowed = isMath && q.calculatorAllowed !== false;
 
   const CHOICE_KEYS = ['A', 'B', 'C', 'D'] as const;
 
-  function handleSelect(key: string) {
+  useEffect(() => { setCalcOpen(false); }, [idx]);
+
+  function setResponse(value: string) {
     if (isRevealed) return;
-    setAnswers(prev => ({ ...prev, [idx]: key }));
+    setAnswers(prev => ({ ...prev, [idx]: value }));
   }
 
   function handleCheck() {
-    if (!selected) return;
+    if (!hasResponse) return;
     setRevealed(prev => ({ ...prev, [idx]: true }));
   }
 
@@ -482,7 +501,7 @@ function QuizView({ lesson, subject, onFinish }: {
     if (idx < questions.length - 1) {
       setIdx(i => i + 1);
     } else {
-      const correct = questions.filter((qu, i) => answers[i] === qu.answer).length;
+      const correct = questions.filter((qu, i) => gradeResponse(qu, answers[i])).length;
       const pct = Math.round((correct / questions.length) * 100);
       onFinish(pct);
     }
@@ -501,8 +520,282 @@ function QuizView({ lesson, subject, onFinish }: {
     return { background: '#111', border: `1px solid ${G}22`, color: `${G}40` };
   }
 
+  // ── drag & drop sequencing (response = tokens joined by ' | ') ──
+  const sequence = q.type === 'drag_drop' ? (selected ?? '').split(' | ').filter(Boolean) : [];
+  function addToken(token: string) {
+    if (sequence.includes(token)) return;
+    setResponse([...sequence, token].join(' | '));
+  }
+  function removeToken(token: string) {
+    setResponse(sequence.filter(t => t !== token).join(' | '));
+  }
+
+  const wordTotal = q.type === 'extended_response'
+    ? (selected ?? '').trim().split(/\s+/).filter(Boolean).length : 0;
+  const hasResponse = q.type === 'drag_drop'
+    ? sequence.length === (q.dragItems?.length ?? 0)
+    : selected !== undefined && selected.trim() !== '';
+
   const answered = Object.keys(answers).length;
   const difficulty: Record<string, string> = { foundational: A, standard: C, extended: '#cc88ff' };
+  const mono = '"Courier New", monospace';
+
+  function renderStimulus() {
+    if (!q.stimulus) return null;
+    return (
+      <div style={{ marginBottom: 14 }}>
+        {q.stimulus.map((s, i) => (
+          <div key={i} style={{
+            border: `1px solid ${G}33`, background: '#0a0f0a', padding: '10px 12px',
+            marginBottom: 8, fontFamily: mono, fontSize: 11, lineHeight: 1.65, color: `${G}dd`,
+          }}>
+            <div style={{ fontSize: 9, color: meta.color, fontWeight: 'bold', letterSpacing: 1, marginBottom: 4 }}>
+              {s.label.toUpperCase()}
+            </div>
+            {s.text}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderAnswerControl() {
+    switch (q.type) {
+      case 'mcq': {
+        const choices = q.choices;
+        if (!choices) return null;
+        return CHOICE_KEYS.map(key => (
+          <button key={key} onClick={() => setResponse(key)} style={{
+            ...choiceStyle(key),
+            display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
+            marginBottom: 6, cursor: isRevealed ? 'default' : 'pointer',
+            fontFamily: mono, fontSize: 11, lineHeight: 1.5,
+            transition: 'all 0.15s',
+          }}>
+            <span style={{ fontWeight: 'bold', marginRight: 8 }}>{key}.</span>
+            {choices[key]}
+          </button>
+        ));
+      }
+      case 'fill_in':
+        return (
+          <input
+            value={selected ?? ''}
+            disabled={isRevealed}
+            onChange={e => setResponse(e.target.value)}
+            placeholder="Type your answer…"
+            style={{
+              width: '100%', boxSizing: 'border-box', background: '#0a0f0a',
+              border: `1px solid ${meta.color}66`, color: G, padding: '9px 12px',
+              fontFamily: mono, fontSize: 12, outline: 'none',
+            }}
+          />
+        );
+      case 'drop_down': {
+        const parts = q.question.split('___');
+        return (
+          <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 2, color: `${G}ee` }}>
+            {parts[0]}
+            <select
+              value={selected ?? ''}
+              disabled={isRevealed}
+              onChange={e => setResponse(e.target.value)}
+              style={{
+                background: '#0a0f0a', border: `1px solid ${meta.color}66`, color: G,
+                fontFamily: mono, fontSize: 12, padding: '4px 6px', margin: '0 4px', outline: 'none',
+              }}
+            >
+              <option value="">— choose —</option>
+              {(q.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+            {parts.slice(1).join('___')}
+          </div>
+        );
+      }
+      case 'drag_drop':
+        return (
+          <div>
+            <div
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); addToken(e.dataTransfer.getData('text/plain')); }}
+              style={{
+                minHeight: 44, border: `1px dashed ${meta.color}66`, background: '#0a0f0a',
+                padding: 8, marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 6,
+              }}
+            >
+              {sequence.length === 0 && (
+                <span style={{ fontSize: 10, color: `${G}50`, fontFamily: mono }}>
+                  Drag or tap the pieces below to build your answer, in order.
+                </span>
+              )}
+              {sequence.map(token => (
+                <button key={token} onClick={() => removeToken(token)} disabled={isRevealed} style={{
+                  background: `${meta.color}20`, border: `1px solid ${meta.color}`,
+                  color: meta.color, padding: '5px 9px', cursor: isRevealed ? 'default' : 'pointer',
+                  fontFamily: mono, fontSize: 11,
+                }}>
+                  {token} ✕
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {(q.dragItems ?? []).map(token => {
+                const used = sequence.includes(token);
+                return (
+                  <button
+                    key={token}
+                    draggable={!used && !isRevealed}
+                    onDragStart={e => e.dataTransfer.setData('text/plain', token)}
+                    onClick={() => addToken(token)}
+                    disabled={used || isRevealed}
+                    style={{
+                      background: '#111', border: `1px solid ${G}33`,
+                      color: used ? `${G}30` : `${G}cc`, padding: '5px 9px',
+                      cursor: used || isRevealed ? 'default' : 'grab',
+                      fontFamily: mono, fontSize: 11, textDecoration: used ? 'line-through' : 'none',
+                    }}
+                  >
+                    {token}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      case 'hot_spot': {
+        if (!q.hotSpot) return null;
+        const { backdrop, zones } = q.hotSpot;
+        return (
+          <div style={{
+            position: 'relative', height: backdrop === 'grid' ? 260 : 230,
+            border: `1px solid ${G}33`, background: '#0a0f0a', overflow: 'hidden',
+          }}>
+            {backdrop === 'grid' && (
+              <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+                {Array.from({ length: 9 }, (_, i) => (i + 1) * 10).map(p => (
+                  <g key={p} stroke={`${G}18`} strokeWidth="1">
+                    <line x1={`${p}%`} y1="0" x2={`${p}%`} y2="100%" />
+                    <line x1="0" y1={`${p}%`} x2="100%" y2={`${p}%`} />
+                  </g>
+                ))}
+                <line x1="50%" y1="0" x2="50%" y2="100%" stroke={`${G}55`} strokeWidth="1" />
+                <line x1="0" y1="50%" x2="100%" y2="50%" stroke={`${G}55`} strokeWidth="1" />
+              </svg>
+            )}
+            {zones.map(zone => {
+              const isSel = selected === zone.id;
+              const revealedZone = isRevealed && zone.id === q.answer;
+              const wrongSel = isRevealed && isSel && zone.id !== q.answer;
+              return (
+                <button
+                  key={zone.id}
+                  onClick={() => setResponse(zone.id)}
+                  style={{
+                    position: 'absolute',
+                    left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%`,
+                    background: revealedZone ? '#003300' : wrongSel ? '#330000' : isSel ? `${meta.color}30` : '#11111188',
+                    border: `1px solid ${revealedZone ? G : wrongSel ? R : isSel ? meta.color : G + '44'}`,
+                    color: revealedZone ? G : wrongSel ? R : `${G}dd`,
+                    cursor: isRevealed ? 'default' : 'pointer',
+                    fontFamily: mono, fontSize: backdrop === 'passage' ? 11 : 10, lineHeight: 1.4,
+                    padding: '4px 8px', textAlign: backdrop === 'panel' ? 'center' : 'left',
+                    borderRadius: backdrop === 'grid' ? '50%' : 0,
+                    display: 'flex', alignItems: 'center', justifyContent: backdrop === 'passage' ? 'flex-start' : 'center',
+                  }}
+                >
+                  {zone.label}
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
+      case 'short_answer':
+        return (
+          <div>
+            <textarea
+              value={selected ?? ''}
+              disabled={isRevealed}
+              onChange={e => setResponse(e.target.value)}
+              rows={4}
+              placeholder="Write your answer in your own words…"
+              style={{
+                width: '100%', boxSizing: 'border-box', background: '#0a0f0a',
+                border: `1px solid ${meta.color}66`, color: G, padding: '9px 12px',
+                fontFamily: mono, fontSize: 12, lineHeight: 1.6, outline: 'none', resize: 'vertical',
+              }}
+            />
+            <div style={{ fontSize: 9, color: `${G}50`, marginTop: 4, fontFamily: mono }}>
+              Graded on the key ideas in your answer.
+            </div>
+          </div>
+        );
+      case 'extended_response':
+        return (
+          <div>
+            <textarea
+              value={selected ?? ''}
+              disabled={isRevealed}
+              onChange={e => setResponse(e.target.value)}
+              rows={12}
+              placeholder="Write your essay here — argue which text is better supported, cite evidence from both, and address the opposing view…"
+              style={{
+                width: '100%', boxSizing: 'border-box', background: '#0a0f0a',
+                border: `1px solid ${meta.color}66`, color: G, padding: '10px 12px',
+                fontFamily: mono, fontSize: 12, lineHeight: 1.65, outline: 'none', resize: 'vertical',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 9, color: `${G}50`, fontFamily: mono }}>
+                Scored with a simulated rubric (Traits 1–3) — not an official GED score.
+              </span>
+              <span style={{ fontSize: 9, color: `${G}70`, fontFamily: mono }}>{wordTotal} words</span>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+
+  function renderReveal() {
+    if (!isRevealed) return null;
+    if (q.type === 'extended_response') {
+      const score = gradeExtendedResponse(q, selected ?? '');
+      const passed = score.total >= 4;
+      return (
+        <div style={{
+          marginTop: 12, padding: '10px 12px',
+          background: passed ? '#002200' : '#1a0008',
+          border: `1px solid ${passed ? G : R}44`,
+          fontSize: 10, color: `${G}cc`, lineHeight: 1.7, fontFamily: mono,
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: 4, color: passed ? G : R }}>
+            SIMULATED RUBRIC SCORE: {score.total} / {score.maxTotal}
+          </div>
+          <div>Trait 1 — Arguments & Evidence: {score.trait1} / 3</div>
+          <div>Trait 2 — Development & Organization: {score.trait2} / 2</div>
+          <div style={{ marginBottom: 6 }}>Trait 3 — Clarity & Conventions: {score.trait3} / 2</div>
+          {score.notes.map((n, i) => <div key={i} style={{ color: `${G}80` }}>· {n}</div>)}
+          <div style={{ marginTop: 6 }}>{q.explanation}</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{
+        marginTop: 12, padding: '10px 12px',
+        background: isCorrect ? '#002200' : '#1a0008',
+        border: `1px solid ${isCorrect ? G : R}44`,
+        fontSize: 10, color: isCorrect ? `${G}cc` : `${R}cc`, lineHeight: 1.6,
+        fontFamily: mono,
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: 4, color: isCorrect ? G : R }}>
+          {isCorrect ? '✓ CORRECT' : `✗ INCORRECT — Correct answer: ${displayAnswer(q)}`}
+        </div>
+        {q.explanation}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -515,56 +808,58 @@ function QuizView({ lesson, subject, onFinish }: {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '14px' }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: 9, color: difficulty[q.difficulty] ?? A, border: `1px solid ${difficulty[q.difficulty] ?? A}55`, padding: '1px 6px' }}>
             {q.difficulty.toUpperCase()}
           </span>
+          <span style={{ fontSize: 9, color: `${G}70`, border: `1px solid ${G}30`, padding: '1px 6px' }}>
+            {FORMAT_LABELS[q.type] ?? q.type.toUpperCase()}
+          </span>
           {q.gedCode && <span style={{ fontSize: 9, color: `${G}50` }}>{q.gedCode}</span>}
-        </div>
-
-        <div style={{ fontSize: 12, color: `${G}ee`, lineHeight: 1.65, marginBottom: 16, fontFamily: '"Courier New", monospace' }}>
-          Q{idx + 1}: {q.question}
-        </div>
-
-        {(() => {
-          const choices = q.choices;
-          if (!choices) return null;
-          return CHOICE_KEYS.map(key => (
-            <button key={key} onClick={() => handleSelect(key)} style={{
-              ...choiceStyle(key),
-              display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
-              marginBottom: 6, cursor: isRevealed ? 'default' : 'pointer',
-              fontFamily: '"Courier New", monospace', fontSize: 11, lineHeight: 1.5,
-              transition: 'all 0.15s',
+          {isMath && !calcAllowed && (
+            <span style={{ fontSize: 9, color: A, border: `1px solid ${A}55`, padding: '1px 6px' }}>
+              NO-CALCULATOR ITEM
+            </span>
+          )}
+          {calcAllowed && (
+            <button onClick={() => setCalcOpen(o => !o)} style={{
+              fontSize: 9, color: calcOpen ? '#0a0f0a' : C, background: calcOpen ? C : 'transparent',
+              border: `1px solid ${C}66`, padding: '1px 6px', cursor: 'pointer', fontFamily: 'inherit',
             }}>
-              <span style={{ fontWeight: 'bold', marginRight: 8 }}>{key}.</span>
-              {choices[key]}
+              TI-30XS CALCULATOR
             </button>
-          ));
-        })()}
+          )}
+        </div>
 
-        {isRevealed && (
-          <div style={{
-            marginTop: 12, padding: '10px 12px',
-            background: isCorrect ? '#002200' : '#1a0008',
-            border: `1px solid ${isCorrect ? G : R}44`,
-            fontSize: 10, color: isCorrect ? `${G}cc` : `${R}cc`, lineHeight: 1.6,
-            fontFamily: '"Courier New", monospace',
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 4, color: isCorrect ? G : R }}>
-              {isCorrect ? '✓ CORRECT' : `✗ INCORRECT — Correct answer: ${q.answer}`}
-            </div>
-            {q.explanation}
+        {calcOpen && calcAllowed && (
+          <div style={{ marginBottom: 14 }}>
+            <Ti30xsCalculator accent={meta.color} />
           </div>
         )}
+
+        {renderStimulus()}
+
+        {q.type !== 'drop_down' && (
+          <div style={{ fontSize: 12, color: `${G}ee`, lineHeight: 1.65, marginBottom: 16, fontFamily: mono }}>
+            Q{idx + 1}: {q.question}
+          </div>
+        )}
+        {q.type === 'drop_down' && (
+          <div style={{ fontSize: 10, color: `${G}60`, marginBottom: 8, fontFamily: mono }}>
+            Q{idx + 1}: Complete the sentence.
+          </div>
+        )}
+
+        {renderAnswerControl()}
+        {renderReveal()}
       </div>
 
       <div style={{ padding: '10px 14px', borderTop: `1px solid ${G}22`, display: 'flex', gap: 8 }}>
         {!isRevealed ? (
-          <button onClick={handleCheck} disabled={!selected} style={{
-            flex: 1, background: selected ? `${G}18` : 'transparent',
-            border: `1px solid ${selected ? G : G + '33'}`, color: selected ? G : `${G}40`,
-            padding: '8px 0', cursor: selected ? 'pointer' : 'default',
+          <button onClick={handleCheck} disabled={!hasResponse} style={{
+            flex: 1, background: hasResponse ? `${G}18` : 'transparent',
+            border: `1px solid ${hasResponse ? G : G + '33'}`, color: hasResponse ? G : `${G}40`,
+            padding: '8px 0', cursor: hasResponse ? 'pointer' : 'default',
             fontFamily: 'inherit', fontSize: 11, fontWeight: 'bold', letterSpacing: 1,
           }}>
             CHECK ANSWER
@@ -582,7 +877,6 @@ function QuizView({ lesson, subject, onFinish }: {
     </div>
   );
 }
-
 function QuizResult({ score, lesson, subject, xpEarned, statBonuses, onReview, onContinue }: {
   score: number; lesson: GEDLesson; subject: string;
   xpEarned: number; statBonuses: Array<{ stat: string; gain: number }>;
