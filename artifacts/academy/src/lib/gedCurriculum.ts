@@ -89,27 +89,51 @@ export const GED_CODE_TO_SKILL: Record<string, string> = {
   // Q.x / A.x are the official Math quantitative / algebraic targets; the
   // MATH.x.x lesson codes above are the separate Kaplan lesson keyspace.
   'Q.1':   'MATH.ARITH.001',  // number sense & rational numbers
+  'Q.2':   'MATH.ARITH.001',  // scientific notation (nearest node; no dedicated node)
   'Q.3':   'MATH.RATIO.003',  // ratios, proportions & percents
-  'Q.4':   'MATH.GEOM.008',   // geometry & measurement
+  'Q.4':   'MATH.AREA.009',   // geometry & measurement: area & perimeter
+  'Q.5':   'MATH.VOL.010',    // geometry & measurement: volume & surface area
+  'Q.6':   'MATH.GEOM.008',   // geometry: coordinate distance
   'Q.7':   'MATH.STAT.011',   // data analysis, statistics & probability
+  'Q.8':   'MATH.PROB.012',   // probability & counting principles
   'A.1':   'MATH.ALGE.005',   // algebraic expressions & equations
-  'A.3':   'MATH.LINEQ.006',  // functions, graphs & patterns
+  'A.2':   'MATH.LINEQ.006',   // equations, inequalities, systems & quadratics
+  'A.3':   'MATH.FUNC.013',   // functions, graphs & patterns
+  'A.4':   'MATH.FUNC.013',   // functions, graphs & patterns
   'R.2.1': 'LANG.MAIN.002',   // reading: central ideas & details
+  'R.2.2': 'LANG.MAIN.002',   // reading: implied main idea
+  'R.2.5': 'LANG.MAIN.002',   // reading: supporting details
   'R.4':   'LANG.VOCAB.004',  // reading: vocabulary, structure & purpose
+  'R.6':   'LANG.READ.001',   // reading: purpose, point of view & argument structure
   'R.8':   'LANG.ARG.009',    // reading: analyzing arguments & evidence
+  'R.9':   'LANG.READ.001',   // reading: synthesizing multiple texts
   'ER':    'LANG.ESSAY.008',  // extended response: argument writing
   'L.1':   'LANG.GRAM.005',   // language conventions & grammar
+  'L.2':   'LANG.GRAM.005',   // language conventions & grammar
+  'L.3':   'LANG.SENT.006',   // sentence structure: modifiers & parallelism
   'L.a':   'SCI.LIFE.003',    // life science: human body & health
   'L.b':   'SCI.LIFE.003',    // life science: heredity, evolution & ecosystems
+  'L.c':   'SCI.LIFE.003',    // life science: ecosystems & energy flow
+  'L.e':   'SCI.LIFE.003',    // life science: heredity & genetics
+  'L.f':   'SCI.LIFE.003',    // life science: evolution & speciation
   'P.a':   'SCI.PHYS.004',    // physical science: energy, work & forces
+  'P.b':   'SCI.PHYS.004',    // physical science: forces & motion
   'P.c':   'SCI.PHYS.004',    // physical science: matter & chemical reactions
-  'ES.a':  'SCI.EARTH.005',   // earth & space science
+  'ES.a':  'SCI.EARTH.005',   // earth & space science: plate tectonics
+  'ES.b':  'SCI.EARTH.005',   // earth & space science: atmosphere & resources
   'SP.1':  'SCI.SCI.001',     // science practices
   'CG.a':  'SOC.CIV.002',     // civics: constitutional principles
+  'CG.b':  'SOC.CIV.002',     // civics: judicial review
   'CG.c':  'SOC.CIV.002',     // civics: rights & civil liberties
-  'USH.a': 'SOC.USHIST.001',  // U.S. history
-  'E.a':   'SOC.ECON.003',    // economics
+  'CG.d':  'SOC.CIV.002',     // civics: rights, responsibilities & participation
+  'USH.a': 'SOC.USHIST.001',  // U.S. history: founding era
+  'USH.b': 'SOC.USHIST.001',  // U.S. history: Civil War era
+  'E.a':   'SOC.ECON.003',    // economics: supply & demand
+  'E.b':   'SOC.ECON.003',    // economics: measuring the economy
+  'E.c':   'SOC.ECON.003',    // economics: fiscal & monetary policy
   'GW.a':  'SOC.GEO.004',     // geography & the world
+  'GW.b':  'SOC.GEO.004',     // geography: migration & human geography
+  'GW.c':  'SOC.GEO.004',     // geography: trade & interdependence
 };
 
 /**
