@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   FolderArchive, FolderOpen, BookOpen, FileText, ScrollText,
   ClipboardList, ChevronRight, ChevronLeft, Search, X,
@@ -6,8 +6,13 @@ import {
   CheckCircle2, Circle, HelpCircle, Tag,
 } from 'lucide-react';
 import { GED_TEXTBOOKS } from '@/lib/gedContent';
+import {
+  getChapter as siphonChapter, summarizeAttempts, type TextbookAttempt,
+} from '@/lib/textSiphon';
+import { expandChapter, expansionSeed, gradeExpansion } from '@/lib/textSiphon';
+import { displayAnswer } from '@/lib/itemGrading';
 import { useGameState } from '@/contexts/GameStateContext';
-import type { GEDChapter } from '@shared/schema';
+import type { GEDChapter, GEDPracticeQuestion } from '@shared/schema';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -279,10 +284,119 @@ function SectionHeader({ label, color, icon: Icon, onBack }: { label: string; co
 
 // ─── Textbooks view ─────────────────────────────────────────────────────────────
 
+
+// ─── TextSiphon (Phase 5): graded expansion practice for a chapter ──────────
+
+function ChapterExpansion({ bookId, chapterNumber, color, studentId, attemptCount, onRecord }: {
+  bookId: string; chapterNumber: number; color: string; studentId: string;
+  attemptCount: number;
+  onRecord: (a: TextbookAttempt) => void;
+}) {
+  const [items, setItems] = useState<GEDPracticeQuestion[] | null>(null);
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{ scorePercent: number; perItem: Array<{ itemId: string; correct: boolean }> } | null>(null);
+
+  const start = () => {
+    const seed = expansionSeed(studentId, bookId, chapterNumber, attemptCount + 1);
+    setItems(expandChapter(bookId, chapterNumber, seed));
+    setResponses({});
+    setResult(null);
+  };
+
+  const submit = () => {
+    if (!items) return;
+    const graded = gradeExpansion(items, responses);
+    setResult(graded);
+    onRecord({ bookId, chapterNumber, kind: 'expansion', scorePercent: graded.scorePercent, at: new Date().toISOString() });
+  };
+
+  if (!items) {
+    return (
+      <div style={{ marginTop: 20, borderTop: `1px solid ${color}20`, paddingTop: 14 }}>
+        <div style={{ fontSize: 10, color, fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: 6, fontFamily: '"Courier New", monospace' }}>GRADED PRACTICE EXPANSION</div>
+        <div style={{ fontSize: 10, color: '#ffffff70', lineHeight: 1.6, marginBottom: 10, fontFamily: '"Courier New", monospace' }}>
+          Fresh questions generated for this chapter's targets, graded on submission and recorded — a new set every attempt.
+        </div>
+        <button onClick={start} style={{ fontSize: 9, color, border: `1px solid ${color}40`, background: `${color}10`, borderRadius: 3, padding: '6px 12px', cursor: 'pointer', fontFamily: '"Courier New", monospace', letterSpacing: '0.3px' }}>
+          START GRADED PRACTICE
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 20, borderTop: `1px solid ${color}20`, paddingTop: 14 }}>
+      <div style={{ fontSize: 10, color, fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: 10, fontFamily: '"Courier New", monospace' }}>
+        GRADED PRACTICE EXPANSION {result && <span style={{ color: result.scorePercent >= 60 ? color : '#ff4466' }}>— {result.scorePercent}%</span>}
+      </div>
+      {items.map((q, i) => {
+        const mark = result?.perItem.find(p => p.itemId === q.id);
+        return (
+          <div key={q.id} style={{ marginBottom: 12, background: `${color}06`, border: `1px solid ${color}20`, borderRadius: 4, padding: '10px 12px' }}>
+            <div style={{ fontSize: 10, color: '#ffffffaa', lineHeight: 1.6, marginBottom: 6, fontFamily: '"Courier New", monospace' }}>
+              <span style={{ color, fontWeight: 'bold', marginRight: 6 }}>{i + 1}.</span>{q.question}
+              {mark && <span style={{ marginLeft: 8, color: mark.correct ? color : '#ff4466', fontWeight: 'bold' }}>{mark.correct ? '✓' : '✗'}</span>}
+            </div>
+            {!result && q.type === 'mcq' && q.choices && (['A', 'B', 'C', 'D'] as const).map(letter => (
+              <button key={letter} onClick={() => setResponses(prev => ({ ...prev, [q.id]: letter }))} style={{
+                display: 'block', width: '100%', textAlign: 'left', marginBottom: 4, padding: '5px 8px', cursor: 'pointer',
+                fontFamily: '"Courier New", monospace', fontSize: 10, borderRadius: 3,
+                background: responses[q.id] === letter ? `${color}25` : 'transparent',
+                border: `1px solid ${responses[q.id] === letter ? color : color + '25'}`,
+                color: responses[q.id] === letter ? '#fff' : '#ffffff90',
+              }}>{letter}. {q.choices![letter]}</button>
+            ))}
+            {!result && (q.type === 'fill_in' || q.type === 'short_answer') && (
+              <input value={responses[q.id] ?? ''} onChange={e => setResponses(prev => ({ ...prev, [q.id]: e.target.value }))}
+                placeholder="Type your answer…" style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', background: '#111', border: `1px solid ${color}30`, borderRadius: 3, color: '#fff', fontFamily: '"Courier New", monospace', fontSize: 10 }} />
+            )}
+            {!result && q.type === 'drop_down' && (
+              <select value={responses[q.id] ?? ''} onChange={e => setResponses(prev => ({ ...prev, [q.id]: e.target.value }))}
+                style={{ width: '100%', padding: '6px 8px', background: '#111', border: `1px solid ${color}30`, borderRadius: 3, color: '#fff', fontFamily: '"Courier New", monospace', fontSize: 10 }}>
+                <option value="">— choose —</option>
+                {(q.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            )}
+            {result && (
+              <div style={{ fontSize: 10, color: '#ffffff80', fontFamily: '"Courier New", monospace', lineHeight: 1.5 }}>
+                <div>Answer: <span style={{ color }}>{displayAnswer(q)}</span></div>
+                <div style={{ color: '#ffffff55' }}>{q.explanation}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {!result ? (
+        <button onClick={submit} style={{ fontSize: 9, color, border: `1px solid ${color}40`, background: `${color}15`, borderRadius: 3, padding: '7px 14px', cursor: 'pointer', fontFamily: '"Courier New", monospace', letterSpacing: '0.3px', fontWeight: 'bold' }}>
+          SUBMIT FOR GRADING
+        </button>
+      ) : (
+        <button onClick={start} style={{ fontSize: 9, color, border: `1px solid ${color}40`, background: 'transparent', borderRadius: 3, padding: '7px 14px', cursor: 'pointer', fontFamily: '"Courier New", monospace', letterSpacing: '0.3px' }}>
+          NEW SET
+        </button>
+      )}
+    </div>
+  );
+}
+
 function TextbooksView({ onBack }: { onBack: () => void }) {
   const [selectedBook, setSelectedBook] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<GEDChapter | null>(null);
   const [search, setSearch] = useState('');
+  const { character } = useGameState();
+  const studentId = character?.name ?? 'student';
+  const attemptKey = `textsiphon.v1.${studentId}`;
+  const [attempts, setAttempts] = useState<TextbookAttempt[]>(() => {
+    try { return JSON.parse(localStorage.getItem(attemptKey) ?? '[]') as TextbookAttempt[]; }
+    catch { return []; }
+  });
+  const [marks, setMarks] = useState<Record<string, boolean>>({});
+  const [selfCheckSession, setSelfCheckSession] = useState(0);
+  const recordedPass = useMemo(() => new Set<string>(), []);
+  useEffect(() => {
+    try { localStorage.setItem(attemptKey, JSON.stringify(attempts)); } catch { /* storage unavailable */ }
+  }, [attempts, attemptKey]);
+  const recordAttempt = (a: TextbookAttempt) => setAttempts(prev => [...prev, a]);
 
   const book = GED_TEXTBOOKS.find(b => b.id === selectedBook);
 
@@ -293,6 +407,23 @@ function TextbooksView({ onBack }: { onBack: () => void }) {
 
   if (selectedChapter && book) {
     const meta = SUBJECT_META[book.subject];
+    const access = siphonChapter(book.id, selectedChapter.number);
+    const summary = summarizeAttempts(attempts, book.id, selectedChapter.number);
+    const chapterQuestions = selectedChapter.practiceQuestions ?? [];
+    const markKey = (i: number) => `${book.id}:${selectedChapter.number}:${selfCheckSession}:${i}`;
+    const handleMark = (i: number, got: boolean) => {
+      const next = { ...marks, [markKey(i)]: got };
+      setMarks(next);
+      const passMarks = chapterQuestions.map((_, j) => next[markKey(j)]);
+      if (passMarks.every(m => m !== undefined)) {
+        const passId = `${book.id}:${selectedChapter.number}:${selfCheckSession}`;
+        if (!recordedPass.has(passId)) {
+          recordedPass.add(passId);
+          const score = Math.round(100 * passMarks.filter(Boolean).length / chapterQuestions.length);
+          recordAttempt({ bookId: book.id, chapterNumber: selectedChapter.number, kind: 'self-check', scorePercent: score, at: new Date().toISOString() });
+        }
+      }
+    };
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: `1px solid ${meta.color}25`, background: `${meta.color}08`, flexShrink: 0 }}>
@@ -307,6 +438,24 @@ function TextbooksView({ onBack }: { onBack: () => void }) {
               <span key={t} style={{ fontSize: 9, color: `${meta.color}80`, border: `1px solid ${meta.color}25`, borderRadius: 3, padding: '2px 6px', fontFamily: '"Courier New", monospace' }}>{t}</span>
             ))}
           </div>
+          {access && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 9, color: `${meta.color}60`, fontFamily: '"Courier New", monospace', letterSpacing: '0.5px' }}>TARGETS</span>
+              {access.targetCodes.map(t => (
+                <span key={t} style={{ fontSize: 9, color: meta.color, border: `1px solid ${meta.color}40`, borderRadius: 3, padding: '2px 6px', fontFamily: '"Courier New", monospace' }}>{t}</span>
+              ))}
+              {access.skillNodeIds.map(s => (
+                <span key={s} style={{ fontSize: 9, color: '#00ccff90', border: '1px solid #00ccff30', borderRadius: 3, padding: '2px 6px', fontFamily: '"Courier New", monospace' }}>{s}</span>
+              ))}
+              {(summary.selfCheck || summary.expansion) && (
+                <span style={{ fontSize: 9, color: '#ffffff50', fontFamily: '"Courier New", monospace', marginLeft: 6 }}>
+                  {summary.selfCheck && `self-check ${summary.selfCheck.scorePercent}%`}
+                  {summary.selfCheck && summary.expansion && ' · '}
+                  {summary.expansion && `graded practice ${summary.expansion.scorePercent}%`}
+                </span>
+              )}
+            </div>
+          )}
           <pre style={{ fontSize: 10, color: '#ffffffaa', fontFamily: '"Courier New", monospace', lineHeight: 1.8, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
             {selectedChapter.content}
           </pre>
@@ -314,10 +463,14 @@ function TextbooksView({ onBack }: { onBack: () => void }) {
             <div style={{ marginTop: 20, borderTop: `1px solid ${meta.color}20`, paddingTop: 14 }}>
               <div style={{ fontSize: 10, color: meta.color, fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: 10, fontFamily: '"Courier New", monospace' }}>PRACTICE QUESTIONS</div>
               {selectedChapter.practiceQuestions.map((q, i) => (
-                <PracticeQuestion key={i} index={i + 1} question={q.question} answer={q.answer} color={meta.color} />
+                <PracticeQuestion key={`${book.id}-${selectedChapter.number}-${i}`} index={i + 1} question={q.question} answer={q.answer} color={meta.color} onMark={got => handleMark(i, got)} />
               ))}
+              <button onClick={() => { setSelfCheckSession(s => s + 1); }} style={{ fontSize: 9, color: `${meta.color}70`, border: `1px solid ${meta.color}25`, background: 'transparent', borderRadius: 3, padding: '3px 8px', cursor: 'pointer', fontFamily: '"Courier New", monospace' }}>
+                RESET SELF-CHECK
+              </button>
             </div>
           )}
+          <ChapterExpansion bookId={book.id} chapterNumber={selectedChapter.number} color={meta.color} studentId={studentId} attemptCount={summary.totalAttempts} onRecord={recordAttempt} />
         </div>
       </div>
     );
@@ -399,17 +552,28 @@ function TextbooksView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function PracticeQuestion({ index, question, answer, color }: { index: number; question: string; answer: string; color: string }) {
+function PracticeQuestion({ index, question, answer, color, onMark }: { index: number; question: string; answer: string; color: string; onMark?: (gotIt: boolean) => void }) {
   const [revealed, setRevealed] = useState(false);
+  const [marked, setMarked] = useState<boolean | null>(null);
+  const mark = (got: boolean) => { setMarked(got); onMark?.(got); };
   return (
     <div style={{ marginBottom: 12, background: `${color}06`, border: `1px solid ${color}20`, borderRadius: 4, padding: '10px 12px' }}>
       <div style={{ fontSize: 10, color: '#ffffffaa', lineHeight: 1.6, marginBottom: 6, fontFamily: '"Courier New", monospace' }}>
         <span style={{ color, fontWeight: 'bold', marginRight: 6 }}>{index}.</span>{question}
       </div>
       {revealed ? (
-        <div style={{ fontSize: 10, color: color, fontFamily: '"Courier New", monospace', background: `${color}10`, borderRadius: 3, padding: '6px 8px', lineHeight: 1.5 }}>
-          <span style={{ opacity: 0.6 }}>Answer: </span>{answer}
-        </div>
+        <>
+          <div style={{ fontSize: 10, color: color, fontFamily: '"Courier New", monospace', background: `${color}10`, borderRadius: 3, padding: '6px 8px', lineHeight: 1.5 }}>
+            <span style={{ opacity: 0.6 }}>Answer: </span>{answer}
+          </div>
+          {onMark && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 9, color: '#ffffff40', fontFamily: '"Courier New", monospace' }}>SELF-CHECK:</span>
+              <button onClick={() => mark(true)} style={{ fontSize: 9, color: marked === true ? '#000' : color, background: marked === true ? color : 'transparent', border: `1px solid ${color}40`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer', fontFamily: '"Courier New", monospace' }}>I GOT IT</button>
+              <button onClick={() => mark(false)} style={{ fontSize: 9, color: marked === false ? '#000' : '#ff4466', background: marked === false ? '#ff4466' : 'transparent', border: '1px solid #ff446640', borderRadius: 3, padding: '3px 8px', cursor: 'pointer', fontFamily: '"Courier New", monospace' }}>I MISSED IT</button>
+            </div>
+          )}
+        </>
       ) : (
         <button onClick={() => setRevealed(true)} style={{ fontSize: 9, color: `${color}70`, border: `1px solid ${color}25`, background: 'transparent', borderRadius: 3, padding: '3px 8px', cursor: 'pointer', fontFamily: '"Courier New", monospace', letterSpacing: '0.3px' }}>
           REVEAL ANSWER

@@ -1,13 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   FolderHeart, FileText, BookOpen, Mail, Heart,
-  Plus, Trash2, ArrowLeft, Edit2, Check, X, Star, ChevronRight,
+  Plus, Trash2, ArrowLeft, Edit2, Check, X, Star, ChevronRight, GraduationCap,
 } from 'lucide-react';
 import { useCrtTheme } from '@/contexts/CrtThemeContext';
 import { useGameState, Email } from '@/contexts/GameStateContext';
 import { getEarnedMemories, MEMORY_CATALOG, RARITY_COLORS, getCategoryColor } from '@/lib/memoriesStore';
 import type { MemoryCatalogEntry, EarnedMemory } from '@/lib/memoriesStore';
 import type { JournalEntry, JournalEntryType } from '@/lib/academy-engine/phase1/studentJournal';
+import { generateReferenceNotes } from '@/lib/noteSmith';
 import { loadSavedEmailIds as loadSavedIds, persistSavedEmailIds as persistSavedIds } from '@/lib/savedEmailsStore';
 
 // ─── Private Notes Store ───────────────────────────────────────
@@ -42,7 +43,7 @@ const ENTRY_TYPE_COLOR: Record<JournalEntryType, string> = {
   milestone: '#00ff88',
 };
 
-type Section = 'root' | 'journal' | 'notes' | 'letters' | 'keepsakes';
+type Section = 'root' | 'journal' | 'notes' | 'letters' | 'keepsakes' | 'reference';
 
 // ─── Sub-views ─────────────────────────────────────────────────
 
@@ -541,6 +542,7 @@ const SECTIONS = [
   { id: 'journal' as Section, label: 'Journal Entries', icon: BookOpen, desc: 'Academic learning records & reflections' },
   { id: 'notes' as Section, label: 'Private Notes', icon: FileText, desc: 'Personal notes and thoughts' },
   { id: 'letters' as Section, label: 'Saved Letters', icon: Mail, desc: 'Starred emails from your inbox' },
+  { id: 'reference' as Section, label: 'Reference Notes', icon: GraduationCap, desc: 'Notesmith notes generated from your weak targets' },
   { id: 'keepsakes' as Section, label: 'Keepsakes', icon: Heart, desc: 'Memories and milestones collected' },
 ];
 
@@ -550,12 +552,118 @@ const SECTION_TITLES: Record<Section, string> = {
   notes: 'Private Notes',
   letters: 'Saved Letters',
   keepsakes: 'Keepsakes',
+  reference: 'Reference Notes',
 };
 
 // ─── Main App ──────────────────────────────────────────────────
+
+// ─── Reference Notes (Phase 5: Notesmith) ───────────────────────────────────
+// Per-student notes generated live from curriculum progress: they appear
+// when a skill needs work and retire when it is mastered.
+
+function ReferenceNotesView({ accentColor, studentName, progress }: {
+  accentColor: string;
+  studentName: string;
+  progress: ReturnType<typeof useGameState>['curriculumProgress'];
+}) {
+  const notes = useMemo(
+    () => generateReferenceNotes(studentName, progress, new Date()),
+    [studentName, progress],
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = notes.find(n => n.id === selectedId) ?? null;
+
+  const chip = (text: string, key: string) => (
+    <span key={key} style={{ fontSize: 9, color: accentColor, border: `1px solid ${accentColor}40`, borderRadius: 3, padding: '2px 6px' }}>{text}</span>
+  );
+
+  if (selected) {
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: '14px 12px' }}>
+        <button onClick={() => setSelectedId(null)} style={{ background: 'transparent', border: 'none', color: `${accentColor}80`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, marginBottom: 10, padding: 0 }}>← ALL NOTES</button>
+        <div style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 2 }}>{selected.skillName}</div>
+        <div style={{ fontSize: 10, color: `${accentColor}70`, marginBottom: 4 }}>{selected.subject} · {selected.skillNodeId} · {selected.status.toUpperCase()}</div>
+        <div style={{ fontSize: 10, color: '#ffffff80', marginBottom: 12 }}>{selected.standingLine}</div>
+        <div style={{ fontSize: 9, color: `${accentColor}60`, letterSpacing: 1, marginBottom: 4 }}>TARGETS</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+          {selected.targetCodes.map(c => chip(c, c))}
+        </div>
+        {selected.keyTerms.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, color: `${accentColor}60`, letterSpacing: 1, marginBottom: 4 }}>KEY TERMS</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+              {selected.keyTerms.map(t => chip(t, t))}
+            </div>
+          </>
+        )}
+        {selected.studyPoints.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, color: `${accentColor}60`, letterSpacing: 1, marginBottom: 4 }}>STUDY POINTS</div>
+            <div style={{ fontSize: 11, color: '#ffffffcc', lineHeight: 1.7, marginBottom: 12 }}>
+              {selected.studyPoints.map((p, i) => <div key={i}>• {p}</div>)}
+            </div>
+          </>
+        )}
+        {selected.workedExample && (
+          <>
+            <div style={{ fontSize: 9, color: `${accentColor}60`, letterSpacing: 1, marginBottom: 4 }}>WORKED EXAMPLE</div>
+            <div style={{ border: `1px solid ${accentColor}30`, padding: '10px 12px', marginBottom: 12, background: `${accentColor}06` }}>
+              <div style={{ fontSize: 11, color: '#ffffffcc', lineHeight: 1.6 }}>{selected.workedExample.question}</div>
+              <div style={{ fontSize: 11, color: accentColor, marginTop: 6 }}>Answer: {selected.workedExample.answer}</div>
+              <div style={{ fontSize: 10, color: '#ffffff70', lineHeight: 1.6, marginTop: 4 }}>{selected.workedExample.explanation}</div>
+            </div>
+          </>
+        )}
+        <div style={{ fontSize: 9, color: `${accentColor}60`, letterSpacing: 1, marginBottom: 4 }}>TEXTBOOK CHAPTERS ON THIS TARGET</div>
+        {selected.textbookChapters.length > 0 ? (
+          <div style={{ fontSize: 11, color: '#ffffffcc', lineHeight: 1.7, marginBottom: 12 }}>
+            {selected.textbookChapters.map(c => (
+              <div key={`${c.bookId}-${c.chapterNumber}`}>• {c.bookTitle} — Ch. {c.chapterNumber}: {c.chapterTitle} <span style={{ color: `${accentColor}50` }}>(School Files → Textbooks)</span></div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 10, color: '#ffffff50', marginBottom: 12 }}>No textbook chapter targets this skill yet — the lessons above are the canon for it.</div>
+        )}
+        <div style={{ fontSize: 9, color: `${accentColor}40` }}>
+          Generated {new Date(selected.generatedAt).toLocaleString()} from your current progress. Notes regenerate as your mastery changes — master this skill and the note retires.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: '14px 12px' }}>
+      <div style={{ fontSize: 10, color: `${accentColor}70`, lineHeight: 1.7, marginBottom: 12 }}>
+        Notesmith writes these from your quiz history — one note per skill that needs work, tagged with the same
+        targets your textbooks use.
+      </div>
+      {notes.length === 0 && (
+        <div style={{ fontSize: 11, color: '#ffffff60', lineHeight: 1.7 }}>
+          No weak targets right now. When a quiz shows a skill that needs work, its reference note will appear here.
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {notes.map(n => (
+          <button key={n.id} onClick={() => setSelectedId(n.id)} style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'transparent',
+            border: `1px solid ${accentColor}30`, color: accentColor, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+          }}>
+            <GraduationCap size={18} color={accentColor} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 'bold' }}>{n.skillName}</div>
+              <div style={{ fontSize: 10, color: `${accentColor}60`, marginTop: 2 }}>{n.subject} · {n.status} · {n.standingLine}</div>
+            </div>
+            <ChevronRight size={14} color={`${accentColor}50`} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PersonalFilesApp() {
   const { accentColors } = useCrtTheme();
-  const { emails, character } = useGameState();
+  const { emails, character, curriculumProgress } = useGameState();
   const [section, setSection] = useState<Section>('root');
 
   const accentColor = accentColors.pink;
@@ -567,6 +675,7 @@ export default function PersonalFilesApp() {
       case 'notes': return <PrivateNotesView accentColor={accentColor} />;
       case 'letters': return <SavedLettersView accentColor={accentColor} emails={emails} />;
       case 'keepsakes': return <KeepsakesView accentColor={accentColor} />;
+      case 'reference': return <ReferenceNotesView accentColor={accentColor} studentName={character.name} progress={curriculumProgress} />;
       default: return null;
     }
   };
