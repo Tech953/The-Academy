@@ -10,6 +10,7 @@ import {
   masteryColor,
   masteryLabel,
   getNextRecommendedLesson,
+  getQuizQuestions,
   PASSING_QUIZ_SCORE,
 } from '@/lib/gedCurriculum';
 import { generateAllLanguageTextbooks, LANG_META } from '@/lib/languageCourseGenerator';
@@ -452,7 +453,9 @@ function QuizView({ lesson, subject, onFinish }: {
   onFinish: (score: number) => void;
 }) {
   const meta = getSubjectMeta(subject);
-  const questions = lesson.practiceQuestions;
+  // Unified content store (Phase 1): quiz questions are drawn through
+  // the getQuizQuestions selector, not read off the lesson object.
+  const questions = getQuizQuestions({ kind: 'lesson', lessonCode: lesson.gedCode });
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});

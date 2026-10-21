@@ -1,3 +1,16 @@
+/**
+ * GED textbook content — deep study chapters, part of the unified
+ * target-tagged content store (Phase 1).
+ *
+ * Chapter practiceQuestions are full GEDPracticeQuestion records
+ * (type 'short_answer', difficulty 'foundational'). Each carries the
+ * chapter's dominant (first-listed) [Assessment Targets] code as its
+ * gedCode and the skill-graph node that code normalizes to (see
+ * GED_CODE_TO_SKILL / normalizeTextbookTarget in gedCurriculum.ts).
+ * Chapters whose target line lists multiple targets are flagged in
+ * the Phase 1 PR for owner review; the dominant target rules until
+ * per-question retagging is audited.
+ */
 import { GEDTextbook, GEDChapter } from '@shared/schema';
 
 export const GED_SUBJECTS = [
@@ -72,11 +85,11 @@ Dividing fractions: multiply by the reciprocal
 Squares and square roots (Q.2.b): √49 = 7, √2 ≈ 1.414
 Cubes and cube roots (Q.2.c): ∛27 = 3, ∛8 = 2`,
     practiceQuestions: [
-      { question: 'Order from least to greatest: -1/2, 0.3, -0.4, 2/5', answer: '-0.5, -0.4, 0.3, 0.4 → least to greatest: -1/2, -0.4, 0.3, 2/5' },
-      { question: 'What is the distance between -6 and 4 on the number line?', answer: '|-6 - 4| = |-10| = 10' },
-      { question: 'Simplify: 2³ × 2⁴', answer: '2⁷ = 128 (add exponents when multiplying same base)' },
-      { question: 'Write 0.00057 in scientific notation', answer: '5.7 × 10⁻⁴' },
-      { question: 'Calculate: 3/8 ÷ 3/4', answer: '3/8 × 4/3 = 12/24 = 1/2' }
+      { id: 'TB.MATH.1.1', question: 'Order from least to greatest: -1/2, 0.3, -0.4, 2/5', type: 'short_answer', answer: '-0.5, -0.4, 0.3, 0.4 → least to greatest: -1/2, -0.4, 0.3, 2/5', explanation: '-0.5, -0.4, 0.3, 0.4 → least to greatest: -1/2, -0.4, 0.3, 2/5', difficulty: 'foundational', gedCode: 'Q.1', skillNodeId: 'MATH.ARITH.001' },
+      { id: 'TB.MATH.1.2', question: 'What is the distance between -6 and 4 on the number line?', type: 'short_answer', answer: '|-6 - 4| = |-10| = 10', explanation: '|-6 - 4| = |-10| = 10', difficulty: 'foundational', gedCode: 'Q.1', skillNodeId: 'MATH.ARITH.001' },
+      { id: 'TB.MATH.1.3', question: 'Simplify: 2³ × 2⁴', type: 'short_answer', answer: '2⁷ = 128 (add exponents when multiplying same base)', explanation: '2⁷ = 128 (add exponents when multiplying same base)', difficulty: 'foundational', gedCode: 'Q.1', skillNodeId: 'MATH.ARITH.001' },
+      { id: 'TB.MATH.1.4', question: 'Write 0.00057 in scientific notation', type: 'short_answer', answer: '5.7 × 10⁻⁴', explanation: '5.7 × 10⁻⁴', difficulty: 'foundational', gedCode: 'Q.1', skillNodeId: 'MATH.ARITH.001' },
+      { id: 'TB.MATH.1.5', question: 'Calculate: 3/8 ÷ 3/4', type: 'short_answer', answer: '3/8 × 4/3 = 12/24 = 1/2', explanation: '3/8 × 4/3 = 12/24 = 1/2', difficulty: 'foundational', gedCode: 'Q.1', skillNodeId: 'MATH.ARITH.001' }
     ]
   },
   {
@@ -134,11 +147,11 @@ Discount: Subtract discount% × original price
 Commission: Commission rate × sales amount
 Tip/gratuity: Tip% × bill amount`,
     practiceQuestions: [
-      { question: 'A car travels 350 miles on 14 gallons. What is the unit rate (miles per gallon)?', answer: '350 ÷ 14 = 25 miles per gallon' },
-      { question: 'A map uses scale 1 inch = 25 miles. Two cities are 3.5 inches apart. What is the actual distance?', answer: '3.5 × 25 = 87.5 miles' },
-      { question: 'A shirt costs $40. It is on sale for 25% off. What is the sale price?', answer: 'Discount = 0.25 × $40 = $10. Sale price = $40 - $10 = $30' },
-      { question: 'What is the simple interest on $2,000 at 4% annually for 2 years?', answer: 'I = 2000 × 0.04 × 2 = $160' },
-      { question: 'If 8 workers can build a wall in 6 days, how many days will 12 workers take? (inverse proportion)', answer: '8 × 6 = 12 × x → x = 4 days' }
+      { id: 'TB.MATH.2.1', question: 'A car travels 350 miles on 14 gallons. What is the unit rate (miles per gallon)?', type: 'short_answer', answer: '350 ÷ 14 = 25 miles per gallon', explanation: '350 ÷ 14 = 25 miles per gallon', difficulty: 'foundational', gedCode: 'Q.3', skillNodeId: 'MATH.RATIO.003' },
+      { id: 'TB.MATH.2.2', question: 'A map uses scale 1 inch = 25 miles. Two cities are 3.5 inches apart. What is the actual distance?', type: 'short_answer', answer: '3.5 × 25 = 87.5 miles', explanation: '3.5 × 25 = 87.5 miles', difficulty: 'foundational', gedCode: 'Q.3', skillNodeId: 'MATH.RATIO.003' },
+      { id: 'TB.MATH.2.3', question: 'A shirt costs $40. It is on sale for 25% off. What is the sale price?', type: 'short_answer', answer: 'Discount = 0.25 × $40 = $10. Sale price = $40 - $10 = $30', explanation: 'Discount = 0.25 × $40 = $10. Sale price = $40 - $10 = $30', difficulty: 'foundational', gedCode: 'Q.3', skillNodeId: 'MATH.RATIO.003' },
+      { id: 'TB.MATH.2.4', question: 'What is the simple interest on $2,000 at 4% annually for 2 years?', type: 'short_answer', answer: 'I = 2000 × 0.04 × 2 = $160', explanation: 'I = 2000 × 0.04 × 2 = $160', difficulty: 'foundational', gedCode: 'Q.3', skillNodeId: 'MATH.RATIO.003' },
+      { id: 'TB.MATH.2.5', question: 'If 8 workers can build a wall in 6 days, how many days will 12 workers take? (inverse proportion)', type: 'short_answer', answer: '8 × 6 = 12 × x → x = 4 days', explanation: '8 × 6 = 12 × x → x = 4 days', difficulty: 'foundational', gedCode: 'Q.3', skillNodeId: 'MATH.RATIO.003' }
     ]
   },
   {
@@ -191,11 +204,11 @@ ANGLES
 - Quadrilateral angle sum: 360°
 - Parallel lines cut by transversal: alternate interior angles are equal; co-interior angles are supplementary`,
     practiceQuestions: [
-      { question: 'Find the area of a trapezoid with bases 6 and 10, height 4', answer: 'A = ½(6 + 10) × 4 = ½ × 16 × 4 = 32 square units' },
-      { question: 'A cylinder has radius 3 and height 7. Find its volume (use π ≈ 3.14)', answer: 'V = 3.14 × 9 × 7 = 197.82 cubic units' },
-      { question: 'Find the distance between points (1, 2) and (4, 6)', answer: 'd = √[(4-1)² + (6-2)²] = √[9 + 16] = √25 = 5' },
-      { question: 'A right triangle has legs 7 and 24. Find the hypotenuse.', answer: '7² + 24² = 49 + 576 = 625 → c = √625 = 25' },
-      { question: 'Two angles are supplementary. One is 47°. What is the other?', answer: '180° - 47° = 133°' }
+      { id: 'TB.MATH.3.1', question: 'Find the area of a trapezoid with bases 6 and 10, height 4', type: 'short_answer', answer: 'A = ½(6 + 10) × 4 = ½ × 16 × 4 = 32 square units', explanation: 'A = ½(6 + 10) × 4 = ½ × 16 × 4 = 32 square units', difficulty: 'foundational', gedCode: 'Q.4', skillNodeId: 'MATH.GEOM.008' },
+      { id: 'TB.MATH.3.2', question: 'A cylinder has radius 3 and height 7. Find its volume (use π ≈ 3.14)', type: 'short_answer', answer: 'V = 3.14 × 9 × 7 = 197.82 cubic units', explanation: 'V = 3.14 × 9 × 7 = 197.82 cubic units', difficulty: 'foundational', gedCode: 'Q.4', skillNodeId: 'MATH.GEOM.008' },
+      { id: 'TB.MATH.3.3', question: 'Find the distance between points (1, 2) and (4, 6)', type: 'short_answer', answer: 'd = √[(4-1)² + (6-2)²] = √[9 + 16] = √25 = 5', explanation: 'd = √[(4-1)² + (6-2)²] = √[9 + 16] = √25 = 5', difficulty: 'foundational', gedCode: 'Q.4', skillNodeId: 'MATH.GEOM.008' },
+      { id: 'TB.MATH.3.4', question: 'A right triangle has legs 7 and 24. Find the hypotenuse.', type: 'short_answer', answer: '7² + 24² = 49 + 576 = 625 → c = √625 = 25', explanation: '7² + 24² = 49 + 576 = 625 → c = √625 = 25', difficulty: 'foundational', gedCode: 'Q.4', skillNodeId: 'MATH.GEOM.008' },
+      { id: 'TB.MATH.3.5', question: 'Two angles are supplementary. One is 47°. What is the other?', type: 'short_answer', answer: '180° - 47° = 133°', explanation: '180° - 47° = 133°', difficulty: 'foundational', gedCode: 'Q.4', skillNodeId: 'MATH.GEOM.008' }
     ]
   },
   {
@@ -246,11 +259,11 @@ COUNTING & PERMUTATIONS
 - Counting principle: If one event has m outcomes and another has n, together they have m × n outcomes
 - Example: 4 shirts and 3 pants = 4 × 3 = 12 outfits`,
     practiceQuestions: [
-      { question: 'Find the mean, median, and mode of: 5, 8, 6, 8, 3', answer: 'Mean: 30/5 = 6. Median (ordered: 3,5,6,8,8): 6. Mode: 8' },
-      { question: 'A bag has 5 red, 3 blue, 2 green marbles. What is P(red)?', answer: 'P(red) = 5/10 = 1/2 = 0.5' },
-      { question: 'You flip a coin and roll a die. What is P(tails AND 4)?', answer: 'P = 1/2 × 1/6 = 1/12' },
-      { question: 'A scatterplot shows as study hours increase, test scores increase. Describe the correlation.', answer: 'Positive correlation — both variables increase together' },
-      { question: 'A menu has 3 soups, 5 entrees, 4 desserts. How many different 3-course meals?', answer: '3 × 5 × 4 = 60 different meals' }
+      { id: 'TB.MATH.4.1', question: 'Find the mean, median, and mode of: 5, 8, 6, 8, 3', type: 'short_answer', answer: 'Mean: 30/5 = 6. Median (ordered: 3,5,6,8,8): 6. Mode: 8', explanation: 'Mean: 30/5 = 6. Median (ordered: 3,5,6,8,8): 6. Mode: 8', difficulty: 'foundational', gedCode: 'Q.7', skillNodeId: 'MATH.STAT.011' },
+      { id: 'TB.MATH.4.2', question: 'A bag has 5 red, 3 blue, 2 green marbles. What is P(red)?', type: 'short_answer', answer: 'P(red) = 5/10 = 1/2 = 0.5', explanation: 'P(red) = 5/10 = 1/2 = 0.5', difficulty: 'foundational', gedCode: 'Q.7', skillNodeId: 'MATH.STAT.011' },
+      { id: 'TB.MATH.4.3', question: 'You flip a coin and roll a die. What is P(tails AND 4)?', type: 'short_answer', answer: 'P = 1/2 × 1/6 = 1/12', explanation: 'P = 1/2 × 1/6 = 1/12', difficulty: 'foundational', gedCode: 'Q.7', skillNodeId: 'MATH.STAT.011' },
+      { id: 'TB.MATH.4.4', question: 'A scatterplot shows as study hours increase, test scores increase. Describe the correlation.', type: 'short_answer', answer: 'Positive correlation — both variables increase together', explanation: 'Positive correlation — both variables increase together', difficulty: 'foundational', gedCode: 'Q.7', skillNodeId: 'MATH.STAT.011' },
+      { id: 'TB.MATH.4.5', question: 'A menu has 3 soups, 5 entrees, 4 desserts. How many different 3-course meals?', type: 'short_answer', answer: '3 × 5 × 4 = 60 different meals', explanation: '3 × 5 × 4 = 60 different meals', difficulty: 'foundational', gedCode: 'Q.7', skillNodeId: 'MATH.STAT.011' }
     ]
   },
   {
@@ -303,11 +316,11 @@ Standard form: ax² + bx + c = 0
 - Quadratic formula: x = (−b ± √(b²−4ac)) / 2a
 - Discriminant (b²−4ac): positive = 2 real solutions; zero = 1; negative = no real solution`,
     practiceQuestions: [
-      { question: 'Simplify: 5x² + 3x − 2x² + 7 − x', answer: '3x² + 2x + 7' },
-      { question: 'Solve: 4(x − 3) = 2x + 6', answer: '4x − 12 = 2x + 6 → 2x = 18 → x = 9' },
-      { question: 'Solve and graph: −2x + 1 ≤ 7', answer: '−2x ≤ 6 → x ≥ −3 (flip sign; closed circle at −3, arrow right)' },
-      { question: 'Solve the system: x + y = 10 and x − y = 4', answer: 'Add: 2x = 14 → x = 7, y = 3' },
-      { question: 'Solve: x² − 7x + 10 = 0', answer: 'Factor: (x−5)(x−2) = 0 → x = 5 or x = 2' }
+      { id: 'TB.MATH.5.1', question: 'Simplify: 5x² + 3x − 2x² + 7 − x', type: 'short_answer', answer: '3x² + 2x + 7', explanation: '3x² + 2x + 7', difficulty: 'foundational', gedCode: 'A.1', skillNodeId: 'MATH.ALGE.005' },
+      { id: 'TB.MATH.5.2', question: 'Solve: 4(x − 3) = 2x + 6', type: 'short_answer', answer: '4x − 12 = 2x + 6 → 2x = 18 → x = 9', explanation: '4x − 12 = 2x + 6 → 2x = 18 → x = 9', difficulty: 'foundational', gedCode: 'A.1', skillNodeId: 'MATH.ALGE.005' },
+      { id: 'TB.MATH.5.3', question: 'Solve and graph: −2x + 1 ≤ 7', type: 'short_answer', answer: '−2x ≤ 6 → x ≥ −3 (flip sign; closed circle at −3, arrow right)', explanation: '−2x ≤ 6 → x ≥ −3 (flip sign; closed circle at −3, arrow right)', difficulty: 'foundational', gedCode: 'A.1', skillNodeId: 'MATH.ALGE.005' },
+      { id: 'TB.MATH.5.4', question: 'Solve the system: x + y = 10 and x − y = 4', type: 'short_answer', answer: 'Add: 2x = 14 → x = 7, y = 3', explanation: 'Add: 2x = 14 → x = 7, y = 3', difficulty: 'foundational', gedCode: 'A.1', skillNodeId: 'MATH.ALGE.005' },
+      { id: 'TB.MATH.5.5', question: 'Solve: x² − 7x + 10 = 0', type: 'short_answer', answer: 'Factor: (x−5)(x−2) = 0 → x = 5 or x = 2', explanation: 'Factor: (x−5)(x−2) = 0 → x = 5 or x = 2', difficulty: 'foundational', gedCode: 'A.1', skillNodeId: 'MATH.ALGE.005' }
     ]
   },
   {
@@ -364,11 +377,11 @@ Arithmetic sequence: each term adds the same amount (common difference)
 Geometric sequence: each term multiplies by the same ratio
   3, 6, 12, 24... (r = 2)`,
     practiceQuestions: [
-      { question: 'Find the slope of the line through (2, 5) and (6, 13)', answer: 'm = (13−5)/(6−2) = 8/4 = 2' },
-      { question: 'Write y = 3x − 4 in function notation and find f(−1)', answer: 'f(x) = 3x − 4; f(−1) = 3(−1) − 4 = −7' },
-      { question: 'For f(x) = x² − 6x + 5, find the vertex x-coordinate', answer: 'x = −(−6)/2(1) = 6/2 = 3' },
-      { question: 'Is the graph of a circle a function? Why or why not?', answer: 'No — a vertical line intersects the circle at two points, failing the vertical line test.' },
-      { question: 'Find the 8th term of the arithmetic sequence: 2, 5, 8, 11…', answer: 'd = 3; a₈ = 2 + (8−1)×3 = 2 + 21 = 23' }
+      { id: 'TB.MATH.6.1', question: 'Find the slope of the line through (2, 5) and (6, 13)', type: 'short_answer', answer: 'm = (13−5)/(6−2) = 8/4 = 2', explanation: 'm = (13−5)/(6−2) = 8/4 = 2', difficulty: 'foundational', gedCode: 'A.3', skillNodeId: 'MATH.LINEQ.006' },
+      { id: 'TB.MATH.6.2', question: 'Write y = 3x − 4 in function notation and find f(−1)', type: 'short_answer', answer: 'f(x) = 3x − 4; f(−1) = 3(−1) − 4 = −7', explanation: 'f(x) = 3x − 4; f(−1) = 3(−1) − 4 = −7', difficulty: 'foundational', gedCode: 'A.3', skillNodeId: 'MATH.LINEQ.006' },
+      { id: 'TB.MATH.6.3', question: 'For f(x) = x² − 6x + 5, find the vertex x-coordinate', type: 'short_answer', answer: 'x = −(−6)/2(1) = 6/2 = 3', explanation: 'x = −(−6)/2(1) = 6/2 = 3', difficulty: 'foundational', gedCode: 'A.3', skillNodeId: 'MATH.LINEQ.006' },
+      { id: 'TB.MATH.6.4', question: 'Is the graph of a circle a function? Why or why not?', type: 'short_answer', answer: 'No — a vertical line intersects the circle at two points, failing the vertical line test.', explanation: 'No — a vertical line intersects the circle at two points, failing the vertical line test.', difficulty: 'foundational', gedCode: 'A.3', skillNodeId: 'MATH.LINEQ.006' },
+      { id: 'TB.MATH.6.5', question: 'Find the 8th term of the arithmetic sequence: 2, 5, 8, 11…', type: 'short_answer', answer: 'd = 3; a₈ = 2 + (8−1)×3 = 2 + 21 = 23', explanation: 'd = 3; a₈ = 2 + (8−1)×3 = 2 + 21 = 23', difficulty: 'foundational', gedCode: 'A.3', skillNodeId: 'MATH.LINEQ.006' }
     ]
   }
 ];
@@ -428,9 +441,9 @@ Strong generalizations are:
 
 GED TIP: On the test, wrong answer choices often contradict the text, go too far beyond it, or are only partially supported. Always return to the text.`,
     practiceQuestions: [
-      { question: 'What is the difference between a main idea and a topic?', answer: 'The topic is the subject (e.g., "climate change"). The main idea is what the author says about it (e.g., "Human activity is the primary driver of climate change").' },
-      { question: 'A paragraph describes rising ocean temperatures, dying coral reefs, and melting ice caps. What is the implied main idea?', answer: 'The implied main idea is that climate change is causing widespread environmental damage.' },
-      { question: 'Which type of detail is LEAST likely to support a scientific main idea?', answer: 'A personal opinion or anecdote without data is least likely to provide strong support.' }
+      { id: 'TB.RLA.1.1', question: 'What is the difference between a main idea and a topic?', type: 'short_answer', answer: 'The topic is the subject (e.g., "climate change"). The main idea is what the author says about it (e.g., "Human activity is the primary driver of climate change").', explanation: 'The topic is the subject (e.g., "climate change"). The main idea is what the author says about it (e.g., "Human activity is the primary driver of climate change").', difficulty: 'foundational', gedCode: 'R.2.1', skillNodeId: 'LANG.MAIN.002' },
+      { id: 'TB.RLA.1.2', question: 'A paragraph describes rising ocean temperatures, dying coral reefs, and melting ice caps. What is the implied main idea?', type: 'short_answer', answer: 'The implied main idea is that climate change is causing widespread environmental damage.', explanation: 'The implied main idea is that climate change is causing widespread environmental damage.', difficulty: 'foundational', gedCode: 'R.2.1', skillNodeId: 'LANG.MAIN.002' },
+      { id: 'TB.RLA.1.3', question: 'Which type of detail is LEAST likely to support a scientific main idea?', type: 'short_answer', answer: 'A personal opinion or anecdote without data is least likely to provide strong support.', explanation: 'A personal opinion or anecdote without data is least likely to provide strong support.', difficulty: 'foundational', gedCode: 'R.2.1', skillNodeId: 'LANG.MAIN.002' }
     ]
   },
   {
@@ -484,9 +497,9 @@ Rhetorical techniques (R.6.4):
 
 GED NOTE: Founding documents (Declaration of Independence, Constitution, Bill of Rights) and "Great American Conversation" texts are required reading for the RLA test.`,
     practiceQuestions: [
-      { question: 'The word "ephemeral" appears in: "The beauty of cherry blossoms is ephemeral; they last only a week." What does ephemeral mean?', answer: 'Short-lived or temporary, based on the context clue "they last only a week"' },
-      { question: 'An essay uses the structure: "While some argue X, the evidence shows Y because Z." What rhetorical technique is this?', answer: 'Acknowledging a counterargument (R.6.2) then refuting it with evidence' },
-      { question: 'What is the difference between an author\'s purpose and an author\'s point of view?', answer: 'Purpose is WHY they wrote it (inform, persuade, entertain). Point of view is WHOSE perspective they write from and what position they hold.' }
+      { id: 'TB.RLA.2.1', question: 'The word "ephemeral" appears in: "The beauty of cherry blossoms is ephemeral; they last only a week." What does ephemeral mean?', type: 'short_answer', answer: 'Short-lived or temporary, based on the context clue "they last only a week"', explanation: 'Short-lived or temporary, based on the context clue "they last only a week"', difficulty: 'foundational', gedCode: 'R.4', skillNodeId: 'LANG.VOCAB.004' },
+      { id: 'TB.RLA.2.2', question: 'An essay uses the structure: "While some argue X, the evidence shows Y because Z." What rhetorical technique is this?', type: 'short_answer', answer: 'Acknowledging a counterargument (R.6.2) then refuting it with evidence', explanation: 'Acknowledging a counterargument (R.6.2) then refuting it with evidence', difficulty: 'foundational', gedCode: 'R.4', skillNodeId: 'LANG.VOCAB.004' },
+      { id: 'TB.RLA.2.3', question: 'What is the difference between an author\'s purpose and an author\'s point of view?', type: 'short_answer', answer: 'Purpose is WHY they wrote it (inform, persuade, entertain). Point of view is WHOSE perspective they write from and what position they hold.', explanation: 'Purpose is WHY they wrote it (inform, persuade, entertain). Point of view is WHOSE perspective they write from and what position they hold.', difficulty: 'foundational', gedCode: 'R.4', skillNodeId: 'LANG.VOCAB.004' }
     ]
   },
   {
@@ -539,9 +552,9 @@ When comparing two sources on the same topic:
 
 GED Extended Response: You will read two texts and write an argument explaining which one presents the stronger case. Use evidence from BOTH texts.`,
     practiceQuestions: [
-      { question: 'An author writes: "We must ban all video games or our children will become violent criminals." What fallacy is this?', answer: 'Slippery slope — the argument leaps from one cause to an extreme, unlikely outcome without sufficient evidence' },
-      { question: 'What makes a claim "supported" vs. "unsupported"?', answer: 'A supported claim has specific, relevant evidence (data, examples, expert testimony). An unsupported claim relies on vague assertions, personal opinions, or common assumptions.' },
-      { question: 'Two articles discuss climate policy. Article 1 cites IPCC data; Article 2 cites a single industry spokesperson. Which is more credible?', answer: 'Article 1 — the IPCC is a widely recognized scientific authority with peer-reviewed data; a single spokesperson may have conflicts of interest.' }
+      { id: 'TB.RLA.3.1', question: 'An author writes: "We must ban all video games or our children will become violent criminals." What fallacy is this?', type: 'short_answer', answer: 'Slippery slope — the argument leaps from one cause to an extreme, unlikely outcome without sufficient evidence', explanation: 'Slippery slope — the argument leaps from one cause to an extreme, unlikely outcome without sufficient evidence', difficulty: 'foundational', gedCode: 'R.8', skillNodeId: 'LANG.ARG.009' },
+      { id: 'TB.RLA.3.2', question: 'What makes a claim "supported" vs. "unsupported"?', type: 'short_answer', answer: 'A supported claim has specific, relevant evidence (data, examples, expert testimony). An unsupported claim relies on vague assertions, personal opinions, or common assumptions.', explanation: 'A supported claim has specific, relevant evidence (data, examples, expert testimony). An unsupported claim relies on vague assertions, personal opinions, or common assumptions.', difficulty: 'foundational', gedCode: 'R.8', skillNodeId: 'LANG.ARG.009' },
+      { id: 'TB.RLA.3.3', question: 'Two articles discuss climate policy. Article 1 cites IPCC data; Article 2 cites a single industry spokesperson. Which is more credible?', type: 'short_answer', answer: 'Article 1 — the IPCC is a widely recognized scientific authority with peer-reviewed data; a single spokesperson may have conflicts of interest.', explanation: 'Article 1 — the IPCC is a widely recognized scientific authority with peer-reviewed data; a single spokesperson may have conflicts of interest.', difficulty: 'foundational', gedCode: 'R.8', skillNodeId: 'LANG.ARG.009' }
     ]
   },
   {
@@ -601,9 +614,9 @@ TIPS FOR THE GED ER:
 - Do NOT simply summarize — ANALYZE the arguments
 - Leave time to proofread for run-ons, fragments, and agreement errors`,
     practiceQuestions: [
-      { question: 'What is the main goal of the GED Extended Response?', answer: 'To analyze which of two provided texts presents a stronger, better-supported argument — using evidence from both texts.' },
-      { question: 'Write a thesis statement for an ER where Text A argues for higher minimum wage and Text B argues against it', answer: 'Example: "Text A presents the more compelling argument for raising the minimum wage because it cites peer-reviewed economic research and addresses counterarguments effectively, while Text B relies on anecdotal claims without sufficient data."' },
-      { question: 'What are the three scoring traits and their point values?', answer: 'Trait 1: Arguments & Evidence (0–3); Trait 2: Organization & Development (0–2); Trait 3: Language Conventions (0–2). Maximum = 12 points' }
+      { id: 'TB.RLA.4.1', question: 'What is the main goal of the GED Extended Response?', type: 'short_answer', answer: 'To analyze which of two provided texts presents a stronger, better-supported argument — using evidence from both texts.', explanation: 'To analyze which of two provided texts presents a stronger, better-supported argument — using evidence from both texts.', difficulty: 'foundational', gedCode: 'ER', skillNodeId: 'LANG.ESSAY.008' },
+      { id: 'TB.RLA.4.2', question: 'Write a thesis statement for an ER where Text A argues for higher minimum wage and Text B argues against it', type: 'short_answer', answer: 'Example: "Text A presents the more compelling argument for raising the minimum wage because it cites peer-reviewed economic research and addresses counterarguments effectively, while Text B relies on anecdotal claims without sufficient data."', explanation: 'Example: "Text A presents the more compelling argument for raising the minimum wage because it cites peer-reviewed economic research and addresses counterarguments effectively, while Text B relies on anecdotal claims without sufficient data."', difficulty: 'foundational', gedCode: 'ER', skillNodeId: 'LANG.ESSAY.008' },
+      { id: 'TB.RLA.4.3', question: 'What are the three scoring traits and their point values?', type: 'short_answer', answer: 'Trait 1: Arguments & Evidence (0–3); Trait 2: Organization & Development (0–2); Trait 3: Language Conventions (0–2). Maximum = 12 points', explanation: 'Trait 1: Arguments & Evidence (0–3); Trait 2: Organization & Development (0–2); Trait 3: Language Conventions (0–2). Maximum = 12 points', difficulty: 'foundational', gedCode: 'ER', skillNodeId: 'LANG.ESSAY.008' }
     ]
   },
   {
@@ -671,10 +684,10 @@ APOSTROPHES
 - Contractions: it's = it is; they're = they are; you're = you are
   NOTE: its = possessive pronoun (no apostrophe)`,
     practiceQuestions: [
-      { question: 'Correct this sentence: "Each of the managers have submitted their report."', answer: '"Each of the managers has submitted their report." — Each is singular, so the verb should be "has"' },
-      { question: 'Identify the error: "Running to the store, the rain soaked my jacket."', answer: 'Dangling modifier — the phrase "Running to the store" should modify a person, but "the rain" cannot run. Fix: "Running to the store, I got soaked by the rain."' },
-      { question: 'Fix the parallel structure: "The coach told us to stretch, hydrate, and we should rest."', answer: '"The coach told us to stretch, hydrate, and rest." — All items should use the infinitive form.' },
-      { question: 'Choose: "Between you and (I/me), the answer is obvious."', answer: '"Between you and me" — "me" is the object of the preposition "between"' }
+      { id: 'TB.RLA.5.1', question: 'Correct this sentence: "Each of the managers have submitted their report."', type: 'short_answer', answer: '"Each of the managers has submitted their report." — Each is singular, so the verb should be "has"', explanation: '"Each of the managers has submitted their report." — Each is singular, so the verb should be "has"', difficulty: 'foundational', gedCode: 'L.1', skillNodeId: 'LANG.GRAM.005' },
+      { id: 'TB.RLA.5.2', question: 'Identify the error: "Running to the store, the rain soaked my jacket."', type: 'short_answer', answer: 'Dangling modifier — the phrase "Running to the store" should modify a person, but "the rain" cannot run. Fix: "Running to the store, I got soaked by the rain."', explanation: 'Dangling modifier — the phrase "Running to the store" should modify a person, but "the rain" cannot run. Fix: "Running to the store, I got soaked by the rain."', difficulty: 'foundational', gedCode: 'L.1', skillNodeId: 'LANG.GRAM.005' },
+      { id: 'TB.RLA.5.3', question: 'Fix the parallel structure: "The coach told us to stretch, hydrate, and we should rest."', type: 'short_answer', answer: '"The coach told us to stretch, hydrate, and rest." — All items should use the infinitive form.', explanation: '"The coach told us to stretch, hydrate, and rest." — All items should use the infinitive form.', difficulty: 'foundational', gedCode: 'L.1', skillNodeId: 'LANG.GRAM.005' },
+      { id: 'TB.RLA.5.4', question: 'Choose: "Between you and (I/me), the answer is obvious."', type: 'short_answer', answer: '"Between you and me" — "me" is the object of the preposition "between"', explanation: '"Between you and me" — "me" is the object of the preposition "between"', difficulty: 'foundational', gedCode: 'L.1', skillNodeId: 'LANG.GRAM.005' }
     ]
   }
 ];
@@ -732,10 +745,10 @@ Chronic diseases: heart disease, diabetes, cancer — often linked to lifestyle 
 SCIENCE PRACTICE CONNECTION (SP.1)
 On the GED Science test, you will interpret diagrams, graphs, and texts about body systems. You will identify central ideas, determine meanings of scientific terms in context, and read data representations like labeled diagrams and process charts.`,
     practiceQuestions: [
-      { question: 'What is the function of mitochondria?', answer: 'Mitochondria produce ATP (energy) through cellular respiration — they are often called "the powerhouse of the cell"' },
-      { question: 'Why do antibiotics not work against viral infections?', answer: 'Antibiotics target bacterial cell structures (like cell walls). Viruses have completely different structures and reproduce inside host cells, which antibiotics cannot affect.' },
-      { question: 'What is an example of negative feedback in the human body?', answer: 'When blood sugar rises after eating, the pancreas releases insulin, which lowers blood sugar back to normal — this is negative feedback because the response counteracts the change.' },
-      { question: 'Arrange from smallest to largest: organ system, cell, tissue, organism, organ', answer: 'Cell → Tissue → Organ → Organ System → Organism' }
+      { id: 'TB.SCI.1.1', question: 'What is the function of mitochondria?', type: 'short_answer', answer: 'Mitochondria produce ATP (energy) through cellular respiration — they are often called "the powerhouse of the cell"', explanation: 'Mitochondria produce ATP (energy) through cellular respiration — they are often called "the powerhouse of the cell"', difficulty: 'foundational', gedCode: 'L.a', skillNodeId: 'SCI.LIFE.003' },
+      { id: 'TB.SCI.1.2', question: 'Why do antibiotics not work against viral infections?', type: 'short_answer', answer: 'Antibiotics target bacterial cell structures (like cell walls). Viruses have completely different structures and reproduce inside host cells, which antibiotics cannot affect.', explanation: 'Antibiotics target bacterial cell structures (like cell walls). Viruses have completely different structures and reproduce inside host cells, which antibiotics cannot affect.', difficulty: 'foundational', gedCode: 'L.a', skillNodeId: 'SCI.LIFE.003' },
+      { id: 'TB.SCI.1.3', question: 'What is an example of negative feedback in the human body?', type: 'short_answer', answer: 'When blood sugar rises after eating, the pancreas releases insulin, which lowers blood sugar back to normal — this is negative feedback because the response counteracts the change.', explanation: 'When blood sugar rises after eating, the pancreas releases insulin, which lowers blood sugar back to normal — this is negative feedback because the response counteracts the change.', difficulty: 'foundational', gedCode: 'L.a', skillNodeId: 'SCI.LIFE.003' },
+      { id: 'TB.SCI.1.4', question: 'Arrange from smallest to largest: organ system, cell, tissue, organism, organ', type: 'short_answer', answer: 'Cell → Tissue → Organ → Organ System → Organism', explanation: 'Cell → Tissue → Organ → Organ System → Organism', difficulty: 'foundational', gedCode: 'L.a', skillNodeId: 'SCI.LIFE.003' }
     ]
   },
   {
@@ -795,10 +808,10 @@ Carrying capacity: maximum population an environment can sustain
 Limiting factors: food, water, space, predators
 Competition: intraspecific (same species) and interspecific (different species)`,
     practiceQuestions: [
-      { question: 'A pea plant with genotype Tt (T = tall, t = short, T dominant) is crossed with tt. What are the offspring genotypes and phenotypes?', answer: 'Cross Tt × tt: offspring = Tt, Tt, tt, tt. Phenotypes: 50% tall (Tt), 50% short (tt)' },
-      { question: 'Why does only 10% of energy transfer from one trophic level to the next?', answer: '90% of energy is lost as heat through metabolic processes (respiration, movement, body heat). Only the stored chemical energy in biomass transfers upward.' },
-      { question: 'What is the relationship between photosynthesis and cellular respiration?', answer: 'They are essentially reverse reactions. Photosynthesis uses CO₂ + H₂O + sunlight to produce glucose + O₂. Cellular respiration breaks down glucose + O₂ to release CO₂ + H₂O + ATP energy.' },
-      { question: 'What is speciation, and what causes it?', answer: 'Speciation is the formation of a new species from an existing one, usually caused by geographic or reproductive isolation — preventing gene flow between populations, which then evolve separately.' }
+      { id: 'TB.SCI.2.1', question: 'A pea plant with genotype Tt (T = tall, t = short, T dominant) is crossed with tt. What are the offspring genotypes and phenotypes?', type: 'short_answer', answer: 'Cross Tt × tt: offspring = Tt, Tt, tt, tt. Phenotypes: 50% tall (Tt), 50% short (tt)', explanation: 'Cross Tt × tt: offspring = Tt, Tt, tt, tt. Phenotypes: 50% tall (Tt), 50% short (tt)', difficulty: 'foundational', gedCode: 'L.b', skillNodeId: 'SCI.LIFE.003' },
+      { id: 'TB.SCI.2.2', question: 'Why does only 10% of energy transfer from one trophic level to the next?', type: 'short_answer', answer: '90% of energy is lost as heat through metabolic processes (respiration, movement, body heat). Only the stored chemical energy in biomass transfers upward.', explanation: '90% of energy is lost as heat through metabolic processes (respiration, movement, body heat). Only the stored chemical energy in biomass transfers upward.', difficulty: 'foundational', gedCode: 'L.b', skillNodeId: 'SCI.LIFE.003' },
+      { id: 'TB.SCI.2.3', question: 'What is the relationship between photosynthesis and cellular respiration?', type: 'short_answer', answer: 'They are essentially reverse reactions. Photosynthesis uses CO₂ + H₂O + sunlight to produce glucose + O₂. Cellular respiration breaks down glucose + O₂ to release CO₂ + H₂O + ATP energy.', explanation: 'They are essentially reverse reactions. Photosynthesis uses CO₂ + H₂O + sunlight to produce glucose + O₂. Cellular respiration breaks down glucose + O₂ to release CO₂ + H₂O + ATP energy.', difficulty: 'foundational', gedCode: 'L.b', skillNodeId: 'SCI.LIFE.003' },
+      { id: 'TB.SCI.2.4', question: 'What is speciation, and what causes it?', type: 'short_answer', answer: 'Speciation is the formation of a new species from an existing one, usually caused by geographic or reproductive isolation — preventing gene flow between populations, which then evolve separately.', explanation: 'Speciation is the formation of a new species from an existing one, usually caused by geographic or reproductive isolation — preventing gene flow between populations, which then evolve separately.', difficulty: 'foundational', gedCode: 'L.b', skillNodeId: 'SCI.LIFE.003' }
     ]
   },
   {
@@ -867,10 +880,10 @@ Simple machines reduce the force needed:
 - Wheel and axle: mechanical advantage through radius ratio
 Mechanical advantage = load force / effort force`,
     practiceQuestions: [
-      { question: 'A 500 kg car accelerates at 3 m/s². What force is applied?', answer: 'F = ma = 500 × 3 = 1,500 N' },
-      { question: 'You push a box 5 meters with a force of 80 N. How much work did you do?', answer: 'W = F × d = 80 × 5 = 400 joules' },
-      { question: 'A wave has frequency 200 Hz and wavelength 1.5 m. What is its speed?', answer: 'Speed = frequency × wavelength = 200 × 1.5 = 300 m/s' },
-      { question: 'Classify: ice melting, campfire, photosynthesis. Endothermic or exothermic?', answer: 'Ice melting: endothermic (absorbs heat). Campfire: exothermic (releases heat). Photosynthesis: endothermic (absorbs light energy).' }
+      { id: 'TB.SCI.3.1', question: 'A 500 kg car accelerates at 3 m/s². What force is applied?', type: 'short_answer', answer: 'F = ma = 500 × 3 = 1,500 N', explanation: 'F = ma = 500 × 3 = 1,500 N', difficulty: 'foundational', gedCode: 'P.a', skillNodeId: 'SCI.PHYS.004' },
+      { id: 'TB.SCI.3.2', question: 'You push a box 5 meters with a force of 80 N. How much work did you do?', type: 'short_answer', answer: 'W = F × d = 80 × 5 = 400 joules', explanation: 'W = F × d = 80 × 5 = 400 joules', difficulty: 'foundational', gedCode: 'P.a', skillNodeId: 'SCI.PHYS.004' },
+      { id: 'TB.SCI.3.3', question: 'A wave has frequency 200 Hz and wavelength 1.5 m. What is its speed?', type: 'short_answer', answer: 'Speed = frequency × wavelength = 200 × 1.5 = 300 m/s', explanation: 'Speed = frequency × wavelength = 200 × 1.5 = 300 m/s', difficulty: 'foundational', gedCode: 'P.a', skillNodeId: 'SCI.PHYS.004' },
+      { id: 'TB.SCI.3.4', question: 'Classify: ice melting, campfire, photosynthesis. Endothermic or exothermic?', type: 'short_answer', answer: 'Ice melting: endothermic (absorbs heat). Campfire: exothermic (releases heat). Photosynthesis: endothermic (absorbs light energy).', explanation: 'Ice melting: endothermic (absorbs heat). Campfire: exothermic (releases heat). Photosynthesis: endothermic (absorbs light energy).', difficulty: 'foundational', gedCode: 'P.a', skillNodeId: 'SCI.PHYS.004' }
     ]
   },
   {
@@ -929,10 +942,10 @@ Acids and bases:
 - Bases: pH > 7; accept H⁺ ions; feel slippery
 - Neutral: pH = 7 (water)`,
     practiceQuestions: [
-      { question: 'Balance this equation: _Fe + _O₂ → _Fe₂O₃', answer: '4Fe + 3O₂ → 2Fe₂O₃ (check: 4 Fe each side, 6 O each side)' },
-      { question: 'Is dissolving salt in water a physical or chemical change? Why?', answer: 'Physical change — the salt can be recovered by evaporating the water. No new chemical substance is formed; the ions just separate in solution.' },
-      { question: 'Why does soda go flat faster when warm?', answer: 'Gas (CO₂) solubility decreases as temperature increases. Warm soda cannot hold as much dissolved CO₂, so the gas escapes more quickly.' },
-      { question: 'An unknown liquid has pH 2. Is it an acid or base? What does that mean?', answer: 'pH 2 is strongly acidic. It donates H⁺ ions in solution, has a sour taste, and will react with bases and many metals.' }
+      { id: 'TB.SCI.4.1', question: 'Balance this equation: _Fe + _O₂ → _Fe₂O₃', type: 'short_answer', answer: '4Fe + 3O₂ → 2Fe₂O₃ (check: 4 Fe each side, 6 O each side)', explanation: '4Fe + 3O₂ → 2Fe₂O₃ (check: 4 Fe each side, 6 O each side)', difficulty: 'foundational', gedCode: 'P.c', skillNodeId: 'SCI.PHYS.004' },
+      { id: 'TB.SCI.4.2', question: 'Is dissolving salt in water a physical or chemical change? Why?', type: 'short_answer', answer: 'Physical change — the salt can be recovered by evaporating the water. No new chemical substance is formed; the ions just separate in solution.', explanation: 'Physical change — the salt can be recovered by evaporating the water. No new chemical substance is formed; the ions just separate in solution.', difficulty: 'foundational', gedCode: 'P.c', skillNodeId: 'SCI.PHYS.004' },
+      { id: 'TB.SCI.4.3', question: 'Why does soda go flat faster when warm?', type: 'short_answer', answer: 'Gas (CO₂) solubility decreases as temperature increases. Warm soda cannot hold as much dissolved CO₂, so the gas escapes more quickly.', explanation: 'Gas (CO₂) solubility decreases as temperature increases. Warm soda cannot hold as much dissolved CO₂, so the gas escapes more quickly.', difficulty: 'foundational', gedCode: 'P.c', skillNodeId: 'SCI.PHYS.004' },
+      { id: 'TB.SCI.4.4', question: 'An unknown liquid has pH 2. Is it an acid or base? What does that mean?', type: 'short_answer', answer: 'pH 2 is strongly acidic. It donates H⁺ ions in solution, has a sour taste, and will react with bases and many metals.', explanation: 'pH 2 is strongly acidic. It donates H⁺ ions in solution, has a sour taste, and will react with bases and many metals.', difficulty: 'foundational', gedCode: 'P.c', skillNodeId: 'SCI.PHYS.004' }
     ]
   },
   {
@@ -991,10 +1004,10 @@ Stars: powered by nuclear fusion (hydrogen → helium); life cycle depends on ma
 Galaxies: the Milky Way is a spiral galaxy containing ~200–400 billion stars
 Big Bang: current scientific model for the origin of the universe (~13.8 billion years ago)`,
     practiceQuestions: [
-      { question: 'What causes earthquakes at transform plate boundaries?', answer: 'At transform boundaries, plates slide horizontally past each other. Friction builds up and is suddenly released as seismic energy — causing earthquakes. Example: San Andreas Fault in California.' },
-      { question: 'Explain the greenhouse effect in simple terms.', answer: 'Sunlight passes through the atmosphere and heats Earth\'s surface. The surface releases heat (infrared radiation), but greenhouse gases (CO₂, methane) absorb and trap this heat, keeping Earth warmer than it would be otherwise.' },
-      { question: 'What is the difference between renewable and non-renewable energy?', answer: 'Renewable energy sources (solar, wind, hydro) naturally replenish on human timescales. Non-renewable sources (coal, oil, natural gas) took millions of years to form and will be depleted when used.' },
-      { question: 'Why do temperatures generally decrease as altitude increases in the troposphere?', answer: 'The troposphere is heated mainly from below (Earth\'s surface absorbs sunlight and radiates heat). As distance from the heat source increases, temperatures drop — about 6.5°C per 1,000 meters.' }
+      { id: 'TB.SCI.5.1', question: 'What causes earthquakes at transform plate boundaries?', type: 'short_answer', answer: 'At transform boundaries, plates slide horizontally past each other. Friction builds up and is suddenly released as seismic energy — causing earthquakes. Example: San Andreas Fault in California.', explanation: 'At transform boundaries, plates slide horizontally past each other. Friction builds up and is suddenly released as seismic energy — causing earthquakes. Example: San Andreas Fault in California.', difficulty: 'foundational', gedCode: 'ES.a', skillNodeId: 'SCI.EARTH.005' },
+      { id: 'TB.SCI.5.2', question: 'Explain the greenhouse effect in simple terms.', type: 'short_answer', answer: 'Sunlight passes through the atmosphere and heats Earth\'s surface. The surface releases heat (infrared radiation), but greenhouse gases (CO₂, methane) absorb and trap this heat, keeping Earth warmer than it would be otherwise.', explanation: 'Sunlight passes through the atmosphere and heats Earth\'s surface. The surface releases heat (infrared radiation), but greenhouse gases (CO₂, methane) absorb and trap this heat, keeping Earth warmer than it would be otherwise.', difficulty: 'foundational', gedCode: 'ES.a', skillNodeId: 'SCI.EARTH.005' },
+      { id: 'TB.SCI.5.3', question: 'What is the difference between renewable and non-renewable energy?', type: 'short_answer', answer: 'Renewable energy sources (solar, wind, hydro) naturally replenish on human timescales. Non-renewable sources (coal, oil, natural gas) took millions of years to form and will be depleted when used.', explanation: 'Renewable energy sources (solar, wind, hydro) naturally replenish on human timescales. Non-renewable sources (coal, oil, natural gas) took millions of years to form and will be depleted when used.', difficulty: 'foundational', gedCode: 'ES.a', skillNodeId: 'SCI.EARTH.005' },
+      { id: 'TB.SCI.5.4', question: 'Why do temperatures generally decrease as altitude increases in the troposphere?', type: 'short_answer', answer: 'The troposphere is heated mainly from below (Earth\'s surface absorbs sunlight and radiates heat). As distance from the heat source increases, temperatures drop — about 6.5°C per 1,000 meters.', explanation: 'The troposphere is heated mainly from below (Earth\'s surface absorbs sunlight and radiates heat). As distance from the heat source increases, temperatures drop — about 6.5°C per 1,000 meters.', difficulty: 'foundational', gedCode: 'ES.a', skillNodeId: 'SCI.EARTH.005' }
     ]
   },
   {
@@ -1063,9 +1076,9 @@ Mean, median, mode, range: see Math Chapter 4
 Probability in genetics: Punnett squares show offspring ratios (SP.8.c)
 Sampling: conclusions drawn from a sample apply to the population only if the sample is representative and large enough`,
     practiceQuestions: [
-      { question: 'A researcher tests a new drug by giving it to patients and measuring recovery time, but does not have a control group. What is wrong with this design?', answer: 'Without a control group (patients taking a placebo or no treatment), there is no baseline for comparison. The researcher cannot determine if recovery is due to the drug or would have happened naturally.' },
-      { question: 'An experiment finds that students who eat breakfast score higher on tests. Does this prove that breakfast CAUSES better scores?', answer: 'No — this shows correlation, not causation. A third factor (e.g., students from stable home environments both eat breakfast AND study more) could explain the relationship.' },
-      { question: 'In an experiment on plant growth with different fertilizers, what should be controlled?', answer: 'Sunlight, water amount, soil type, pot size, temperature, plant species, and initial plant size should all be controlled. Only the type of fertilizer should change.' }
+      { id: 'TB.SCI.6.1', question: 'A researcher tests a new drug by giving it to patients and measuring recovery time, but does not have a control group. What is wrong with this design?', type: 'short_answer', answer: 'Without a control group (patients taking a placebo or no treatment), there is no baseline for comparison. The researcher cannot determine if recovery is due to the drug or would have happened naturally.', explanation: 'Without a control group (patients taking a placebo or no treatment), there is no baseline for comparison. The researcher cannot determine if recovery is due to the drug or would have happened naturally.', difficulty: 'foundational', gedCode: 'SP.1', skillNodeId: 'SCI.SCI.001' },
+      { id: 'TB.SCI.6.2', question: 'An experiment finds that students who eat breakfast score higher on tests. Does this prove that breakfast CAUSES better scores?', type: 'short_answer', answer: 'No — this shows correlation, not causation. A third factor (e.g., students from stable home environments both eat breakfast AND study more) could explain the relationship.', explanation: 'No — this shows correlation, not causation. A third factor (e.g., students from stable home environments both eat breakfast AND study more) could explain the relationship.', difficulty: 'foundational', gedCode: 'SP.1', skillNodeId: 'SCI.SCI.001' },
+      { id: 'TB.SCI.6.3', question: 'In an experiment on plant growth with different fertilizers, what should be controlled?', type: 'short_answer', answer: 'Sunlight, water amount, soil type, pot size, temperature, plant species, and initial plant size should all be controlled. Only the type of fertilizer should change.', explanation: 'Sunlight, water amount, soil type, pot size, temperature, plant species, and initial plant size should all be controlled. Only the type of fertilizer should change.', difficulty: 'foundational', gedCode: 'SP.1', skillNodeId: 'SCI.SCI.001' }
     ]
   }
 ];
@@ -1124,10 +1137,10 @@ Proposal: 2/3 vote of both houses of Congress OR constitutional convention calle
 Ratification: 3/4 of states must approve
 27 amendments total; first 10 = Bill of Rights (1791)`,
     practiceQuestions: [
-      { question: 'What is the difference between federalism and separation of powers?', answer: 'Federalism divides power between national and state governments. Separation of powers divides national government power among the three branches (executive, legislative, judicial).' },
-      { question: 'The Supreme Court rules a law unconstitutional. Which principle does this demonstrate?', answer: 'Checks and balances and judicial review — the judicial branch is checking the legislative branch by overturning a law that violates the Constitution.' },
-      { question: 'How does the Senate differ from the House of Representatives in terms of representation?', answer: 'The Senate gives equal representation (2 senators per state, regardless of size). The House gives proportional representation (more members for larger population states).' },
-      { question: 'What does "limited government" mean in practice?', answer: 'The government can only exercise powers specifically granted by the Constitution. Citizens retain rights that the government cannot infringe upon, and the Bill of Rights lists specific protections.' }
+      { id: 'TB.SS.1.1', question: 'What is the difference between federalism and separation of powers?', type: 'short_answer', answer: 'Federalism divides power between national and state governments. Separation of powers divides national government power among the three branches (executive, legislative, judicial).', explanation: 'Federalism divides power between national and state governments. Separation of powers divides national government power among the three branches (executive, legislative, judicial).', difficulty: 'foundational', gedCode: 'CG.a', skillNodeId: 'SOC.CIV.002' },
+      { id: 'TB.SS.1.2', question: 'The Supreme Court rules a law unconstitutional. Which principle does this demonstrate?', type: 'short_answer', answer: 'Checks and balances and judicial review — the judicial branch is checking the legislative branch by overturning a law that violates the Constitution.', explanation: 'Checks and balances and judicial review — the judicial branch is checking the legislative branch by overturning a law that violates the Constitution.', difficulty: 'foundational', gedCode: 'CG.a', skillNodeId: 'SOC.CIV.002' },
+      { id: 'TB.SS.1.3', question: 'How does the Senate differ from the House of Representatives in terms of representation?', type: 'short_answer', answer: 'The Senate gives equal representation (2 senators per state, regardless of size). The House gives proportional representation (more members for larger population states).', explanation: 'The Senate gives equal representation (2 senators per state, regardless of size). The House gives proportional representation (more members for larger population states).', difficulty: 'foundational', gedCode: 'CG.a', skillNodeId: 'SOC.CIV.002' },
+      { id: 'TB.SS.1.4', question: 'What does "limited government" mean in practice?', type: 'short_answer', answer: 'The government can only exercise powers specifically granted by the Constitution. Citizens retain rights that the government cannot infringe upon, and the Bill of Rights lists specific protections.', explanation: 'The government can only exercise powers specifically granted by the Constitution. Citizens retain rights that the government cannot infringe upon, and the Bill of Rights lists specific protections.', difficulty: 'foundational', gedCode: 'CG.a', skillNodeId: 'SOC.CIV.002' }
     ]
   },
   {
@@ -1183,10 +1196,10 @@ Primary elections: parties choose their candidates
 General elections: candidates from parties compete for office
 Congressional elections: Representatives every 2 years; Senators every 6 years (staggered)`,
     practiceQuestions: [
-      { question: 'Which amendment abolished slavery in the United States?', answer: 'The 13th Amendment (1865) abolished slavery throughout the United States.' },
-      { question: 'What rights does the 1st Amendment protect?', answer: 'Freedom of speech, freedom of the press, freedom of religion, freedom of peaceful assembly, and the right to petition the government.' },
-      { question: 'What was the significance of Brown v. Board of Education (1954)?', answer: 'The Supreme Court unanimously ruled that racial segregation in public schools was unconstitutional, overturning the "separate but equal" doctrine of Plessy v. Ferguson (1896). It was a landmark victory for the Civil Rights Movement.' },
-      { question: 'How many electoral votes does a presidential candidate need to win?', answer: '270 electoral votes out of 538 total — a majority.' }
+      { id: 'TB.SS.2.1', question: 'Which amendment abolished slavery in the United States?', type: 'short_answer', answer: 'The 13th Amendment (1865) abolished slavery throughout the United States.', explanation: 'The 13th Amendment (1865) abolished slavery throughout the United States.', difficulty: 'foundational', gedCode: 'CG.c', skillNodeId: 'SOC.CIV.002' },
+      { id: 'TB.SS.2.2', question: 'What rights does the 1st Amendment protect?', type: 'short_answer', answer: 'Freedom of speech, freedom of the press, freedom of religion, freedom of peaceful assembly, and the right to petition the government.', explanation: 'Freedom of speech, freedom of the press, freedom of religion, freedom of peaceful assembly, and the right to petition the government.', difficulty: 'foundational', gedCode: 'CG.c', skillNodeId: 'SOC.CIV.002' },
+      { id: 'TB.SS.2.3', question: 'What was the significance of Brown v. Board of Education (1954)?', type: 'short_answer', answer: 'The Supreme Court unanimously ruled that racial segregation in public schools was unconstitutional, overturning the "separate but equal" doctrine of Plessy v. Ferguson (1896). It was a landmark victory for the Civil Rights Movement.', explanation: 'The Supreme Court unanimously ruled that racial segregation in public schools was unconstitutional, overturning the "separate but equal" doctrine of Plessy v. Ferguson (1896). It was a landmark victory for the Civil Rights Movement.', difficulty: 'foundational', gedCode: 'CG.c', skillNodeId: 'SOC.CIV.002' },
+      { id: 'TB.SS.2.4', question: 'How many electoral votes does a presidential candidate need to win?', type: 'short_answer', answer: '270 electoral votes out of 538 total — a majority.', explanation: '270 electoral votes out of 538 total — a majority.', difficulty: 'foundational', gedCode: 'CG.c', skillNodeId: 'SOC.CIV.002' }
     ]
   },
   {
@@ -1244,9 +1257,9 @@ Cold War & Civil Rights (1945–1990):
 - Civil Rights Movement: Montgomery Bus Boycott (1955), March on Washington (1963), Civil Rights Act (1964)
 - Moon landing (1969); Cold War ends with USSR collapse (1991)`,
     practiceQuestions: [
-      { question: 'According to the Declaration of Independence, where does government authority come from?', answer: 'From the "consent of the governed" — the people grant government its power, and government exists to protect the natural rights of the people.' },
-      { question: 'What was the purpose of the Emancipation Proclamation?', answer: 'Issued by President Lincoln in 1863, it declared enslaved people in Confederate states to be free. It transformed the Civil War from a fight to preserve the Union into a fight to end slavery, and helped prevent European powers from supporting the Confederacy.' },
-      { question: 'What role did Federalist No. 51 play in American government?', answer: 'Madison argued that the structure of government itself — with separate branches having the power to check one another — would prevent tyranny. "Ambition must be made to counteract ambition."' }
+      { id: 'TB.SS.3.1', question: 'According to the Declaration of Independence, where does government authority come from?', type: 'short_answer', answer: 'From the "consent of the governed" — the people grant government its power, and government exists to protect the natural rights of the people.', explanation: 'From the "consent of the governed" — the people grant government its power, and government exists to protect the natural rights of the people.', difficulty: 'foundational', gedCode: 'USH.a', skillNodeId: 'SOC.USHIST.001' },
+      { id: 'TB.SS.3.2', question: 'What was the purpose of the Emancipation Proclamation?', type: 'short_answer', answer: 'Issued by President Lincoln in 1863, it declared enslaved people in Confederate states to be free. It transformed the Civil War from a fight to preserve the Union into a fight to end slavery, and helped prevent European powers from supporting the Confederacy.', explanation: 'Issued by President Lincoln in 1863, it declared enslaved people in Confederate states to be free. It transformed the Civil War from a fight to preserve the Union into a fight to end slavery, and helped prevent European powers from supporting the Confederacy.', difficulty: 'foundational', gedCode: 'USH.a', skillNodeId: 'SOC.USHIST.001' },
+      { id: 'TB.SS.3.3', question: 'What role did Federalist No. 51 play in American government?', type: 'short_answer', answer: 'Madison argued that the structure of government itself — with separate branches having the power to check one another — would prevent tyranny. "Ambition must be made to counteract ambition."', explanation: 'Madison argued that the structure of government itself — with separate branches having the power to check one another — would prevent tyranny. "Ambition must be made to counteract ambition."', difficulty: 'foundational', gedCode: 'USH.a', skillNodeId: 'SOC.USHIST.001' }
     ]
   },
   {
@@ -1303,10 +1316,10 @@ Compound interest: interest earned on both principal and accumulated interest (I
 Credit score: measure of creditworthiness; affects loan rates
 Insurance: protects against financial loss`,
     practiceQuestions: [
-      { question: 'If demand for electric cars increases but supply stays the same, what happens to price?', answer: 'Price increases — higher demand with constant supply pushes the equilibrium price upward.' },
-      { question: 'What is the difference between fiscal and monetary policy?', answer: 'Fiscal policy uses government taxing and spending (controlled by Congress and the President). Monetary policy uses interest rates and money supply (controlled by the Federal Reserve).' },
-      { question: 'What does GDP measure and why does it matter?', answer: 'GDP measures the total value of all goods and services produced in a country in a year. It is a key indicator of economic health — growing GDP suggests a healthy economy; shrinking GDP may indicate recession.' },
-      { question: 'How does the government use expansionary fiscal policy to fight a recession?', answer: 'By cutting taxes (leaving more money for people to spend) and increasing government spending (on infrastructure, programs, etc.), the government injects money into the economy to stimulate demand and employment.' }
+      { id: 'TB.SS.4.1', question: 'If demand for electric cars increases but supply stays the same, what happens to price?', type: 'short_answer', answer: 'Price increases — higher demand with constant supply pushes the equilibrium price upward.', explanation: 'Price increases — higher demand with constant supply pushes the equilibrium price upward.', difficulty: 'foundational', gedCode: 'E.a', skillNodeId: 'SOC.ECON.003' },
+      { id: 'TB.SS.4.2', question: 'What is the difference between fiscal and monetary policy?', type: 'short_answer', answer: 'Fiscal policy uses government taxing and spending (controlled by Congress and the President). Monetary policy uses interest rates and money supply (controlled by the Federal Reserve).', explanation: 'Fiscal policy uses government taxing and spending (controlled by Congress and the President). Monetary policy uses interest rates and money supply (controlled by the Federal Reserve).', difficulty: 'foundational', gedCode: 'E.a', skillNodeId: 'SOC.ECON.003' },
+      { id: 'TB.SS.4.3', question: 'What does GDP measure and why does it matter?', type: 'short_answer', answer: 'GDP measures the total value of all goods and services produced in a country in a year. It is a key indicator of economic health — growing GDP suggests a healthy economy; shrinking GDP may indicate recession.', explanation: 'GDP measures the total value of all goods and services produced in a country in a year. It is a key indicator of economic health — growing GDP suggests a healthy economy; shrinking GDP may indicate recession.', difficulty: 'foundational', gedCode: 'E.a', skillNodeId: 'SOC.ECON.003' },
+      { id: 'TB.SS.4.4', question: 'How does the government use expansionary fiscal policy to fight a recession?', type: 'short_answer', answer: 'By cutting taxes (leaving more money for people to spend) and increasing government spending (on infrastructure, programs, etc.), the government injects money into the economy to stimulate demand and employment.', explanation: 'By cutting taxes (leaving more money for people to spend) and increasing government spending (on infrastructure, programs, etc.), the government injects money into the economy to stimulate demand and employment.', difficulty: 'foundational', gedCode: 'E.a', skillNodeId: 'SOC.ECON.003' }
     ]
   },
   {
@@ -1363,9 +1376,9 @@ Trade: countries export goods they can produce efficiently; import goods that ot
 
 International organizations: United Nations (international peace/cooperation), World Trade Organization (trade rules), World Bank (development lending), IMF (financial stability)`,
     practiceQuestions: [
-      { question: 'What is the difference between latitude and longitude?', answer: 'Latitude lines are horizontal and measure distance north or south of the equator (0°). Longitude lines are vertical and measure distance east or west of the Prime Meridian (0°).' },
-      { question: 'What were the push and pull factors behind the Great Migration?', answer: 'Push: Jim Crow laws, racial violence, lynching, limited economic opportunity in the South. Pull: industrial jobs, higher wages, less overt racial segregation, better schools in Northern cities.' },
-      { question: 'How does comparative advantage explain international trade?', answer: 'Even if one country can produce everything more efficiently, trade benefits both countries when each specializes in what it produces most efficiently relative to the other. This maximizes total output and allows both to consume more.' }
+      { id: 'TB.SS.5.1', question: 'What is the difference between latitude and longitude?', type: 'short_answer', answer: 'Latitude lines are horizontal and measure distance north or south of the equator (0°). Longitude lines are vertical and measure distance east or west of the Prime Meridian (0°).', explanation: 'Latitude lines are horizontal and measure distance north or south of the equator (0°). Longitude lines are vertical and measure distance east or west of the Prime Meridian (0°).', difficulty: 'foundational', gedCode: 'GW.a', skillNodeId: 'SOC.GEO.004' },
+      { id: 'TB.SS.5.2', question: 'What were the push and pull factors behind the Great Migration?', type: 'short_answer', answer: 'Push: Jim Crow laws, racial violence, lynching, limited economic opportunity in the South. Pull: industrial jobs, higher wages, less overt racial segregation, better schools in Northern cities.', explanation: 'Push: Jim Crow laws, racial violence, lynching, limited economic opportunity in the South. Pull: industrial jobs, higher wages, less overt racial segregation, better schools in Northern cities.', difficulty: 'foundational', gedCode: 'GW.a', skillNodeId: 'SOC.GEO.004' },
+      { id: 'TB.SS.5.3', question: 'How does comparative advantage explain international trade?', type: 'short_answer', answer: 'Even if one country can produce everything more efficiently, trade benefits both countries when each specializes in what it produces most efficiently relative to the other. This maximizes total output and allows both to consume more.', explanation: 'Even if one country can produce everything more efficiently, trade benefits both countries when each specializes in what it produces most efficiently relative to the other. This maximizes total output and allows both to consume more.', difficulty: 'foundational', gedCode: 'GW.a', skillNodeId: 'SOC.GEO.004' }
     ]
   }
 ];
