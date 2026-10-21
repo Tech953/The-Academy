@@ -214,6 +214,11 @@ export class HomeworkEngine {
     }
   }
 
+  /** Phase 4 (CourseWeaver): read a skill's struggle count as data. */
+  getStruggleCount(skillNode: string): number {
+    return this.struggleHistory.get(skillNode) || 0;
+  }
+
   recordStruggle(skillNode: string): void {
     const current = this.struggleHistory.get(skillNode) || 0;
     this.struggleHistory.set(skillNode, current + 1);

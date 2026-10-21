@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, CheckCircle, Zap, Globe } from 'lucide-react';
 import { useGameState } from '@/contexts/GameStateContext';
 import {
@@ -17,6 +17,11 @@ import { generateAllLanguageTextbooks, LANG_META } from '@/lib/languageCourseGen
 import type { GEDTextbook, GEDLesson, GEDPracticeQuestion, CognitiveState } from '@shared/schema';
 import { gradeResponse, displayAnswer, gradeExtendedResponse } from '@/lib/itemGrading';
 import Ti30xsCalculator from './Ti30xsCalculator';
+import {
+  analyzeProgress, weaveAssignments, gradeWovenAssignment, classifyAssignments,
+  type WovenAssignment,
+} from '@/lib/courseWeaver';
+import { HomeworkEngine } from '@/lib/academy-engine/phase1/homeworkEngine';
 
 const LANG_COURSES = generateAllLanguageTextbooks();
 const LANG_BOOKS = Object.values(LANG_COURSES);
@@ -1264,9 +1269,258 @@ function ConstellationView({
   );
 }
 
+
+// ─── COURSEWORK (Phase 4: CourseWeaver) ─────────────────────────────────────
+// Differential coursework woven per student from their progress record.
+// Lists are derived from woven data (pending / missed / completed);
+// submission grades through the item engine and records into curriculum
+// progress, which changes what the weaver targets next.
+
+function WovenItemInput({ q, value, onChange }: {
+  q: GEDPracticeQuestion;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const picks = q.type === 'drag_drop' && value ? value.split(' | ') : [];
+  return (
+    <div>
+      {q.stimulus?.map((s, i) => (
+        <div key={i} style={{ background: '#0a0f0a', border: `1px solid ${DIM}`, padding: '8px 10px', marginBottom: 8 }}>
+          <div style={{ fontSize: 9, color: C, letterSpacing: 1, marginBottom: 4 }}>{s.label.toUpperCase()}</div>
+          <div style={{ fontSize: 11, color: `${G}cc`, lineHeight: 1.6 }}>{s.text}</div>
+        </div>
+      ))}
+      <div style={{ fontSize: 12, color: G, lineHeight: 1.6, marginBottom: 8 }}>{q.question}</div>
+      {q.type === 'mcq' && q.choices && (['A', 'B', 'C', 'D'] as const).map(letter => (
+        <button key={letter} onClick={() => onChange(letter)} style={{
+          display: 'block', width: '100%', textAlign: 'left', marginBottom: 4, padding: '7px 10px', cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: 11, background: value === letter ? `${G}22` : 'transparent',
+          border: `1px solid ${value === letter ? G : DIM}`, color: value === letter ? G : `${G}aa`,
+        }}>
+          <b>{letter}.</b> {q.choices![letter]}
+        </button>
+      ))}
+      {(q.type === 'fill_in' || q.type === 'short_answer') && (
+        <input value={value} onChange={e => onChange(e.target.value)} placeholder="Type your answer…"
+          style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', background: '#0a0f0a', border: `1px solid ${DIM}`, color: G, fontFamily: 'inherit', fontSize: 12 }} />
+      )}
+      {q.type === 'drop_down' && (
+        <select value={value} onChange={e => onChange(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', background: '#0a0f0a', border: `1px solid ${DIM}`, color: G, fontFamily: 'inherit', fontSize: 12 }}>
+          <option value="">— choose —</option>
+          {(q.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      )}
+      {q.type === 'drag_drop' && (
+        <div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+            {(q.dragItems ?? []).filter(t => !picks.includes(t)).map(t => (
+              <button key={t} onClick={() => onChange([...picks, t].join(' | '))} style={{
+                padding: '5px 8px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10,
+                background: 'transparent', border: `1px solid ${DIM}`, color: `${G}aa`,
+              }}>{t}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: `${G}70`, marginBottom: 4 }}>Your order (tap a placed item to remove it):</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {picks.map((t, i) => (
+              <button key={t} onClick={() => onChange(picks.filter(p => p !== t).join(' | '))} style={{
+                textAlign: 'left', padding: '5px 8px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10,
+                background: `${G}14`, border: `1px solid ${G}55`, color: G,
+              }}>{i + 1}. {t}</button>
+            ))}
+            {picks.length === 0 && <div style={{ fontSize: 10, color: `${G}40` }}>Tap items above to place them in order.</div>}
+          </div>
+        </div>
+      )}
+      {q.type === 'hot_spot' && q.hotSpot && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {q.hotSpot.zones.map(z => (
+            <button key={z.id} onClick={() => onChange(z.id)} style={{
+              textAlign: 'left', padding: '7px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11,
+              background: value === z.id ? `${G}22` : 'transparent',
+              border: `1px solid ${value === z.id ? G : DIM}`, color: value === z.id ? G : `${G}aa`,
+            }}>{z.label}</button>
+          ))}
+        </div>
+      )}
+      {q.type === 'extended_response' && (
+        <div>
+          <textarea value={value} onChange={e => onChange(e.target.value)} rows={9} placeholder="Write your essay here…"
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', background: '#0a0f0a', border: `1px solid ${DIM}`, color: G, fontFamily: 'inherit', fontSize: 12, lineHeight: 1.6 }} />
+          <div style={{ fontSize: 9, color: `${G}50`, marginTop: 4 }}>{value.trim() ? value.trim().split(/\s+/).length : 0} words</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CourseworkPanel({ progress, onRecordGrade }: {
+  progress: ReturnType<typeof useGameState>['curriculumProgress'];
+  onRecordGrade: (lessonCode: string, scorePercent: number, subject: string) => void;
+}) {
+  const gs = useGameState() as unknown as { character?: { name?: string } };
+  const studentId = gs.character?.name ?? 'student';
+  const engine = useMemo(() => new HomeworkEngine(studentId), [studentId]);
+  const storageKey = `courseweaver.v1.${studentId}`;
+  const [assignments, setAssignments] = useState<WovenAssignment[]>(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) ?? '[]') as WovenAssignment[]; }
+    catch { return []; }
+  });
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{ score: number; perItem: Array<{ itemId: string; earned: number }> } | null>(null);
+  const weaveSig = useRef('');
+
+  // Persist woven state.
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, JSON.stringify(assignments)); } catch { /* storage unavailable */ }
+  }, [assignments, storageKey]);
+
+  // Top up active coursework whenever progress changes (a grade landed).
+  useEffect(() => {
+    const sig = JSON.stringify(Object.entries(progress.lessonProgress).map(([k, v]) => [k, v.quizScore ?? 0, v.attempts]));
+    if (weaveSig.current === sig) return;
+    weaveSig.current = sig;
+    const { pending, overdue } = classifyAssignments(assignments, new Date());
+    const activeCount = pending.length + overdue.length;
+    if (activeCount >= 3) return;
+    const standings = analyzeProgress(progress);
+    const struggle = new Map(standings.map(s => [s.skillNodeId, engine.getStruggleCount(s.skillNodeId)]));
+    const fresh = weaveAssignments({
+      studentId, progress, existing: assignments, now: new Date(),
+      count: 3 - activeCount, struggle,
+    });
+    if (fresh.length) setAssignments(prev => [...prev, ...fresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress]);
+
+  const classified = useMemo(() => classifyAssignments(assignments, new Date()), [assignments]);
+  const active = assignments.find(a => a.id === activeId) ?? null;
+
+  const weaveMore = () => {
+    const standings = analyzeProgress(progress);
+    const struggle = new Map(standings.map(s => [s.skillNodeId, engine.getStruggleCount(s.skillNodeId)]));
+    const fresh = weaveAssignments({ studentId, progress, existing: assignments, now: new Date(), count: 2, struggle });
+    if (fresh.length) setAssignments(prev => [...prev, ...fresh]);
+  };
+
+  const submit = () => {
+    if (!active) return;
+    const graded = gradeWovenAssignment(active, responses, new Date());
+    setAssignments(prev => prev.map(a => (a.id === active.id ? graded.assignment : a)));
+    onRecordGrade(graded.assignment.lessonCode, graded.scorePercent, graded.assignment.subject);
+    if (graded.scorePercent >= PASSING_QUIZ_SCORE) engine.recordSuccess(active.skillNodeId);
+    else engine.recordStruggle(active.skillNodeId);
+    setResult({ score: graded.scorePercent, perItem: graded.perItem });
+  };
+
+  const dueLabel = (a: WovenAssignment) => {
+    const d = new Date(a.dueAt);
+    return `due ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+  };
+
+  const row = (a: WovenAssignment, color: string, action?: ReactNode) => (
+    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: '#0c0c0c', border: `1px solid ${DIM}`, marginBottom: 6 }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 11, color: G }}>{a.title}</div>
+        <div style={{ fontSize: 9, color: `${G}60`, marginTop: 2 }}>
+          {a.subject} · {a.items.length} questions · {a.maxPoints} pts · {a.status === 'completed' ? `grade ${a.grade}%` : dueLabel(a)}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+
+  if (active && !result) {
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+        <button onClick={() => setActiveId(null)} style={{ background: 'none', border: 'none', color: `${G}70`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, marginBottom: 8 }}>← BACK TO COURSEWORK</button>
+        <div style={{ fontSize: 12, fontWeight: 'bold', color: G, marginBottom: 2 }}>{active.title}</div>
+        <div style={{ fontSize: 9, color: `${G}60`, marginBottom: 12 }}>{active.subject} · woven for {studentId} · {dueLabel(active)}</div>
+        {active.items.map((q, i) => (
+          <div key={q.id} style={{ marginBottom: 16, padding: '10px 12px', background: '#0c0c0c', border: `1px solid ${DIM}` }}>
+            <div style={{ fontSize: 9, color: C, letterSpacing: 1, marginBottom: 6 }}>QUESTION {i + 1} OF {active.items.length} · {q.type.replace('_', ' ').toUpperCase()}</div>
+            <WovenItemInput q={q} value={responses[q.id] ?? ''} onChange={v => setResponses(prev => ({ ...prev, [q.id]: v }))} />
+          </div>
+        ))}
+        <button onClick={submit} style={{ width: '100%', padding: '10px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, background: `${G}18`, border: `1px solid ${G}`, color: G }}>
+          SUBMIT FOR GRADING
+        </button>
+      </div>
+    );
+  }
+
+  if (active && result) {
+    const byId = new Map(active.items.map(q => [q.id, q]));
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+        <div style={{ textAlign: 'center', padding: '14px 0' }}>
+          <div style={{ fontSize: 22, fontWeight: 'bold', color: result.score >= PASSING_QUIZ_SCORE ? G : R }}>{result.score}%</div>
+          <div style={{ fontSize: 10, color: `${G}70`, marginTop: 4 }}>
+            {result.score >= PASSING_QUIZ_SCORE ? 'PASSED — recorded to your progress. The weaver will target what is next.' : 'Recorded. This target stays in your coursework until it improves.'}
+          </div>
+        </div>
+        {result.perItem.map((p, i) => {
+          const q = byId.get(p.itemId)!;
+          const ok = p.earned >= 1;
+          return (
+            <div key={p.itemId} style={{ padding: '8px 12px', background: '#0c0c0c', border: `1px solid ${DIM}`, marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: ok ? G : R }}>{ok ? '✓' : '✗'} Question {i + 1}{p.earned > 0 && p.earned < 1 ? ` — partial credit (${Math.round(p.earned * 100)}%)` : ''}</div>
+              <div style={{ fontSize: 10, color: `${G}80`, marginTop: 3 }}>Answer: {displayAnswer(q)}</div>
+              <div style={{ fontSize: 10, color: `${G}60`, marginTop: 2, lineHeight: 1.5 }}>{q.explanation}</div>
+              {q.type === 'extended_response' && (
+                <div style={{ fontSize: 10, color: C, marginTop: 3 }}>
+                  {(() => { const er = gradeExtendedResponse(q, responses[q.id] ?? ''); return `Simulated rubric: ${er.total}/7 — Arguments ${er.traits.argument.score}/3 · Development ${er.traits.development.score}/2 · Clarity ${er.traits.clarity.score}/2`; })()}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <button onClick={() => { setActiveId(null); setResult(null); setResponses({}); }} style={{ width: '100%', padding: '10px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, background: `${G}18`, border: `1px solid ${G}`, color: G, marginTop: 8 }}>
+          BACK TO COURSEWORK
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+      <div style={{ fontSize: 10, color: `${G}70`, lineHeight: 1.7, marginBottom: 12 }}>
+        Coursework woven for <span style={{ color: G }}>{studentId}</span> from your quiz history — weak targets first,
+        questions generated per student, grades recorded to your real progress.
+      </div>
+      {classified.overdue.length > 0 && (
+        <>
+          <div style={{ fontSize: 9, color: R, letterSpacing: 1, marginBottom: 6 }}>MISSED</div>
+          {classified.overdue.map(a => row(a, R, (
+            <button onClick={() => { setActiveId(a.id); setResponses({}); setResult(null); }} style={{ padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 9, fontWeight: 'bold', background: 'transparent', border: `1px solid ${R}`, color: R }}>START</button>
+          )))}
+        </>
+      )}
+      <div style={{ fontSize: 9, color: `${G}50`, letterSpacing: 1, margin: '10px 0 6px' }}>PENDING</div>
+      {classified.pending.length === 0 && classified.overdue.length === 0 && (
+        <div style={{ fontSize: 10, color: `${G}50`, marginBottom: 8 }}>No pending coursework — the weaver is caught up with your targets.</div>
+      )}
+      {classified.pending.map(a => row(a, G, (
+        <button onClick={() => { setActiveId(a.id); setResponses({}); setResult(null); }} style={{ padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 9, fontWeight: 'bold', background: `${G}18`, border: `1px solid ${G}`, color: G }}>START</button>
+      )))}
+      {classified.completed.length > 0 && (
+        <>
+          <div style={{ fontSize: 9, color: `${G}50`, letterSpacing: 1, margin: '12px 0 6px' }}>COMPLETED</div>
+          {classified.completed.map(a => row(a, G))}
+        </>
+      )}
+      <button onClick={weaveMore} style={{ marginTop: 10, padding: '7px 14px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 9, letterSpacing: 1, background: 'transparent', border: `1px solid ${DIM}`, color: `${G}80` }}>
+        ▣ WEAVE MORE COURSEWORK
+      </button>
+    </div>
+  );
+}
+
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
 
-type PortalTab = 'ged' | 'lang' | 'constellation';
+type PortalTab = 'ged' | 'lang' | 'constellation' | 'coursework';
 
 export default function AssignmentsPortal() {
   const { curriculumProgress, recordLessonQuiz } = useGameState();
@@ -1373,11 +1627,13 @@ export default function AssignmentsPortal() {
     const totalComplete = Object.values(curriculumProgress.lessonProgress).filter(l => l.completed).length;
     const isLang = tab === 'lang';
     const isConstellation = tab === 'constellation';
+    const isCoursework = tab === 'coursework';
 
     const tabDefs: Array<{ id: PortalTab; label: string }> = [
       { id: 'ged', label: '◈ GED PREP' },
       { id: 'lang', label: '◉ LANGUAGES' },
       { id: 'constellation', label: '✦ CONSTELLATION' },
+      { id: 'coursework', label: '▣ COURSEWORK' },
     ];
 
     return (
@@ -1411,6 +1667,10 @@ export default function AssignmentsPortal() {
         {isConstellation ? (
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <ConstellationView onOpenLesson={openLessonFromConstellation} />
+          </div>
+        ) : isCoursework ? (
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <CourseworkPanel progress={curriculumProgress} onRecordGrade={recordLessonQuiz} />
           </div>
         ) : (
           <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
