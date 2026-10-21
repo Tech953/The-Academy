@@ -609,7 +609,9 @@ export interface GEDChapter {
   topics: string[];
   content: string;         // chapter overview / intro
   lessons?: GEDLesson[];
-  practiceQuestions?: Array<{ question: string; answer: string }>;
+  // Unified content store (Phase 1): chapter practice uses the same
+  // target-tagged GEDPracticeQuestion shape as lesson quizzes.
+  practiceQuestions?: GEDPracticeQuestion[];
 }
 
 export interface GEDTextbook {

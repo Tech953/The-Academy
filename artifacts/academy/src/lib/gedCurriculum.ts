@@ -14,8 +14,10 @@ import type {
   SubjectProgress,
   GEDTextbook,
   GEDLesson,
+  GEDPracticeQuestion,
 } from '@shared/schema';
 import { KAPLAN_GED_CURRICULUM, RLA_TEXTBOOK, SS_TEXTBOOK, SCIENCE_TEXTBOOK } from './gedCurriculumData';
+import { GED_TEXTBOOKS } from './gedContent';
 import { percentToScaledScore, scaledScoreBand } from './gedScale';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,7 +84,60 @@ export const GED_CODE_TO_SKILL: Record<string, string> = {
   'SCI.3.3':  'SCI.EARTH.005',
   'SCI.4.1':  'SCI.PHYS.004',
   'SCI.4.5':  'SCI.PHYS.004',
+  // Textbook chapter targets — the [Assessment Targets] codes carried by
+  // gedContent.ts chapters, normalized into this same keyspace (Phase 1).
+  // Q.x / A.x are the official Math quantitative / algebraic targets; the
+  // MATH.x.x lesson codes above are the separate Kaplan lesson keyspace.
+  'Q.1':   'MATH.ARITH.001',  // number sense & rational numbers
+  'Q.3':   'MATH.RATIO.003',  // ratios, proportions & percents
+  'Q.4':   'MATH.GEOM.008',   // geometry & measurement
+  'Q.7':   'MATH.STAT.011',   // data analysis, statistics & probability
+  'A.1':   'MATH.ALGE.005',   // algebraic expressions & equations
+  'A.3':   'MATH.LINEQ.006',  // functions, graphs & patterns
+  'R.2.1': 'LANG.MAIN.002',   // reading: central ideas & details
+  'R.4':   'LANG.VOCAB.004',  // reading: vocabulary, structure & purpose
+  'R.8':   'LANG.ARG.009',    // reading: analyzing arguments & evidence
+  'ER':    'LANG.ESSAY.008',  // extended response: argument writing
+  'L.1':   'LANG.GRAM.005',   // language conventions & grammar
+  'L.a':   'SCI.LIFE.003',    // life science: human body & health
+  'L.b':   'SCI.LIFE.003',    // life science: heredity, evolution & ecosystems
+  'P.a':   'SCI.PHYS.004',    // physical science: energy, work & forces
+  'P.c':   'SCI.PHYS.004',    // physical science: matter & chemical reactions
+  'ES.a':  'SCI.EARTH.005',   // earth & space science
+  'SP.1':  'SCI.SCI.001',     // science practices
+  'CG.a':  'SOC.CIV.002',     // civics: constitutional principles
+  'CG.c':  'SOC.CIV.002',     // civics: rights & civil liberties
+  'USH.a': 'SOC.USHIST.001',  // U.S. history
+  'E.a':   'SOC.ECON.003',    // economics
+  'GW.a':  'SOC.GEO.004',     // geography & the world
 };
+
+/**
+ * Normalize a textbook chapter's raw assessment-target text (the
+ * `[Assessment Targets: ...]` line inside chapter content in
+ * gedContent.ts) to the chapter's dominant — first-listed — target
+ * code, in the GED_CODE_TO_SKILL keyspace.
+ *
+ * Examples: "Q.1, Q.2 — Quantitative Problem Solving" → 'Q.1';
+ * "R.2.1–R.2.8 — Reading" → 'R.2.1'; "L.b–L.f — ..." → 'L.b';
+ * the Extended Response chapter, whose header names the task instead
+ * of a code, normalizes to 'ER'. Returns null when no target code is
+ * present.
+ */
+const TEXTBOOK_TARGET_RE = /\b(?:ES|SP|CG|USH|GW|Q|A|R|L|P|E)\.(?:\d+(?:\.\d+)?|[a-z])\b/;
+
+export function normalizeTextbookTarget(raw: string): string | null {
+  if (!raw) return null;
+  if (/extended response/i.test(raw)) return 'ER';
+  const match = raw.match(TEXTBOOK_TARGET_RE);
+  return match ? match[0] : null;
+}
+
+/** Resolve any target/lesson code in the unified keyspace to a skill node. */
+export function skillNodeForTarget(code: string | null | undefined): string | undefined {
+  if (!code) return undefined;
+  return GED_CODE_TO_SKILL[code];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROGRESS HELPERS
@@ -288,6 +343,41 @@ export function masteryColor(score: number): string {
   if (score >= 60) return '#ffaa00';
   if (score > 0)   return '#ff6644';
   return '#555';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UNIFIED CONTENT STORE — QUIZ QUESTION SELECTOR (Phase 1)
+// One door to quiz questions, whichever silo authored them: lesson refs
+// serve a Kaplan lesson's questions; chapter refs serve a textbook
+// chapter's promoted target-tagged questions. Everything comes back in
+// the single GEDPracticeQuestion shape.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type QuizQuestionRef =
+  | { kind: 'lesson'; lessonCode: string }
+  | { kind: 'chapter'; subject: GEDSubjectKey; chapterNumber: number };
+
+export function getQuizQuestions(ref: QuizQuestionRef, count?: number): GEDPracticeQuestion[] {
+  let questions: GEDPracticeQuestion[] = [];
+
+  if (ref.kind === 'lesson') {
+    for (const book of KAPLAN_GED_CURRICULUM) {
+      for (const chapter of book.chapters) {
+        const lesson = (chapter.lessons ?? []).find(l => l.gedCode === ref.lessonCode);
+        if (lesson) {
+          questions = lesson.practiceQuestions;
+          break;
+        }
+      }
+      if (questions.length > 0) break;
+    }
+  } else {
+    const book = GED_TEXTBOOKS.find(t => t.subject === ref.subject);
+    const chapter = book?.chapters.find(c => c.number === ref.chapterNumber);
+    questions = chapter?.practiceQuestions ?? [];
+  }
+
+  return count !== undefined ? questions.slice(0, count) : questions;
 }
 
 /** Subject display metadata */
