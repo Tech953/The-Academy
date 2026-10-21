@@ -639,6 +639,11 @@ DISTRIBUTIVE PROPERTY: a(b + c) = ab + ac
         'Simplify: -2(3x - 4) + 5x',
         '-x + 8', '-x - 8', 'x + 8', '11x - 8',
         'A', 'Distribute: -6x + 8 + 5x = -x + 8.', 'MATH.ALGE.005'),
+      { id: "FG.linear-eq.1vx7yyz", question: "Solve for x: 5x + 12 = 72.", type: "fill_in", answer: "12", answerAliases: ["12", "x = 12"], explanation: "5x + 12 = 72 → 5x = 60 → x = 12.", difficulty: "foundational", gedCode: "MATH.5.1", skillNodeId: "MATH.ALGE.005", provenance: { source: "itemforge", seed: 4107033035, template: "linear-eq" } },
+      { id: "FG.linear-eq.1vx7yz0", question: "Solve for x: 3x − 9 = 6.", type: "mcq", choices: { A: "-5", B: "6", C: "4", D: "5" }, answer: "D", explanation: "3x − 9 = 6 → 3x = 15 → x = 5.", difficulty: "standard", gedCode: "MATH.5.1", skillNodeId: "MATH.ALGE.005", provenance: { source: "itemforge", seed: 4107033036, template: "linear-eq" } },
+      { id: "FG.linear-eq.1vx7yz1", question: "Solve for x: 7x + 14 = 21.", type: "fill_in", answer: "1", answerAliases: ["1", "x = 1"], explanation: "7x + 14 = 21 → 7x = 7 → x = 1.", difficulty: "standard", gedCode: "MATH.5.1", skillNodeId: "MATH.ALGE.005", provenance: { source: "itemforge", seed: 4107033037, template: "linear-eq" } },
+      { id: "FG.eval-expr.9mbfir", question: "Evaluate the expression 2x² + 5 when x = 6.", type: "fill_in", answer: "77", answerAliases: ["77"], explanation: "2(6)² + 5 = 2 × 36 + 5 = 72 + 5 = 77.", difficulty: "foundational", gedCode: "MATH.5.1", skillNodeId: "MATH.ALGE.005", calculatorAllowed: false, provenance: { source: "itemforge", seed: 581680467, template: "eval-expr" } },
+      { id: "FG.eval-expr.9mbfis", question: "Evaluate the expression 5x² + 6 when x = 3.", type: "fill_in", answer: "51", answerAliases: ["51"], explanation: "5(3)² + 6 = 5 × 9 + 6 = 45 + 6 = 51.", difficulty: "standard", gedCode: "MATH.5.1", skillNodeId: "MATH.ALGE.005", calculatorAllowed: false, provenance: { source: "itemforge", seed: 581680468, template: "eval-expr" } },
     ]
   },
   {
@@ -669,6 +674,11 @@ NESTED PARENTHESES: work from innermost outward
         '13', '9', '5', '1',
         'A', 'Parentheses: 6+2=8; Exponent: 8²=64; Division: 64÷4=16; Subtraction: 16-3=13.', 'MATH.ALGE.005'),
       { id: 'MATH.5.4-DD', question: 'Put the steps for evaluating 4 + 3 × (8 − 2) in the correct order.', type: 'drag_drop', dragItems: ['Multiply: 3 × 6 = 18', 'Add: 4 + 18 = 22', 'Subtract inside the parentheses: 8 − 2 = 6'], answer: 'Subtract inside the parentheses: 8 − 2 = 6 | Multiply: 3 × 6 = 18 | Add: 4 + 18 = 22', explanation: 'Order of operations: parentheses first (8 − 2 = 6), then multiplication (3 × 6 = 18), then addition (4 + 18 = 22).', difficulty: 'standard', gedCode: 'MATH.5.4', skillNodeId: 'MATH.ALGE.005', calculatorAllowed: false },
+      { id: "FG.eval-expr.br49lg", question: "Evaluate the expression 4x² + 2 when x = 5.", type: "fill_in", answer: "102", answerAliases: ["102"], explanation: "4(5)² + 2 = 4 × 25 + 2 = 100 + 2 = 102.", difficulty: "foundational", gedCode: "MATH.5.4", skillNodeId: "MATH.ALGE.005", calculatorAllowed: false, provenance: { source: "itemforge", seed: 710676628, template: "eval-expr" } },
+      { id: "FG.eval-expr.br49lh", question: "Evaluate the expression 2x² + 5 when x = 4.", type: "fill_in", answer: "37", answerAliases: ["37"], explanation: "2(4)² + 5 = 2 × 16 + 5 = 32 + 5 = 37.", difficulty: "standard", gedCode: "MATH.5.4", skillNodeId: "MATH.ALGE.005", calculatorAllowed: false, provenance: { source: "itemforge", seed: 710676629, template: "eval-expr" } },
+      { id: "FG.eval-expr.br49li", question: "Evaluate the expression 3x² + 2 when x = 4.", type: "fill_in", answer: "50", answerAliases: ["50"], explanation: "3(4)² + 2 = 3 × 16 + 2 = 48 + 2 = 50.", difficulty: "standard", gedCode: "MATH.5.4", skillNodeId: "MATH.ALGE.005", calculatorAllowed: false, provenance: { source: "itemforge", seed: 710676630, template: "eval-expr" } },
+      { id: "FG.linear-eq.qvwz9g", question: "Solve for x: 9x + 10 = 73.", type: "mcq", choices: { A: "6", B: "-7", C: "7", D: "8" }, answer: "C", explanation: "9x + 10 = 73 → 9x = 63 → x = 7.", difficulty: "foundational", gedCode: "MATH.5.4", skillNodeId: "MATH.ALGE.005", provenance: { source: "itemforge", seed: 1625727364, template: "linear-eq" } },
+      { id: "FG.linear-eq.qvwz9h", question: "Solve for x: 3x − 3 = 27.", type: "fill_in", answer: "10", answerAliases: ["10", "x = 10"], explanation: "3x − 3 = 27 → 3x = 30 → x = 10.", difficulty: "standard", gedCode: "MATH.5.4", skillNodeId: "MATH.ALGE.005", provenance: { source: "itemforge", seed: 1625727365, template: "linear-eq" } },
     ]
   },
 ];
@@ -714,6 +724,11 @@ EXAMPLE: Solve 2(x + 3) = 14
         'x = -5', 'x = 5', 'x = 10', 'x = -10',
         'A', '-2x = 15 - 5 = 10; x = 10 ÷ -2 = -5.', 'MATH.LINEQ.006'),
       { id: 'MATH.6.1-DR', question: 'To solve 3x + 7 = 22, first ___ both sides to isolate the term containing x.', type: 'drop_down', options: ['subtract 7 from', 'add 7 to', 'multiply by 3 on', 'divide by 7 on'], answer: 'subtract 7 from', explanation: 'Undo the addition first: subtract 7 from both sides to get 3x = 15, then divide by 3 to find x = 5.', difficulty: 'standard', gedCode: 'MATH.6.1', skillNodeId: 'MATH.LINEQ.006' },
+      { id: "FG.linear-eq.1pbdrtu", question: "Solve for x: 5x − 2 = 33.", type: "mcq", choices: { A: "6", B: "-7", C: "8", D: "7" }, answer: "D", explanation: "5x − 2 = 33 → 5x = 35 → x = 7.", difficulty: "foundational", gedCode: "MATH.6.1", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 3707555106, template: "linear-eq" } },
+      { id: "FG.linear-eq.1pbdrtv", question: "Solve for x: 5x + 3 = 33.", type: "mcq", choices: { A: "6", B: "-6", C: "5", D: "7" }, answer: "A", explanation: "5x + 3 = 33 → 5x = 30 → x = 6.", difficulty: "standard", gedCode: "MATH.6.1", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 3707555107, template: "linear-eq" } },
+      { id: "FG.linear-eq.1pbdrtw", question: "Solve for x: 5x + 10 = -10.", type: "fill_in", answer: "-4", answerAliases: ["-4", "x = -4"], explanation: "5x + 10 = -10 → 5x = -20 → x = -4.", difficulty: "standard", gedCode: "MATH.6.1", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 3707555108, template: "linear-eq" } },
+      { id: "FG.linear-eq.1pbdrtx", question: "Solve for x: 3x − 6 = -12.", type: "fill_in", answer: "-2", answerAliases: ["-2", "x = -2"], explanation: "3x − 6 = -12 → 3x = -6 → x = -2.", difficulty: "extended", gedCode: "MATH.6.1", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 3707555109, template: "linear-eq" } },
+      { id: "FG.linear-eq.1pbdrty", question: "Solve for x: 9x − 6 = 48.", type: "fill_in", answer: "6", answerAliases: ["6", "x = 6"], explanation: "9x − 6 = 48 → 9x = 54 → x = 6.", difficulty: "foundational", gedCode: "MATH.6.1", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 3707555110, template: "linear-eq" } },
     ]
   },
   {
@@ -754,6 +769,11 @@ STANDARD FORM: Ax + By = C → convert to slope-intercept
         'y = -2x + 3', 'y = 1/2x + 1', 'y = 2x + 8', 'y = -1/2x - 5',
         'C', 'Parallel lines have equal slopes. The original slope is 2; y = 2x + 8 also has slope 2 but a different y-intercept.', 'MATH.LINEQ.006'),
       { id: 'MATH.6.7-HS', question: 'On the coordinate grid, click the point (3, −2).', type: 'hot_spot', hotSpot: { backdrop: 'grid', zones: [{ id: 'pt-a', label: '(−3, 2)', x: 15, y: 24, w: 10, h: 12 }, { id: 'pt-b', label: '(0, 4)', x: 45, y: 4, w: 10, h: 12 }, { id: 'pt-c', label: '(3, −2)', x: 75, y: 64, w: 10, h: 12 }, { id: 'pt-d', label: '(−1, −4)', x: 35, y: 84, w: 10, h: 12 }] }, answer: 'pt-c', explanation: 'The point (3, −2) is 3 units right of the origin and 2 units down, in Quadrant IV.', difficulty: 'standard', gedCode: 'MATH.6.7', skillNodeId: 'MATH.LINEQ.006' },
+      { id: "FG.slope.11aj745", question: "What is the slope of the line through (3, 5) and (7, 17)?", type: "mcq", choices: { A: "4", B: "3", C: "5", D: "-3" }, answer: "B", explanation: "slope = (17 − 5) / (7 − 3) = 12 / 4 = 3.", difficulty: "foundational", gedCode: "MATH.6.7", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 2254940357, template: "slope" } },
+      { id: "FG.slope.11aj746", question: "A line passes through (3, -2) and (6, 1). What is its slope?", type: "fill_in", answer: "1", answerAliases: ["1"], explanation: "slope = rise / run = (1 − -2) / (6 − 3) = 1.", difficulty: "standard", gedCode: "MATH.6.7", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 2254940358, template: "slope" } },
+      { id: "FG.slope.11aj747", question: "A line passes through (-1, 3) and (0, 1). What is its slope?", type: "fill_in", answer: "-2", answerAliases: ["-2"], explanation: "slope = rise / run = (1 − 3) / (0 − -1) = -2.", difficulty: "standard", gedCode: "MATH.6.7", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 2254940359, template: "slope" } },
+      { id: "FG.slope.11aj748", question: "What is the slope of the line through (0, -3) and (3, 6)?", type: "mcq", choices: { A: "3", B: "4", C: "5", D: "-3" }, answer: "A", explanation: "slope = (6 − -3) / (3 − 0) = 9 / 3 = 3.", difficulty: "extended", gedCode: "MATH.6.7", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 2254940360, template: "slope" } },
+      { id: "FG.slope.11aj749", question: "What is the slope of the line through (3, -2) and (4, -1)?", type: "mcq", choices: { A: "2", B: "3", C: "1", D: "-1" }, answer: "C", explanation: "slope = (-1 − -2) / (4 − 3) = 1 / 1 = 1.", difficulty: "foundational", gedCode: "MATH.6.7", skillNodeId: "MATH.LINEQ.006", provenance: { source: "itemforge", seed: 2254940361, template: "slope" } },
     ]
   },
 ];
@@ -1340,6 +1360,311 @@ WEIGHT vs MASS:
   },
 ];
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 3 FILLS — ItemForge-generated + authored lessons for the nine
+// chapters that shipped as empty shells. Forged items carry their
+// seed + template in `provenance` and regenerate exactly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MATH_CH1_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Whole-Number Operations",
+    gedCode: "MATH.1.1",
+    keyTerms: ["place value", "product", "quotient", "factor", "estimate"],
+    content: "WHOLE-NUMBER OPERATIONS\n\nPLACE VALUE: the value of a digit depends on its position\n• In 47,382: the 7 is worth 7,000 (thousands place)\n• Round by looking at the digit to the right: 5 or more rounds up\n\nMULTIPLICATION: repeated addition — break big problems apart\n• 24 × 6 = (20 × 6) + (4 × 6) = 120 + 24 = 144\n\nDIVISION: the inverse of multiplication\n• Check any division with multiplication: quotient × divisor = dividend\n\nESTIMATE FIRST: a rough answer catches most slips\n• 48 × 51 ≈ 50 × 50 = 2,500 — an exact answer near 2,448 makes sense",
+    practiceQuestions: [
+      { id: "FG.arith-ops.12bx04y", question: "A warehouse packs 6 boxes per pallet. How many boxes are on 5 full pallets?", type: "mcq", choices: { A: "11", B: "30", C: "35", D: "24" }, answer: "B", explanation: "6 × 5 = 30 boxes.", difficulty: "foundational", gedCode: "MATH.1.1", skillNodeId: "MATH.ARITH.001", provenance: { source: "itemforge", seed: 2317730290, template: "arith-ops" } },
+      { id: "FG.arith-ops.12bx04z", question: "A warehouse packs 7 boxes per pallet. How many boxes are on 14 full pallets?", type: "mcq", choices: { A: "21", B: "91", C: "112", D: "98" }, answer: "D", explanation: "7 × 14 = 98 boxes.", difficulty: "standard", gedCode: "MATH.1.1", skillNodeId: "MATH.ARITH.001", provenance: { source: "itemforge", seed: 2317730291, template: "arith-ops" } },
+      { id: "FG.arith-ops.12bx050", question: "A warehouse packs 17 boxes per pallet. How many boxes are on 5 full pallets?", type: "mcq", choices: { A: "68", B: "90", C: "22", D: "85" }, answer: "D", explanation: "17 × 5 = 85 boxes.", difficulty: "standard", gedCode: "MATH.1.1", skillNodeId: "MATH.ARITH.001", provenance: { source: "itemforge", seed: 2317730292, template: "arith-ops" } },
+      { provenance: { source: "authored" }, id: "MATH.1.1-A1", question: "In the number 583,204, what is the value of the digit 8?", type: "mcq", choices: { A: "800", B: "8,000", C: "80,000", D: "800,000" }, answer: "C", explanation: "The 8 sits in the ten-thousands place: 8 × 10,000 = 80,000.", difficulty: "foundational", gedCode: "MATH.1.1", skillNodeId: "MATH.ARITH.001" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Integers and the Number Line",
+    gedCode: "MATH.1.2",
+    keyTerms: ["integer", "absolute value", "number line", "negative number", "opposite"],
+    content: "INTEGERS AND THE NUMBER LINE\n\nINTEGERS: …−3, −2, −1, 0, 1, 2, 3… — negatives sit left of zero\n\nORDERING: on a number line, values increase left → right\n• −5 < −2 (owing $5 is less than owing $2)\n• Any positive number beats any negative number\n\nABSOLUTE VALUE: distance from zero — always non-negative\n• |−7| = 7 and |7| = 7\n• Distance between two points = |a − b|\n\nADDING INTEGERS: same signs add and keep the sign; different\nsigns subtract, and the answer takes the sign of the larger one",
+    practiceQuestions: [
+      { id: "FG.order-values.8ygm0x", question: "Arrange the values from least to greatest.", type: "drag_drop", dragItems: ["0.65", "0.1", "1/5", "0.7"], answer: "0.1 | 1/5 | 0.65 | 0.7", explanation: "As decimals: 0.1 = 0.1, 1/5 = 0.2, 0.65 = 0.65, 0.7 = 0.7. Ordered least to greatest: 0.1, 1/5, 0.65, 0.7.", difficulty: "foundational", gedCode: "MATH.1.2", skillNodeId: "MATH.ARITH.001", calculatorAllowed: false, provenance: { source: "itemforge", seed: 541611393, template: "order-values" } },
+      { id: "FG.order-values.8ygm0y", question: "Arrange the values from least to greatest.", type: "drag_drop", dragItems: ["0.7", "1/5", "0.35", "0.65"], answer: "1/5 | 0.35 | 0.65 | 0.7", explanation: "As decimals: 1/5 = 0.2, 0.35 = 0.35, 0.65 = 0.65, 0.7 = 0.7. Ordered least to greatest: 1/5, 0.35, 0.65, 0.7.", difficulty: "standard", gedCode: "MATH.1.2", skillNodeId: "MATH.ARITH.001", calculatorAllowed: false, provenance: { source: "itemforge", seed: 541611394, template: "order-values" } },
+      { id: "FG.arith-ops.13qmkxj", question: "A warehouse packs 11 boxes per pallet. How many boxes are on 8 full pallets?", type: "mcq", choices: { A: "77", B: "88", C: "19", D: "96" }, answer: "B", explanation: "11 × 8 = 88 boxes.", difficulty: "foundational", gedCode: "MATH.1.2", skillNodeId: "MATH.ARITH.001", provenance: { source: "itemforge", seed: 2402904439, template: "arith-ops" } },
+      { provenance: { source: "authored" }, id: "MATH.1.2-A1", question: "What is the absolute value of −13?", type: "fill_in", answer: "13", answerAliases: ["13"], explanation: "Absolute value is distance from zero on the number line: |−13| = 13.", difficulty: "foundational", gedCode: "MATH.1.2", skillNodeId: "MATH.ARITH.001", calculatorAllowed: false },
+    ]
+  },
+];
+
+const MATH_CH2_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Working with Decimals",
+    gedCode: "MATH.2.1",
+    keyTerms: ["decimal", "tenths", "hundredths", "align decimal points", "money"],
+    content: "WORKING WITH DECIMALS\n\nADD / SUBTRACT: line up the decimal points, then work as usual\n• 4.7 + 2.35: write 4.70 + 2.35 = 7.05\n\nMULTIPLY: multiply as whole numbers, then count decimal places\n• 1.2 × 0.3: 12 × 3 = 36, two decimal places total → 0.36\n\nCOMPARE: pad with zeros so lengths match\n• 0.45 vs 0.405 → 0.450 vs 0.405, so 0.45 is larger\n\nMONEY IS DECIMALS: $3.5 is $3.50 — always carry two places for cents",
+    practiceQuestions: [
+      { id: "FG.decimal-ops.ndnz4m", question: "A purchase totals $240.80. The customer pays with $250. How much change should they receive? Answer in dollars (for example, 2.75).", type: "fill_in", answer: "9.20", answerAliases: ["9.20", "$9.20"], explanation: "$250 − $240.80 = $9.20 in change.", difficulty: "foundational", gedCode: "MATH.2.1", skillNodeId: "MATH.FRAC.002", provenance: { source: "itemforge", seed: 1413675670, template: "decimal-ops" } },
+      { id: "FG.decimal-ops.ndnz4n", question: "A purchase totals $5.52. The customer pays with $10. How much change should they receive? Answer in dollars (for example, 2.75).", type: "fill_in", answer: "4.48", answerAliases: ["4.48", "$4.48"], explanation: "$10 − $5.52 = $4.48 in change.", difficulty: "standard", gedCode: "MATH.2.1", skillNodeId: "MATH.FRAC.002", provenance: { source: "itemforge", seed: 1413675671, template: "decimal-ops" } },
+      { id: "FG.decimal-ops.ndnz4o", question: "Notebooks cost $36.19 each. What is the cost of 4 notebooks?", type: "mcq", choices: { A: "$144.76", B: "$143.76", C: "$40.19", D: "$180.95" }, answer: "A", explanation: "$36.19 × 4 = $144.76.", difficulty: "standard", gedCode: "MATH.2.1", skillNodeId: "MATH.FRAC.002", provenance: { source: "itemforge", seed: 1413675672, template: "decimal-ops" } },
+      { provenance: { source: "authored" }, id: "MATH.2.1-A1", question: "Which decimal is the greatest?", type: "mcq", choices: { A: "0.405", B: "0.45", C: "0.415", D: "0.045" }, answer: "B", explanation: "Pad to three places: 0.405, 0.450, 0.415, 0.045. The greatest is 0.450 = 0.45.", difficulty: "foundational", gedCode: "MATH.2.1", skillNodeId: "MATH.FRAC.002" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Fraction Operations",
+    gedCode: "MATH.2.2",
+    keyTerms: ["numerator", "denominator", "common denominator", "simplify", "reciprocal"],
+    content: "FRACTION OPERATIONS\n\nADD / SUBTRACT: rewrite with a common denominator first\n• 1/3 + 1/4 = 4/12 + 3/12 = 7/12\n• Never add denominators: 1/3 + 1/4 is NOT 2/7\n\nMULTIPLY: straight across — numerators × numerators,\ndenominators × denominators, then simplify\n• 2/3 × 3/5 = 6/15 = 2/5\n\nDIVIDE: multiply by the reciprocal (keep–change–flip)\n• 3/4 ÷ 2/5 = 3/4 × 5/2 = 15/8 = 1 7/8\n\nSIMPLIFY: divide top and bottom by their greatest common factor",
+    practiceQuestions: [
+      { id: "FG.fraction-ops.agthy0", question: "What is 1/5 × 1/3? Give your answer as a simplified fraction (for example, 3/4).", type: "fill_in", answer: "1/15", answerAliases: ["1/15"], explanation: "Multiply across: (1 × 1) / (5 × 3) = 1/15 = 1/15.", difficulty: "foundational", gedCode: "MATH.2.2", skillNodeId: "MATH.FRAC.002", calculatorAllowed: false, provenance: { source: "itemforge", seed: 632911896, template: "fraction-ops" } },
+      { id: "FG.fraction-ops.agthy1", question: "What is 1/2 + 5/6?", type: "mcq", choices: { A: "3/4", B: "2/3", C: "1/3", D: "4/3" }, answer: "D", explanation: "Common denominator 12: 1/2 + 5/6 = 16/12 = 4/3.", difficulty: "standard", gedCode: "MATH.2.2", skillNodeId: "MATH.FRAC.002", provenance: { source: "itemforge", seed: 632911897, template: "fraction-ops" } },
+      { id: "FG.fraction-ops.agthy2", question: "What is 1/4 × 1/6? Give your answer as a simplified fraction (for example, 3/4).", type: "fill_in", answer: "1/24", answerAliases: ["1/24"], explanation: "Multiply across: (1 × 1) / (4 × 6) = 1/24 = 1/24.", difficulty: "standard", gedCode: "MATH.2.2", skillNodeId: "MATH.FRAC.002", calculatorAllowed: false, provenance: { source: "itemforge", seed: 632911898, template: "fraction-ops" } },
+      { provenance: { source: "authored" }, id: "MATH.2.2-A1", question: "Which fraction is equivalent to 6/8?", type: "mcq", choices: { A: "3/4", B: "5/7", C: "6/4", D: "12/24" }, answer: "A", explanation: "6/8 simplifies by dividing top and bottom by 2: 3/4. (12/24 = 1/2, not 6/8.)", difficulty: "foundational", gedCode: "MATH.2.2", skillNodeId: "MATH.FRAC.002" },
+    ]
+  },
+];
+
+const MATH_CH4_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Data Displays and Statistics",
+    gedCode: "MATH.4.1",
+    keyTerms: ["mean", "median", "mode", "range", "data display"],
+    content: "DATA DISPLAYS AND STATISTICS\n\nMEAN: the average — add all values, divide by how many\nMEDIAN: the middle value of an ordered set (or the mean of the\ntwo middle values)\nMODE: the value that appears most often\nRANGE: greatest − least\n\nREADING DISPLAYS: bar graphs compare categories; line graphs\nshow change over time; circle graphs show parts of a whole\n• Always read the axis labels and scale before the bars —\n  a stretched scale can make small differences look huge",
+    practiceQuestions: [
+      { id: "FG.mean-median.xvpn0s", question: "Find the mean of the data set: 16, 21, 16, 16, 21.", type: "fill_in", answer: "18", answerAliases: ["18"], explanation: "Sum = 90; mean = 90 ÷ 5 = 18.", difficulty: "foundational", gedCode: "MATH.4.1", skillNodeId: "MATH.STAT.011", provenance: { source: "itemforge", seed: 2048648140, template: "mean-median" } },
+      { id: "FG.mean-median.xvpn0t", question: "Find the median of the data set: 14, 17, 21, 23, 29.", type: "fill_in", answer: "21", answerAliases: ["21"], explanation: "Ordered, the values are 14, 17, 21, 23, 29; the middle (3rd) value is 21.", difficulty: "standard", gedCode: "MATH.4.1", skillNodeId: "MATH.STAT.011", provenance: { source: "itemforge", seed: 2048648141, template: "mean-median" } },
+      { id: "FG.mean-median.xvpn0u", question: "Find the mean of the data set: 14, 15, 16, 16, 9.", type: "fill_in", answer: "14", answerAliases: ["14"], explanation: "Sum = 70; mean = 70 ÷ 5 = 14.", difficulty: "standard", gedCode: "MATH.4.1", skillNodeId: "MATH.STAT.011", provenance: { source: "itemforge", seed: 2048648142, template: "mean-median" } },
+      { provenance: { source: "authored" }, id: "MATH.4.1-A1", question: "A bar graph shows bus riders per day: Mon 40, Tue 55, Wed 50, Thu 65, Fri 90. Which statement is supported by the graph?", type: "mcq", choices: { A: "Friday had more than twice the riders of Monday", B: "Riders decreased steadily all week", C: "Wednesday had the most riders", D: "Thursday had fewer riders than Tuesday" }, answer: "A", explanation: "Friday (90) is more than twice Monday (40). Riders rose overall, Wednesday (50) is not the peak, and Thursday (65) beat Tuesday (55).", difficulty: "standard", gedCode: "MATH.4.1", skillNodeId: "MATH.STAT.011" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Probability Basics",
+    gedCode: "MATH.4.2",
+    keyTerms: ["probability", "outcome", "event", "sample space", "independent events"],
+    content: "PROBABILITY BASICS\n\nPROBABILITY = (favorable outcomes) ÷ (total possible outcomes)\n• Always between 0 (impossible) and 1 (certain)\n• Can be written as a fraction, decimal, or percent\n\nSAMPLE SPACE: the list of everything that can happen\n• Rolling one die: {1, 2, 3, 4, 5, 6} — six equally likely outcomes\n\nINDEPENDENT EVENTS: one result does not change the next\n• Coin flips and dice rolls start fresh every time\n• P(two heads in a row) = 1/2 × 1/2 = 1/4",
+    practiceQuestions: [
+      { id: "FG.probability.1y4qk28", question: "A bag contains 4 red, 5 blue, and 1 green marbles. One marble is drawn at random. What is the probability it is red?", type: "mcq", choices: { A: "2/5", B: "1/10", C: "1/2", D: "2/3" }, answer: "A", explanation: "P(red) = red ÷ total = 4/10 = 2/5.", difficulty: "foundational", gedCode: "MATH.4.2", skillNodeId: "MATH.PROB.012", provenance: { source: "itemforge", seed: 4240589840, template: "probability" } },
+      { id: "FG.probability.1y4qk29", question: "A bag contains 5 red, 2 blue, and 5 green marbles. One marble is drawn at random. What is the probability it is red?", type: "mcq", choices: { A: "5/7", B: "7/12", C: "1/6", D: "5/12" }, answer: "D", explanation: "P(red) = red ÷ total = 5/12 = 5/12.", difficulty: "standard", gedCode: "MATH.4.2", skillNodeId: "MATH.PROB.012", provenance: { source: "itemforge", seed: 4240589841, template: "probability" } },
+      { id: "FG.probability.1y4qk2a", question: "A bag contains 2 red, 4 blue, and 4 green marbles. One marble is drawn at random. What is the probability it is red?", type: "mcq", choices: { A: "4/5", B: "2/5", C: "1/4", D: "1/5" }, answer: "D", explanation: "P(red) = red ÷ total = 2/10 = 1/5.", difficulty: "standard", gedCode: "MATH.4.2", skillNodeId: "MATH.PROB.012", provenance: { source: "itemforge", seed: 4240589842, template: "probability" } },
+      { id: "FG.mean-median.diebqp", question: "Find the median of the data set: 13, 13, 18, 25, 27.", type: "fill_in", answer: "18", answerAliases: ["18"], explanation: "Ordered, the values are 13, 13, 18, 25, 27; the middle (3rd) value is 18.", difficulty: "foundational", gedCode: "MATH.4.2", skillNodeId: "MATH.STAT.011", provenance: { source: "itemforge", seed: 816961777, template: "mean-median" } },
+    ]
+  },
+];
+
+const RLA_CH3_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Plot, Character, and Setting",
+    gedCode: "RLA.3.1",
+    keyTerms: ["plot", "exposition", "conflict", "climax", "characterization", "setting"],
+    content: "PLOT, CHARACTER, AND SETTING\n\nPLOT: the chain of events — exposition (setup), rising action,\nclimax (turning point), falling action, resolution\n\nCHARACTER: writers reveal people two ways\n• Direct: the narrator tells you what a character is like\n• Indirect: you infer it from actions, choices, dialogue, and\n  what the character notices — trust actions over labels\n\nSETTING: place + time + atmosphere. Setting is never just\ndecoration: it pressures characters and shapes their choices\n\nREADING FICTION ON THE TEST: ask of every scene — what does\nthe character WANT, what stands in the way, and what changed?",
+    practiceQuestions: [
+      { id: "FG.fiction-reading.1sajh5r", question: "The violin most likely symbolizes —", type: "mcq", choices: { A: "a debt her aunt wants repaid", B: "a career she is about to begin professionally", C: "her daughter's forgotten childhood toy", D: "a part of herself Marta set aside under pressure, now returning" }, answer: "D", explanation: "She stopped playing after her father dismissed music; the instrument's return, once \"the rent was paid,\" reopens a room of her own past — return, not a new profession.", difficulty: "foundational", gedCode: "RLA.3.1", skillNodeId: "LANG.READ.001", stimulus: [
+        { label: "Passage", text: "The violin arrived in a cardboard box with no return address, its neck wrapped in a blue scarf Aunt Rosa had knitted the winter before she moved away. Marta lifted it out the way you lift a sleeping cat. She had not played since she was fourteen, since the afternoon her father said music was a fine hobby for people who could afford hobbies. Now the rent was paid, her daughter was grown, and the scarf smelled faintly of cedar. She tucked the violin under her chin. The first note came out thin and uncertain, then steadier — a door opening in a house she had once lived in." },
+      ], provenance: { source: "itemforge", seed: 3887540127, template: "fiction-reading" } },
+      { id: "FG.fiction-reading.1sajh5s", question: "Why does Deshawn count the register a third time even though it balanced?", type: "mcq", choices: { A: "He is stalling while he gathers the nerve to change his life", B: "He does not trust the register's arithmetic", C: "He is required to count three times by store policy", D: "He believes the manager is watching him" }, answer: "A", explanation: "The balanced drawer \"on the first count\" rules out arithmetic doubt; the repetition is nervous energy while he contemplates tomorrow's job application.", difficulty: "standard", gedCode: "RLA.3.1", skillNodeId: "LANG.READ.001", stimulus: [
+        { label: "Passage", text: "Deshawn counted the register twice, then a third time, though the drawer had balanced perfectly on the first count. Across the street, the hiring manager at the new grocery store was locking up. Tomorrow Deshawn would wear the thrift-store blazer his grandmother had pressed for him and ask for a job with regular hours — hours that would let him coach his little brother's baseball team. He slid the last receipt into the envelope, wrote the date in his careful hand, and allowed himself, finally, to imagine Saturday mornings that did not begin with an alarm." },
+      ], provenance: { source: "itemforge", seed: 3887540128, template: "fiction-reading" } },
+      { id: "FG.fiction-reading.1sajh5t", question: "Why does Deshawn count the register a third time even though it balanced?", type: "mcq", choices: { A: "He is required to count three times by store policy", B: "He believes the manager is watching him", C: "He does not trust the register's arithmetic", D: "He is stalling while he gathers the nerve to change his life" }, answer: "D", explanation: "The balanced drawer \"on the first count\" rules out arithmetic doubt; the repetition is nervous energy while he contemplates tomorrow's job application.", difficulty: "standard", gedCode: "RLA.3.1", skillNodeId: "LANG.READ.001", stimulus: [
+        { label: "Passage", text: "Deshawn counted the register twice, then a third time, though the drawer had balanced perfectly on the first count. Across the street, the hiring manager at the new grocery store was locking up. Tomorrow Deshawn would wear the thrift-store blazer his grandmother had pressed for him and ask for a job with regular hours — hours that would let him coach his little brother's baseball team. He slid the last receipt into the envelope, wrote the date in his careful hand, and allowed himself, finally, to imagine Saturday mornings that did not begin with an alarm." },
+      ], provenance: { source: "itemforge", seed: 3887540129, template: "fiction-reading" } },
+      { provenance: { source: "authored" }, id: "RLA.3.1-A1", question: "In a story, the turning point at which the conflict reaches its greatest intensity is called the —", type: "mcq", choices: { A: "exposition", B: "climax", C: "resolution", D: "setting" }, answer: "B", explanation: "The climax is the peak of tension where the conflict turns; exposition introduces, resolution ties off, setting is place and time.", difficulty: "foundational", gedCode: "RLA.3.1", skillNodeId: "LANG.READ.001" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Theme and Figurative Language",
+    gedCode: "RLA.3.2",
+    keyTerms: ["theme", "metaphor", "simile", "symbol", "personification", "inference"],
+    content: "THEME AND FIGURATIVE LANGUAGE\n\nTHEME: the idea about life the story builds toward — never a\nsingle word (\"love\") but a claim (\"love survives loss only\nwhen it changes form\"). Build it from what changes by the end\n\nFIGURATIVE LANGUAGE: comparisons that carry meaning\n• Simile: \"like / as\" — Metaphor: says one thing IS another\n• Symbol: an object that also stands for an idea\n• Personification: human traits given to the non-human\n\nON THE TEST: when a question asks what a phrase \"suggests,\"\nanswer with the feeling or idea the image creates — not a\ndictionary definition",
+    practiceQuestions: [
+      { id: "FG.fiction-reading.1j1z7e2", question: "Why does Deshawn count the register a third time even though it balanced?", type: "mcq", choices: { A: "He is required to count three times by store policy", B: "He does not trust the register's arithmetic", C: "He believes the manager is watching him", D: "He is stalling while he gathers the nerve to change his life" }, answer: "D", explanation: "The balanced drawer \"on the first count\" rules out arithmetic doubt; the repetition is nervous energy while he contemplates tomorrow's job application.", difficulty: "foundational", gedCode: "RLA.3.2", skillNodeId: "LANG.MAIN.002", stimulus: [
+        { label: "Passage", text: "Deshawn counted the register twice, then a third time, though the drawer had balanced perfectly on the first count. Across the street, the hiring manager at the new grocery store was locking up. Tomorrow Deshawn would wear the thrift-store blazer his grandmother had pressed for him and ask for a job with regular hours — hours that would let him coach his little brother's baseball team. He slid the last receipt into the envelope, wrote the date in his careful hand, and allowed himself, finally, to imagine Saturday mornings that did not begin with an alarm." },
+      ], provenance: { source: "itemforge", seed: 3328961834, template: "fiction-reading" } },
+      { id: "FG.fiction-reading.1j1z7e3", question: "The violin most likely symbolizes —", type: "mcq", choices: { A: "a career she is about to begin professionally", B: "a part of herself Marta set aside under pressure, now returning", C: "her daughter's forgotten childhood toy", D: "a debt her aunt wants repaid" }, answer: "B", explanation: "She stopped playing after her father dismissed music; the instrument's return, once \"the rent was paid,\" reopens a room of her own past — return, not a new profession.", difficulty: "standard", gedCode: "RLA.3.2", skillNodeId: "LANG.MAIN.002", stimulus: [
+        { label: "Passage", text: "The violin arrived in a cardboard box with no return address, its neck wrapped in a blue scarf Aunt Rosa had knitted the winter before she moved away. Marta lifted it out the way you lift a sleeping cat. She had not played since she was fourteen, since the afternoon her father said music was a fine hobby for people who could afford hobbies. Now the rent was paid, her daughter was grown, and the scarf smelled faintly of cedar. She tucked the violin under her chin. The first note came out thin and uncertain, then steadier — a door opening in a house she had once lived in." },
+      ], provenance: { source: "itemforge", seed: 3328961835, template: "fiction-reading" } },
+      { provenance: { source: "authored" }, id: "RLA.3.2-A1", question: "Click the sentence that best expresses the theme of the passage.", type: "hot_spot", hotSpot: { backdrop: "passage", zones: [
+        { id: "t1", label: "The flood took the orchard, the barn, and nearly the house itself.", x: 3, y: 4, w: 94, h: 20 },
+        { id: "t2", label: "What survives a disaster is not what we owned, but who stood beside us in the mud.", x: 3, y: 28, w: 94, h: 20 },
+        { id: "t3", label: "By spring, the neighbors had rebuilt the fence line together, one post at a time.", x: 3, y: 52, w: 94, h: 20 },
+        { id: "t4", label: "Insurance paperwork, the adjuster said, would take another six to eight weeks.", x: 3, y: 76, w: 94, h: 20 },
+      ] }, answer: "t2", explanation: "A theme is the passage's claim about life — here, that people, not property, are what endure. The other sentences are events or details.", difficulty: "standard", gedCode: "RLA.3.2", skillNodeId: "LANG.MAIN.002" },
+      { provenance: { source: "authored" }, id: "RLA.3.2-A2", question: "A story ends with a character carefully replanting a garden that a storm destroyed, though the season is almost over. In one sentence, state a theme this ending supports.", type: "short_answer", answer: "Hope and perseverance matter even when success is unlikely.", answerKeywords: ["hope|persever|persist|resilien|keep trying|not giving up"], explanation: "The replanting \"though the season is almost over\" points to perseverance and hope against the odds — the theme is the claim, not the event.", difficulty: "standard", gedCode: "RLA.3.2", skillNodeId: "LANG.MAIN.002" },
+    ]
+  },
+];
+
+const RLA_CH5_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Organizing Paragraphs",
+    gedCode: "RLA.5.1",
+    keyTerms: ["topic sentence", "unity", "coherence", "supporting detail", "concluding sentence"],
+    content: "ORGANIZING PARAGRAPHS\n\nA PARAGRAPH = one controlling idea, developed\n• Topic sentence: states the idea (usually first)\n• Supporting sentences: evidence, examples, explanation —\n  every sentence must earn its place under the topic sentence\n• Concluding sentence: closes or hands off to the next idea\n\nUNITY: if a sentence could belong to a different paragraph,\nit breaks unity — move it or cut it\n\nORDER CHOICES: chronological (time), spatial (place),\norder of importance, problem → solution. Pick the order the\nmaterial itself suggests, then keep it",
+    practiceQuestions: [
+      { provenance: { source: "authored" }, id: "RLA.5.1-A1", question: "Arrange the sentences to form a well-organized paragraph.", type: "drag_drop", dragItems: ["Water the soil thoroughly and set the pot where it will get at least six hours of sun.", "Growing tomatoes in a container begins with choosing a pot at least five gallons in size.", "Within a few weeks, yellow flowers will give way to small green fruit.", "Fill the pot with potting mix and plant the seedling so most of its stem is buried."], answer: "Growing tomatoes in a container begins with choosing a pot at least five gallons in size. | Fill the pot with potting mix and plant the seedling so most of its stem is buried. | Water the soil thoroughly and set the pot where it will get at least six hours of sun. | Within a few weeks, yellow flowers will give way to small green fruit.", explanation: "Chronological order: choose the pot → plant the seedling → water and place it → the result (flowers, then fruit).", difficulty: "standard", gedCode: "RLA.5.1", skillNodeId: "LANG.PARA.007" },
+      { id: "FG.transition-choice.1e6vhyt", question: "The bridge had not been inspected in a decade. ___, engineers recommended closing it immediately.", type: "drop_down", options: ["As a result", "In contrast", "Meanwhile", "For example"], answer: "As a result", explanation: "The recommendation follows from the finding — a result, so \"As a result\" fits.", difficulty: "foundational", gedCode: "RLA.5.1", skillNodeId: "LANG.PARA.007", provenance: { source: "itemforge", seed: 3034856117, template: "transition-choice" } },
+      { id: "FG.transition-choice.1e6vhyu", question: "The proposal lowers costs, speeds up service, and reduces errors. ___, the board should adopt it this quarter.", type: "drop_down", options: ["On the other hand", "In conclusion", "For instance", "In addition"], answer: "In conclusion", explanation: "The final sentence sums up and recommends — a conclusion, so \"In conclusion\" fits.", difficulty: "standard", gedCode: "RLA.5.1", skillNodeId: "LANG.PARA.007", provenance: { source: "itemforge", seed: 3034856118, template: "transition-choice" } },
+      { provenance: { source: "authored" }, id: "RLA.5.1-A2", question: "Which sentence does NOT belong in a paragraph about the benefits of public libraries?", type: "mcq", choices: { A: "Libraries lend books, tools, and even instruments at no cost to members.", B: "Many libraries host free classes in computing, languages, and job skills.", C: "The first public library in the colonies was founded in 1731 by Benjamin Franklin.", D: "For residents without internet at home, libraries provide essential access." }, answer: "C", explanation: "The paragraph's controlling idea is present-day benefits. Franklin's library is history, not a benefit — it breaks unity.", difficulty: "standard", gedCode: "RLA.5.1", skillNodeId: "LANG.PARA.007" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Transitions and Coherence",
+    gedCode: "RLA.5.2",
+    keyTerms: ["transition", "coherence", "contrast", "cause and effect", "pronoun reference"],
+    content: "TRANSITIONS AND COHERENCE\n\nTRANSITIONS NAME THE RELATIONSHIP between ideas\n• Addition: furthermore, in addition, also\n• Contrast: however, on the other hand, nevertheless\n• Cause → effect: as a result, consequently, therefore\n• Example: for example, for instance\n• Conclusion: in conclusion, overall\n\nCOHERENCE IS MORE THAN TRANSITIONS\n• Repeat key words instead of swapping synonyms for variety\n• Keep pronouns pointed at one clear antecedent\n• Keep verb tenses and point of view consistent\n\nA transition that names the WRONG relationship is worse than\nnone at all — it promises logic the sentences don't deliver",
+    practiceQuestions: [
+      { id: "FG.transition-choice.rzac7c", question: "The first treatment reduced symptoms for most patients. ___, it caused severe drowsiness in a small group.", type: "drop_down", options: ["For example", "However", "Furthermore", "As a result"], answer: "However", explanation: "The second sentence qualifies the first — a contrast, so \"However\" fits.", difficulty: "foundational", gedCode: "RLA.5.2", skillNodeId: "LANG.SENT.006", provenance: { source: "itemforge", seed: 1691855688, template: "transition-choice" } },
+      { id: "FG.transition-choice.rzac7d", question: "Many species are shifting their ranges as the climate warms. ___, some birds now nest weeks earlier than they did in 1970.", type: "drop_down", options: ["Consequently", "Similarly", "For example", "Nevertheless"], answer: "For example", explanation: "The nesting birds illustrate the general claim — an example, so \"For example\" fits.", difficulty: "standard", gedCode: "RLA.5.2", skillNodeId: "LANG.SENT.006", provenance: { source: "itemforge", seed: 1691855689, template: "transition-choice" } },
+      { id: "FG.vocab-cloze.fbpzta", question: "The new evidence ___ the scientist's original claim, confirming she had been right all along. (Fill in the blank with a verb meaning \"backed up\".)", type: "fill_in", answer: "supported", answerAliases: ["supported"], explanation: "\"Supported\" fits: the evidence backed up the claim.", difficulty: "foundational", gedCode: "RLA.5.2", skillNodeId: "LANG.SENT.006", provenance: { source: "itemforge", seed: 926681230, template: "vocab-cloze" } },
+      { provenance: { source: "authored" }, id: "RLA.5.2-A1", question: "Which revision makes the pronoun reference clear? Original: \"When the nurse spoke to the patient, she nodded slowly.\"", type: "mcq", choices: { A: "When the nurse spoke, the patient nodded slowly.", B: "When she spoke to the patient, she nodded slowly.", C: "When the nurse spoke to the patient, slow nodding happened.", D: "Speaking to the patient, nodding slowly, the nurse did." }, answer: "A", explanation: "The original leaves \"she\" ambiguous — nurse or patient? Option A assigns the nod to the patient explicitly.", difficulty: "standard", gedCode: "RLA.5.2", skillNodeId: "LANG.SENT.006" },
+    ]
+  },
+];
+
+const RLA_CH6_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Unpacking the Extended Response",
+    gedCode: "RLA.6.1",
+    keyTerms: ["extended response", "thesis", "evidence", "counterargument", "rubric"],
+    content: "UNPACKING THE EXTENDED RESPONSE\n\nTHE TASK: read TWO short texts on one topic, then write an\nessay arguing which position is better supported — 45 minutes\n\nYOU ARE NOT ASKED YOUR OPINION of the topic. You are asked to\njudge the ARGUMENTS: whose evidence is stronger, more\nrelevant, and better reasoned\n\nFIRST MOVES\n• Name each author's position in one sentence\n• Underline the two or three strongest evidence points per text\n• Decide your verdict BEFORE drafting: \"Text __ presents the\n  stronger argument because…\"\n\nTHE THREE SCORING TRAITS: (1) creation of arguments and use\nof evidence, (2) development and organization,\n(3) clarity and conventions",
+    practiceQuestions: [
+      { id: "FG.essay-order.nahxjr", question: "Put the steps for writing the Extended Response in the most effective order.", type: "drag_drop", dragItems: ["Revise for organization and edit for grammar and conventions", "Decide which argument is better supported and draft a thesis", "Draft the essay: introduction, body paragraphs, counterargument, conclusion", "Gather evidence from both texts for each body paragraph", "Read both texts and identify each author's position"], answer: "Read both texts and identify each author's position | Decide which argument is better supported and draft a thesis | Gather evidence from both texts for each body paragraph | Draft the essay: introduction, body paragraphs, counterargument, conclusion | Revise for organization and edit for grammar and conventions", explanation: "Analyze first (positions), then plan (thesis), then gather evidence, then draft, then revise and edit — revision is a separate, final pass.", difficulty: "foundational", gedCode: "RLA.6.1", skillNodeId: "LANG.ESSAY.008", provenance: { source: "itemforge", seed: 1408354839, template: "essay-order" } },
+      { provenance: { source: "authored" }, id: "RLA.6.1-A1", question: "What is the main task in the GED Extended Response?", type: "mcq", choices: { A: "To summarize both passages as fully as possible", B: "To argue which of two positions is better supported by evidence", C: "To write about your personal experience with the topic", D: "To correct the grammar of both passages" }, answer: "B", explanation: "The ER is an evidence-judging essay: argue which text builds the stronger case. Summaries, personal stories, and copy-editing do not answer the prompt.", difficulty: "foundational", gedCode: "RLA.6.1", skillNodeId: "LANG.ESSAY.008" },
+      { provenance: { source: "authored" }, id: "RLA.6.1-A2", question: "In the Extended Response, an essay that never mentions the opposing text would lose the most points in which trait?", type: "mcq", choices: { A: "Trait 1 — Creation of Arguments and Use of Evidence", B: "Trait 2 — Development of Ideas and Organization", C: "Trait 3 — Clarity and Conventions", D: "It would not lose points anywhere" }, answer: "A", explanation: "Trait 1 covers analyzing both sources and addressing the opposing view — ignoring one text strikes at the heart of the task.", difficulty: "standard", gedCode: "RLA.6.1", skillNodeId: "LANG.ESSAY.008" },
+      { provenance: { source: "authored" }, id: "RLA.6.1-A3", question: "Two texts debate whether a town should ban single-use plastic bags. Write a one-sentence thesis for an essay arguing that Text B is better supported.", type: "short_answer", answer: "Text B presents the stronger argument because its evidence is more specific and current.", answerKeywords: ["text b", "stronger|better|more convincing|better supported"], explanation: "A thesis names the stronger text and previews why — evidence quality, not the writer's opinion about bags.", difficulty: "standard", gedCode: "RLA.6.1", skillNodeId: "LANG.ESSAY.008" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Building and Revising the Essay",
+    gedCode: "RLA.6.2",
+    keyTerms: ["body paragraph", "rebuttal", "revision", "editing", "word choice"],
+    content: "BUILDING AND REVISING THE ESSAY\n\nSTRUCTURE THAT SCORES\n• Introduction: the debate in one line + your thesis\n• Body: one paragraph per main evidence point — quote or\n  paraphrase the text, then explain HOW it supports you\n• Counterargument: state the other side's best point fairly,\n  then show why it is still weaker\n• Conclusion: restate the verdict without new evidence\n\nREVISE IN PASSES, not all at once\n• Pass 1 — argument: does every paragraph serve the thesis?\n• Pass 2 — organization: could a reader outline your essay\n  from your first sentences alone?\n• Pass 3 — editing: sentences, agreement, punctuation\n\nBUDGET THE 45 MINUTES: ~7 plan, ~30 draft, ~8 revise",
+    practiceQuestions: [
+      { provenance: { source: "authored" }, id: "RLA.6.2-A1", question: "Write an essay arguing which text presents the stronger argument. Cite specific evidence from both texts, and address the opposing view.", type: "extended_response", stimulus: [
+        { label: "Text A", text: "High schools should start later in the morning. Studies of adolescent sleep show that teenagers' internal clocks shift at puberty, making early wake-ups a biological fight, not laziness. Districts that moved start times to 8:30 or later report better attendance, fewer car accidents among teen drivers, and improved grades in first-period classes." },
+        { label: "Text B", text: "High schools should keep their early start times. A later start pushes sports, jobs, and homework deeper into the evening, leaving students no freer than before. Bus schedules serve whole districts, not one school, and changing them costs money better spent on teachers. Teenagers can simply go to bed earlier if they need more sleep." },
+      ], answer: "A well-developed response takes a clear position, cites evidence from both texts, and rebuts the opposing view.", explanation: "Text A leans on named evidence (sleep studies, district outcomes: attendance, accidents, grades). Text B leans on logistics and assertion (\"simply go to bed earlier\" answers no evidence). Strong essays weigh that difference explicitly.", difficulty: "extended", gedCode: "RLA.6.2", skillNodeId: "LANG.ARG.009" },
+      { id: "FG.essay-order.1nzrdne", question: "Put the steps for writing the Extended Response in the most effective order.", type: "drag_drop", dragItems: ["Draft the essay: introduction, body paragraphs, counterargument, conclusion", "Decide which argument is better supported and draft a thesis", "Revise for organization and edit for grammar and conventions", "Gather evidence from both texts for each body paragraph", "Read both texts and identify each author's position"], answer: "Read both texts and identify each author's position | Decide which argument is better supported and draft a thesis | Gather evidence from both texts for each body paragraph | Draft the essay: introduction, body paragraphs, counterargument, conclusion | Revise for organization and edit for grammar and conventions", explanation: "Analyze first (positions), then plan (thesis), then gather evidence, then draft, then revise and edit — revision is a separate, final pass.", difficulty: "foundational", gedCode: "RLA.6.2", skillNodeId: "LANG.ARG.009", provenance: { source: "itemforge", seed: 3627568346, template: "essay-order" } },
+      { provenance: { source: "authored" }, id: "RLA.6.2-A2", question: "During revision, which change most strengthens an Extended Response essay?", type: "mcq", choices: { A: "Adding a paragraph that fairly states, then answers, the opposing text's best point", B: "Replacing common words with longer synonyms throughout", C: "Removing all quotations so the essay is fully in your own words", D: "Making the introduction longer than the body paragraphs" }, answer: "A", explanation: "Trait 1 rewards engaging the opposing view; the counterargument paragraph is the highest-value revision. Synonym-swapping, stripping evidence, and bloating the intro all weaken it.", difficulty: "standard", gedCode: "RLA.6.2", skillNodeId: "LANG.ARG.009" },
+      { provenance: { source: "authored" }, id: "RLA.6.2-A3", question: "Which sentence is the most effective thesis for an Extended Response?", type: "mcq", choices: { A: "Text A presents the stronger argument because it supports its claims with specific studies and measurable outcomes, while Text B relies mostly on assertion.", B: "Both texts have good points about this interesting topic.", C: "In this essay I will discuss two texts and give my opinion.", D: "The topic of this debate is very important in today's society." }, answer: "A", explanation: "A thesis takes a position AND previews the evidence-based reasons. The others are vague, neutral, or announcements rather than claims.", difficulty: "standard", gedCode: "RLA.6.2", skillNodeId: "LANG.ARG.009" },
+    ]
+  },
+];
+
+const RLA_CH7_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Strengthening Sentences",
+    gedCode: "RLA.7.1",
+    keyTerms: ["run-on", "fragment", "parallel structure", "modifier", "active voice"],
+    content: "STRENGTHENING SENTENCES\n\nKILL THE RUN-ON: two complete thoughts need a real joint —\na period, a semicolon, or a comma + conjunction\n• Weak: \"The rain stopped we went outside.\"\n• Fixed: \"The rain stopped, and we went outside.\"\n\nCOMPLETE THE FRAGMENT: a subordinate clause is not a\nsentence — \"Because the store was closed.\" needs its main clause\n\nKEEP PARALLEL STRUCTURE: items in a list share a form\n• \"She likes hiking, swimming, and to run\" → \"…and running\"\n\nPLACE MODIFIERS next to what they modify — a dangling\nmodifier leaves the reader asking who did the action",
+    practiceQuestions: [
+      { id: "FG.sv-agreement.19tp1ny", question: "The committee, after months of debate, ___ its recommendation tomorrow.", type: "drop_down", options: ["announces", "have announced", "announcing", "announce"], answer: "announces", explanation: "\"Committee\" acts as one body (note \"its\"), taking the singular \"announces.\"", difficulty: "foundational", gedCode: "RLA.7.1", skillNodeId: "LANG.SENT.006", provenance: { source: "itemforge", seed: 2770855342, template: "sv-agreement" } },
+      { id: "FG.sv-agreement.19tp1nz", question: "The data from the sensors ___ a steady increase in temperature.", type: "drop_down", options: ["showing", "show", "has shown", "shows"], answer: "show", explanation: "\"Data\" is treated as plural in formal usage (\"the data show\").", difficulty: "standard", gedCode: "RLA.7.1", skillNodeId: "LANG.SENT.006", provenance: { source: "itemforge", seed: 2770855343, template: "sv-agreement" } },
+      { id: "FG.vocab-cloze.1uctnhp", question: "Because the instructions were ___, half the class assembled the model incorrectly. (Fill in the blank with an adjective meaning \"not easy to understand\".)", type: "fill_in", answer: "unclear", answerAliases: ["unclear"], explanation: "\"Unclear\" explains the mistakes: the instructions could not be understood.", difficulty: "foundational", gedCode: "RLA.7.1", skillNodeId: "LANG.SENT.006", provenance: { source: "itemforge", seed: 4012306477, template: "vocab-cloze" } },
+      { provenance: { source: "authored" }, id: "RLA.7.1-A1", question: "Which revision fixes the run-on sentence? Original: \"The museum opened its new wing visitors came from three states to see it.\"", type: "mcq", choices: { A: "The museum opened its new wing, visitors came from three states to see it.", B: "The museum opened its new wing. Visitors came from three states to see it.", C: "The museum opened its new wing visitors, came from three states to see it.", D: "The museum opened its new wing and visitors from three states, they came to see it." }, answer: "B", explanation: "Only B gives each complete thought its own sentence. A is a comma splice; C and D leave the run-on (and add new errors).", difficulty: "standard", gedCode: "RLA.7.1", skillNodeId: "LANG.SENT.006" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Word Choice and Clarity",
+    gedCode: "RLA.7.2",
+    keyTerms: ["precise language", "wordiness", "tone", "audience", "redundancy"],
+    content: "WORD CHOICE AND CLARITY\n\nPRECISION BEATS FANCINESS: the exact everyday word\noutperforms the vague impressive one\n• \"utilize\" → \"use\" · \"a large number of\" → \"many\"\n\nCUT DEAD WEIGHT: phrases that add length, not meaning\n• \"due to the fact that\" → \"because\"\n• \"in my opinion, I think\" → pick one\n\nMATCH TONE TO AUDIENCE: a job application, a text to a\nfriend, and a test essay are three different registers —\nthe GED essay wants the formal one\n\nONE TEST FOR EVERY SENTENCE: if you cut it, does the\nmeaning change? If not, cut it",
+    practiceQuestions: [
+      { id: "FG.vocab-cloze.254394", question: "Because the instructions were ___, half the class assembled the model incorrectly. (Fill in the blank with an adjective meaning \"not easy to understand\".)", type: "fill_in", answer: "unclear", answerAliases: ["unclear"], explanation: "\"Unclear\" explains the mistakes: the instructions could not be understood.", difficulty: "foundational", gedCode: "RLA.7.2", skillNodeId: "LANG.VOCAB.004", provenance: { source: "itemforge", seed: 129521272, template: "vocab-cloze" } },
+      { id: "FG.vocab-cloze.254395", question: "The hikers ___ the steep trail slowly, stopping often to rest. (Fill in the blank with a past-tense verb for going up.)", type: "fill_in", answer: "climbed", answerAliases: ["climbed"], explanation: "\"Climbed\" fits the action and the past tense of the sentence.", difficulty: "standard", gedCode: "RLA.7.2", skillNodeId: "LANG.VOCAB.004", provenance: { source: "itemforge", seed: 129521273, template: "vocab-cloze" } },
+      { id: "FG.sv-agreement.134mck5", question: "The list of approved vendors ___ attached to the memo.", type: "drop_down", options: ["have been", "were", "are", "was"], answer: "was", explanation: "The subject is \"list\" (singular); the phrase \"of approved vendors\" does not change it.", difficulty: "foundational", gedCode: "RLA.7.2", skillNodeId: "LANG.GRAM.005", provenance: { source: "itemforge", seed: 2365942037, template: "sv-agreement" } },
+      { provenance: { source: "authored" }, id: "RLA.7.2-A1", question: "Which revision is the clearest and most concise?", type: "mcq", choices: { A: "Due to the fact that the bridge was closed, we were late.", B: "Because the bridge was closed, we were late.", C: "In light of the fact that the bridge happened to be closed, we ended up being late.", D: "We were late due to the reason that the bridge was closed on account of repairs." }, answer: "B", explanation: "\"Because\" replaces the wordy openers; B says the same thing in eight words with nothing lost.", difficulty: "standard", gedCode: "RLA.7.2", skillNodeId: "LANG.VOCAB.004" },
+    ]
+  },
+];
+
+const SS_CH1_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Sourcing and Context",
+    gedCode: "SS.1.1",
+    keyTerms: ["primary source", "secondary source", "sourcing", "contextualization", "bias"],
+    content: "SOURCING AND CONTEXT\n\nPRIMARY SOURCE: created during the period, by a participant\nor witness (diary, photograph, law, speech)\nSECONDARY SOURCE: created later, analyzing the period\n(textbook, documentary, history book)\n\nSOURCE EVERY DOCUMENT with four questions\n• WHO wrote it? • WHEN? • WHY (what did they want)?\n• WHO was it for?\nThe answers don't make a source \"good\" or \"bad\" — they tell\nyou what it can and cannot prove.\n\nCONTEXT: an event means something different inside its\nmoment. Judge historical actors first by what their world\nlooked like, then by what we know now",
+    practiceQuestions: [
+      { id: "FG.source-analysis.v3yks3", question: "A historian would most value this source as evidence about —", type: "mcq", choices: { A: "the exact wages paid to factory girls in 1911", B: "the foreman's personal biography", C: "the dangerous working conditions reformers sought to expose", D: "how cloth was manufactured in the period" }, answer: "C", explanation: "The report documents locked doors and child labor — conditions, not wages, manufacturing technique, or biography.", difficulty: "foundational", gedCode: "SS.1.1", skillNodeId: "REAS.CRIT.001", stimulus: [
+        { label: "Source — factory inspector's report, 1911 (adapted)", text: "\"In the cutting room I counted forty girls, the oldest perhaps seventeen, at work since six in the morning. The doors to the stairwell were kept locked during working hours, the foreman explained, to prevent the loss of cloth. When I asked what would happen in case of fire, he laughed and said the girls could use the windows.\"" },
+      ], provenance: { source: "itemforge", seed: 1881103539, template: "source-analysis" } },
+      { id: "FG.source-analysis.v3yks4", question: "Between which two recorded years did Milltown's population grow the fastest in percentage terms?", type: "mcq", choices: { A: "1880 to 1900", B: "1900 to 1920", C: "1920 to 1940", D: "1940 to 1960" }, answer: "A", explanation: "1880→1900: 2,100 → 4,600 is more than doubling (+119%). 1900→1920 roughly doubles (+102%); the later intervals grow far less in percentage terms.", difficulty: "standard", gedCode: "SS.1.1", skillNodeId: "REAS.CRIT.001", stimulus: [
+        { label: "Source — chart: Population of Milltown", text: "Year 1880: 2,100 · Year 1900: 4,600 · Year 1920: 9,300 · Year 1940: 9,800 · Year 1960: 14,200" },
+      ], provenance: { source: "itemforge", seed: 1881103540, template: "source-analysis" } },
+      { id: "FG.source-analysis.v3yks5", question: "The chart best supports which conclusion about Milltown?", type: "mcq", choices: { A: "Its population more than quadrupled between 1880 and 1940", B: "Its population declined between 1920 and 1940", C: "It was largest in 1900", D: "It grew by the same amount every twenty years" }, answer: "A", explanation: "2,100 (1880) → 9,800 (1940) is more than four times larger. No interval shows a decline, and the increases are uneven.", difficulty: "standard", gedCode: "SS.1.1", skillNodeId: "REAS.CRIT.001", stimulus: [
+        { label: "Source — chart: Population of Milltown", text: "Year 1880: 2,100 · Year 1900: 4,600 · Year 1920: 9,300 · Year 1940: 9,800 · Year 1960: 14,200" },
+      ], provenance: { source: "itemforge", seed: 1881103541, template: "source-analysis" } },
+      { provenance: { source: "authored" }, id: "SS.1.1-A1", question: "A photograph shows a 1930s breadline, but its caption was written by a relief agency raising funds. In one sentence, explain what a historian should consider before using the photo as evidence.", type: "short_answer", answer: "The agency chose the image to persuade donors, so the photo may not show typical conditions.", answerKeywords: ["fundrais|donor|persuad|purpose|bias|agenda"], explanation: "Sourcing: the caption writer's fundraising purpose shapes which photo was chosen and how it is framed — the image is evidence, but interested evidence.", difficulty: "standard", gedCode: "SS.1.1", skillNodeId: "REAS.CRIT.001" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Charts, Graphs, and Maps as Sources",
+    gedCode: "SS.1.2",
+    keyTerms: ["data table", "scale", "trend", "map key", "cartogram"],
+    content: "CHARTS, GRAPHS, AND MAPS AS SOURCES\n\nREAD IN ORDER: title → axes/labels → units → then the data\n• Check the scale: a y-axis starting at 50 instead of 0 makes\n  small gaps look enormous — a classic persuasion trick\n\nTRENDS OVER POINTS: tests ask what the data SHOWS —\ndirection (rising, falling, flat) and turning points matter\nmore than any single value\n\nMAPS ARE ARGUMENTS TOO\n• The key/legend defines every symbol before you interpret\n• What a map leaves out (labels, peoples, borders) is a\n  choice by its maker — sourcing applies to maps as well",
+    practiceQuestions: [
+      { id: "FG.source-analysis.7yygie", question: "Which feature most affects how a historian should weigh this source?", type: "mcq", choices: { A: "It quotes the foreman directly", B: "It uses the first person", C: "It describes events from 1911", D: "It was written by an inspector whose job was to document violations" }, answer: "D", explanation: "Sourcing: an inspector documents problems for a reason. That purpose shapes what he records — it does not erase the evidence, but it frames it.", difficulty: "foundational", gedCode: "SS.1.2", skillNodeId: "REAS.CRIT.001", stimulus: [
+        { label: "Source — factory inspector's report, 1911 (adapted)", text: "\"In the cutting room I counted forty girls, the oldest perhaps seventeen, at work since six in the morning. The doors to the stairwell were kept locked during working hours, the foreman explained, to prevent the loss of cloth. When I asked what would happen in case of fire, he laughed and said the girls could use the windows.\"" },
+      ], provenance: { source: "itemforge", seed: 481977878, template: "source-analysis" } },
+      { provenance: { source: "authored" }, id: "SS.1.2-A1", question: "Using the Milltown population chart — 1880: 2,100 · 1900: 4,600 · 1920: 9,300 · 1940: 9,800 · 1960: 14,200 — click the first year in which the population exceeded 9,000.", type: "hot_spot", hotSpot: { backdrop: "panel", zones: [
+        { id: "y1880", label: "1880 — 2,100", x: 3, y: 5, w: 45, h: 26 },
+        { id: "y1900", label: "1900 — 4,600", x: 52, y: 5, w: 45, h: 26 },
+        { id: "y1920", label: "1920 — 9,300", x: 3, y: 37, w: 45, h: 26 },
+        { id: "y1940", label: "1940 — 9,800", x: 52, y: 37, w: 45, h: 26 },
+        { id: "y1960", label: "1960 — 14,200", x: 27, y: 69, w: 45, h: 26 },
+      ] }, answer: "y1920", explanation: "1920 shows 9,300 — the first recorded value above 9,000. Earlier years are below it; later years are not first.", difficulty: "standard", gedCode: "SS.1.2", skillNodeId: "REAS.CRIT.001" },
+      { provenance: { source: "authored" }, id: "SS.1.2-A2", question: "A graph's y-axis begins at 90 instead of 0, making a rise from 95 to 100 look dramatic. What should a careful reader conclude?", type: "mcq", choices: { A: "The values nearly doubled", B: "The change is real but the visual exaggerates it", C: "The graph must be fraudulent", D: "The data cannot be read at all" }, answer: "B", explanation: "A truncated axis distorts proportion, not the numbers themselves: 95 → 100 is a real but modest (about 5%) increase.", difficulty: "standard", gedCode: "SS.1.2", skillNodeId: "REAS.CRIT.001" },
+      { provenance: { source: "authored" }, id: "SS.1.2-A3", question: "On a road map, the key shows one inch equals 50 miles. Two towns are 3 inches apart on the map. How far apart are they in reality?", type: "mcq", choices: { A: "15 miles", B: "53 miles", C: "150 miles", D: "300 miles" }, answer: "C", explanation: "Map scale: 3 inches × 50 miles per inch = 150 miles.", difficulty: "foundational", gedCode: "SS.1.2", skillNodeId: "REAS.CRIT.001" },
+    ]
+  },
+];
+
+const SS_CH5_LESSONS: GEDLesson[] = [
+  {
+    number: 1,
+    title: "Reading Maps and Regions",
+    gedCode: "SS.5.1",
+    keyTerms: ["latitude", "longitude", "equator", "region", "hemisphere"],
+    content: "READING MAPS AND REGIONS\n\nLATITUDE: lines running east–west, measuring distance north\nor south of the EQUATOR (0°). Longitude measures east or\nwest of the Prime Meridian (0°)\n\nHEMISPHERES: the equator splits North/South; the Prime\nMeridian (with 180°) splits East/West\n\nREGIONS: areas grouped by a shared trait — climate\n(Southwest deserts), economy (the Rust Belt), culture, or\ngovernment. Region borders are human choices, not fences\n\nPHYSICAL FEATURES SHAPE HISTORY: rivers carry trade,\nmountains block it, coasts invite it. When a test shows a\nsettlement or a route, look for the water first",
+    practiceQuestions: [
+      { provenance: { source: "authored" }, id: "SS.5.1-A1", question: "Click the region described: a hot, dry region of deserts and canyons in the southwestern United States, including Arizona and New Mexico.", type: "hot_spot", hotSpot: { backdrop: "panel", zones: [
+        { id: "ne", label: "Northeast — dense cities, cold winters", x: 56, y: 4, w: 41, h: 27 },
+        { id: "sw", label: "Southwest — deserts of Arizona & New Mexico", x: 4, y: 36, w: 44, h: 27 },
+        { id: "mw", label: "Midwest — plains and Great Lakes farms", x: 52, y: 36, w: 44, h: 27 },
+        { id: "pnw", label: "Pacific Northwest — rainy coastal forests", x: 4, y: 4, w: 44, h: 27 },
+      ] }, answer: "sw", explanation: "Arizona and New Mexico anchor the desert Southwest. The other panels describe different regional traits.", difficulty: "foundational", gedCode: "SS.5.1", skillNodeId: "SOC.GEO.004" },
+      { provenance: { source: "authored" }, id: "SS.5.1-A2", question: "Lines of latitude measure distance —", type: "mcq", choices: { A: "east or west of the Prime Meridian", B: "north or south of the equator", C: "above or below sea level", D: "from the North Pole only" }, answer: "B", explanation: "Latitude is measured from the equator (0°) toward the poles; longitude is the east–west measure from the Prime Meridian.", difficulty: "foundational", gedCode: "SS.5.1", skillNodeId: "SOC.GEO.004" },
+      { provenance: { source: "authored" }, id: "SS.5.1-A3", question: "A city located at 40°N, 75°W is in which hemisphere pair?", type: "mcq", choices: { A: "Southern and Eastern", B: "Northern and Western", C: "Northern and Eastern", D: "Southern and Western" }, answer: "B", explanation: "40°N = Northern Hemisphere; 75°W = Western Hemisphere. (That location is near Philadelphia.)", difficulty: "standard", gedCode: "SS.5.1", skillNodeId: "SOC.GEO.004" },
+      { provenance: { source: "authored" }, id: "SS.5.1-A4", question: "The imaginary line at 0° latitude that divides Earth into Northern and Southern Hemispheres is the ___.", type: "fill_in", answer: "equator", answerAliases: ["equator", "the equator", "Equator"], explanation: "The equator sits at 0° latitude; latitude counts degrees north or south from it.", difficulty: "foundational", gedCode: "SS.5.1", skillNodeId: "SOC.GEO.004" },
+    ]
+  },
+  {
+    number: 2,
+    title: "Human Geography and Migration",
+    gedCode: "SS.5.2",
+    keyTerms: ["migration", "push factor", "pull factor", "urbanization", "population density"],
+    content: "HUMAN GEOGRAPHY AND MIGRATION\n\nPUSH FACTORS drive people OUT: drought, war, job loss,\npersecution. PULL FACTORS draw people IN: work, safety,\nfamily, land. Every migration story is some mix of both\n\nURBANIZATION: as economies industrialize, people move from\nfarms to cities — the pattern behind the Great Migration,\nthe growth of factory towns, and today's megacities\n\nPOPULATION DENSITY = people ÷ area. Dense ≠ crowded in the\nsame way everywhere: deserts and tundra stay sparse because\nwater and climate, not preference, set the limit\n\nREAD MIGRATION MAPS by the arrows' direction AND size —\na thick arrow is a claim about scale, not just movement",
+    practiceQuestions: [
+      { provenance: { source: "authored" }, id: "SS.5.2-A1", question: "A factory closes in a mining town, and many families leave to find work elsewhere. The factory closing is best described as a —", type: "mcq", choices: { A: "pull factor", B: "push factor", C: "physical feature", D: "population density" }, answer: "B", explanation: "Job loss pushes people out — a push factor. The jobs they move toward would be the pull.", difficulty: "foundational", gedCode: "SS.5.2", skillNodeId: "SOC.GEO.004" },
+      { provenance: { source: "authored" }, id: "SS.5.2-A2", question: "Arrange the countries from largest to smallest land area.", type: "drag_drop", dragItems: ["United States", "Russia", "China", "Canada"], answer: "Russia | Canada | China | United States", explanation: "Land area: Russia (largest) > Canada > China > United States.", difficulty: "standard", gedCode: "SS.5.2", skillNodeId: "SOC.GEO.004" },
+      { provenance: { source: "authored" }, id: "SS.5.2-A3", question: "Give one push factor and one pull factor that could explain a family's decision to migrate.", type: "short_answer", answer: "Push: drought ruined the farm. Pull: factory jobs were available in the city.", answerKeywords: ["push", "pull"], explanation: "A complete answer names both directions of the decision — what drove the family out and what drew them in.", difficulty: "standard", gedCode: "SS.5.2", skillNodeId: "SOC.GEO.004" },
+      { provenance: { source: "authored" }, id: "SS.5.2-A4", question: "The movement of people from farms and small towns into cities as factories grow is called —", type: "mcq", choices: { A: "urbanization", B: "emigration", C: "segregation", D: "irrigation" }, answer: "A", explanation: "Urbanization is the shift of population into cities; emigration is leaving a country, segregation is enforced separation, irrigation is watering farmland.", difficulty: "foundational", gedCode: "SS.5.2", skillNodeId: "SOC.GEO.004" },
+    ]
+  },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TEXTBOOK DEFINITIONS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1368,7 +1693,7 @@ export const RLA_TEXTBOOK: GEDTextbook = {
       title: 'Interpreting Fiction',
       topics: ['Plot Elements', 'Inferences', 'Character', 'Theme', 'Style', 'Figurative Language'],
       content: 'The RLA test includes fiction passages. This chapter covers how to read narratives critically, draw inferences about character and theme, and analyze an author\'s stylistic choices.',
-      lessons: [],
+      lessons: RLA_CH3_LESSONS,
     },
     {
       number: 4,
@@ -1382,21 +1707,21 @@ export const RLA_TEXTBOOK: GEDTextbook = {
       title: 'Connecting Ideas',
       topics: ['Organize into Paragraphs', 'Logical Order', 'Relate Sentences & Paragraphs'],
       content: 'Effective writing connects ideas logically. This chapter teaches how to organize paragraphs and create coherent transitions between ideas.',
-      lessons: [],
+      lessons: RLA_CH5_LESSONS,
     },
     {
       number: 6,
       title: 'Writing About Text (Extended Response)',
       topics: ['Unpack the Prompt', 'Identify Arguments', 'Thesis Statement', 'Evidence', 'Plan', 'Draft', 'Revise'],
       content: 'The GED Extended Response asks you to analyze two passages and write a structured essay. This chapter walks through every step of the process.',
-      lessons: [],
+      lessons: RLA_CH6_LESSONS,
     },
     {
       number: 7,
       title: 'Polishing Your Writing',
       topics: ['Strengthen Sentences', 'Improve Organization', 'Word Choice'],
       content: 'Revision skills that improve the quality and clarity of written responses.',
-      lessons: [],
+      lessons: RLA_CH7_LESSONS,
     },
     {
       number: 8,
@@ -1424,13 +1749,13 @@ export const MATH_TEXTBOOK: GEDTextbook = {
       number: 1, title: 'Number Sense and Problem Solving',
       topics: ['Whole Numbers', 'Decimal Operations', 'Number Lines', 'Problem Solving'],
       content: 'Foundational number sense skills. Master whole number operations, number lines, and systematic problem-solving strategies that underpin all GED math.',
-      lessons: [],
+      lessons: MATH_CH1_LESSONS,
     },
     {
       number: 2, title: 'Decimals and Fractions',
       topics: ['Decimal Operations', 'Fraction Operations', 'Comparing Fractions', 'Mixed Numbers'],
       content: 'Working fluently with decimals and fractions is required for approximately 45% of GED Math questions.',
-      lessons: [],
+      lessons: MATH_CH2_LESSONS,
     },
     {
       number: 3, title: 'Ratio, Proportion, and Percent',
@@ -1442,7 +1767,7 @@ export const MATH_TEXTBOOK: GEDTextbook = {
       number: 4, title: 'Data, Statistics, and Probability',
       topics: ['Mean', 'Median', 'Mode', 'Range', 'Graphs', 'Probability'],
       content: 'Reading and interpreting data is a cross-subject skill tested in Math, Science, and Social Studies.',
-      lessons: [],
+      lessons: MATH_CH4_LESSONS,
     },
     {
       number: 5, title: 'Algebra Basics',
@@ -1475,7 +1800,7 @@ export const SS_TEXTBOOK: GEDTextbook = {
       title: 'Social Studies Practices',
       topics: ['Central Idea', 'Interpret Words', 'Author\'s Purpose', 'Evaluate Reasoning', 'Analyze Relationships', 'Interpret Data'],
       content: 'Social Studies on the GED is as much about reading skills as history knowledge. This chapter covers the analytical practices applied to social studies passages and graphs.',
-      lessons: [],
+      lessons: SS_CH1_LESSONS,
     },
     {
       number: 2,
@@ -1503,7 +1828,7 @@ export const SS_TEXTBOOK: GEDTextbook = {
       title: 'Geography and the World',
       topics: ['Early Civilizations', 'Feudalism to Nation States', 'Age of Revolutions', 'Colonialism & Wars', 'Humans & Environment', 'Using Resources Wisely'],
       content: 'World history, geographic concepts, and human-environment interactions.',
-      lessons: [],
+      lessons: SS_CH5_LESSONS,
     },
   ],
 };

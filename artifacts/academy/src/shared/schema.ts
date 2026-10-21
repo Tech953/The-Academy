@@ -623,6 +623,11 @@ export interface GEDPracticeQuestion {
                                    // 'a|b' inside an entry means alternates
   calculatorAllowed?: boolean;     // assessed math: item-level calculator
                                    // policy; undefined = calculator allowed
+  provenance?: {                   // Phase 3: where this item came from.
+    source: 'authored' | 'itemforge';
+    seed?: number;                 // itemforge: generation seed
+    template?: string;             // itemforge: template id
+  };
 }
 
 export interface GEDLesson {

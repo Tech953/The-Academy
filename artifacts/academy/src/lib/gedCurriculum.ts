@@ -53,6 +53,26 @@ export const SUBJECT_STAT_MAP: Record<GEDSubjectKey, Array<{ stat: string; gain:
 
 /** GED assessment codes mapped to skill graph node IDs */
 export const GED_CODE_TO_SKILL: Record<string, string> = {
+  // Phase 3 chapter fills
+  'RLA.3.1': 'LANG.READ.001',
+  'RLA.3.2': 'LANG.MAIN.002',
+  'RLA.5.1': 'LANG.PARA.007',
+  'RLA.5.2': 'LANG.SENT.006',
+  'RLA.6.1': 'LANG.ESSAY.008',
+  'RLA.6.2': 'LANG.ARG.009',
+  'RLA.7.1': 'LANG.SENT.006',
+  'RLA.7.2': 'LANG.VOCAB.004',
+  'MATH.1.1': 'MATH.ARITH.001',
+  'MATH.1.2': 'MATH.ARITH.001',
+  'MATH.2.1': 'MATH.FRAC.002',
+  'MATH.2.2': 'MATH.FRAC.002',
+  'MATH.4.1': 'MATH.STAT.011',
+  'MATH.4.2': 'MATH.PROB.012',
+  'SS.1.1': 'REAS.CRIT.001',
+  'SS.1.2': 'REAS.CRIT.001',
+  'SS.5.1': 'SOC.GEO.004',
+  'SS.5.2': 'SOC.GEO.004',
+
   'MATH.3.1': 'MATH.RATIO.003',
   'MATH.3.2': 'MATH.PERC.004',
   'MATH.5.1': 'MATH.ALGE.005',
