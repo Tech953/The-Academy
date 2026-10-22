@@ -22,6 +22,11 @@ import {
   type WovenAssignment,
 } from '@/lib/courseWeaver';
 import { HomeworkEngine } from '@/lib/academy-engine/phase1/homeworkEngine';
+import {
+  EXAM_SPECS, EXAM_SUBJECTS, assembleExam, gradeExam, examRecordEntries,
+  startTimer, remainingMs, timerExpired, formatRemaining,
+  type AssembledExam, type ExamTimer, type ExamResult,
+} from '@/lib/examwright';
 
 const LANG_COURSES = generateAllLanguageTextbooks();
 const LANG_BOOKS = Object.values(LANG_COURSES);
@@ -1518,9 +1523,213 @@ function CourseworkPanel({ progress, onRecordGrade }: {
   );
 }
 
+interface StoredExamAttempt {
+  examId: string;
+  subject: string;
+  attemptNumber: number;
+  scorePercent: number;
+  scaledScore: number;
+  band: string;
+  submittedAt: string;
+  expired: boolean;
+  erTotal: number | null;
+}
+
+function ExamsPanel({ onRecordGrade }: {
+  onRecordGrade: (lessonCode: string, scorePercent: number, subject: string) => void;
+}) {
+  const gs = useGameState() as unknown as { character?: { name?: string } };
+  const studentId = gs.character?.name ?? 'student';
+  const storageKey = `examwright.v1.${studentId}`;
+  const [attempts, setAttempts] = useState<StoredExamAttempt[]>(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) ?? '[]') as StoredExamAttempt[]; }
+    catch { return []; }
+  });
+  const [sitting, setSitting] = useState<{ exam: AssembledExam; timer: ExamTimer; responses: Record<string, string>; index: number } | null>(null);
+  const [lastResult, setLastResult] = useState<ExamResult | null>(null);
+  const [, setTick] = useState(0);
+  const bankNotes = useMemo(() => {
+    const m = {} as Record<string, string | null>;
+    for (const s of EXAM_SUBJECTS) m[s] = assembleNote(s);
+    return m;
+  }, []);
+  const sittingRef = useRef<typeof sitting>(null);
+  sittingRef.current = sitting;
+
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, JSON.stringify(attempts)); } catch { /* storage unavailable */ }
+  }, [attempts, storageKey]);
+
+  const finish = useCallback((expired: boolean) => {
+    const s = sittingRef.current;
+    if (!s) return;
+    const result = gradeExam(s.exam, s.responses, new Date(), expired);
+    for (const entry of examRecordEntries(result)) {
+      onRecordGrade(entry.lessonCode, entry.scorePercent, s.exam.subject);
+    }
+    setAttempts(prev => [...prev, {
+      examId: s.exam.id,
+      subject: s.exam.subject,
+      attemptNumber: s.exam.attemptNumber,
+      scorePercent: result.scorePercent,
+      scaledScore: result.scaledScore,
+      band: result.band,
+      submittedAt: result.submittedAt,
+      expired,
+      erTotal: result.extendedResponse?.total ?? null,
+    }]);
+    setSitting(null);
+    setLastResult(result);
+  }, [onRecordGrade]);
+
+  // The official clock: tick the header, auto-submit at zero.
+  useEffect(() => {
+    if (!sitting) return;
+    const iv = setInterval(() => {
+      setTick(t => t + 1);
+      if (sittingRef.current && timerExpired(sittingRef.current.timer, new Date())) finish(true);
+    }, 500);
+    return () => clearInterval(iv);
+  }, [sitting, finish]);
+
+  const startExam = (subject: keyof typeof EXAM_SPECS) => {
+    const attemptNumber = attempts.filter(a => a.subject === subject).length + 1;
+    const exam = assembleExam(studentId, subject, attemptNumber);
+    setLastResult(null);
+    setSitting({ exam, timer: startTimer(exam, new Date()), responses: {}, index: 0 });
+  };
+
+  if (sitting) {
+    const { exam, timer, responses, index } = sitting;
+    const q = exam.items[index];
+    const remain = remainingMs(timer, new Date());
+    const answered = exam.items.filter(item => (responses[item.id] ?? '').trim() !== '').length;
+    const lowTime = remain <= 5 * 60 * 1000;
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: G }}>{exam.subject.toUpperCase()} — FULL EXAM</div>
+            <div style={{ fontSize: 9, color: `${G}60` }}>Attempt {exam.attemptNumber} · woven for {studentId} · {answered}/{exam.items.length} answered</div>
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 'bold', color: lowTime ? R : C, fontVariantNumeric: 'tabular-nums' }}>
+            {formatRemaining(remain)}
+          </div>
+        </div>
+        <ProgressBar value={Math.round((answered / exam.items.length) * 100)} color={C} height={3} />
+        <div style={{ marginTop: 12, marginBottom: 16, padding: '10px 12px', background: '#0c0c0c', border: `1px solid ${DIM}` }}>
+          <div style={{ fontSize: 9, color: C, letterSpacing: 1, marginBottom: 6 }}>
+            QUESTION {index + 1} OF {exam.items.length} · {q.type.replace('_', ' ').toUpperCase()}
+            {q.type === 'extended_response' ? ' · RUBRIC SCORE IS SIMULATED' : ''}
+          </div>
+          <WovenItemInput q={q} value={responses[q.id] ?? ''} onChange={v => setSitting(prev => prev ? { ...prev, responses: { ...prev.responses, [q.id]: v } } : prev)} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button disabled={index === 0} onClick={() => setSitting(prev => prev ? { ...prev, index: prev.index - 1 } : prev)} style={{ flex: 1, padding: '9px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, letterSpacing: 1, background: 'transparent', border: `1px solid ${DIM}`, color: index === 0 ? `${G}30` : `${G}aa` }}>← PREV</button>
+          <button disabled={index >= exam.items.length - 1} onClick={() => setSitting(prev => prev ? { ...prev, index: prev.index + 1 } : prev)} style={{ flex: 1, padding: '9px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, letterSpacing: 1, background: 'transparent', border: `1px solid ${DIM}`, color: index >= exam.items.length - 1 ? `${G}30` : `${G}aa` }}>NEXT →</button>
+          <button onClick={() => finish(false)} style={{ flex: 2, padding: '9px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 'bold', letterSpacing: 1, background: `${G}18`, border: `1px solid ${G}`, color: G }}>SUBMIT EXAM</button>
+        </div>
+        <div style={{ fontSize: 9, color: `${G}45`, marginTop: 8, lineHeight: 1.6 }}>
+          The clock does not pause. At zero the exam submits itself with whatever is answered.
+        </div>
+      </div>
+    );
+  }
+
+  if (lastResult) {
+    const r = lastResult;
+    const passed = r.scaledScore >= 145;
+    return (
+      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+        <div style={{ textAlign: 'center', padding: '14px 0 8px' }}>
+          <div style={{ fontSize: 10, color: `${G}60`, letterSpacing: 1 }}>{r.exam.subject.toUpperCase()} — SCALED SCORE</div>
+          <div style={{ fontSize: 34, fontWeight: 'bold', color: passed ? G : R, lineHeight: 1.2 }}>{r.scaledScore}</div>
+          <div style={{ fontSize: 11, color: C }}>{r.band}</div>
+          <div style={{ fontSize: 10, color: `${G}70`, marginTop: 4 }}>
+            {r.scorePercent}% correct · {r.exam.items.length} questions{r.expired ? ' · time expired — auto-submitted' : ''}
+          </div>
+          <div style={{ fontSize: 9, color: `${G}50`, marginTop: 2 }}>
+            Recorded to your progress — the weaver and your notes now respond to this evidence.
+          </div>
+        </div>
+        {r.extendedResponse && (
+          <div style={{ padding: '8px 12px', background: '#0c0c0c', border: `1px solid ${C}44`, marginBottom: 10, fontSize: 10, color: C }}>
+            Extended Response — SIMULATED rubric score: {r.extendedResponse.total}/{r.extendedResponse.maxTotal}.
+            Only GED Testing Service scorers are authoritative; this score is a rehearsal estimate.
+          </div>
+        )}
+        <div style={{ fontSize: 9, color: `${G}50`, letterSpacing: 1, margin: '8px 0 6px' }}>PER-DOMAIN BREAKDOWN</div>
+        {r.perDomain.map(d => (
+          <div key={d.domain} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#0c0c0c', border: `1px solid ${DIM}`, marginBottom: 4 }}>
+            <div style={{ flex: 1, fontSize: 10, color: G }}>{d.domain}</div>
+            <div style={{ fontSize: 9, color: `${G}60` }}>{d.items} questions</div>
+            <div style={{ fontSize: 10, color: d.scorePercent >= 60 ? G : R, minWidth: 38, textAlign: 'right' }}>{d.scorePercent}%</div>
+          </div>
+        ))}
+        <button onClick={() => setLastResult(null)} style={{ width: '100%', padding: '10px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, background: `${G}18`, border: `1px solid ${G}`, color: G, marginTop: 10 }}>
+          BACK TO EXAMS
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+      <div style={{ fontSize: 10, color: `${G}70`, lineHeight: 1.7, marginBottom: 12 }}>
+        Full-length practice exams for <span style={{ color: G }}>{studentId}</span> — official volumes on the official clock,
+        assembled from the governed question bank, graded on the 100–200 GED scale. Each sitting draws a fresh exam from your seed.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {EXAM_SUBJECTS.map(subject => {
+          const spec = EXAM_SPECS[subject];
+          const meta = getSubjectMeta(subject);
+          const mine = attempts.filter(a => a.subject === subject);
+          const best = mine.length ? Math.max(...mine.map(a => a.scaledScore)) : null;
+          const short = bankNotes[subject];
+          return (
+            <div key={subject} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0c0c0c', border: `1px solid ${DIM}` }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: meta.color }}>{meta.icon} {subject}</div>
+                <div style={{ fontSize: 9, color: `${G}60`, marginTop: 2 }}>
+                  {spec.volume} questions · {spec.durationMinutes} minutes
+                  {mine.length > 0 ? ` · ${mine.length} sitting${mine.length > 1 ? 's' : ''} · best ${best}` : ' · no sittings yet'}
+                  {short ? ` · ${short}` : ''}
+                </div>
+              </div>
+              <button onClick={() => startExam(subject)} style={{ padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, background: `${G}18`, border: `1px solid ${G}`, color: G }}>
+                START EXAM
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {attempts.length > 0 && (
+        <>
+          <div style={{ fontSize: 9, color: `${G}50`, letterSpacing: 1, margin: '14px 0 6px' }}>SITTING HISTORY</div>
+          {[...attempts].reverse().map(a => (
+            <div key={a.examId + a.submittedAt} style={{ display: 'flex', gap: 8, padding: '6px 10px', background: '#0c0c0c', border: `1px solid ${DIM}`, marginBottom: 4, fontSize: 10, color: `${G}aa` }}>
+              <span style={{ flex: 1 }}>{a.subject} · attempt {a.attemptNumber}{a.expired ? ' · auto-submitted' : ''}</span>
+              <span>{a.scorePercent}%</span>
+              <span style={{ color: a.scaledScore >= 145 ? G : R, fontWeight: 'bold' }}>{a.scaledScore} — {a.band}</span>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Shortfall note for a subject card (blueprint strata the bank underfills). */
+function assembleNote(subject: keyof typeof EXAM_SPECS): string | null {
+  const exam = assembleExam('__preview__', subject, 1);
+  const short = exam.strata.filter(s => s.shortfall);
+  if (!short.length) return null;
+  return `bank note: ${short.map(s => `${s.domain} ${s.drawn}/${s.quota}`).join(', ')}`;
+}
+
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
 
-type PortalTab = 'ged' | 'lang' | 'constellation' | 'coursework';
+type PortalTab = 'ged' | 'lang' | 'constellation' | 'coursework' | 'exams';
 
 export default function AssignmentsPortal() {
   const { curriculumProgress, recordLessonQuiz } = useGameState();
@@ -1628,12 +1837,14 @@ export default function AssignmentsPortal() {
     const isLang = tab === 'lang';
     const isConstellation = tab === 'constellation';
     const isCoursework = tab === 'coursework';
+    const isExams = tab === 'exams';
 
     const tabDefs: Array<{ id: PortalTab; label: string }> = [
       { id: 'ged', label: '◈ GED PREP' },
       { id: 'lang', label: '◉ LANGUAGES' },
       { id: 'constellation', label: '✦ CONSTELLATION' },
       { id: 'coursework', label: '▣ COURSEWORK' },
+      { id: 'exams', label: '⏱ EXAMS' },
     ];
 
     return (
@@ -1671,6 +1882,10 @@ export default function AssignmentsPortal() {
         ) : isCoursework ? (
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <CourseworkPanel progress={curriculumProgress} onRecordGrade={recordLessonQuiz} />
+          </div>
+        ) : isExams ? (
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ExamsPanel onRecordGrade={recordLessonQuiz} />
           </div>
         ) : (
           <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
