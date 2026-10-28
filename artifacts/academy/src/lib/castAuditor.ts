@@ -5,26 +5,26 @@
  * pass/fail report. It changes nothing. A failure is reported, never
  * silently fixed and never redefined.
  *
- * SKELETON (7.0): rules schema, id-collision, no-ged-content, and
- * voice-descriptor are implemented. Rules determinism and resolves are
- * reported as `pending` until 7.2 wires in the generator (7.1) and the
- * Academy location registry — so `passed` is false and `complete` is
- * false for every engram until 7.2 lands. Downstream consumers must
- * require `passed && complete` before treating a bank as gated.
+ * Two rules need caller context and report `pending` when it is absent:
+ * determinism needs a `regenerate` function (the gate does not know a
+ * bank's student ids — the caller that generated the bank does), and
+ * resolves needs the bank's cast ids. A bank is fully gated only when
+ * every report has `passed && complete`.
  *
  * Gate criteria (brief §7, frozen per phase):
  * 1. Schema-valid against §4, all required fields present.
  * 2. Deterministic: regenerating from the recorded seed reproduces it
- *    byte-for-byte. (Pending until 7.2.)
+ *    byte-for-byte.
  * 3. No id collision with any faculty seed.
  * 4. No GED content embedded: no lesson text, no item bank, no answer
  *    keys inside an engram.
  * 5. Voice profile is a descriptor — no audio, no voice-clone
  *    reference, no performer data.
  * 6. Schedule + anchor resolve to real Academy locations; relationships
- *    reference real cast ids. (Pending until 7.2.)
+ *    reference real cast ids.
  */
 import { facultyIds } from './cast/seeds/faculty/slots';
+import { ACADEMY_LOCATIONS } from './cast/locations';
 import type { CastEngram } from './cast/schema';
 import { validateEngramSchema } from './cast/schema';
 
@@ -106,6 +106,18 @@ function findForbiddenKeys(value: unknown, forbidden: readonly string[]): string
 export interface AuditCastOptions {
   /** Faculty ids to check collisions against (defaults to the slots). */
   facultyIds?: string[];
+  /**
+   * Regenerate an engram from its recorded inputs, for the determinism
+   * rule. The gate cannot know a bank's student ids, so the caller that
+   * generated the bank supplies this. Absent → determinism is pending.
+   * Return null when regeneration is not possible for this engram.
+   */
+  regenerate?: (engram: CastEngram) => CastEngram | null;
+  /**
+   * Ids of the cast bank being gated, for the resolves rule. Faculty
+   * ids are always accepted as well. Absent → resolves is pending.
+   */
+  castIds?: string[];
 }
 
 /**
@@ -128,11 +140,32 @@ export function auditCastEngram(
         : `schema errors: ${schemaErrors.join('; ')}`,
   });
 
-  results.push({
-    rule: 'determinism',
-    status: 'pending',
-    detail: 'generator not yet implemented (7.1); determinism check lands in 7.2',
-  });
+  results.push(
+    opts.regenerate === undefined
+      ? {
+          rule: 'determinism',
+          status: 'pending',
+          detail: 'no regenerate function supplied; determinism cannot be evaluated',
+        }
+      : (() => {
+          const regenerated = opts.regenerate(engram);
+          if (regenerated === null) {
+            return {
+              rule: 'determinism',
+              status: 'pending' as const,
+              detail: 'regeneration not possible for this engram',
+            };
+          }
+          const same = JSON.stringify(regenerated) === JSON.stringify(engram);
+          return {
+            rule: 'determinism',
+            status: same ? ('pass' as const) : ('fail' as const),
+            detail: same
+              ? 'regeneration from recorded inputs reproduces it byte-for-byte'
+              : 'regeneration differs from the recorded engram',
+          };
+        })(),
+  );
 
   const faculty = opts.facultyIds ?? facultyIds();
   const collides = faculty.includes(engram.id);
@@ -167,11 +200,37 @@ export function auditCastEngram(
         : `voice profile carries non-descriptor keys: ${voiceKeys.join(', ')}`,
   });
 
-  results.push({
-    rule: 'resolves',
-    status: 'pending',
-    detail: 'Academy location registry not yet wired; resolution check lands in 7.2',
-  });
+  if (opts.castIds === undefined) {
+    results.push({
+      rule: 'resolves',
+      status: 'pending',
+      detail: 'no cast id list supplied; relationship resolution cannot be evaluated',
+    });
+  } else {
+    const known = new Set<string>([...opts.castIds, ...(opts.facultyIds ?? facultyIds())]);
+    const problems: string[] = [];
+    if (!ACADEMY_LOCATIONS.includes(engram.anchor.location as (typeof ACADEMY_LOCATIONS)[number])) {
+      problems.push(`anchor location ${engram.anchor.location} is not a real Academy location`);
+    }
+    for (const entry of engram.schedule) {
+      if (!ACADEMY_LOCATIONS.includes(entry.location as (typeof ACADEMY_LOCATIONS)[number])) {
+        problems.push(`schedule location ${entry.location} is not a real Academy location`);
+      }
+    }
+    for (const rel of engram.relationships) {
+      if (!known.has(rel.targetId)) {
+        problems.push(`relationship target ${rel.targetId} is not a known cast id`);
+      }
+    }
+    results.push({
+      rule: 'resolves',
+      status: problems.length === 0 ? 'pass' : 'fail',
+      detail:
+        problems.length === 0
+          ? 'anchor, schedule, and relationships resolve'
+          : problems.join('; '),
+    });
+  }
 
   const failures: CastAuditFailure[] = results
     .filter((r) => r.status === 'fail')
@@ -184,4 +243,20 @@ export function auditCastEngram(
     passed: results.every((r) => r.status === 'pass'),
     complete: results.every((r) => r.status !== 'pending'),
   };
+}
+
+/**
+ * Audit a whole generated bank (brief §9.3). Each engram is audited
+ * with the same regenerate function and the bank's own ids as the
+ * cast list, so relationship resolution is bank-relative.
+ */
+export function auditCastBank(
+  engrams: CastEngram[],
+  regenerate: (engram: CastEngram) => CastEngram | null,
+  opts: Omit<AuditCastOptions, 'regenerate' | 'castIds'> = {},
+): CastAuditReport[] {
+  const castIds = engrams.map((e) => e.id);
+  return engrams.map((engram) =>
+    auditCastEngram(engram, { ...opts, regenerate, castIds }),
+  );
 }

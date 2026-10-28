@@ -22,6 +22,7 @@
  */
 import { hashString, SeededRandom } from '@workspace/game-engine';
 import { STUDENT_SCHEDULE } from '../radiantAI';
+import { ACADEMY_LOCATIONS } from './locations';
 import type {
   Drive,
   GeneratedEngram,
@@ -35,23 +36,8 @@ export function castSeed(studentId: string, npcId: string, castGeneration = 0): 
   return hashString(`${studentId}|${npcId}|${castGeneration}`);
 }
 
-/**
- * Real Academy locations, drawn from radiantAI's own schedule
- * templates (STUDENT_SCHEDULE / TEACHER_SCHEDULE) — never invented.
- * The 7.2 resolves rule checks anchors and schedules against this list.
- */
-export const ACADEMY_LOCATIONS = [
-  'Dormitory',
-  'Cafeteria',
-  'Classroom',
-  'Courtyard',
-  'Library',
-  'Club Room',
-  'Office',
-  'Faculty Lounge',
-  'Faculty Housing',
-  'Conference Room',
-] as const;
+/** Re-exported so existing import sites keep working. */
+export { ACADEMY_LOCATIONS } from './locations';
 
 /** Fixed drive catalog: what moves a person. Picker is seeded, never free. */
 export const DRIVE_CATALOG: ReadonlyArray<Pick<Drive, 'id' | 'label' | 'description'>> = [

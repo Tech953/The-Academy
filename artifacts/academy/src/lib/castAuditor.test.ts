@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { auditCastEngram } from './castAuditor';
+import { auditCastBank, auditCastEngram } from './castAuditor';
 import type { CastEngram } from './cast/schema';
 import { validEngram } from './cast/fixtures';
+import { generateCastBank, generateEngram } from './cast/generator';
 
 function ruleStatus(
   report: ReturnType<typeof auditCastEngram>,
@@ -11,7 +12,7 @@ function ruleStatus(
 }
 
 describe('auditCastEngram — 7.0 gate skeleton', () => {
-  it('passes the implemented rules and reports the rest pending', () => {
+  it('passes the implemented rules and reports the rest pending without caller context', () => {
     const report = auditCastEngram(validEngram());
     expect(ruleStatus(report, 'schema')).toBe('pass');
     expect(ruleStatus(report, 'id-collision')).toBe('pass');
@@ -20,7 +21,8 @@ describe('auditCastEngram — 7.0 gate skeleton', () => {
     expect(ruleStatus(report, 'determinism')).toBe('pending');
     expect(ruleStatus(report, 'resolves')).toBe('pending');
     expect(report.failures).toEqual([]);
-    // Honest skeleton state: nothing is fully gated until 7.2 completes it.
+    // Without caller context the gate cannot be complete: determinism
+    // needs a regenerate function, resolves needs the bank's cast ids.
     expect(report.passed).toBe(false);
     expect(report.complete).toBe(false);
   });
@@ -63,5 +65,112 @@ describe('auditCastEngram — 7.0 gate skeleton', () => {
     const before = JSON.stringify(engram);
     auditCastEngram(engram);
     expect(JSON.stringify(engram)).toBe(before);
+  });
+});
+
+describe('auditCastEngram — 7.2 completed rules', () => {
+  const regenerate = (engram: CastEngram): CastEngram =>
+    generateEngram({ studentId: 'student-a', npcId: engram.id, kind: engram.kind });
+
+  it('fully passes a genuinely generated engram with caller context', () => {
+    const engram = generateEngram({ studentId: 'student-a', npcId: 'npc-1', kind: 'student' });
+    const report = auditCastEngram(engram, { regenerate, castIds: ['npc-1'] });
+    expect(report.results.map((r) => r.status)).toEqual([
+      'pass',
+      'pass',
+      'pass',
+      'pass',
+      'pass',
+      'pass',
+    ]);
+    expect(report.failures).toEqual([]);
+    expect(report.passed).toBe(true);
+    expect(report.complete).toBe(true);
+  });
+
+  it('fails determinism when regeneration differs (failing fixture, rule 2)', () => {
+    const engram = generateEngram({ studentId: 'student-a', npcId: 'npc-1', kind: 'student' });
+    const tampered = { ...engram, seed: engram.seed + 1 };
+    const report = auditCastEngram(tampered, { regenerate, castIds: ['npc-1'] });
+    expect(ruleStatus(report, 'determinism')).toBe('fail');
+    expect(report.passed).toBe(false);
+  });
+
+  it('reports determinism pending when regeneration is impossible', () => {
+    const engram = generateEngram({ studentId: 'student-a', npcId: 'npc-1', kind: 'student' });
+    const report = auditCastEngram(engram, { regenerate: () => null, castIds: ['npc-1'] });
+    expect(ruleStatus(report, 'determinism')).toBe('pending');
+    expect(report.complete).toBe(false);
+  });
+
+  it('fails resolves on an unknown anchor location (failing fixture, rule 6)', () => {
+    const bad = generateEngram({ studentId: 'student-a', npcId: 'npc-1', kind: 'student' });
+    bad.anchor = { location: 'The Moon', description: 'Not an Academy location' };
+    const report = auditCastEngram(bad, { regenerate, castIds: ['npc-1'] });
+    expect(ruleStatus(report, 'resolves')).toBe('fail');
+  });
+
+  it('fails resolves on a dangling relationship target (failing fixture, rule 6)', () => {
+    const bad = generateEngram({ studentId: 'student-a', npcId: 'npc-1', kind: 'student' });
+    bad.relationships = [
+      {
+        targetId: 'npc-ghost',
+        targetName: 'Ghost',
+        type: 'friendship',
+        affinity: 10,
+        trust: 50,
+        respect: 50,
+        history: [],
+        lastInteraction: 0,
+      },
+    ];
+    const report = auditCastEngram(bad, { regenerate, castIds: ['npc-1'] });
+    expect(ruleStatus(report, 'resolves')).toBe('fail');
+  });
+
+  it('passes resolves when peer relationships reference bank ids', () => {
+    const engram = generateEngram({
+      studentId: 'student-a',
+      npcId: 'npc-1',
+      kind: 'student',
+      peers: [{ id: 'npc-2', name: 'Peer Two' }],
+    });
+    const report = auditCastEngram(engram, {
+      regenerate: (e) =>
+        generateEngram({
+          studentId: 'student-a',
+          npcId: e.id,
+          kind: e.kind,
+          peers: [{ id: 'npc-2', name: 'Peer Two' }],
+        }),
+      castIds: ['npc-1', 'npc-2'],
+    });
+    expect(ruleStatus(report, 'resolves')).toBe('pass');
+  });
+});
+
+describe('auditCastBank — brief §9.3', () => {
+  it('passes a full generated bank with zero failures', () => {
+    const bank = generateCastBank('student-a', ['npc-1', 'npc-2', 'npc-3'], 'student');
+    const reports = auditCastBank(bank, (e) =>
+      generateEngram({ studentId: 'student-a', npcId: e.id, kind: e.kind }),
+    );
+    expect(reports).toHaveLength(3);
+    for (const report of reports) {
+      expect(report.passed).toBe(true);
+      expect(report.complete).toBe(true);
+      expect(report.failures).toEqual([]);
+    }
+  });
+
+  it('flags exactly the tampered member of a bank', () => {
+    const bank = generateCastBank('student-a', ['npc-1', 'npc-2'], 'student');
+    bank[1] = { ...bank[1], seed: bank[1].seed + 99 };
+    const reports = auditCastBank(bank, (e) =>
+      generateEngram({ studentId: 'student-a', npcId: e.id, kind: e.kind }),
+    );
+    expect(reports[0].passed).toBe(true);
+    expect(reports[1].passed).toBe(false);
+    expect(reports[1].failures.some((f) => f.rule === 'determinism')).toBe(true);
   });
 });
