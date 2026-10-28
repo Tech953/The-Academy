@@ -102,6 +102,10 @@ export function getOrCreateNPCLog(
     if (isNewSession) {
       existing.sessionCount += 1;
       existing.currentSessionId = currentSessionId;
+      // 7.4 fix: the bump was previously lost — this path never saved,
+      // so sessionCount never persisted past 1 and multi-session
+      // divergence was unobservable.
+      saveStore(store);
     }
     return existing;
   }
