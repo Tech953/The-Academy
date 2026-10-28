@@ -1,0 +1,49 @@
+# Vitest suite
+#
+# Phase 7.6 (CastForge docs + CI): the Academy test suite gates itself.
+# Runs on every PR and on pushes to main, using the repo's own pnpm
+# workspace setup (mirrors android-bulletin-lane.yml conventions).
+# The suite is the repo's vitest config (artifacts/academy/vitest.config.ts),
+# not a temp harness — so component tests run under the project's own
+# Vite setup, including JSX handling.
+
+name: Vitest suite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vitest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vitest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Academy vitest suite
+        run: pnpm --filter @workspace/academy run test
