@@ -1,0 +1,187 @@
+/**
+ * CastAuditor — Phase 7 gate (brief §7), sibling of auditor.ts.
+ *
+ * Pure and deterministic: it reads a generated engram and returns a
+ * pass/fail report. It changes nothing. A failure is reported, never
+ * silently fixed and never redefined.
+ *
+ * SKELETON (7.0): rules schema, id-collision, no-ged-content, and
+ * voice-descriptor are implemented. Rules determinism and resolves are
+ * reported as `pending` until 7.2 wires in the generator (7.1) and the
+ * Academy location registry — so `passed` is false and `complete` is
+ * false for every engram until 7.2 lands. Downstream consumers must
+ * require `passed && complete` before treating a bank as gated.
+ *
+ * Gate criteria (brief §7, frozen per phase):
+ * 1. Schema-valid against §4, all required fields present.
+ * 2. Deterministic: regenerating from the recorded seed reproduces it
+ *    byte-for-byte. (Pending until 7.2.)
+ * 3. No id collision with any faculty seed.
+ * 4. No GED content embedded: no lesson text, no item bank, no answer
+ *    keys inside an engram.
+ * 5. Voice profile is a descriptor — no audio, no voice-clone
+ *    reference, no performer data.
+ * 6. Schedule + anchor resolve to real Academy locations; relationships
+ *    reference real cast ids. (Pending until 7.2.)
+ */
+import { facultyIds } from './cast/seeds/faculty/slots';
+import type { CastEngram } from './cast/schema';
+import { validateEngramSchema } from './cast/schema';
+
+export type CastRuleId =
+  | 'schema'
+  | 'determinism'
+  | 'id-collision'
+  | 'no-ged-content'
+  | 'voice-descriptor'
+  | 'resolves';
+
+export type CastRuleStatus = 'pass' | 'fail' | 'pending';
+
+export interface CastRuleResult {
+  rule: CastRuleId;
+  status: CastRuleStatus;
+  detail: string;
+}
+
+export interface CastAuditFailure {
+  rule: CastRuleId;
+  message: string;
+}
+
+export interface CastAuditReport {
+  engramId: string;
+  results: CastRuleResult[];
+  failures: CastAuditFailure[];
+  /** True only when every rule passes. */
+  passed: boolean;
+  /** True only when every rule was evaluated (none pending). */
+  complete: boolean;
+}
+
+/** Keys that must never appear inside an engram (rule 4). */
+export const FORBIDDEN_GED_KEYS = [
+  'lessonText',
+  'itemBank',
+  'answerKey',
+  'answerKeys',
+  'assessmentItems',
+  'curriculum',
+];
+
+/** Keys that would make a voice profile more than a descriptor (rule 5). */
+export const FORBIDDEN_VOICE_KEYS = [
+  'audio',
+  'audioUrl',
+  'clip',
+  'clipUrl',
+  'sample',
+  'sampleUrl',
+  'recording',
+  'recordingUrl',
+  'voiceCloneRef',
+  'cloneRef',
+  'performer',
+  'performerId',
+  'referencePack',
+];
+
+/** Collect every own key in a value, recursively (cycle-safe). */
+function collectKeys(value: unknown, seen: Set<object>, out: Set<string>): void {
+  if (typeof value !== 'object' || value === null) return;
+  if (seen.has(value)) return;
+  seen.add(value);
+  for (const key of Object.keys(value)) {
+    out.add(key);
+    collectKeys((value as Record<string, unknown>)[key], seen, out);
+  }
+}
+
+function findForbiddenKeys(value: unknown, forbidden: readonly string[]): string[] {
+  const keys = new Set<string>();
+  collectKeys(value, new Set(), keys);
+  return forbidden.filter((key) => keys.has(key));
+}
+
+export interface AuditCastOptions {
+  /** Faculty ids to check collisions against (defaults to the slots). */
+  facultyIds?: string[];
+}
+
+/**
+ * Audit one engram against the §7 gate. Pure: reads the engram and the
+ * faculty id list, changes nothing.
+ */
+export function auditCastEngram(
+  engram: CastEngram,
+  opts: AuditCastOptions = {},
+): CastAuditReport {
+  const results: CastRuleResult[] = [];
+
+  const schemaErrors = validateEngramSchema(engram);
+  results.push({
+    rule: 'schema',
+    status: schemaErrors.length === 0 ? 'pass' : 'fail',
+    detail:
+      schemaErrors.length === 0
+        ? 'schema-valid against §4'
+        : `schema errors: ${schemaErrors.join('; ')}`,
+  });
+
+  results.push({
+    rule: 'determinism',
+    status: 'pending',
+    detail: 'generator not yet implemented (7.1); determinism check lands in 7.2',
+  });
+
+  const faculty = opts.facultyIds ?? facultyIds();
+  const collides = faculty.includes(engram.id);
+  results.push({
+    rule: 'id-collision',
+    status: collides ? 'fail' : 'pass',
+    detail: collides
+      ? `id ${engram.id} collides with a faculty seed`
+      : 'no faculty id collision',
+  });
+
+  const gedKeys = findForbiddenKeys(engram, FORBIDDEN_GED_KEYS);
+  results.push({
+    rule: 'no-ged-content',
+    status: gedKeys.length === 0 ? 'pass' : 'fail',
+    detail:
+      gedKeys.length === 0
+        ? 'no GED content keys present'
+        : `GED content keys present: ${gedKeys.join(', ')}`,
+  });
+
+  const voiceKeys =
+    engram.voiceProfile && typeof engram.voiceProfile === 'object'
+      ? findForbiddenKeys(engram.voiceProfile, FORBIDDEN_VOICE_KEYS)
+      : [];
+  results.push({
+    rule: 'voice-descriptor',
+    status: voiceKeys.length === 0 ? 'pass' : 'fail',
+    detail:
+      voiceKeys.length === 0
+        ? 'voice profile is a descriptor only'
+        : `voice profile carries non-descriptor keys: ${voiceKeys.join(', ')}`,
+  });
+
+  results.push({
+    rule: 'resolves',
+    status: 'pending',
+    detail: 'Academy location registry not yet wired; resolution check lands in 7.2',
+  });
+
+  const failures: CastAuditFailure[] = results
+    .filter((r) => r.status === 'fail')
+    .map((r) => ({ rule: r.rule, message: r.detail }));
+
+  return {
+    engramId: engram.id,
+    results,
+    failures,
+    passed: results.every((r) => r.status === 'pass'),
+    complete: results.every((r) => r.status !== 'pending'),
+  };
+}
